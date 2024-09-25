@@ -38,8 +38,8 @@ I want to develop an K8S Operator "application/API" that will run on a Kubernete
     -> linux users and shells, init->getty->login... etc(?), sh, bash, ...? <br>
     -> interprocess comms <br>
     -> k8s operators, how can one be built? (check OPERATOR SDK ) <br>
-        - https://sdk.operatorframework.io/ <br>
-        - https://www.fortytwo.io/post/make-your-life-easier-with-custom-kubernetes-operators <br>
+    <emsp>- https://sdk.operatorframework.io/ <br>
+    <emsp>- https://www.fortytwo.io/post/make-your-life-easier-with-custom-kubernetes-operators <br>
     -> distribution (of these "system processes") and of "product processes" <br>
     -> monitoring of eveyrthing <br>
 
