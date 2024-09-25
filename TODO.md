@@ -34,7 +34,7 @@ I want to develop an K8S Operator "application/API" that will run on a Kubernete
 - On later notice, would be cool if there could be graphics, drag and drop methods, etc... 
 
 # What is needed?
-- documentation on :
+- documentation on : <br>
     -> linux users and shells, init->getty->login... etc(?), sh, bash, ...? <br>
     -> interprocess comms <br>
     -> k8s operators, how can one be built? (check OPERATOR SDK ) <br>
