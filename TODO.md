@@ -1,5 +1,5 @@
-Thesis title: "Shell environment on a kubernetes platform"
-Author: Chalvatzis Kyriakos
+Thesis title: "Shell environment on a kubernetes platform" <br>
+Author: Chalvatzis Kyriakos 
 
 
 
@@ -35,17 +35,18 @@ I want to develop an K8S Operator "application/API" that will run on a Kubernete
 
 # What is needed?
 - documentation on :
-    -> linux users and shells, init->getty->login... etc(?), sh, bash, ...?
-    -> interprocess comms
-    -> k8s operators, how can one be built? (check OPERATOR SDK )
-        - https://sdk.operatorframework.io/
-        - https://www.fortytwo.io/post/make-your-life-easier-with-custom-kubernetes-operators
-    -> distribution (of these "system processes") and of "product processes"
-    -> monitoring of eveyrthing
+    -> linux users and shells, init->getty->login... etc(?), sh, bash, ...? <br>
+    -> interprocess comms <br>
+    -> k8s operators, how can one be built? (check OPERATOR SDK ) <br>
+        - https://sdk.operatorframework.io/ <br>
+        - https://www.fortytwo.io/post/make-your-life-easier-with-custom-kubernetes-operators <br>
+    -> distribution (of these "system processes") and of "product processes" <br>
+    -> monitoring of eveyrthing <br>
 
 
+<hr>
 
 
-# What will be used?
-As I've noticed operators are written in GO, therefore that should be the goto for this project. Perhaps some programs could be wrapped in C, Idk, we'll see(C).
+# What will be used? <br>
+As I've noticed operators are written in GO, therefore that should be the goto for this project. Perhaps some programs could be wrapped in C, Idk, we'll see(C). <br>
 
