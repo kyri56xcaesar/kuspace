@@ -21,14 +21,14 @@ I want to develop an K8S Operator "application/API" that will run on a Kubernete
         -> ???
 
 # What specifications are there?
-- It should be done in accordance to a shell environment and subsequently to a user environment upon which there is a profile. 
+- It should be done in accordance to a shell environment and subsequently to a user environment upon which there is a user profile. 
 
-- A user will have to register/login in order to enter and gain access.
+- A user will have to login in order to enter and gain access. (and a register option)
 (So there must be a "init" like "getty + login" program/process that will handle this. (This doesn't handle the "register" action, perhaps not even needed, start as root, add users (unix like)))
 
 - How will this run as an Operator, how do operators work? 
 
-- How can this be accessed? Pipelined if same node, Socket if different via a CLI program? A service that will work with HTTP via a browser? Should do both, http service should invoke the cli api accordingly. 
+- How can this be accessed? Pipelined if same node or Socket if different, via a CLI program? A service that will work with HTTP via a browser? Should do both, http service should invoke the cli api accordingly. 
 
 # What is needed?
 
