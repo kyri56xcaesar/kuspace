@@ -1,9 +1,11 @@
 # Variables
 APP_NAME := gshell
+MAIN_DIR := cmd/api/
 GO_FILES := $(shell find . -name '*.go' -type f)
 VERSION := $(shell git describe --tags --always --dirty)
 BUILD_DIR := build
 BIN := $(BUILD_DIR)/$(APP_NAME)
+
 
 
 # Commands
@@ -31,7 +33,7 @@ mod:
 .PHONY: build
 build: mod
 	@echo "Building $(APP_NAME)..."
-	$(GOBUILD) -ldflags="-X main.Version=$(VERSION)" -o $(BIN) ./$(APP_NAME).go
+	$(GOBUILD) -ldflags="-X main.Version=$(VERSION)" -o $(BIN) ./$(MAIN_DIR)main.go
 
 
 # Run the application
@@ -51,7 +53,6 @@ clean:
 	@echo "Cleaning up..."
 	$(GOCLEAN)
 	rm -rf $(BUILD_DIR)
-
 
 # Install the application (install locally)
 .PHONY: lint

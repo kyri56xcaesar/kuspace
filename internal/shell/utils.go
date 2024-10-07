@@ -17,10 +17,6 @@ const (
 	White   = "\033[97m"
 )
 
-func ColorText(s string, color string) string {
-	return "" + color + s + Reset
-}
-
 func Trim(s string) string {
 
 	return strings.TrimFunc(s, func(r rune) bool {
