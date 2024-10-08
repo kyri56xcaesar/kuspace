@@ -7,5 +7,5 @@ import (
 
 // Main method
 func main() {
-	log.Fatal(shell.Exec())
+	log.Fatal(shell.Run())
 }

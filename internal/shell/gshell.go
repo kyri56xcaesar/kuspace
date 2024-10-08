@@ -7,30 +7,17 @@ import (
 	"os/user"
 )
 
-var (
-	builtInCommands [2]string = [2]string{"exit", "help"}
-)
-
-type CommandError struct {
-	completeFlag int
-	message      string
-}
-
-func (cerr *CommandError) Error() string {
-	return fmt.Sprintf("%+v", cerr)
-}
-
 func checkIfandExecBuiltIn(cmd string) error {
 
 	// Handle ctrl + l
 	// Handle exit signals/interrupts
 
 	switch cmd {
-	case builtInCommands[0]:
+	case builtInCommands[0].Name:
 		os.Exit(0)
 		return nil
 
-	case builtInCommands[1]:
+	case builtInCommands[1].Name:
 		usage()
 		return nil
 
@@ -93,16 +80,39 @@ func getShellPrompt() string {
 
 }
 
-func usage() {
-	fmt.Print("\n*** Welcome to my gShell HELP ***",
-		"\nList of Commands supported:",
-		"\n\texit",
-		"\n\thelp -h --help\n\n")
+func welcome() {
+
+	printStars := func(amount int) {
+		fmt.Print("\n")
+		for range amount {
+			fmt.Print("*")
+		}
+		fmt.Print("\n")
+	}
+
+	printStars(30)
+
+	fmt.Print(ColorText("***", Yellow) + " Welcome to the " + ColorText("gShell", Red) + "! " + ColorText("***", Yellow))
+
+	printStars(30)
+
+	fmt.Print("\n\n")
+	usage()
 }
 
-func Exec() string {
+func usage() {
+	fmt.Print("List of Commands supported:\n")
 
-	for true {
+	for _, v := range builtInCommands {
+		v.printSelf()
+	}
+
+}
+
+func Run() string {
+
+	welcome()
+	for {
 
 		//fmt.Printf("i: %v\n", i)
 		cmd := getShellPrompt()
@@ -117,6 +127,8 @@ func Exec() string {
 		// Check if piped // Perhaps check for malicious input?
 
 	}
+
+	fmt.Printf("%v", len("H E L L"))
 
 	return "all smooth"
 
