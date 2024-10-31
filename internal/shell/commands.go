@@ -70,6 +70,6 @@ var builtInCommands [4]BCommand = [4]BCommand{
 		Name:        "history",
 		Description: "Your history of commands in this session",
 		Flags:       []string{"-a", "--all"},
-		Alias:       []string{"cls"},
+		Alias:       []string{"hst"},
 	},
 }

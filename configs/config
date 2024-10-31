@@ -1,0 +1,6 @@
+sign=<<>>
+del=+_+
+clr=true
+
+log="suco.logs"
+err="fico.legs"

@@ -1,0 +1,3 @@
+mLOG: 2024/10/31 17:04:44 logger.go:48: Hello just from one logger
+[LOG]: 2024/10/31 17:08:22 logger.go:48: Hello just from one logger
+[36m[LOG]: [0m2024/10/31 17:16:33 logger.go:50: Hello just from one logger

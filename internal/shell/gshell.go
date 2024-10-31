@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"os"
 	"os/user"
+
+	"kyri56xcaesar/myThesis/internal/colors"
+	"kyri56xcaesar/myThesis/internal/logger"
 )
 
 func checkIfandExecBuiltIn(cmd string) error {
@@ -51,16 +54,16 @@ func getShellPrompt() string {
 		hostname = "$NOHOST"
 	}
 
-	if colorred {
-		usercolor = Magenta
-		hostcolor = Cyan
-		signcolor = Green
+	if Sconfig.theme.colorred {
+		Sconfig.theme.usercolor = colors.Magenta
+		Sconfig.theme.hostcolor = colors.Cyan
+		Sconfig.theme.signcolor = colors.Green
 
 	} else {
-		usercolor, hostcolor, signcolor = White, White, White
+		Sconfig.theme.usercolor, Sconfig.theme.hostcolor, Sconfig.theme.signcolor = colors.White, colors.White, colors.White
 	}
 
-	fmt.Printf("%s%s[%s]%s ", ColorText(whoami, usercolor), delimitter, ColorText(hostname, hostcolor), ColorText(shell_sign, signcolor))
+	fmt.Printf("%s%s[%s]%s ", colors.ColorText(whoami, Sconfig.theme.usercolor), Sconfig.theme.prompt.delimitter, colors.ColorText(hostname, Sconfig.theme.hostcolor), colors.ColorText(Sconfig.theme.prompt.sign, Sconfig.theme.signcolor))
 
 	buf := bufio.NewReader(os.Stdin)
 
@@ -92,7 +95,7 @@ func welcome() {
 
 	printStars(30)
 
-	fmt.Print(ColorText("***", Yellow) + " Welcome to the " + ColorText("gShell", Red) + "! " + ColorText("***", Yellow))
+	fmt.Print(colors.ColorText("***", colors.Yellow) + " Welcome to the " + colors.ColorText("gShell", colors.Red) + "! " + colors.ColorText("***", colors.Yellow))
 
 	printStars(30)
 
@@ -127,8 +130,6 @@ func Run() string {
 		// Check if piped // Perhaps check for malicious input?
 
 	}
-
-	fmt.Printf("%v", len("H E L L"))
 
 	return "all smooth"
 
