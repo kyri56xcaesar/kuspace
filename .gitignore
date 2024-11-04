@@ -2,3 +2,5 @@ notes
 *.note
 gshell
 external
+build/*
+*.log
