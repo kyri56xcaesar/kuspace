@@ -1,19 +1,12 @@
 Thesis title: "Shell environment on a kubernetes platform" <br>
-Author: Chalvatzis Kyriakos 
+Author: Kyri
 
 
-JOBS todo.
+todo..
 
+1. CRD, Operator
 
-1. Implement a Shell program.
--> (include all shell features)
-
-2. ... Include executables
-
-3. 
-
-
-
+2. Logic, Programs (login)
 
 
 

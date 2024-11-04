@@ -6,8 +6,8 @@ import (
 	"os"
 	"os/user"
 
-	"kyri56xcaesar/myThesis/internal/colors"
 	"kyri56xcaesar/myThesis/internal/logger"
+	"kyri56xcaesar/myThesis/internal/shell/cosmetics"
 )
 
 func checkIfandExecBuiltIn(cmd string) error {
@@ -44,34 +44,25 @@ func getShellPrompt() string {
 	output, err := user.Current()
 	whoami = output.Username
 	if err != nil {
-		fmt.Println("Error retrieving username", err)
+		logger.Printf("Error retrieving username", err)
 		whoami = "$NONAME$"
 	}
 
 	hostname, err = os.Hostname()
 	if err != nil {
-		fmt.Println("Error retrieving hostname", err)
+		logger.Println("Error retrieving hostname", err)
 		hostname = "$NOHOST"
 	}
 
-	if Sconfig.theme.colorred {
-		Sconfig.theme.usercolor = colors.Magenta
-		Sconfig.theme.hostcolor = colors.Cyan
-		Sconfig.theme.signcolor = colors.Green
-
-	} else {
-		Sconfig.theme.usercolor, Sconfig.theme.hostcolor, Sconfig.theme.signcolor = colors.White, colors.White, colors.White
-	}
-
-	fmt.Printf("%s%s[%s]%s ", colors.ColorText(whoami, Sconfig.theme.usercolor), Sconfig.theme.prompt.delimitter, colors.ColorText(hostname, Sconfig.theme.hostcolor), colors.ColorText(Sconfig.theme.prompt.sign, Sconfig.theme.signcolor))
+	fmt.Printf("%s%s[%s]%s ", cosmetics.ColorText(whoami, Sconfig.theme.usercolor), Sconfig.theme.prompt.delimitter, cosmetics.ColorText(hostname, Sconfig.theme.hostcolor), cosmetics.ColorText(Sconfig.theme.prompt.sign, Sconfig.theme.signcolor))
 
 	buf := bufio.NewReader(os.Stdin)
 
 	var line []byte
 	for line, _, err = buf.ReadLine(); IsEmpty(string(line)); {
-		fmt.Printf("Line scanned %s\n", string(line))
+		logger.Printf("Line scanned %s\n", string(line))
 		if err != nil {
-			fmt.Print("Error scanning input from stdin buffer\n", err)
+			logger.Print("Error scanning input from stdin buffer\n", err)
 		}
 	}
 	// Trim the input
@@ -95,7 +86,7 @@ func welcome() {
 
 	printStars(30)
 
-	fmt.Print(colors.ColorText("***", colors.Yellow) + " Welcome to the " + colors.ColorText("gShell", colors.Red) + "! " + colors.ColorText("***", colors.Yellow))
+	fmt.Print(cosmetics.ColorText("***", cosmetics.Yellow) + " Welcome to the " + cosmetics.ColorText("gShell", cosmetics.Red) + "! " + cosmetics.ColorText("***", cosmetics.Yellow))
 
 	printStars(30)
 
@@ -112,7 +103,11 @@ func usage() {
 
 }
 
-func Run() string {
+func Run() error {
+
+	LoadConfig()
+
+	logger.SetMultiLogger(Sconfig.logSplit, Sconfig.logVerbose)
 
 	welcome()
 	for {
@@ -131,6 +126,6 @@ func Run() string {
 
 	}
 
-	return "all smooth"
+	return nil
 
 }

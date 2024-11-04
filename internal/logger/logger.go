@@ -6,12 +6,14 @@ import (
 	"log"
 	"os"
 
-	"kyri56xcaesar/myThesis/internal/colors"
+	"kyri56xcaesar/myThesis/internal/shell/cosmetics"
 )
+
+// Should implement LOG levels...
 
 // multilogger must be a singleton
 // Reason to implement custom logger, is for both stderr and file handle mechs and perhaps split logs
-var logger MultiLogger
+var MLogger MultiLogger = MultiLogger{logger: log.Default()}
 
 type MultiLogger struct {
 	logger *log.Logger
@@ -70,7 +72,7 @@ func (mlogger *MultiLogger) Infof(information string, v ...any) {
 	}
 	// determine writer (if verbose or not)
 	mlogger.logger.SetOutput(mlogger.getWriter(mlogger.ifile))
-	mlogger.logger.SetPrefix(colors.ColorText("[INFO]: ", colors.Green))
+	mlogger.logger.SetPrefix(cosmetics.ColorText("[INFO]: ", cosmetics.Green))
 	mlogger.logger.SetFlags(log.Lshortfile | log.Ldate)
 
 	mlogger.logger.Printf(information, v...)
@@ -83,7 +85,7 @@ func (mlogger *MultiLogger) Infoln(v ...any) {
 	}
 	// determine writer (if verbose or not)
 	mlogger.logger.SetOutput(mlogger.getWriter(mlogger.ifile))
-	mlogger.logger.SetPrefix(colors.ColorText("[INFO]: ", colors.Green))
+	mlogger.logger.SetPrefix(cosmetics.ColorText("[INFO]: ", cosmetics.Green))
 	mlogger.logger.SetFlags(log.Lshortfile | log.Ldate)
 
 	mlogger.logger.Println(v...)
@@ -96,7 +98,7 @@ func (mlogger *MultiLogger) Info(v ...any) {
 	}
 	// determine writer (if verbose or not)
 	mlogger.logger.SetOutput(mlogger.getWriter(mlogger.ifile))
-	mlogger.logger.SetPrefix(colors.ColorText("[INFO]: ", colors.Green))
+	mlogger.logger.SetPrefix(cosmetics.ColorText("[INFO]: ", cosmetics.Green))
 	mlogger.logger.SetFlags(log.Lshortfile | log.Ldate)
 
 	mlogger.logger.Print(v...)
@@ -109,7 +111,7 @@ func (mlogger *MultiLogger) Warnf(warning string, v ...any) {
 	}
 
 	mlogger.logger.SetOutput(mlogger.getWriter(mlogger.wfile))
-	mlogger.logger.SetPrefix(colors.ColorText("[WARNING]: ", colors.Yellow))
+	mlogger.logger.SetPrefix(cosmetics.ColorText("[WARNING]: ", cosmetics.Yellow))
 	mlogger.logger.SetFlags(log.Lshortfile | log.Ldate)
 
 	mlogger.logger.Printf(warning, v...)
@@ -123,7 +125,7 @@ func (mlogger *MultiLogger) Warnln(v ...any) {
 	}
 
 	mlogger.logger.SetOutput(mlogger.getWriter(mlogger.wfile))
-	mlogger.logger.SetPrefix(colors.ColorText("[WARNING]: ", colors.Yellow))
+	mlogger.logger.SetPrefix(cosmetics.ColorText("[WARNING]: ", cosmetics.Yellow))
 	mlogger.logger.SetFlags(log.Lshortfile | log.Ldate)
 
 	mlogger.logger.Println(v...)
@@ -137,7 +139,7 @@ func (mlogger *MultiLogger) Warn(v ...any) {
 	}
 
 	mlogger.logger.SetOutput(mlogger.getWriter(mlogger.wfile))
-	mlogger.logger.SetPrefix(colors.ColorText("[WARNING]: ", colors.Yellow))
+	mlogger.logger.SetPrefix(cosmetics.ColorText("[WARNING]: ", cosmetics.Yellow))
 	mlogger.logger.SetFlags(log.Lshortfile | log.Ldate)
 
 	mlogger.logger.Print(v...)
@@ -152,21 +154,21 @@ func (mlogger *MultiLogger) Errf(error string, v ...any) {
 	}
 
 	mlogger.logger.SetOutput(mlogger.getWriter(mlogger.efile))
-	mlogger.logger.SetPrefix(colors.ColorText("[ERROR]: ", colors.Red))
+	mlogger.logger.SetPrefix(cosmetics.ColorText("[ERROR]: ", cosmetics.Red))
 	mlogger.logger.SetFlags(log.Llongfile | log.Ldate | log.Ltime)
 
 	mlogger.logger.Printf(error, v...)
 }
 
 // Error should exit afterwards
-func (mlogger *MultiLogger) Errln(error string, v ...any) {
+func (mlogger *MultiLogger) Errln(v ...any) {
 	// switch writer if split
 	if mlogger == nil || mlogger.logger == nil || mlogger.efile == nil {
 		return
 	}
 
 	mlogger.logger.SetOutput(mlogger.getWriter(mlogger.efile))
-	mlogger.logger.SetPrefix(colors.ColorText("[ERROR]: ", colors.Red))
+	mlogger.logger.SetPrefix(cosmetics.ColorText("[ERROR]: ", cosmetics.Red))
 	mlogger.logger.SetFlags(log.Llongfile | log.Ldate | log.Ltime)
 
 	mlogger.logger.Println(v...)
@@ -180,7 +182,7 @@ func (mlogger *MultiLogger) Err(v ...any) {
 	}
 
 	mlogger.logger.SetOutput(mlogger.getWriter(mlogger.efile))
-	mlogger.logger.SetPrefix(colors.ColorText("[ERROR]: ", colors.Red))
+	mlogger.logger.SetPrefix(cosmetics.ColorText("[ERROR]: ", cosmetics.Red))
 	mlogger.logger.SetFlags(log.Llongfile | log.Ldate | log.Ltime)
 
 	mlogger.logger.Print(v...)
@@ -188,7 +190,7 @@ func (mlogger *MultiLogger) Err(v ...any) {
 
 func createLogger(split bool, verbose bool) error {
 
-	logger = MultiLogger{
+	MLogger = MultiLogger{
 		ready:        false,
 		split:        split,
 		verbose:      verbose,
@@ -202,18 +204,18 @@ func createLogger(split bool, verbose bool) error {
 		multiWriter            io.Writer
 	)
 
-	if logger.split {
-		logger.efile, eerr = os.OpenFile(logger.errFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-		logger.wfile, werr = os.OpenFile(logger.warnFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-		logger.ifile, ierr = os.OpenFile(logger.infoFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if MLogger.split {
+		MLogger.efile, eerr = os.OpenFile(MLogger.errFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		MLogger.wfile, werr = os.OpenFile(MLogger.warnFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		MLogger.ifile, ierr = os.OpenFile(MLogger.infoFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	} else {
-		logger.lfile, lerr = os.OpenFile(logger.logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-		multiWriter = io.MultiWriter(logger.lfile, os.Stderr)
+		MLogger.lfile, lerr = os.OpenFile(MLogger.logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		multiWriter = io.MultiWriter(MLogger.lfile, os.Stderr)
 	}
 
-	logger.logger = log.New(multiWriter, colors.ColorText("[LOG]: ", colors.Cyan), log.Ldate|log.Ltime|log.Lshortfile)
+	MLogger.logger = log.New(multiWriter, cosmetics.ColorText("[LOG]: ", cosmetics.Cyan), log.Ldate|log.Ltime|log.Lshortfile)
 
-	logger.ready = true
+	MLogger.ready = true
 
 	return errors.Join(lerr, eerr, werr, ierr)
 }
@@ -230,14 +232,49 @@ func (mlogger *MultiLogger) DestroyLogger() error {
 	return errors.Join(err1, err2, err3, err4)
 }
 
-func GetLogger(split bool, verbose bool) *MultiLogger {
+func GetMultiLogger(split bool, verbose bool) *MultiLogger {
 
-	if !logger.ready {
+	if !MLogger.ready {
 		err := createLogger(split, verbose)
 		if err != nil {
 		}
-		return &logger
+		return &MLogger
 	} else {
-		return &logger
+		return &MLogger
 	}
+}
+
+func SetMultiLogger(split bool, verbose bool) {
+	if !MLogger.ready {
+		err := createLogger(split, verbose)
+		if err != nil {
+		}
+	}
+}
+
+func (mlogger *MultiLogger) setLoggerVerbosity(v bool) {
+	mlogger.verbose = v
+}
+
+func (mlogger *MultiLogger) setLoggerSplit(split bool) {
+	mlogger.split = split
+}
+
+// default logger redirects
+func Print(v ...any) {
+	MLogger.Print(v...)
+}
+
+func Println(v ...any) {
+	MLogger.Println(v...)
+}
+
+func Printf(format string, v ...any) {
+	MLogger.Printf(format, v...)
+}
+
+func SetDefaultLogger() {
+	MLogger.DestroyLogger()
+
+	MLogger.logger = log.Default()
 }
