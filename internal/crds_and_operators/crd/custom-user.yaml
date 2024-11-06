@@ -1,0 +1,13 @@
+apiVersion: kyri56x.com/v1
+kind: Userspace
+metadata:
+  name: admin
+spec:
+  username: admin
+  uid: 1
+  groups:
+    - admins
+  homeDirectory: /
+  shell: /bin/gshell
+  accessLevel: admin
+

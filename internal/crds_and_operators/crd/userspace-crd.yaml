@@ -1,0 +1,71 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: userspaces.kyri56x.com
+spec:
+  group: kyri56x.com
+  names:
+    kind: Userspace
+    listKind: UserspaceList
+    plural: userspaces
+    singular: userspace
+    shortNames:
+    - uspc
+  scope: Namespaced 
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                username:
+                  type: string
+                  description: "Unique username for the user"
+                uid:
+                  type: integer
+                  description: "Unique user ID"
+                groups:
+                  type: array
+                  items:
+                    type: string
+                  description: "List of groups the user belongs to"
+                homeDirectory:
+                  type: string
+                  description: "Path to the user's home directory"
+                shell:
+                  type: string
+                  description: "User's default shell"
+                accessLevel:
+                  type: string
+                  description: "Access level (e.g., admin, user, guest)"
+            status:
+              type: object
+              properties:
+                state:
+                  type: string
+                  description: "Current state of the user (e.g., active, suspended)"
+                lastUpdated:
+                  type: string
+                  format: date-time
+                  description: "Timestamp of last status update"
+      subresources:
+        status: {} 
+      additionalPrinterColumns:
+        - name: Username
+          type: string
+          jsonPath: .spec.username
+        - name: UID
+          type: integer
+          jsonPath: .spec.uid
+        - name: Access Level
+          type: string
+          jsonPath: .spec.accessLevel
+        - name: State
+          type: string
+          jsonPath: .status.state
+
