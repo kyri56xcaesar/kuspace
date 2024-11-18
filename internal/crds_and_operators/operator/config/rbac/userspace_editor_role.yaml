@@ -1,0 +1,27 @@
+# permissions for end users to edit userspaces.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: operator
+    app.kubernetes.io/managed-by: kustomize
+  name: userspace-editor-role
+rules:
+- apiGroups:
+  - userspaces.kyri56x.com
+  resources:
+  - userspaces
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - userspaces.kyri56x.com
+  resources:
+  - userspaces/status
+  verbs:
+  - get

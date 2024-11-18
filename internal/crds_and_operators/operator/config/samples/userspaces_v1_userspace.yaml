@@ -1,0 +1,9 @@
+apiVersion: userspaces.kyri56x.com/v1
+kind: Userspace
+metadata:
+  labels:
+    app.kubernetes.io/name: operator
+    app.kubernetes.io/managed-by: kustomize
+  name: userspace-sample
+spec:
+  # TODO(user): Add fields here
