@@ -5,6 +5,6 @@ import (
 )
 
 func main() {
-	s := auther.HTTPService{}
-	s.ServeHTTP()
+	srv := auther.NewService()
+	srv.ServeHTTP()
 }

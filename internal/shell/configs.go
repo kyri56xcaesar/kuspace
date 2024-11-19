@@ -2,12 +2,13 @@ package shell
 
 import (
 	"bufio"
-	"kyri56xcaesar/myThesis/internal/logger"
-	"kyri56xcaesar/myThesis/internal/shell/cosmetics"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"kyri56xcaesar/myThesis/internal/logger"
+	"kyri56xcaesar/myThesis/internal/shell/cosmetics"
 )
 
 const (
@@ -38,24 +39,24 @@ type SPrompt struct {
 	sign       string
 	delimitter string
 
-	dt_active bool
-	datetime  string
+	datetime string
 
-	git_active bool
 	gitbranch  string
 	gitstatus  string
+	dt_active  bool
+	git_active bool
 }
 
 type SCosmetics struct {
-
 	// text
-	prompt SPrompt
 
 	// colors
-	colorred  bool
 	usercolor string
 	hostcolor string
 	signcolor string
+	prompt    SPrompt
+
+	colorred bool
 }
 
 // Config FIELDS
@@ -75,20 +76,18 @@ type SCosmetics struct {
 
 type SConfig struct {
 	// logger info
-	logVerbose  bool
-	logSplit    bool
-	logLevel    int
 	logFilePath string
 	infoLogPath string
 	warnLogPath string
 	errLogPath  string
 
-	// cosmetics
-	theme SCosmetics
+	theme      SCosmetics
+	logVerbose bool
+	logSplit   bool
+	logLevel   int
 }
 
 func (sconfig *SConfig) setDefaults() {
-
 	// visuals
 	// prompt
 	sconfig.theme = SCosmetics{
@@ -113,7 +112,6 @@ func (sconfig *SConfig) setDefaults() {
 	sconfig.errLogPath = DEFAULT_errlog_path
 	sconfig.infoLogPath = DEFAULT_infolog_path
 	sconfig.warnLogPath = DEFAULT_warnlog_path
-
 }
 
 func (sconfig *SConfig) setDefaultColors() {
@@ -127,7 +125,6 @@ func newConfig() SConfig {
 }
 
 func LoadConfig() SConfig {
-
 	Sconfig.setDefaults()
 
 	// Should Look for the Config files in order
@@ -136,7 +133,7 @@ func LoadConfig() SConfig {
 
 	configFile, err := os.Open(DEFAULT_conf_path + DEFAULT_conf_name)
 	if err != nil {
-		//it means there is an error opening the file
+		// it means there is an error opening the file
 		logger.Printf("Error opening config file at %s", DEFAULT_conf_path+DEFAULT_conf_name)
 		return Sconfig
 	}
@@ -153,7 +150,7 @@ func LoadConfig() SConfig {
 
 		parts := strings.SplitN(line, "=", 2)
 		if len(parts) != 2 {
-			logger.Printf("Invalid line config file %s", &line)
+			logger.Printf("Invalid line config file %s", line)
 			return Sconfig
 		}
 
