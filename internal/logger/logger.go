@@ -16,35 +16,28 @@ import (
 var MLogger MultiLogger = MultiLogger{logger: log.Default()}
 
 type MultiLogger struct {
-	logger *log.Logger
-
-	ready   bool
-	split   bool
-	verbose bool
-
-	logFilePath string
-	lfile       *os.File
-
-	errFilePath string
-	efile       *os.File
-
-	warnFilePath string
+	logger       *log.Logger
+	lfile        *os.File
+	efile        *os.File
 	wfile        *os.File
-
-	infoFilePath string
 	ifile        *os.File
+	logFilePath  string
+	errFilePath  string
+	infoFilePath string
+	warnFilePath string
+	ready        bool
+	split        bool
+	verbose      bool
 }
 
 // This method will return either a multiwriter if the logger is verbose
 // or just the writer itself
 func (mlogger *MultiLogger) getWriter(file *os.File) io.Writer {
-
 	if mlogger.verbose {
 		return io.MultiWriter(os.Stderr, file)
 	} else {
 		return file
 	}
-
 }
 
 func (mlogger *MultiLogger) Print(v ...any) {
@@ -115,7 +108,6 @@ func (mlogger *MultiLogger) Warnf(warning string, v ...any) {
 	mlogger.logger.SetFlags(log.Lshortfile | log.Ldate)
 
 	mlogger.logger.Printf(warning, v...)
-
 }
 
 func (mlogger *MultiLogger) Warnln(v ...any) {
@@ -129,7 +121,6 @@ func (mlogger *MultiLogger) Warnln(v ...any) {
 	mlogger.logger.SetFlags(log.Lshortfile | log.Ldate)
 
 	mlogger.logger.Println(v...)
-
 }
 
 func (mlogger *MultiLogger) Warn(v ...any) {
@@ -143,7 +134,6 @@ func (mlogger *MultiLogger) Warn(v ...any) {
 	mlogger.logger.SetFlags(log.Lshortfile | log.Ldate)
 
 	mlogger.logger.Print(v...)
-
 }
 
 // Error should exit afterwards
@@ -189,7 +179,6 @@ func (mlogger *MultiLogger) Err(v ...any) {
 }
 
 func createLogger(split bool, verbose bool) error {
-
 	MLogger = MultiLogger{
 		ready:        false,
 		split:        split,
@@ -205,11 +194,11 @@ func createLogger(split bool, verbose bool) error {
 	)
 
 	if MLogger.split {
-		MLogger.efile, eerr = os.OpenFile(MLogger.errFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-		MLogger.wfile, werr = os.OpenFile(MLogger.warnFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-		MLogger.ifile, ierr = os.OpenFile(MLogger.infoFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		MLogger.efile, eerr = os.OpenFile(MLogger.errFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o666)
+		MLogger.wfile, werr = os.OpenFile(MLogger.warnFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o666)
+		MLogger.ifile, ierr = os.OpenFile(MLogger.infoFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o666)
 	} else {
-		MLogger.lfile, lerr = os.OpenFile(MLogger.logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		MLogger.lfile, lerr = os.OpenFile(MLogger.logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o666)
 		multiWriter = io.MultiWriter(MLogger.lfile, os.Stderr)
 	}
 
@@ -233,7 +222,6 @@ func (mlogger *MultiLogger) DestroyLogger() error {
 }
 
 func GetMultiLogger(split bool, verbose bool) *MultiLogger {
-
 	if !MLogger.ready {
 		err := createLogger(split, verbose)
 		if err != nil {

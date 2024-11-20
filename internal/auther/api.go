@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -90,19 +91,31 @@ func (srv *HTTPService) ServeHTTP() {
 	corsconfig.AllowHeaders = srv.Config.AllowedHeaders
 	corsconfig.ExposeHeaders = srv.Config.ExposeHeaders
 
+	// Setup Security Headers
+	//srv.Engine.Use(func(c *gin.Context) {
+	//	if c.Request.Host != srv.Config.Addr() {
+	//		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Invalid host header"})
+	//		return
+	//	}
+	//	c.Header("X-Frame-Options", "DENY")
+	//	c.Header("Content-Security-Policy", "default-src 'self'; connect-src *; font-src *; script-src-elem * 'unsafe-inline'; img-src * data:; style-src * 'unsafe-inline';")
+	//	c.Header("X-XSS-Protection", "1; mode=block")
+	//	c.Header("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
+	//	c.Header("Referrer-Policy", "strict-origin")
+	//	c.Header("X-Content-Type-Options", "nosniff")
+	//	c.Header("Permissions-Policy", "geolocation=(),midi=(),sync-xhr=(),microphone=(),camera=(),magnetometer=(),gyroscope=(),fullscreen=(self),payment=()")
+	//	c.Next()
+	//})
+
 	// General
-	rootPath := srv.Engine.Group("/")
-	rootPath.Use(cors.New(corsconfig))
-	rootPath.Use(srv.MetaMiddleware())
+	srv.Engine.Use(cors.New(corsconfig))
+	srv.Engine.Use(srv.MetaMiddleware())
 
-	globalAPIRoutes(rootPath)
-
-	// Auth Group
-	authenticated := rootPath.Group("/admin", gin.BasicAuth(gin.Accounts{
-		"foo": "bar",
-	}))
-
-	adminAPIRoutes(authenticated, AuthMiddleWare())
+	// Api
+	apiV1 := srv.Engine.Group("/api/" + apiPathPrefix)
+	{
+		apiV1.Static("/login", "./cmd/auther/static")
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -131,4 +144,14 @@ func (srv *HTTPService) ServeHTTP() {
 	}
 
 	log.Println("Server exiting")
+}
+
+func isBrowser(userAgent string) bool {
+	browsers := []string{"Mozilla", "Chrome", "Safari", "Edge", "Opera"}
+	for _, browser := range browsers {
+		if strings.Contains(userAgent, browser) {
+			return true
+		}
+	}
+	return false
 }

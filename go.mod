@@ -5,6 +5,7 @@ go 1.23.2
 require (
 	github.com/charmbracelet/bubbletea v1.1.1
 	github.com/gin-contrib/cors v1.7.2
+	github.com/gin-contrib/static v1.1.2
 	github.com/gin-gonic/gin v1.10.0
 )
 

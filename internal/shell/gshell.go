@@ -11,7 +11,6 @@ import (
 )
 
 func checkIfandExecBuiltIn(cmd string) error {
-
 	// Handle ctrl + l
 	// Handle exit signals/interrupts
 
@@ -30,7 +29,6 @@ func checkIfandExecBuiltIn(cmd string) error {
 			message:      "notfound",
 		}
 	}
-
 }
 
 func getShellPrompt() string {
@@ -71,11 +69,9 @@ func getShellPrompt() string {
 	// Should Provide methods for new line extentions.
 
 	return input
-
 }
 
 func welcome() {
-
 	printStars := func(amount int) {
 		fmt.Print("\n")
 		for range amount {
@@ -100,11 +96,9 @@ func usage() {
 	for _, v := range builtInCommands {
 		v.printSelf()
 	}
-
 }
 
 func Run() error {
-
 	LoadConfig()
 
 	logger.SetMultiLogger(Sconfig.logSplit, Sconfig.logVerbose)
@@ -112,11 +106,20 @@ func Run() error {
 	welcome()
 	for {
 
-		//fmt.Printf("i: %v\n", i)
+		// fmt.Printf("i: %v\n", i)
 		cmd := getShellPrompt()
+
+		// Check if Control Command
+
+		// Check if it is a piped command
+
+		// Check redirection
+		// Handle and check shell/env variables
+
 		err := checkIfandExecBuiltIn(cmd)
+
 		if err == nil {
-			// If there is no err (meaning it exists)
+			// If there is no err (meaning it exists) and is executed
 			// continue safely
 			continue
 		}
@@ -125,7 +128,4 @@ func Run() error {
 		// Check if piped // Perhaps check for malicious input?
 
 	}
-
-	return nil
-
 }
