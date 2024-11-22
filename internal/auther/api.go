@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -35,55 +34,7 @@ func NewService() HTTPService {
 	return service
 }
 
-func globalAPIRoutes(r *gin.RouterGroup, middleware ...gin.HandlerFunc) {
-	r.Use(middleware...)
-	// /ping
-	r.GET("/ping", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"status": "pong",
-		})
-	})
-
-	r.GET("/healthz", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"status": "healthy",
-		})
-	})
-}
-
-func adminAPIRoutes(r *gin.RouterGroup, middleware ...gin.HandlerFunc) {
-	r.Use(middleware...)
-
-	r.GET("", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"admin": "active",
-		})
-	})
-}
-
-func AuthMiddleWare() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// authentication
-		// Here can Check for authentication from a different service
-		// for now use this
-		username := c.PostForm("username")
-		password := c.PostForm("password")
-
-		log.Printf("%v, %v", username, password)
-
-		if username == "foo" {
-			c.AbortWithStatus(http.StatusUnauthorized)
-		}
-	}
-}
-
-func (srv *HTTPService) MetaMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// c.Header("X-Whom", nil)
-		c.Next()
-	}
-}
-
+// Serve function
 func (srv *HTTPService) ServeHTTP() {
 	corsconfig := cors.DefaultConfig()
 	corsconfig.AllowOrigins = srv.Config.AllowedOrigins
@@ -91,30 +42,29 @@ func (srv *HTTPService) ServeHTTP() {
 	corsconfig.AllowHeaders = srv.Config.AllowedHeaders
 	corsconfig.ExposeHeaders = srv.Config.ExposeHeaders
 
-	// Setup Security Headers
-	//srv.Engine.Use(func(c *gin.Context) {
-	//	if c.Request.Host != srv.Config.Addr() {
-	//		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Invalid host header"})
-	//		return
-	//	}
-	//	c.Header("X-Frame-Options", "DENY")
-	//	c.Header("Content-Security-Policy", "default-src 'self'; connect-src *; font-src *; script-src-elem * 'unsafe-inline'; img-src * data:; style-src * 'unsafe-inline';")
-	//	c.Header("X-XSS-Protection", "1; mode=block")
-	//	c.Header("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
-	//	c.Header("Referrer-Policy", "strict-origin")
-	//	c.Header("X-Content-Type-Options", "nosniff")
-	//	c.Header("Permissions-Policy", "geolocation=(),midi=(),sync-xhr=(),microphone=(),camera=(),magnetometer=(),gyroscope=(),fullscreen=(self),payment=()")
-	//	c.Next()
-	//})
-
-	// General
-	srv.Engine.Use(cors.New(corsconfig))
-	srv.Engine.Use(srv.MetaMiddleware())
-
 	// Api
 	apiV1 := srv.Engine.Group("/api/" + apiPathPrefix)
+	globalAPIRoutes(apiV1, securityMiddleWare, cors.New(corsconfig), metaMiddleWare())
+
 	{
 		apiV1.Static("/login", "./cmd/auther/static")
+	}
+
+	oauth := apiV1.Group("/auth")
+	{
+		oauth.GET("/google", googleAuthHandler)
+		oauth.GET("/google/callback", googleCallbackHandler)
+		oauth.GET("/github", githubAuthHandler)
+		oauth.GET("/github/callback", githubCallbackHandler)
+	}
+	{
+		oauth.POST("/login", srv.handleLogin)
+	}
+
+	verified := apiV1.Group("/verified")
+	verified.Use(jwtMiddleWare())
+	{
+		verified.GET("/dashboard", srv.handleDashboard)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -146,12 +96,32 @@ func (srv *HTTPService) ServeHTTP() {
 	log.Println("Server exiting")
 }
 
-func isBrowser(userAgent string) bool {
-	browsers := []string{"Mozilla", "Chrome", "Safari", "Edge", "Opera"}
-	for _, browser := range browsers {
-		if strings.Contains(userAgent, browser) {
-			return true
-		}
-	}
-	return false
+// Global handlers
+// global middleware
+func globalAPIRoutes(r *gin.RouterGroup, middleware ...gin.HandlerFunc) {
+	r.Use(middleware...)
+	// /ping
+	r.GET("/ping", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status": "pong",
+		})
+	})
+
+	r.GET("/healthz", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status": "healthy",
+		})
+	})
+}
+
+// Routing handlers
+// Admin, admin middleware
+func adminAPIRoutes(r *gin.RouterGroup, middleware ...gin.HandlerFunc) {
+	r.Use(middleware...)
+
+	r.GET("", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"admin": "active",
+		})
+	})
 }

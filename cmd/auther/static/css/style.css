@@ -9,17 +9,23 @@ body {
   background: linear-gradient(to top, #75e8e1, #FFFFFF)
 }
 
-body > div {
-  display: flex;
-  justify-content: center;
-
-  padding-top: 100px;
-
-}
-
 img {
 
   user-select: none
+}
+
+.main-login {
+  
+  display: flex;
+  justify-content: center;
+  position: relative;
+  z-index: 10;
+  margin: 0 auto;
+
+
+
+  padding-top: 100px;
+
 }
 
 .main-login form {
@@ -44,8 +50,8 @@ img {
 
   margin-bottom: 20px;
 
-  //border-radius: 85%;
-  box-shadow: 0 0 0 0.1px rgba(117, 232, 225, 0.5);
+  border: 1px solid aquamarine;
+  border-radius: 35%;
 
   transition: border-color 0.6s ease, box-shadow 0.6s ease;
 }
@@ -137,15 +143,15 @@ img {
 
 .sso-login {
   margin-top: 20px;
+  margin-bottom: 5px;
+  margin-left: 5px;
+  margin-right: 5px;
   display: flex;
-  justify-content: center;
+  justify-content: space-evenly;
 }
 
 /* SSO Button */
 .sso-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   background-color: #ffffff;
   color: #555;
   font-size: 16px;
@@ -156,4 +162,19 @@ img {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   cursor: pointer;
   transition: background-color 0.3s, box-shadow 0.3s;
+}
+
+
+.sso-button img {
+  
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+}
+
+
+
+.sso-button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 15px rgba(117, 232, 225, 0.5);
 }

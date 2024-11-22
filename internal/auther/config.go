@@ -10,9 +10,10 @@ import (
 )
 
 type AConfig struct {
-	ConfPath string
-	IP       string
-	API_PORT string
+	ConfPath       string
+	IP             string
+	API_PORT       string
+	AuthServiceURL string
 
 	AllowedOrigins []string
 	AllowedMethods []string
@@ -30,6 +31,7 @@ const (
 func (cfg *AConfig) setDefaults() {
 	cfg.IP = "localhost"
 	cfg.API_PORT = "8080"
+	cfg.AuthServiceURL = getEnv("AUTH_SERVICE_URL", "localhost:8081")
 	cfg.AllowedHeaders = []string{"*"}
 	cfg.AllowedMethods = []string{"*"}
 	cfg.AllowedOrigins = []string{"*"}
@@ -142,4 +144,12 @@ func (cfg *AConfig) toString() string {
 	}
 
 	return strBuilder.String()
+}
+
+func getEnv(key, fallback string) string {
+	env := os.Getenv(key)
+	if env == "" {
+		return fallback
+	}
+	return env
 }
