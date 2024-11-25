@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>kuSpace</title>
+    <link rel="icon" href="assets/logos/cropped.png">
+    <link href="css/styles.css" rel="stylesheet">
+    <script src="js/index.js"></script>
+  </head>
+  <body style="visibility: hidden;">
+    <script>0</script>
+    <div class="main-login">
+      <form method="post" action="/api/v1/login">
+        <div class="login-logo">
+          <img class="selectDisable" src=assets/logos/cropped.png>
+        </div>
+        <div class="form-inputs">
+          <input type="text" required name="username" placeholder="Username">
+          <input type="password" required name="password" placeholder="Password">
+        </div>
+        <div class=form-sub-div>
+          <input type="submit" name="Submit" value="Login">
+        </div>
+        <div class="sso-login">
+          <button id="google-button" type="button" class="sso-button">
+            <a href="/api/v1/auth/google">
+              <img src="assets/icons/google-icon.png" alt="Google Icon">
+            </a>
+          </button>
+          <button id="github-button" type="button" class="sso-button">
+            <a href="/api/v1/auth/github">
+              <img src="assets/icons/github-icon.png" alt="Github Icon">
+            </a>
+          </button>
+        </div>
+      </form>
+    </div>
+  </body>
+</html>
+
+
+
+

@@ -1,0 +1,180 @@
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: linear-gradient(135deg, #75e8e1, #ffffff)
+}
+
+body {
+  background: linear-gradient(to top, #75e8e1, #FFFFFF)
+}
+
+img {
+
+  user-select: none
+}
+
+.main-login {
+  
+  display: flex;
+  justify-content: center;
+  position: relative;
+  z-index: 10;
+  margin: 0 auto;
+
+
+
+  padding-top: 100px;
+
+}
+
+.main-login form {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  width: 400px;
+  height: 450px;
+
+  margin: 15px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+}
+
+.login-logo img {
+  width: 200px;
+  height: auto;
+
+  margin-bottom: 20px;
+
+  border: 1px solid aquamarine;
+  border-radius: 35%;
+
+  transition: border-color 0.6s ease, box-shadow 0.6s ease;
+}
+
+.login-logo img:hover {
+  transform: translateX(-1px);
+  box-shadow: 0 5px 15px rgba(117, 232, 225, 0.5);
+
+
+}
+
+.form-inputs input {
+  width: 100%;
+  padding: 10px;
+  margin: 10px 0;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 17px;
+  box-sizing: border-box;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  background: #f9f9f9;
+}
+
+.form-inputs input:hover {
+  background: #f1f1f1;
+  border-color: #75e8e1;
+}
+
+.form-inputs input:focus {
+  border-color: #4caf50;
+  box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+  outline: none;
+}
+
+.form-inputs input:invalid {
+  border-color: #ff5252;
+}
+
+.form-inputs input:disabled {
+  background: #e9e9e9;
+  cursor: not-allowed;
+}
+
+::placeholder {
+  color: #aaa;
+  font-style: italic;
+}
+
+/* Success State */
+.form-inputs input.success {
+  border-color: #4caf50;
+}
+
+/* Error State */
+.form-inputs input.error {
+  border-color: #ff5252;
+}
+
+.form-sub-div input[type="submit"] {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  color: white;
+  background: linear-gradient(to right, #7fc3bf, #75e8e1);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-sub-div input[type="submit"]:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 15px rgba(117, 232, 225, 0.5);
+}
+
+.form-sub-div input[type="submit"]:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.selectDisable {
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -o-user-select: none;
+  user-select: none;
+}
+
+.sso-login {
+  margin-top: 20px;
+  margin-bottom: 5px;
+  margin-left: 5px;
+  margin-right: 5px;
+  display: flex;
+  justify-content: space-evenly;
+}
+
+/* SSO Button */
+.sso-button {
+  background-color: #ffffff;
+  color: #555;
+  font-size: 16px;
+  font-weight: bold;
+  padding: 10px 20px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: background-color 0.3s, box-shadow 0.3s;
+}
+
+
+.sso-button img {
+  
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+}
+
+
+
+.sso-button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 15px rgba(117, 232, 225, 0.5);
+}

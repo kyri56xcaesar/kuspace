@@ -6,6 +6,7 @@ require (
 	github.com/charmbracelet/bubbletea v1.1.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-contrib/cors v1.7.2
+	github.com/gin-contrib/static v1.1.2
 	github.com/gin-gonic/gin v1.10.0
 	golang.org/x/oauth2 v0.24.0
 )
