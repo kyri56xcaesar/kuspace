@@ -12,7 +12,7 @@ import (
 
 type LoginRequest struct {
 	Username string `form:"username" json:"username" binding:"required,min=3,max=20"`
-	Password string `form:"password" json:"password" binding:"required,min=6,max=100"`
+	Password string `form:"password" json:"password" binding:"required,min=4,max=100"`
 }
 
 type AuthServiceResponse struct {
@@ -119,10 +119,21 @@ func (srv *HTTPService) handleLogin(c *gin.Context) {
 		return
 	}
 
+	c.Header("Authorization", "Bearer "+tokenString)
 	c.SetCookie("auth_token", tokenString, 86400, "/api/v1/", "localhost", false, true)
 
 	c.Redirect(http.StatusSeeOther, "/api/v1/verified/dashboard")
 }
 
 func (srv *HTTPService) handleDashboard(c *gin.Context) {
+	cookie, err := c.Cookie("auth_token")
+	if err != nil {
+		log.Printf("error getting cookie: %v", err)
+		c.HTML(http.StatusBadRequest, "error.html", gin.H{
+			"error":   "cookie missing",
+			"message": "required auth_token",
+		})
+		return
+	}
+	log.Printf("cookie: %v", cookie)
 }
