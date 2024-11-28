@@ -46,7 +46,7 @@ func (srv *HTTPService) ServeHTTP() {
 	corsconfig.ExposeHeaders = srv.Config.ExposeHeaders
 
 	// Api
-	srv.Engine.LoadHTMLGlob(templatesPath + "/*")
+	srv.Engine.LoadHTMLGlob(templatesPath + "/*.html")
 	srv.Engine.Use(static.Serve("/api/"+apiPathPrefix, static.LocalFile(staticsPath, true)))
 
 	apiV1 := srv.Engine.Group("/api/" + apiPathPrefix)
@@ -54,8 +54,11 @@ func (srv *HTTPService) ServeHTTP() {
 	globalAPIRoutes(apiV1, securityMiddleWare, cors.New(corsconfig), metaMiddleWare())
 
 	{
+		apiV1.GET("/", func(c *gin.Context) {
+			c.HTML(http.StatusOK, "index.html", c.Request.UserAgent())
+		})
 		apiV1.GET("/login", func(c *gin.Context) {
-			c.HTML(http.StatusOK, "index.html", nil)
+			c.HTML(http.StatusOK, "login.html", nil)
 		})
 		apiV1.POST("/login", srv.handleLogin)
 

@@ -100,6 +100,7 @@ func (srv *HTTPService) handleLogin(c *gin.Context) {
 		c.HTML(http.StatusUnauthorized, "error.html", gin.H{"error": strconv.Itoa(http.StatusUnauthorized), "message": "Invalid credentials"})
 		return
 	}
+	log.Print("Pseudo authentication succeeded")
 
 	// Success
 	expirationTime := time.Now().Add(24 * time.Hour)

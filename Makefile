@@ -23,3 +23,7 @@ shell:
 	go build -o ${TARGET_SHELL}${SHELL_OUT} ${TARGET_SHELL}${SHELL_MAIN}
 	./${TARGET_SHELL}${SHELL_OUT}
 
+.PHONY: clean
+clean:
+	rm -f ${TARGET_API}${API_OUT} ${TARGET_SHELL}${SHELL_OUT}
+
