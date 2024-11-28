@@ -14,6 +14,39 @@ img {
   user-select: none
 }
 
+/* Index */
+.main-navbar {
+  position: fixed !important;
+  width: 100%;
+  padding-bottom: 1rem !important;
+  
+  min-height: 4rem;
+
+  top: 0;
+  margin: 0;
+  z-index: 32;
+  box-shadow: 0 1px 2px #4c4c4c;
+  
+  display: flex;
+  flex-direction: row;
+  flex-flow: row nowrap;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+#ocean-video {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  min-width: 100%;
+  min-height: 100%;
+}
+
+
+
+
+
+/* Login */
 .main-login {
   
   display: flex;
@@ -178,3 +211,5 @@ img {
   transform: translateY(-3px);
   box-shadow: 0 5px 15px rgba(117, 232, 225, 0.5);
 }
+
+
