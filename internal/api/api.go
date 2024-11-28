@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -51,7 +52,7 @@ func (srv *HTTPService) ServeHTTP() {
 
 	apiV1 := srv.Engine.Group("/api/" + apiPathPrefix)
 
-	globalAPIRoutes(apiV1, securityMiddleWare, cors.New(corsconfig), metaMiddleWare())
+	globalAPIRoutes(apiV1, securityMiddleWare, cors.New(corsconfig))
 
 	{
 		apiV1.GET("/", func(c *gin.Context) {
@@ -73,10 +74,27 @@ func (srv *HTTPService) ServeHTTP() {
 	}
 
 	verified := apiV1.Group("/verified")
-	verified.Use(jwtMiddleWare())
 	{
-		verified.GET("/dashboard", srv.handleDashboard)
+		verified.GET("/admin-panel", authMiddleWare("admin"), func(c *gin.Context) {
+			username, _ := c.Get("username")
+			c.HTML(http.StatusOK, "admin-panel.html", gin.H{
+				"username": username,
+			})
+		})
+		verified.GET("/dashboard", authMiddleWare("user"), func(c *gin.Context) {
+			username, _ := c.Get("username")
+			c.HTML(http.StatusOK, "dashboard.html", gin.H{
+				"username": username,
+			})
+		})
 	}
+
+	srv.Engine.NoRoute(func(c *gin.Context) {
+		c.HTML(http.StatusNotFound, "error.html", gin.H{
+			"error":   strconv.Itoa(http.StatusNotFound),
+			"message": "Not found",
+		})
+	})
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

@@ -2,13 +2,13 @@
 <head>
     <meta charset="UTF-8">
     <title>Error</title>
-    <link href="css/error.css" rel="stylesheet">
-    <link rel="icon" href="assets/logos/cropped.png">
+    <link href="/api/v1/css/error.css" rel="stylesheet">
+    <link rel="icon" href="/api/v1/assets/logos/cropped.png">
 </head>
 <body>
     <div class="error">
         <h1>Error {{ .error }} </h1>
-        <h3>Message: {{ .message }} </h3>
+        <div class="error-message"> <h2>{{ .message }}</h2> </div>
     </div>
     <hr>
 </body>

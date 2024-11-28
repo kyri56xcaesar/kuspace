@@ -3,10 +3,20 @@ package api
 import (
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 )
+
+var jwtSecret = []byte("")
+
+type Claims struct {
+	Username string `json:"username"`
+	Role     string `json:"role"`
+	jwt.StandardClaims
+}
 
 func securityMiddleWare(c *gin.Context) {
 	//if c.Request.Host != srv.Config.Addr() {
@@ -23,54 +33,55 @@ func securityMiddleWare(c *gin.Context) {
 	c.Next()
 }
 
-func jwtMiddleWare() gin.HandlerFunc {
+func authMiddleWare(allowedRole string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
+		log.Print("authMiddleware, confirming identity...")
+
+		tokenString, err := c.Cookie("auth_token")
+		log.Print(tokenString)
+		if err != nil {
+			log.Printf("error getting auth_token from cookie: %v", err)
+			c.HTML(http.StatusUnauthorized, "error.html", gin.H{
+				"error": strconv.Itoa(http.StatusUnauthorized), "message": "Unauthorized.",
+			})
+			c.Abort()
 			return
 		}
 
-		// expected format: bearer <token>
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid authentication header format"})
-			return
-		}
-
-		tokenStr := parts[1]
 		claims := &Claims{}
 
-		// mock validation
-		if tokenStr == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		// Parse the token using `jwt.ParseWithClaims`
+		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+			return jwtSecret, nil
+		})
+
+		log.Printf("Claims: %+v", claims)
+		log.Print(token)
+
+		if err != nil || !token.Valid {
+			log.Printf("error parsing with claims or token invalid: %v, %v", claims, err)
+			c.HTML(http.StatusUnauthorized, "error.html", gin.H{
+				"error": strconv.Itoa(http.StatusUnauthorized), "message": "Unauthorized.",
+			})
+			c.Abort()
+			return
+		}
+
+		log.Printf("claims: %+v", claims)
+
+		if claims.Role != allowedRole {
+			log.Printf("error not allowed role %v != %v : %v", allowedRole, claims.Role, allowedRole != claims.Role)
+			c.HTML(http.StatusForbidden, "error.html", gin.H{
+				"error": strconv.Itoa(http.StatusForbidden), "message": "Forbidden.",
+			})
+			c.Abort()
 			return
 		}
 
 		c.Set("username", claims.Username)
-		c.Next()
-	}
-}
+		c.Set("role", claims.Role)
 
-func authMiddleWare() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// authentication
-		// Here can Check for authentication from a different service
-		// for now use this
-		username := c.PostForm("username")
-		password := c.PostForm("password")
-
-		log.Printf("%v, %v", username, password)
-
-		if username == "foo" {
-			c.AbortWithStatus(http.StatusUnauthorized)
-		}
-	}
-}
-
-func metaMiddleWare() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// c.Header("X-Whom", nil)
+		log.Print("user confirmed. Setting variables...")
 		c.Next()
 	}
 }
