@@ -42,7 +42,7 @@ func getShellPrompt() string {
 	output, err := user.Current()
 	whoami = output.Username
 	if err != nil {
-		logger.Printf("Error retrieving username", err)
+		logger.Printf("Error retrieving username: %v", err)
 		whoami = "$NONAME$"
 	}
 
