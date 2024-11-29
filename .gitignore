@@ -1,6 +1,8 @@
-notes
+*.log
 *.note
+
+notes
 gshell
+api
 external
 build/*
-*.log
