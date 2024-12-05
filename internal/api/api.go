@@ -20,8 +20,6 @@ const (
 	staticsPath   string = "web/auther/static"
 )
 
-var jwtSecretKey = []byte("default_placeholder_key")
-
 type HTTPService struct {
 	Engine *gin.Engine
 	Config *EnvConfig
@@ -32,8 +30,6 @@ func NewService(conf string) HTTPService {
 	service.Engine = gin.Default()
 	service.Config = LoadConfig(conf)
 	log.Print(service.Config.ToString())
-
-	jwtSecretKey = service.Config.JWTSecretKey
 
 	return service
 }
@@ -49,15 +45,24 @@ func (srv *HTTPService) ServeHTTP() {
 	srv.Engine.LoadHTMLGlob(templatesPath + "/*.html")
 	srv.Engine.Use(static.Serve("/api/"+apiPathPrefix, static.LocalFile(staticsPath, true)))
 
+	root := srv.Engine.Group("/")
+	{
+		root.GET("/healthz", func(c *gin.Context) {
+			log.Printf("%v request at %v from \n%v", c.Request.Method, c.Request.URL, c.Request.UserAgent())
+			c.JSON(http.StatusOK, gin.H{
+				"status": "alive",
+			})
+		})
+	}
+
 	apiV1 := srv.Engine.Group("/api/" + apiPathPrefix)
-
-	globalAPIRoutes(apiV1, securityMiddleWare, cors.New(corsconfig))
-
 	{
 		apiV1.GET("/", func(c *gin.Context) {
+			log.Printf("%v request at %v from \n%v", c.Request.Method, c.Request.URL, c.Request.UserAgent())
 			c.HTML(http.StatusOK, "index.html", c.Request.UserAgent())
 		})
 		apiV1.GET("/login", func(c *gin.Context) {
+			log.Printf("%v request at %v from \n%v", c.Request.Method, c.Request.URL, c.Request.UserAgent())
 			c.HTML(http.StatusOK, "login.html", nil)
 		})
 		apiV1.POST("/login", srv.handleLogin)
@@ -75,12 +80,14 @@ func (srv *HTTPService) ServeHTTP() {
 	verified := apiV1.Group("/verified")
 	{
 		verified.GET("/admin-panel", AuthMiddleware(), func(c *gin.Context) {
+			log.Printf("%v request at %v from \n%v", c.Request.Method, c.Request.URL, c.Request.UserAgent())
 			username, _ := c.Get("username")
 			c.HTML(http.StatusOK, "admin-panel.html", gin.H{
 				"username": username,
 			})
 		})
 		verified.GET("/dashboard", AuthMiddleware(), func(c *gin.Context) {
+			log.Printf("%v request at %v from \n%v", c.Request.Method, c.Request.URL, c.Request.UserAgent())
 			username, _ := c.Get("username")
 			c.HTML(http.StatusOK, "dashboard.html", gin.H{
 				"username": username,
@@ -89,6 +96,7 @@ func (srv *HTTPService) ServeHTTP() {
 	}
 
 	srv.Engine.NoRoute(func(c *gin.Context) {
+		log.Printf("%v request at %v from \n%v", c.Request.Method, c.Request.URL, c.Request.UserAgent())
 		c.HTML(http.StatusNotFound, "error.html", gin.H{
 			"error":   strconv.Itoa(http.StatusNotFound),
 			"message": "Not found",
@@ -122,24 +130,6 @@ func (srv *HTTPService) ServeHTTP() {
 	}
 
 	log.Println("Server exiting")
-}
-
-// Global handlers
-// global middleware
-func globalAPIRoutes(r *gin.RouterGroup, middleware ...gin.HandlerFunc) {
-	r.Use(middleware...)
-	// /ping
-	r.GET("/ping", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"status": "pong",
-		})
-	})
-
-	r.GET("/healthz", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"status": "healthy",
-		})
-	})
 }
 
 // Routing handlers

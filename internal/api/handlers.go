@@ -20,6 +20,8 @@ type AuthServiceResponse struct {
 }
 
 func (srv *HTTPService) handleLogin(c *gin.Context) {
+	log.Printf("%v request at %v from \n%v", c.Request.Method, c.Request.URL, c.Request.UserAgent())
+
 	var login LoginRequest
 
 	if err := c.ShouldBind(&login); err != nil {
