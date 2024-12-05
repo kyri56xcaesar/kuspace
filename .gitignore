@@ -1,6 +1,7 @@
 *.log
 *.note
 
+*.env
 notes
 gshell
 api
