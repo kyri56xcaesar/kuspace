@@ -5,6 +5,6 @@ import (
 )
 
 func main() {
-	srv := api.NewService()
+	srv := api.NewService("configs/api.env")
 	srv.ServeHTTP()
 }

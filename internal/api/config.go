@@ -1,128 +1,86 @@
 package api
 
 import (
-	"bufio"
 	"fmt"
 	"log"
 	"os"
 	"reflect"
 	"strings"
+
+	"github.com/joho/godotenv"
 )
 
-type AConfig struct {
-	ConfPath       string
-	IP             string
+type EnvConfig struct {
+	ConfigPath     string
+	CertFile       string
+	KeyFile        string
 	API_PORT       string
-	AuthServiceURL string
-
+	AUTH_PORT      string
+	IP             string
+	JWTSecretKey   []byte
+	JWTRefreshKey  []byte
 	AllowedOrigins []string
-	AllowedMethods []string
 	AllowedHeaders []string
-	ExposeHeaders  []string
-	// and more...
-	// ...
+	AllowedMethods []string
 }
 
-const (
-	DEFAULT_conf_name string = "auther.config"
-	DEFAULT_conf_path string = "configs/"
-)
-
-func (cfg *AConfig) setDefaults() {
-	cfg.IP = "localhost"
-	cfg.API_PORT = "8080"
-	cfg.AuthServiceURL = getEnv("AUTH_SERVICE_URL", "localhost:8081")
-	cfg.AllowedHeaders = []string{"*"}
-	cfg.AllowedMethods = []string{"*"}
-	cfg.AllowedOrigins = []string{"*"}
-	cfg.ExposeHeaders = []string{"*"}
-}
-
-func (cfg *AConfig) Addr() string {
-	return (cfg.IP + ":" + cfg.API_PORT)
-}
-
-func NewConfig() AConfig {
-	cfg := AConfig{}
-	cfg.setDefaults()
-
-	return cfg
-}
-
-func (cfg *AConfig) LoadConfig(path string) error {
-	var confFile *os.File
-	var err error
-
-	curpath, err := os.Getwd()
-	cfg.ConfPath = curpath + path
-	log.Printf("Current path: %v", curpath)
-	confFile, err = os.Open(path)
-	if err != nil {
-		log.Printf("Given Path: %v, err: %v", path, err)
-		confFile, err = os.Open(DEFAULT_conf_path + DEFAULT_conf_name)
-		if err != nil {
-			log.Print(err)
-			return err
-		}
-		log.Print("Default config opened.")
-	}
-	defer confFile.Close()
-
-	scanner := bufio.NewScanner(confFile)
-	for scanner.Scan() {
-		line := scanner.Text()
-		line = strings.TrimSpace(line)
-		if len(line) == 0 || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-
-		key := strings.TrimSpace(parts[0])
-		value := strings.TrimSpace(parts[1])
-
-		switch key {
-		case "API_PORT":
-			if value != "" {
-				cfg.API_PORT = value
-			}
-		case "IP":
-			if value != "" {
-				cfg.IP = value
-			}
-		case "ORIGINS":
-			if len(value) != 0 {
-				cfg.AllowedOrigins = strings.Split(value, ",")
-			}
-		case "METHODS":
-			if len(value) != 0 {
-				cfg.AllowedMethods = strings.Split(value, ",")
-			}
-		case "HEADERS":
-			if len(value) != 0 {
-				cfg.AllowedHeaders = strings.Split(value, ",")
-			}
-		case "EXPOSE_HEADERS":
-			if len(value) != 0 {
-				cfg.ExposeHeaders = strings.Split(value, ",")
-			}
-		default:
-		}
+func LoadConfig(path string) *EnvConfig {
+	if err := godotenv.Load(path); err != nil {
+		log.Printf("Could not load %s config file. Using default variables", path)
 	}
 
-	return nil
+	split := strings.Split(path, "/")
+
+	config := &EnvConfig{
+		ConfigPath:     split[len(split)-1],
+		CertFile:       getEnv("CERTFILE", "f4k3"),
+		KeyFile:        getEnv("KEYFILE", "f4k3"),
+		API_PORT:       getEnv("API_PORT", "9091"),
+		AUTH_PORT:      getEnv("AUTH_PORT", "9090"),
+		IP:             getEnv("IP", "localhost"),
+		AllowedOrigins: getEnvs("ALLOWED_ORIGINS", []string{"None"}),
+		AllowedHeaders: getEnvs("ALLOWED_HEADERS", nil),
+		AllowedMethods: getEnvs("ALLOWED_METHODS", nil),
+		JWTSecretKey:   getJWTSecretKey("JWT_SECRET_KEY"),
+		JWTRefreshKey:  getJWTSecretKey("JWT_REFRESH_KEY"),
+	}
+
+	return config
 }
 
-func (cfg *AConfig) toString() string {
+func getJWTSecretKey(envVar string) []byte {
+	secret := os.Getenv(envVar)
+	if secret == "" {
+		log.Fatalf("%s must not be empty", secret)
+	}
+	return []byte(secret)
+}
+
+func getEnv(key, fallback string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+	return fallback
+}
+
+func getEnvs(key string, fallback []string) []string {
+	if value, exists := os.LookupEnv(key); exists {
+		values := strings.SplitAfter(value, ",")
+		return values
+	}
+
+	return fallback
+}
+
+// CertFile string, KeyFile string, HTTPPort string, HTTPSPort string, IP string, DBfile string, AllowedOrigins []string, AllowedHeaders []string
+// AllowedMethods []string
+func (cfg *EnvConfig) ToString() string {
 	var strBuilder strings.Builder
 
 	reflectedValues := reflect.ValueOf(cfg).Elem()
 	reflectedTypes := reflect.TypeOf(cfg).Elem()
 
-	strBuilder.WriteString(fmt.Sprintf("[CFG]CONFIGURATION: %s\n", cfg.ConfPath))
+	strBuilder.WriteString(fmt.Sprintf("[CFG]CONFIGURATION: %s\n", cfg.ConfigPath))
 
 	for i := 0; i < reflectedValues.NumField(); i++ {
 		fieldName := reflectedTypes.Field(i).Name
@@ -146,10 +104,6 @@ func (cfg *AConfig) toString() string {
 	return strBuilder.String()
 }
 
-func getEnv(key, fallback string) string {
-	env := os.Getenv(key)
-	if env == "" {
-		return fallback
-	}
-	return env
+func (cfg *EnvConfig) Addr() string {
+	return cfg.IP + ":" + cfg.API_PORT
 }

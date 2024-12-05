@@ -20,20 +20,20 @@ const (
 	staticsPath   string = "web/auther/static"
 )
 
+var jwtSecretKey = []byte("default_placeholder_key")
+
 type HTTPService struct {
 	Engine *gin.Engine
-	Config AConfig
+	Config *EnvConfig
 }
 
-func NewService() HTTPService {
+func NewService(conf string) HTTPService {
 	service := HTTPService{}
 	service.Engine = gin.Default()
-	service.Config = NewConfig()
-	err := service.Config.LoadConfig("")
-	if err != nil {
-		log.Print(err)
-	}
-	log.Print(service.Config.toString())
+	service.Config = LoadConfig(conf)
+	log.Print(service.Config.ToString())
+
+	jwtSecretKey = service.Config.JWTSecretKey
 
 	return service
 }
@@ -44,7 +44,6 @@ func (srv *HTTPService) ServeHTTP() {
 	corsconfig.AllowOrigins = srv.Config.AllowedOrigins
 	corsconfig.AllowMethods = srv.Config.AllowedMethods
 	corsconfig.AllowHeaders = srv.Config.AllowedHeaders
-	corsconfig.ExposeHeaders = srv.Config.ExposeHeaders
 
 	// Api
 	srv.Engine.LoadHTMLGlob(templatesPath + "/*.html")
@@ -75,13 +74,13 @@ func (srv *HTTPService) ServeHTTP() {
 
 	verified := apiV1.Group("/verified")
 	{
-		verified.GET("/admin-panel", authMiddleWare("admin"), func(c *gin.Context) {
+		verified.GET("/admin-panel", AuthMiddleware(), func(c *gin.Context) {
 			username, _ := c.Get("username")
 			c.HTML(http.StatusOK, "admin-panel.html", gin.H{
 				"username": username,
 			})
 		})
-		verified.GET("/dashboard", authMiddleWare("user"), func(c *gin.Context) {
+		verified.GET("/dashboard", AuthMiddleware(), func(c *gin.Context) {
 			username, _ := c.Get("username")
 			c.HTML(http.StatusOK, "dashboard.html", gin.H{
 				"username": username,

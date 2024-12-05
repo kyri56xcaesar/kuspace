@@ -1,21 +1,18 @@
 package api
 
 import (
-	"log"
+	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
-var jwtSecret = []byte("")
-
-type Claims struct {
+type CustomClaims struct {
 	Username string `json:"username"`
 	Role     string `json:"role"`
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 }
 
 func securityMiddleWare(c *gin.Context) {
@@ -33,56 +30,50 @@ func securityMiddleWare(c *gin.Context) {
 	c.Next()
 }
 
-func authMiddleWare(allowedRole string) gin.HandlerFunc {
+func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		log.Print("authMiddleware, confirming identity...")
-
-		tokenString, err := c.Cookie("auth_token")
-		log.Print(tokenString)
-		if err != nil {
-			log.Printf("error getting auth_token from cookie: %v", err)
-			c.HTML(http.StatusUnauthorized, "error.html", gin.H{
-				"error": strconv.Itoa(http.StatusUnauthorized), "message": "Unauthorized.",
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "authorization header is required",
 			})
 			c.Abort()
 			return
+
 		}
 
-		claims := &Claims{}
+		tokenString := authHeader[len("Bearer "):]
+		if tokenString == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "Bearer token is required",
+			})
+		}
 
-		// Parse the token using `jwt.ParseWithClaims`
-		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-			return jwtSecret, nil
+		token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
+			return jwtSecretKey, nil
 		})
 
-		log.Printf("Claims: %+v", claims)
-		log.Print(token)
-
 		if err != nil || !token.Valid {
-			log.Printf("error parsing with claims or token invalid: %v, %v", claims, err)
-			c.HTML(http.StatusUnauthorized, "error.html", gin.H{
-				"error": strconv.Itoa(http.StatusUnauthorized), "message": "Unauthorized.",
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "invalid token",
 			})
 			c.Abort()
 			return
 		}
 
-		log.Printf("claims: %+v", claims)
-
-		if claims.Role != allowedRole {
-			log.Printf("error not allowed role %v != %v : %v", allowedRole, claims.Role, allowedRole != claims.Role)
-			c.HTML(http.StatusForbidden, "error.html", gin.H{
-				"error": strconv.Itoa(http.StatusForbidden), "message": "Forbidden.",
+		if claims, ok := token.Claims.(*CustomClaims); ok {
+			c.Set("username", claims.Username)
+			c.Set("role", claims.Role)
+		} else {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "invalid token claims",
 			})
 			c.Abort()
 			return
 		}
-
-		c.Set("username", claims.Username)
-		c.Set("role", claims.Role)
-
-		log.Print("user confirmed. Setting variables...")
-		c.Next()
 	}
 }
 
