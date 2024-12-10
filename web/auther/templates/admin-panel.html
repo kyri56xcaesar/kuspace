@@ -2,14 +2,113 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Admin Panel</title>
-    <link rel="icon" href="static/assets/logos/cropped.png">
-    <link href="static/css/styles.css" rel="stylesheet">
+    <title>kuSpace Admin Panel</title>
+    <link rel="icon" href="../assets/logos/cropped.png">
+    <link href="../css/styles.css" rel="stylesheet">
+    <link href="../css/admin-panel.css" rel="stylesheet">
+    <script src="https://unpkg.com/htmx.org"></script>
 </head>
 <body>
-    <div class="dashboard">
-        <h1>Welcome to the admin panel, {{ .username }}!</h1>
-        <p>{{ .message }}</p>
+    <!-- Sidebar -->
+    <div id="sidebar" class="sidebar">
+        <button id="toggle-sidebar" class="sidebar-toggle">☰</button>
+        <ul>
+            <li><a href="#" onclick="showSection('dashboard')">Dashboard</a></li>
+            <li><a href="#" onclick="showSection('resources')">Manage Resources</a></li>
+            <li><a href="#" onclick="showSection('jobs')">Manage Jobs</a></li>
+            <li><a href="#" onclick="showSection('users')">Manage Users</a></li>
+        </ul>
+        <button id="logout" class="logout-button"><a href="/api/v1/">⏼</a></button>
     </div>
+
+    <!-- Main Content -->
+    <div id="main-content-wrapper">
+        <header class="admin-header">
+            <h1>{{ .message }}, {{ .username }}!</h1>
+        </header>
+        <main id="main-content">
+            <!-- Default content for the dashboard -->
+            <section id="dashboard" class="content-section">
+                <h2>Root Dashboard</h2>
+                <p>This is the dashboard where you can use the system as a user.</p>
+            </section>
+
+            <section id="users" class="content-section hidden">
+                <h2>Manage Users</h2>
+                <p>Perform CRUD operations for users.</p>
+                <hr><h3>View existing users</h3>
+                <button>View Users</button>
+                <hr>
+                <div id="add-user-div">
+                  <h3>Add a new user</h3>
+                  <form id="add-user-form">
+                      <label>Username: <input type="text" name="username"></label>
+                      <label>Password: <input type="password" name="password"></label>
+                      <label>Email: <input type="password" name="email"></label>
+                      <button type="submit">Add User</button>
+                  </form>
+                </div>
+
+            </section>
+
+            <section id="resources" class="content-section hidden">
+                <h2>Manage Resources</h2>
+                <hr>
+                <p>View and adjust resource quotas.</p>
+                <button>View Resources</button>
+                <form>
+                    <label>Resource ID: <input type="text" name="resource_id"></label>
+                    <label>Quota: <input type="number" name="quota"></label>
+                    <button type="submit">Update Quota</button>
+                </form>
+            </section>
+
+            <section id="jobs" class="content-section hidden">
+                <h2>Manage Jobs</h2>
+                <p>Monitor, view, and manage jobs.</p>
+                <hr>
+
+                <form id="search-jobs-form">
+                    <label>Job Name: <input type="text" name="job_name"></label>
+                    <label>Resource ID: <input type="text" name="resource_id"></label>
+                    <button type="submit"> Search Job</button>
+                </form>
+                <hr>
+                <button>View Jobs</button>
+
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // Sidebar toggle logic
+        const sidebar = document.getElementById('sidebar');
+        const toggleSidebarButton = document.getElementById('toggle-sidebar');
+        const sidebarList = document.querySelector('.sidebar ul');
+
+        toggleSidebarButton.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            if (sidebar.classList.contains('collapsed')) {
+                sidebarList.style.opacity = '0';
+                sidebarList.style.pointerEvents = 'none'; // Prevent interaction when hidden
+            } else {
+                sidebarList.style.opacity = '1';
+                sidebarList.style.pointerEvents = 'auto';
+            }
+        });
+
+        // Function to display corresponding section
+        function showSection(sectionId) {
+            const sections = document.querySelectorAll('.content-section');
+            sections.forEach(section => {
+                if (section.id === sectionId) {
+                    section.classList.remove('hidden');
+                } else {
+                    section.classList.add('hidden');
+                }
+            });
+        }
+    </script>
 </body>
 </html>
+

@@ -1,0 +1,208 @@
+section {
+    margin-bottom: 2rem;
+}
+
+button {
+    padding: 0.5rem 1rem;
+    background: #007BFF;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #0056b3;
+}
+
+form label {
+    display: block;
+    margin: 0.5rem 0;
+}
+
+form input, form button {
+    margin: 0.5rem 0;
+    padding: 0.5rem;
+    width: 100px;
+}
+
+
+/* Sidebar */
+.sidebar {
+    background-color: #333;
+    color: white;
+    width: 250px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    transition: width 0.3s ease;
+    overflow: hidden;
+    border-right: 3px solid black;
+}
+
+.sidebar.collapsed {
+    width: 60px;
+}
+
+.siderbar button {
+  margin: 3px;
+}
+
+.sidebar button:hover {
+  border: 2px solid gray;
+}
+
+.sidebar ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+    display: flex;
+    flex-grow: 1;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+.sidebar ul li {
+    padding: 1rem;
+    text-align: left;
+}
+
+.sidebar ul li a {
+    color: white;
+    text-decoration: none;
+    display: block;
+    width: 100%;
+}
+
+.sidebar ul li:hover {
+    background-color: #575757;
+}
+
+.sidebar ul li a:hover {
+    color: #00c8ff; /* Change text color on hover */
+}
+
+.sidebar-toggle {
+    background-color: #444;
+    color: white;
+    border: none;
+    padding: 0.5rem;
+    cursor: pointer;
+    text-align: center;
+    font-size: 1.5rem;
+}
+
+.logout-button {
+    background-color: #444;
+    color: white;
+    border: none;
+    cursor: pointer;
+    text-align: center;
+    font-size: 1.5rem;
+    border-radius: 4px;
+    transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+.logout-button:hover {
+    background-color: #ff4444;
+    /*transform: scale(1.1); /* Slight enlarge effect */
+    color: #fff;
+}
+
+
+
+
+/* Main Content Wrapper */
+#main-content-wrapper {
+    margin-left: 250px;
+    width: calc(100% - 250px);
+    transition: margin-left 0.3s ease, width 0.3s ease;
+}
+
+.sidebar.collapsed + #main-content-wrapper {
+    margin-left: 60px;
+    width: calc(100% - 60px);
+}
+
+/* Header */
+.admin-header {
+    background-color: #333;
+    color: white;
+    padding: 1rem;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    text-align: center;
+    border-bottom: 3px solid black;
+}
+
+.admin-header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+
+
+
+
+.admin-nav ul {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.admin-nav ul li {
+    display: inline;
+}
+
+.admin-nav ul li a {
+    color: white;
+    text-decoration: none;
+}
+
+.admin-dashboard {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 1rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Main Content */
+#main-content {
+    padding: 2rem;
+    overflow-y: auto;
+}
+
+/* Content Sections */
+.content-section {
+    display: none;
+}
+
+.content-section.hidden {
+    display: none;
+}
+
+.content-section:not(.hidden) {
+    display: block;
+}
+
+
+
+
+/* Manager jobs sections */
+#search-jobs-form, #add-user-form {
+  display: flex;
+  flex-direction: row;
+  gap: 15px;
+
+}
+
+
+

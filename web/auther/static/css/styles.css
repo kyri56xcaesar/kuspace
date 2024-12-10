@@ -17,29 +17,94 @@ img {
 /* Index */
 .main-navbar {
   position: fixed !important;
+  top: 0;
   width: 100%;
-  padding-bottom: 1rem !important;
-  
+  padding: 1rem 2rem;
+
   min-height: 4rem;
 
-  top: 0;
-  margin: 0;
-  z-index: 32;
-  box-shadow: 0 1px 2px #4c4c4c;
+  background: rgba(0, 0, 0, 0.6);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
   
+  z-index: 10;
   display: flex;
-  flex-direction: row;
-  flex-flow: row nowrap;
-  justify-content: flex-start;
+  justify-content: space-between;
   align-items: center;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
-#ocean-video {
-  position: relative;
-  right: 0;
+.brand-logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.brand-logo:hover,
+.brand-logo:focus {
+  text-decoration: underline;
+}
+
+.main-navbar-list {
+  list-style: none;
+  display: flex;
+  gap: 1.5rem;
+}
+
+.main-navbar-list-item {
+  font-size: 1rem;
+}
+
+.main-navbar-list-item a {
+  color: white;
+}
+
+.nav-link {
+  color: #ffffff;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.nav-link:hover,
+.nav-link:focus {
+  color: #00bcd4;
+}
+
+.main-footer {
+  text-align: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.6);
+  color: #ffffff;
+  position: fixed;
+  width: 100%;
   bottom: 0;
+  font-size: 0.9rem;
+}
+/* Responsive Design */
+@media (max-width: 768px) {
+  .main-navbar {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .main-navbar-list {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .main-footer {
+    font-size: 0.8rem;
+  }
+}
+#ocean-video {
+  /*position: fixed;*/
+  top: 0;
+  left: 0;
   min-width: 100%;
   min-height: 100%;
+  object-fit: cover; 
+  z-index: -1;
 }
 
 
@@ -47,7 +112,7 @@ img {
 
 
 /* Login */
-.main-login {
+.main-login, .main-register {
   
   display: flex;
   justify-content: center;
@@ -61,7 +126,7 @@ img {
 
 }
 
-.main-login form {
+.main-login form, .main-register form {
   background: #ffffff;
   padding: 20px;
   border-radius: 10px;
@@ -77,7 +142,12 @@ img {
   justify-content: space-around;
 }
 
-.login-logo img {
+.main-register form {
+  height: 600px;
+}
+
+
+.login-logo img, .register-logo img {
   width: 200px;
   height: auto;
 
@@ -89,7 +159,7 @@ img {
   transition: border-color 0.6s ease, box-shadow 0.6s ease;
 }
 
-.login-logo img:hover {
+.login-logo img:hover, .register-logo img:hover {
   transform: translateX(-1px);
   box-shadow: 0 5px 15px rgba(117, 232, 225, 0.5);
 
@@ -174,7 +244,7 @@ img {
   user-select: none;
 }
 
-.sso-login {
+.sso-login, .sso-register {
   margin-top: 20px;
   margin-bottom: 5px;
   margin-left: 5px;
@@ -197,6 +267,9 @@ img {
   transition: background-color 0.3s, box-shadow 0.3s;
 }
 
+.sso-button a {
+  outline: none;
+}
 
 .sso-button img {
   
@@ -211,5 +284,7 @@ img {
   transform: translateY(-3px);
   box-shadow: 0 5px 15px rgba(117, 232, 225, 0.5);
 }
+
+
 
 

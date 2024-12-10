@@ -3,24 +3,40 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>kuSpace</title>
     <link href="css/styles.css" rel="stylesheet">
     <link rel="icon" href="assets/logos/cropped.png">
   </head>
   <body>
+    <!-- Background Video -->
     <video autoplay muted loop id="ocean-video">
       <source src="assets/videos/ocean2.mp4" type="video/mp4">
+      Your browser does not support HTML5 video. Please update your browser :)
     </video>
 
-      <nav class="main-navbar">
-        <a>Kubernetes</a>
+    <header>
+      <nav class="main-navbar" aria-label="Main Navigation">
+        <a href="/" class="brand-logo" aria-label="Home">
+          K
+        </a>
         <div class="main-navbar-content">
           <ul class="main-navbar-list">
             <li class="main-navbar-list-item">
               <h2><a href="/api/v1/login">Login</a></h2>
             </li>
+            <li class="main-navbar-list-item">
+              <h2><a href="/api/v1/register">Register</a></h2>
+            </li>
           </ul>
         </div>
       </nav>
+    </header>
+
+    <!-- Footer -->
+    <footer class="main-footer">
+      <p>&copy; 2024 kc. To kalo to pragma argei na ginei</p>
+    </footer>
+
   </body>
 </html>
 

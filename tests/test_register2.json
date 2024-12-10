@@ -1,0 +1,20 @@
+{
+  "user":{
+    "username":"maximos",
+    "info":"mm@minioth.com",
+    "home":"Rome",
+    "shell":"gshell",
+    "password":{
+      "hashpass":"maximos",
+      "lastPasswordChange":"",
+      "minimumPasswordAge":"",
+      "maximumPasswordAge":"",
+      "warningPeriod":"",
+      "inacticityPeriod":"",
+      "expirationDate":"",
+      "passwordLength":10
+    },
+    "uid":0,
+    "pgroup":0
+  }
+}

@@ -2,14 +2,27 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard</title>
-    <link rel="icon" href="assets/logos/cropped.png">
-    <link href="static/css/styles.css" rel="stylesheet">
+    <title>kuSpace Dashboard</title>
+    <link rel="icon" href="../assets/logos/cropped.png">
+    <link href="../css/styles.css" rel="stylesheet">
+    <link href="../css/dashboard.css" rel="stylesheet">
+
+
 </head>
 <body>
-    <div class="dashboard">
-        <h1>Welcome to the dashboard, {{ .username }}!</h1>
-        <p>{{ .message }}</p>
+    <div class="main-content-wrapper">
+      <header class="dashboard-header">
+        <h1>{{ .message }} {{ .username }}!</h1>
+      </header>
+      <main id="main-content">
+        <section class="content-section">
+          <p>test...</p>
+        </section>
+
+        <section class="content-section">
+          <p>test...</p>
+        </section>
+      </main>
     </div>
 </body>
 </html>

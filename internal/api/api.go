@@ -14,17 +14,26 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+/*
+*
+* Constants */
 const (
 	apiPathPrefix string = "v1"
 	templatesPath string = "./web/auther/templates"
 	staticsPath   string = "web/auther/static"
 )
 
+/*
+*
+* Structs */
 type HTTPService struct {
 	Engine *gin.Engine
 	Config *EnvConfig
 }
 
+/*
+*
+* Structs */
 func NewService(conf string) HTTPService {
 	service := HTTPService{}
 	service.Engine = gin.Default()
@@ -44,9 +53,15 @@ func (srv *HTTPService) ServeHTTP() {
 	// Api
 	srv.Engine.LoadHTMLGlob(templatesPath + "/*.html")
 	srv.Engine.Use(static.Serve("/api/"+apiPathPrefix, static.LocalFile(staticsPath, true)))
+	srv.Engine.Use(cors.New(corsconfig))
 
 	root := srv.Engine.Group("/")
 	{
+		root.GET("/", func(c *gin.Context) {
+			log.Printf("%v request at %v from \n%v", c.Request.Method, c.Request.URL, c.Request.UserAgent())
+			c.Redirect(http.StatusFound, "/api/"+apiPathPrefix)
+		})
+
 		root.GET("/healthz", func(c *gin.Context) {
 			log.Printf("%v request at %v from \n%v", c.Request.Method, c.Request.URL, c.Request.UserAgent())
 			c.JSON(http.StatusOK, gin.H{
@@ -67,6 +82,12 @@ func (srv *HTTPService) ServeHTTP() {
 		})
 		apiV1.POST("/login", srv.handleLogin)
 
+		apiV1.GET("/register", func(c *gin.Context) {
+			log.Printf("%v request at %v from \n%v", c.Request.Method, c.Request.URL, c.Request.UserAgent())
+			c.HTML(http.StatusOK, "register.html", nil)
+		})
+		apiV1.POST("/register", srv.handleRegister)
+
 	}
 
 	oauth := apiV1.Group("/auth")
@@ -81,16 +102,58 @@ func (srv *HTTPService) ServeHTTP() {
 	{
 		verified.GET("/admin-panel", AuthMiddleware(), func(c *gin.Context) {
 			log.Printf("%v request at %v from \n%v", c.Request.Method, c.Request.URL, c.Request.UserAgent())
-			username, _ := c.Get("username")
+
+			username, err := c.Cookie("username")
+			// NOTE: perhaps timeout or blacklist a malicious spammer...
+			if err != nil {
+				// Handle missing or invalid cookie
+				log.Printf("missing username from cookie: %v", err)
+				c.Redirect(http.StatusSeeOther, "/api/v1/login")
+				return
+			}
+
+			accessToken, err := c.Cookie("access_token")
+			if err != nil {
+				log.Printf("missing access token: %v", err)
+				c.Redirect(http.StatusSeeOther, "/api/v1/login")
+				return
+			}
+
+			// TODO: : Decode and verify the token (e.g., JWT validation)
+			// print it for now
+			log.Print(accessToken)
+
 			c.HTML(http.StatusOK, "admin-panel.html", gin.H{
 				"username": username,
+				"message":  "Welcome to the admin panel",
 			})
 		})
 		verified.GET("/dashboard", AuthMiddleware(), func(c *gin.Context) {
 			log.Printf("%v request at %v from \n%v", c.Request.Method, c.Request.URL, c.Request.UserAgent())
-			username, _ := c.Get("username")
+
+			username, err := c.Cookie("username")
+			// NOTE: perhaps timeout or blacklist a malicious spammer...
+			if err != nil {
+				// Handle missing or invalid cookie
+				log.Printf("unauthorized: %v", err)
+				c.Redirect(http.StatusSeeOther, "/api/v1/login")
+				return
+			}
+
+			accessToken, err := c.Cookie("access_token")
+			if err != nil {
+				log.Printf("missing access token: %v", err)
+				c.Redirect(http.StatusSeeOther, "/api/v1/login")
+				return
+			}
+
+			// TODO: : Decode and verify the token (e.g., JWT validation)
+			// print it for now
+			log.Print(accessToken)
+
 			c.HTML(http.StatusOK, "dashboard.html", gin.H{
 				"username": username,
+				"message":  "your dashboard brother",
 			})
 		})
 	}
