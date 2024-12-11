@@ -6,14 +6,17 @@
     <title>kuSpace</title>
     <link href="css/styles.css" rel="stylesheet">
     <link rel="icon" href="assets/logos/cropped.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <script src="js/index.js"></script>
   </head>
   <body>
     <!-- Background Video -->
+    <!--
     <video autoplay muted loop id="ocean-video">
       <source src="assets/videos/ocean2.mp4" type="video/mp4">
       Your browser does not support HTML5 video. Please update your browser :)
     </video>
-
+    -->
     <header>
       <nav class="main-navbar" aria-label="Main Navigation">
         <a href="/" class="brand-logo" aria-label="Home">
@@ -32,9 +35,50 @@
       </nav>
     </header>
 
+    <main id="index-main">
+      <div id="welcoming">
+        <h1>hi..</h1>
+        <p> to be continued.</p>
+      </div>
+
+      <div class="main-content">
+        <div id="presentations-display">
+            <a href="#" onclick="showSection('content-1')">opt 1</a>
+            <a href="#" onclick="showSection('content-2')">opt 2</a>
+            <a href="#" onclick="showSection('content-3')">opt 3</a>
+        </div>
+        <div id="presentation-target">
+          <section id="content-1" class="presentation-content content-section hidden">
+            <h3>Pres1</h3>
+            <p>ranag</p>
+            <iframe id="presentation-iframe" src="google.com"></iframe>
+          </section>
+          <section id="content-2" class="presentation-content content-section hidden">
+            <h3>Pres2</h3>
+            <p>gjalgj</p>
+          </section>
+          <section id="content-3" class="presentation-content content-section hidden">
+            <h3>Pres3</h3>
+            <p>asgasgas</p>
+          </section>
+
+        </div>
+      </div>
+      <div id="references">
+        test test test
+      </div>
+    </main>
+
     <!-- Footer -->
     <footer class="main-footer">
+      <div class="social">
+        <h3>curl:</h3>
+        <a target=”_blank” href="https://github.com/kyri56xcaesar/myThesis"><i class="fa fa-github" style="font-size:36px"></i></a>
+      </div>
       <p>&copy; 2024 kc. To kalo to pragma argei na ginei</p>
+      <div class="footer-links">
+        <a href="#"><b><u>?</u></b></a>
+      </div>
     </footer>
 
   </body>

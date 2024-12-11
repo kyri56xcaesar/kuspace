@@ -78,11 +78,11 @@ func (srv *HTTPService) handleLogin(c *gin.Context) {
 
 	log.Printf("response from auth: %+v", authResponse)
 
-	c.SetCookie("username", authResponse.Username, 3600, "/api/v1/verified/", "", false, true) // Set the username cookie
-	c.SetCookie("groups", authResponse.Groups, 3600, "/api/v1/verified/", "", false, true)
+	c.SetCookie("username", authResponse.Username, 3600, "/api/v1/", "", false, true) // Set the username cookie
+	c.SetCookie("groups", authResponse.Groups, 3600, "/api/v1/", "", false, true)
 	// Save tokens in cookies
-	c.SetCookie("access_token", authResponse.AccessToken, 3600, "/api/v1/verified/", "", false, true)
-	c.SetCookie("refresh_token", authResponse.RefreshToken, 3600, "/api/v1/verified/", "", false, true)
+	c.SetCookie("access_token", authResponse.AccessToken, 3600, "/api/v1/", "", false, true)
+	c.SetCookie("refresh_token", authResponse.RefreshToken, 3600, "/api/v1/", "", false, true)
 
 	// Redirect user based on their role
 	if strings.Contains(authResponse.Groups, "admin") {

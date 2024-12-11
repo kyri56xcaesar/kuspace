@@ -120,6 +120,8 @@ form input, form button {
     margin-left: 250px;
     width: calc(100% - 250px);
     transition: margin-left 0.3s ease, width 0.3s ease;
+    height: 100%;
+    overflow: auto;
 }
 
 .sidebar.collapsed + #main-content-wrapper {
@@ -218,6 +220,9 @@ form input, form button {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   gap: 15px;
   font-family: Arial, sans-serif;
+}
+#fetch-users-results {
+  min-height: 350px;
 }
 
 /* Form Groups for Labels and Inputs */

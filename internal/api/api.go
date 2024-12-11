@@ -72,7 +72,7 @@ func (srv *HTTPService) ServeHTTP() {
 		apiV1.GET("/", func(c *gin.Context) {
 			c.HTML(http.StatusOK, "index.html", c.Request.UserAgent())
 		})
-		apiV1.GET("/login", func(c *gin.Context) {
+		apiV1.GET("/login", autoLogin(), func(c *gin.Context) {
 			c.HTML(http.StatusOK, "login.html", nil)
 		})
 		apiV1.POST("/login", srv.handleLogin)

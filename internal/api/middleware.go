@@ -26,8 +26,35 @@ func securityMiddleWare(c *gin.Context) {
 	c.Next()
 }
 
+func autoLogin() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		log.Print("Auto Login middleware...")
+		_, err := c.Cookie("access_token")
+		if err != nil {
+			log.Printf("missing access token: %v", err)
+			c.Next()
+			return
+		}
+
+		groups, err := c.Cookie("groups")
+		if err != nil {
+			log.Printf("missing groups cookie: %v", err)
+			c.Next()
+			return
+		}
+
+		// forward directly inside
+		if strings.Contains(groups, "admin") {
+			c.Redirect(http.StatusSeeOther, "/api/v1/verified/admin-panel")
+		} else {
+			c.Redirect(http.StatusSeeOther, "/api/v1/verified/dashboard")
+		}
+	}
+}
+
 func AuthMiddleware(group string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log.Print("Through Auth middleware...")
 		accessToken, err := c.Cookie("access_token")
 		if err != nil {
 			log.Printf("missing access token: %v", err)
@@ -35,7 +62,7 @@ func AuthMiddleware(group string) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		// TODO: : Decode and verify the token (e.g., JWT validation)
+		//  Decode and verify the token (e.g., JWT validation)
 		req, err := http.NewRequest(http.MethodGet, authServiceURL+"/v1/user/me", nil)
 		if err != nil {
 			log.Printf("failed to create a new req: %v", err)
@@ -80,6 +107,13 @@ func AuthMiddleware(group string) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": "failed to parse response",
 			})
+			c.Abort()
+			return
+		}
+
+		if info.Info.Valid == "false" {
+			log.Printf("token not valid anymore...")
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized, invalid token"})
 			c.Abort()
 			return
 		}
