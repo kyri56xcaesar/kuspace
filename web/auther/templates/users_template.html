@@ -1,0 +1,32 @@
+<div id="users-result-container" style="padding: 1rem;">
+  <table id="all-users-table" border="1" style="width: 100%; border-collapse: collapse;">
+    <thead>
+      <tr>
+        <th>User ID</th>
+        <th>Username</th>
+        <th>Password</th>
+        <th>Home</th>
+        <th>Shell</th>
+        <th>Group ID</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="users-body">
+      {{ range . }}
+      <tr>
+        <td>{{ .UserID }}</td>
+        <td>{{ .Username }}</td>
+        <td>**hashed**</td>
+        <td>{{ .Home }}</td>
+        <td>{{ .Shell }}</td>
+        <td>{{ .PrimaryGroup }}</td>
+        <td>
+          <button onclick="editUser('{{ .UserID }}')">Edit</button>
+          <button onclick="deleteUser('{{ .UserID }}')">Delete</button>
+        </td>
+      </tr>
+      {{ end }}
+    </tbody>
+  </table>
+</div>
+

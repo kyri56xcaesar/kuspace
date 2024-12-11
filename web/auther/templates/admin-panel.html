@@ -6,6 +6,7 @@
     <link rel="icon" href="../assets/logos/cropped.png">
     <link href="../css/styles.css" rel="stylesheet">
     <link href="../css/admin-panel.css" rel="stylesheet">
+    <script src="../js/admin-panel.js"></script>
     <script src="https://unpkg.com/htmx.org"></script>
 </head>
 <body>
@@ -24,7 +25,7 @@
     <!-- Main Content -->
     <div id="main-content-wrapper">
         <header class="admin-header">
-            <h1>{{ .message }}, {{ .username }}!</h1>
+            <h1>{{ .message }}, <i>"{{ .username }}"!</i></h1>
         </header>
         <main id="main-content">
             <!-- Default content for the dashboard -->
@@ -34,47 +35,59 @@
             </section>
 
             <section id="users" class="content-section hidden">
-                <h2>Manage Users</h2>
+                <h2>Manage Users (this should be a portal to the auth service manager)</h2>
                 <p>Perform CRUD operations for users.</p>
                 <hr><h3>View existing users</h3>
-                <button>View Users</button>
+                <button hx-trigger="click" hx-get="/api/v1/verified/admin/fetch-users" hx-target="#fetch-users-results" hx-swap="innerHTML">Load users</button>
+                <div id="fetch-users-results"></div>
                 <hr>
                 <div id="add-user-div">
                   <h3>Add a new user</h3>
-                  <form id="add-user-form">
-                      <label>Username: <input type="text" name="username"></label>
-                      <label>Password: <input type="password" name="password"></label>
-                      <label>Email: <input type="password" name="email"></label>
+                    <form id="add-user-form">
+                      <div class="form-group">
+                        <label for="username">Username:</label>
+                        <input type="text" id="username" name="username" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
+                      </div>
+                      <div class="form-group">
+                        <label for="password">Password:</label>
+                        <input type="password" id="password" name="password" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
+                      </div>
+                      <div class="form-group">
+                        <label for="email">Email:</label>
+                        <input type="email" id="email" name="email">
+                      </div>
+                      <div class="form-group">
+                        <label for="home">Home:</label>
+                        <input type="text" id="home" name="home">
+                      </div>
                       <button type="submit">Add User</button>
-                  </form>
+                    </form>
                 </div>
 
             </section>
 
             <section id="resources" class="content-section hidden">
                 <h2>Manage Resources</h2>
-                <hr>
                 <p>View and adjust resource quotas.</p>
-                <button>View Resources</button>
-                <form>
+                <hr>
+                <form id="search-resource-form">
                     <label>Resource ID: <input type="text" name="resource_id"></label>
                     <label>Quota: <input type="number" name="quota"></label>
                     <button type="submit">Update Quota</button>
                 </form>
+                <button>View Resources</button>
             </section>
 
             <section id="jobs" class="content-section hidden">
                 <h2>Manage Jobs</h2>
                 <p>Monitor, view, and manage jobs.</p>
                 <hr>
-
                 <form id="search-jobs-form">
                     <label>Job Name: <input type="text" name="job_name"></label>
                     <label>Resource ID: <input type="text" name="resource_id"></label>
                     <button type="submit"> Search Job</button>
                 </form>
-                <hr>
-                <button>View Jobs</button>
+                <button>Load history</button>
 
             </section>
         </main>

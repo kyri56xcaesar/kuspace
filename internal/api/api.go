@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -58,12 +57,10 @@ func (srv *HTTPService) ServeHTTP() {
 	root := srv.Engine.Group("/")
 	{
 		root.GET("/", func(c *gin.Context) {
-			log.Printf("%v request at %v from \n%v", c.Request.Method, c.Request.URL, c.Request.UserAgent())
 			c.Redirect(http.StatusFound, "/api/"+apiPathPrefix)
 		})
 
 		root.GET("/healthz", func(c *gin.Context) {
-			log.Printf("%v request at %v from \n%v", c.Request.Method, c.Request.URL, c.Request.UserAgent())
 			c.JSON(http.StatusOK, gin.H{
 				"status": "alive",
 			})
@@ -73,17 +70,14 @@ func (srv *HTTPService) ServeHTTP() {
 	apiV1 := srv.Engine.Group("/api/" + apiPathPrefix)
 	{
 		apiV1.GET("/", func(c *gin.Context) {
-			log.Printf("%v request at %v from \n%v", c.Request.Method, c.Request.URL, c.Request.UserAgent())
 			c.HTML(http.StatusOK, "index.html", c.Request.UserAgent())
 		})
 		apiV1.GET("/login", func(c *gin.Context) {
-			log.Printf("%v request at %v from \n%v", c.Request.Method, c.Request.URL, c.Request.UserAgent())
 			c.HTML(http.StatusOK, "login.html", nil)
 		})
 		apiV1.POST("/login", srv.handleLogin)
 
 		apiV1.GET("/register", func(c *gin.Context) {
-			log.Printf("%v request at %v from \n%v", c.Request.Method, c.Request.URL, c.Request.UserAgent())
 			c.HTML(http.StatusOK, "register.html", nil)
 		})
 		apiV1.POST("/register", srv.handleRegister)
@@ -100,68 +94,27 @@ func (srv *HTTPService) ServeHTTP() {
 
 	verified := apiV1.Group("/verified")
 	{
-		verified.GET("/admin-panel", AuthMiddleware(), func(c *gin.Context) {
-			log.Printf("%v request at %v from \n%v", c.Request.Method, c.Request.URL, c.Request.UserAgent())
-
-			username, err := c.Cookie("username")
-			// NOTE: perhaps timeout or blacklist a malicious spammer...
-			if err != nil {
-				// Handle missing or invalid cookie
-				log.Printf("missing username from cookie: %v", err)
-				c.Redirect(http.StatusSeeOther, "/api/v1/login")
-				return
-			}
-
-			accessToken, err := c.Cookie("access_token")
-			if err != nil {
-				log.Printf("missing access token: %v", err)
-				c.Redirect(http.StatusSeeOther, "/api/v1/login")
-				return
-			}
-
-			// TODO: : Decode and verify the token (e.g., JWT validation)
-			// print it for now
-			log.Print(accessToken)
-
+		verified.GET("/admin-panel", AuthMiddleware("admin"), func(c *gin.Context) {
+			username, _ := c.Cookie("username")
 			c.HTML(http.StatusOK, "admin-panel.html", gin.H{
 				"username": username,
-				"message":  "Welcome to the admin panel",
+				"message":  "Welcome to the Admin Panel ",
 			})
 		})
-		verified.GET("/dashboard", AuthMiddleware(), func(c *gin.Context) {
-			log.Printf("%v request at %v from \n%v", c.Request.Method, c.Request.URL, c.Request.UserAgent())
+		verified.GET("/admin/fetch-users", srv.handleFetchUsers)
 
-			username, err := c.Cookie("username")
-			// NOTE: perhaps timeout or blacklist a malicious spammer...
-			if err != nil {
-				// Handle missing or invalid cookie
-				log.Printf("unauthorized: %v", err)
-				c.Redirect(http.StatusSeeOther, "/api/v1/login")
-				return
-			}
-
-			accessToken, err := c.Cookie("access_token")
-			if err != nil {
-				log.Printf("missing access token: %v", err)
-				c.Redirect(http.StatusSeeOther, "/api/v1/login")
-				return
-			}
-
-			// TODO: : Decode and verify the token (e.g., JWT validation)
-			// print it for now
-			log.Print(accessToken)
-
+		verified.GET("/dashboard", AuthMiddleware("user, admin"), func(c *gin.Context) {
+			username, _ := c.Cookie("username")
 			c.HTML(http.StatusOK, "dashboard.html", gin.H{
 				"username": username,
-				"message":  "your dashboard brother",
+				"message":  "your dashboard ",
 			})
 		})
 	}
 
 	srv.Engine.NoRoute(func(c *gin.Context) {
-		log.Printf("%v request at %v from \n%v", c.Request.Method, c.Request.URL, c.Request.UserAgent())
 		c.HTML(http.StatusNotFound, "error.html", gin.H{
-			"error":   strconv.Itoa(http.StatusNotFound),
+			"error":   "404",
 			"message": "Not found",
 		})
 	})
@@ -193,16 +146,4 @@ func (srv *HTTPService) ServeHTTP() {
 	}
 
 	log.Println("Server exiting")
-}
-
-// Routing handlers
-// Admin, admin middleware
-func adminAPIRoutes(r *gin.RouterGroup, middleware ...gin.HandlerFunc) {
-	r.Use(middleware...)
-
-	r.GET("", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"admin": "active",
-		})
-	})
 }

@@ -197,12 +197,124 @@ form input, form button {
 
 
 /* Manager jobs sections */
-#search-jobs-form, #add-user-form {
+#search-jobs-form, #search-resource-form {
   display: flex;
   flex-direction: row;
   gap: 15px;
-
 }
 
+
+/* add user form container */
+#add-user-form {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 20px;
+  border: 1px solid aliceblue;
+  border-radius: 8px;
+  width: 400px;
+  background-color: #f9f9f9;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  gap: 15px;
+  font-family: Arial, sans-serif;
+}
+
+/* Form Groups for Labels and Inputs */
+.form-group {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 10px;
+}
+
+/* Labels */
+.form-group label {
+  font-size: 0.9rem;
+  font-weight: bold;
+  color: #333;
+  flex: 1;
+  text-align: right;
+}
+
+/* Inputs */
+.form-group input {
+  flex: 2;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: border-color 0.3s ease;
+}
+
+.form-group input:focus {
+  border-color: #007bff;
+  outline: none;
+}
+
+/* Submit Button */
+#add-user-form button {
+  align-self: center;
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  width: 120px;
+}
+
+#add-user-form button:hover {
+  background-color: #0056b3;
+  transform: scale(1.05);
+}
+
+
+
+
+/* Table Styling */
+#all-users-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #f9f9f9;
+    font-family: Arial, sans-serif;
+    margin-top: 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+#all-users-table th {
+    border: 1px solid #ddd;
+    padding: 0.75rem 1rem;
+    text-align: center;
+}
+
+#all-users-table td {
+    border: 1px solid #ddd;
+    padding: 0.75rem 1rem;
+    text-align: left;
+}
+
+
+#all-users-table th {
+    background-color: #333;
+    color: white;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+}
+
+#all-users-table tbody tr:hover {
+    background-color: #f1f1f1;
+    cursor: pointer;
+}
+
+#all-users-table td:last-child {
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+}
 
 

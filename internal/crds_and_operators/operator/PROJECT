@@ -2,19 +2,9 @@
 # This file is used to track the info used to scaffold your project
 # and allow the plugins properly work.
 # More info: https://book.kubebuilder.io/reference/project-config.html
-domain: kyri56x.com
+domain: myapp.example.com
 layout:
 - go.kubebuilder.io/v4
 projectName: operator
-repo: github.com/kyri56xcaesar/myThesis/internal/crds_and_operators/operator
-resources:
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: kyri56x.com
-  group: userspaces
-  kind: Userspace
-  path: github.com/kyri56xcaesar/myThesis/internal/crds_and_operators/operator/api/v1
-  version: v1
+repo: myapp.example/userspace
 version: "3"

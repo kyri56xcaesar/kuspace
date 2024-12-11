@@ -4,10 +4,4 @@ metadata:
   name: admin
 spec:
   username: admin
-  uid: 1
-  groups:
-    - admins
-  homeDirectory: /
-  shell: /bin/gshell
-  accessLevel: admin
-
+  storageSize: 2G

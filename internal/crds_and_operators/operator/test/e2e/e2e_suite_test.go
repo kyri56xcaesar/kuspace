@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/kyri56xcaesar/myThesis/internal/crds_and_operators/operator/test/utils"
+	"myapp.example/userspace/test/utils"
 )
 
 var (

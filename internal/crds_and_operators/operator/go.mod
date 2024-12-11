@@ -1,4 +1,4 @@
-module github.com/kyri56xcaesar/myThesis/internal/crds_and_operators/operator
+module myapp.example/userspace
 
 go 1.22.0
 
@@ -7,7 +7,7 @@ require (
 	github.com/onsi/gomega v1.33.1
 	k8s.io/apimachinery v0.31.0
 	k8s.io/client-go v0.31.0
-	sigs.k8s.io/controller-runtime v0.19.0
+	sigs.k8s.io/controller-runtime v0.19.1
 )
 
 require (
