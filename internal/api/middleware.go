@@ -29,20 +29,19 @@ func securityMiddleWare(c *gin.Context) {
 func autoLogin() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log.Print("Auto Login middleware...")
-		_, err := c.Cookie("access_token")
-		if err != nil {
+		access_token, err := c.Cookie("access_token")
+		if err != nil || access_token == "" {
 			log.Printf("missing access token: %v", err)
 			c.Next()
 			return
 		}
 
 		groups, err := c.Cookie("groups")
-		if err != nil {
+		if err != nil || groups == "" {
 			log.Printf("missing groups cookie: %v", err)
 			c.Next()
 			return
 		}
-
 		// forward directly inside
 		if strings.Contains(groups, "admin") {
 			c.Redirect(http.StatusSeeOther, "/api/v1/verified/admin-panel")

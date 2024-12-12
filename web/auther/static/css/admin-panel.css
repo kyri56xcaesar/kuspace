@@ -195,7 +195,12 @@ form input, form button {
     display: block;
 }
 
-
+#view-table-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  width: 100%;
+}
 
 
 /* Manager jobs sections */
@@ -203,24 +208,31 @@ form input, form button {
   display: flex;
   flex-direction: row;
   gap: 15px;
+  padding: 1rem;
 }
 
+#add-user-div {
+  padding: 1rem;
+}
 
 /* add user form container */
 #add-user-form {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   justify-content: center;
   align-items: flex-start;
   padding: 20px;
   border: 1px solid aliceblue;
   border-radius: 8px;
-  width: 400px;
   background-color: #f9f9f9;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   gap: 15px;
   font-family: Arial, sans-serif;
 }
+
+.a-group, b-group, c-group {
+}
+
 #fetch-users-results {
   min-height: 350px;
 }

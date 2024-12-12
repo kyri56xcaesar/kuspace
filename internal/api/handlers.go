@@ -36,13 +36,13 @@ type AuthServiceResponse struct {
 
 func (srv *HTTPService) handleLogin(c *gin.Context) {
 	// log.Printf("%v request at %v from \n%v", c.Request.Method, c.Request.URL, c.Request.UserAgent())
-
+	// only on success redirect
 	var login LoginRequest
 
 	if err := c.ShouldBind(&login); err != nil {
 		log.Printf("Login binding error: %v", err)
 		// Respond with the appropriate error on the template.
-		c.Redirect(http.StatusSeeOther, "/api/v1/login")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad binding"})
 		return
 	}
 
@@ -50,7 +50,7 @@ func (srv *HTTPService) handleLogin(c *gin.Context) {
 	resp, err := forwardPostRequest(authServiceURL+"/v1/login", login)
 	if err != nil {
 		log.Printf("Error forwarding login request: %v", err)
-		c.Redirect(http.StatusSeeOther, "/api/v1/login")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "forwarding fail"})
 		return
 
 	}
@@ -59,7 +59,16 @@ func (srv *HTTPService) handleLogin(c *gin.Context) {
 	// Check the response status from the auth service
 	if resp.StatusCode != http.StatusOK {
 		log.Printf("Auth service returned status: %v", resp.Status)
-		c.Redirect(http.StatusSeeOther, "/api/v1/login")
+		var ErrResp struct {
+			Error string `json:"error"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&ErrResp); err != nil {
+			log.Printf("Error decoding auth err response: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "serious"})
+			return
+		}
+
+		c.JSON(resp.StatusCode, ErrResp)
 		return
 	}
 
@@ -72,7 +81,7 @@ func (srv *HTTPService) handleLogin(c *gin.Context) {
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&authResponse); err != nil {
 		log.Printf("Error decoding auth service response: %v", err)
-		c.Redirect(http.StatusSeeOther, "/api/v1/login")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "serious"})
 		return
 	}
 
@@ -94,6 +103,101 @@ func (srv *HTTPService) handleLogin(c *gin.Context) {
 
 func (srv *HTTPService) handleRegister(c *gin.Context) {
 	// log.Printf("%v request at %v from \n%v", c.Request.Method, c.Request.URL, c.Request.UserAgent())
+	// log.Printf("%v request at %v from \n%v", c.Request.Method, c.Request.URL, c.Request.UserAgent())
+	// only on success redirect
+	var reg RegisterRequest
+
+	if err := c.ShouldBind(&reg); err != nil {
+		log.Printf("Register binding error: %v", err)
+		// Respond with the appropriate error on the template.
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Register binding"})
+		return
+	}
+	log.Printf("binded: %+v", reg)
+
+	// verify password repeat
+	if reg.Password != reg.RepeatPassword {
+		log.Printf("%v!=%v, password-repeat should match!", reg.Password, reg.RepeatPassword)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Passwords should match"})
+		return
+	}
+	type PassClaim struct {
+		Hashpass           string `json:"hashpass"`
+		LastPasswordChange string `json:"lastPasswordChange"`
+		MinPasswordAge     string `json:"minimumPasswordAge"`
+		MaxPasswordAge     string `json:"maximumPasswordAge"`
+		WarningPeriod      string `json:"warningPeriod"`
+		InactivityPeriod   string `json:"inactivityPeriod"`
+		ExpirationDate     string `json:"expirationDate"`
+		Length             int    `json:"passwordLength"`
+	}
+
+	type RegClaim struct {
+		Username string    `json:"username"`
+		Info     string    `json:"info"`
+		Home     string    `json:"home"`
+		Shell    string    `json:"shell"`
+		Password PassClaim `json:"password"`
+		Uid      int       `json:"uid"`
+		Pgroup   int       `json:"pgroup"`
+	}
+
+	data := RegClaim{
+		Username: reg.Username,
+		Info:     reg.Email,
+		Home:     "/home/" + reg.Username,
+		Shell:    "gshell",
+		Password: PassClaim{
+			Hashpass: reg.Password,
+			Length:   len(reg.Password),
+		},
+	}
+	// Forward login request to the auth service
+	resp, err := forwardPostRequest(authServiceURL+"/v1/register", gin.H{
+		"user": data,
+	})
+	if err != nil {
+		log.Printf("Error forwarding register request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "forwarding fail"})
+		return
+
+	}
+	defer resp.Body.Close()
+
+	// Check the response status from the auth service
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Auth service returned status: %v", resp.Status)
+		var ErrResp struct {
+			Error string `json:"error"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&ErrResp); err != nil {
+			log.Printf("Error decoding auth err response: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "serious"})
+			return
+		}
+
+		c.JSON(resp.StatusCode, ErrResp)
+		return
+	}
+
+	// Parse the response from the auth service
+	var authResponse struct {
+		Login_url string `json:"login_url"`
+		Message   string `json:"message"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&authResponse); err != nil {
+		log.Printf("Error decoding auth service response: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "serious"})
+		return
+	}
+
+	log.Printf("response from auth: %+v", authResponse)
+
+	// at this point registration should be successful, we can directly login the user
+	// .. somehow
+
+	time.Sleep(2 * time.Second)
+	c.Redirect(303, "/api/v1/login")
 }
 
 func (srv *HTTPService) handleFetchUsers(c *gin.Context) {
@@ -171,6 +275,7 @@ type User struct {
 	Shell        string
 	UserID       string
 	PrimaryGroup string
+	Groups       string
 }
 
 func parseUserData(data []string) []User {
@@ -186,6 +291,7 @@ func parseUserData(data []string) []User {
 				Shell:        fields[3],
 				UserID:       fields[4],
 				PrimaryGroup: fields[5],
+				Groups:       fields[6],
 			})
 		}
 	}

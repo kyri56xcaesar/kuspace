@@ -21,7 +21,12 @@
             <li><a href="#" onclick="showSection('jobs')">Manage Jobs</a></li>
             <li><a href="#" onclick="showSection('users')">Manage Users</a></li>
         </ul>
-        <button id="logout" class="logout-button"><a href="/api/v1/">⏼</a></button>
+        <button id="logout" class="logout-button">
+          <a hx-delete="/api/v1/verified/logout?access_token&refresh_token&username&groups" 
+            hx-swap="none" 
+            href="/api/v1/">⏼
+          </a>
+        </button>
     </div>
 
     <!-- Main Content -->
@@ -39,30 +44,35 @@
             <section id="users" class="content-section hidden">
                 <h2>Manage Users (this should be a portal to the auth service manager)</h2>
                 <p>Perform CRUD operations for users.</p>
-                <hr><h3>View existing users</h3>
-                <button hx-trigger="click" hx-get="/api/v1/verified/admin/fetch-users" hx-target="#fetch-users-results" hx-swap="innerHTML">Load users</button>
-                <div id="fetch-users-results"></div>
+                <hr>
+                <div id="view-table-header"> 
+                  <h3>View existing users</h3>
+                  <button hx-trigger="click" hx-get="/api/v1/verified/admin/fetch-users" hx-target="#fetch-users-results" hx-swap="innerHTML">Reload</button>
+                </div>
+                <div hx-trigger="load" hx-get="/api/v1/verified/admin/fetch-users" hx-target="#fetch-users-results" hx-swap="innerHTML" id="fetch-users-results"></div>
                 <hr>
                 <div id="add-user-div">
                   <h3>Add a new user</h3>
                     <form id="add-user-form">
-                      <div class="form-group">
-                        <label for="username">Username:</label>
-                        <input type="text" id="username" name="username" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
+                        <div class="form-group">
+                          <label for="username">Username:</label>
+                          <input type="text" id="username" name="username" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
+                        </div>
+                        <div class="form-group">
+                          <label for="password">Password:</label>
+                          <input type="password" id="password" name="password" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
+                        </div>
+                        <div class="form-group">
+                          <label for="email">Email:</label>
+                          <input type="email" id="email" name="email">
+                        </div>
+                        <div class="form-group">
+                          <label for="home">Home:</label>
+                          <input type="text" id="home" name="home">
+                        </div>
+                      <div class="c-group">                  
+                        <button type="submit">Add User</button>
                       </div>
-                      <div class="form-group">
-                        <label for="password">Password:</label>
-                        <input type="password" id="password" name="password" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
-                      </div>
-                      <div class="form-group">
-                        <label for="email">Email:</label>
-                        <input type="email" id="email" name="email">
-                      </div>
-                      <div class="form-group">
-                        <label for="home">Home:</label>
-                        <input type="text" id="home" name="home">
-                      </div>
-                      <button type="submit">Add User</button>
                     </form>
                 </div>
 
@@ -115,4 +125,17 @@
     </script>
 </body>
 </html>
+
+<script>
+  document.body.addEventListener('htmx:afterRequest', function (event) {
+    if (event.detail.xhr.status >= 300 && event.detail.xhr.status < 400) {
+      const redirectLocation = event.detail.xhr.getResponseHeader("Location");
+      if (redirectLocation) {
+        window.location.href = redirectLocation;
+      } else {
+        console.error("Redirect location not found in the response.");
+      }
+    }
+  });
+</script>
 

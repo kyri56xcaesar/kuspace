@@ -11,7 +11,7 @@
   <body style="visibility: hidden;">
     <script>0</script>
     <div class="main-login">
-      <form method="post" action="/api/v1/login">
+      <form method="post" id="login-form" action="/api/v1/login">
         <div class="login-logo">
           <a href="/">
             <img class="selectDisable" src=assets/logos/cropped.png>
@@ -36,11 +36,95 @@
             </a>
           </button>
         </div>
+        <span class="loader" id="login-loader" style="display: none;"></span>
+        <div id="login-error" style="display: none; color: red; font-size: 15px;"></div>
       </form>
     </div>
   </body>
 </html>
 
+<script>
 
+document.addEventListener('DOMContentLoaded', () => {
+  const loginForm = document.getElementById('login-form');
+  const loaderDiv = document.getElementById('login-loader');
+  const errorDiv = document.getElementById('login-error');
+  const submitButton = loginForm.querySelector('input[type="submit"]');
 
+  if (loginForm) {
+    loginForm.addEventListener('submit', function (event) {
+      // Show the loader and disable the submit button
+      if (loaderDiv) {
+        loaderDiv.style.display = 'block';
+      }
+      if (submitButton) {
+        submitButton.disabled = true;
+      }
 
+      // Allow the form to submit as normal, but monitor its progress
+      event.preventDefault();
+      const formData = new FormData(loginForm);
+
+      let resp;
+
+      fetch(loginForm.action, {
+        method: 'POST',
+        body: formData,
+      })
+        .then(response => {
+          resp = response;
+          if (!response.ok) {
+            return response.json().then(data => {
+              // Throw structured error for handling
+              throw { status: response.status, message: data.error || 'An error occurred.' };
+            });
+          }
+
+          // If the request is successful, allow the browser to handle the redirect
+          window.location.href = response.url; // Let the redirect happen naturally
+        })
+        .catch(err => {
+          // Handle errors for 4xx and 5xx status codes
+          console.error('Error:', err);
+
+          // Display error message
+          if (errorDiv) {
+            errorDiv.innerHTML = `<span>${'Login error: ' + err.message || 'Err^2'}</span>`;
+            errorDiv.style.display = 'flex';
+          }
+
+          if (resp && resp.status == "404") {
+            regRef = document.createElement("button");
+            regRef.appendChild(document.createTextNode("Register?"));
+            regRef.addEventListener("click", function(event){
+              window.location.href = "/api/v1/register";
+              return;
+            });
+            errorDiv.appendChild(regRef);
+          }
+
+          // reset form
+          loginForm.reset();
+          // hide the error message after 15 seconds
+          setTimeout(() => {
+            if (errorDiv) {
+              errorDiv.style.display = 'none';
+              if (regRef) {
+                regRef.remove();
+              }
+            }
+          }, 15000);
+        })
+        .finally(() => {
+          // Hide the loader and re-enable the submit button
+          if (loaderDiv) {
+            loaderDiv.style.display = 'none';
+          }
+          if (submitButton) {
+            submitButton.disabled = false;
+          }
+        });
+    });
+  }
+});
+</script>

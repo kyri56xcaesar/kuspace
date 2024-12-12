@@ -110,6 +110,22 @@ func (srv *HTTPService) ServeHTTP() {
 				"message":  "your dashboard ",
 			})
 		})
+
+		verified.DELETE("/logout", AuthMiddleware("user, admin"), func(c *gin.Context) {
+			params := c.Request.URL.Query()
+
+			if params == nil {
+				c.JSON(http.StatusBadRequest, gin.H{"status": "no params specified"})
+				return
+			}
+
+			for key := range params {
+				// essentially overwrites and eventually gets the cookie deleted.
+				c.SetCookie(key, "", 1, "/api/v1/", "", false, true) // Set the username cookie
+			}
+			log.Print("cookies deleted")
+			c.Redirect(300, "/api/v1/login")
+		})
 	}
 
 	srv.Engine.NoRoute(func(c *gin.Context) {

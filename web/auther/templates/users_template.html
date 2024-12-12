@@ -8,6 +8,7 @@
         <th>Home</th>
         <th>Shell</th>
         <th>Group ID</th>
+        <th>Groups</th>
         <th>Actions</th>
       </tr>
     </thead>
@@ -20,6 +21,7 @@
         <td>{{ .Home }}</td>
         <td>{{ .Shell }}</td>
         <td>{{ .PrimaryGroup }}</td>
+        <td>{{ .Groups }}</td>
         <td>
           <button onclick="editUser('{{ .UserID }}')">Edit</button>
           <button onclick="deleteUser('{{ .UserID }}')">Delete</button>

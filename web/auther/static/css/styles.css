@@ -96,13 +96,12 @@ img {
 
 #presentation-target {
   height: 600px;
-  width: 800px;
   text-align: center;
   padding: 20px;
   margin: 100 auto;
 }
 
-#presentation-iframe {
+.presentation-iframe {
   height: 100%;
   width: 800px;
 }
@@ -211,17 +210,39 @@ img {
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
   text-align: center;
   width: 400px;
-  height: 450px;
+  height: 570px;
 
   margin: 15px;
 
+}
+
+#login-error, #register-error {
   display: flex;
   flex-direction: column;
-  justify-content: space-around;
+  justify-content: start;
+  align-items: center;
+  text-align: center;
+  padding: 30px;
+  gap: 10px;
+}
+
+#login-error button, #register-error button {
+  padding: 0.5rem 1rem;
+  background: #7bd0cb;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin: 10px;
+}
+
+#login-error button:hover, #register-error button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 15px rgba(117, 232, 225, 0.5);
 }
 
 .main-register form {
-  height: 600px;
+  height: 700px;
 }
 
 
@@ -364,5 +385,48 @@ img {
 }
 
 
+.loader {
+  width: 48px;
+  height: 48px;
+  background: #29B37F;
+  display: block;
+  margin: 20px auto;
+  position: relative;
+  box-sizing: border-box;
+  animation: rotationBack 1s ease-in-out infinite reverse;
+}
+.loader::before {
+  content: '';  
+  box-sizing: border-box;
+  left: 0;
+  top: 0;
+  transform: rotate(45deg);
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  background: #29B37F;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.15);
+}
+.loader::after {
+  content: '';  
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: #FFF;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.15);
+}
+@keyframes rotationBack {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(-360deg);
+  }
+}
 
 
