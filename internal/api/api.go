@@ -102,6 +102,9 @@ func (srv *HTTPService) ServeHTTP() {
 			})
 		})
 		verified.GET("/admin/fetch-users", srv.handleFetchUsers)
+		verified.POST("/admin/useradd", srv.handleUseradd)
+		verified.DELETE("/admin/userdel", srv.handleUserdel)
+		verified.PATCH("/admin/userpatch", srv.handleUserpatch)
 
 		verified.GET("/dashboard", AuthMiddleware("user, admin"), func(c *gin.Context) {
 			username, _ := c.Cookie("username")

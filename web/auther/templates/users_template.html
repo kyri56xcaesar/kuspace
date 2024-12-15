@@ -13,18 +13,22 @@
       </tr>
     </thead>
     <tbody id="users-body">
-      {{ range . }}
-      <tr>
-        <td>{{ .UserID }}</td>
-        <td>{{ .Username }}</td>
-        <td>**hashed**</td>
-        <td>{{ .Home }}</td>
-        <td>{{ .Shell }}</td>
-        <td>{{ .PrimaryGroup }}</td>
-        <td>{{ .Groups }}</td>
+      {{ range $index, $user := . }}
+      <tr id="table-{{ $index }}">
+        <td>{{ $user.Uid }}</td>
+        <td>{{ $user.Username }}</td>
+        <td>#$h4sh3d##</td>
+        <td>{{ $user.Home }}</td>
+        <td>{{ $user.Shell }}</td>
+        <td>{{ $user.Pgroup }}</td>
         <td>
-          <button onclick="editUser('{{ .UserID }}')">Edit</button>
-          <button onclick="deleteUser('{{ .UserID }}')">Delete</button>
+          {{ range $user.Groups }}
+            <span>{{ .Groupname }}</span><br>
+          {{ end }}
+        </td>
+        <td>
+          <button id="edit-btn-{{ $index }}" onclick="editUser('{{ $user.Uid }}', '{{ $index }}')">Edit</button>
+          <button id="delete-btn-{{ $index }}" onclick="deleteUser('{{ $user.Uid }}', '{{ $index }}')">Delete</button>
         </td>
       </tr>
       {{ end }}

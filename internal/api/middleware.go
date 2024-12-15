@@ -62,7 +62,7 @@ func AuthMiddleware(group string) gin.HandlerFunc {
 			return
 		}
 		//  Decode and verify the token (e.g., JWT validation)
-		req, err := http.NewRequest(http.MethodGet, authServiceURL+"/v1/user/me", nil)
+		req, err := http.NewRequest(http.MethodGet, authServiceURL+authVersion+"/user/me", nil)
 		if err != nil {
 			log.Printf("failed to create a new req: %v", err)
 			c.JSON(http.StatusInternalServerError, nil)
