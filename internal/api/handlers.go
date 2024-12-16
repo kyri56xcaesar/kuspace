@@ -273,6 +273,67 @@ func (srv *HTTPService) handleUserdel(c *gin.Context) {
 func (srv *HTTPService) handleUserpatch(c *gin.Context) {
 }
 
+func (srv *HTTPService) handleHasher(c *gin.Context) {
+	accessToken, err := c.Cookie("access_token")
+	if err != nil {
+		log.Printf("missing access_token cookie: %v", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var hashereq struct {
+		HashAlg  string `json:"hashalg"`
+		HashText string `json:"hash"`
+		Text     string `json:"text"`
+		HashCost int    `json:"hashcost"`
+	}
+
+	if err := c.ShouldBind(&hashereq); err != nil {
+		log.Printf("binding error: %v", err)
+		// Respond with the appropriate error on the template.
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad binding"})
+		return
+	}
+
+	req, err := http.NewRequest(http.MethodGet, authServiceURL+"/admin/hasher", c.Request.Body)
+	if err != nil {
+		log.Printf("failed to create request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	response, err := client.Do(req)
+	if err != nil {
+		log.Printf("failed to make request: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to fetch users"})
+		return
+	}
+	defer response.Body.Close()
+
+	var resp struct {
+		Result string `json:"result"`
+	}
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Printf("failed to read response body: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
+		return
+	}
+
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		log.Printf("failed to unmarshal response: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
+		return
+	}
+
+	// Render the HTML template
+	c.HTML(http.StatusOK, "hasher-results.html", resp)
+}
+
 func forwardPostRequest(destinationURI string, requestData interface{}) (*http.Response, error) {
 	// Marshal the request data into JSON
 	jsonData, err := json.Marshal(requestData)

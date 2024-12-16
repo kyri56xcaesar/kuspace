@@ -106,6 +106,11 @@ func (srv *HTTPService) ServeHTTP() {
 		verified.DELETE("/admin/userdel", srv.handleUserdel)
 		verified.PATCH("/admin/userpatch", srv.handleUserpatch)
 
+		verified.GET("/admin/hasher", func(c *gin.Context) {
+			c.HTML(http.StatusOK, "hasher.html", nil)
+		})
+		verified.POST("/admin/hasher", srv.handleHasher)
+
 		verified.GET("/dashboard", AuthMiddleware("user, admin"), func(c *gin.Context) {
 			username, _ := c.Cookie("username")
 			c.HTML(http.StatusOK, "dashboard.html", gin.H{

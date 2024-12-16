@@ -25,8 +25,10 @@ function editUser(uid, index) {
 
   const actionsCell = cells[cells.length - 1];
   actionsCell.innerHTML = `
-    <button id="submit-btn-${index}" onclick="submitUser(${index}, ${JSON.stringify(originalValues)})">Submit</button>
-    <button id="cancel-btn-${index}" onclick="cancelEdit(${index}, ${JSON.stringify(originalValues)})">Cancel</button>
+    <div id="actions-btns">
+      <button id="submit-btn-${index}" onclick='submitUser(${index}, ${JSON.stringify(originalValues).replace(/'/g, "\\'")})'>Submit</button>
+      <button id="cancel-btn-${index}" onclick='cancelEdit(${index}, ${JSON.stringify(originalValues).replace(/'/g, "\\'")})'>Cancel</button>
+    </div>
   `;
 }
 
@@ -35,13 +37,16 @@ function cancelEdit(index, originalValues) {
   if (!row) return;
 
   const cells = row.querySelectorAll('td');
-  for (let i = 0; i < cells.length - 1; i++) {
+  for (let i = 1; i < cells.length - 1; i++) {
     cells[i].innerHTML = originalValues[i];
   }
 
   const actionsCell = cells[cells.length - 1];
-  actionCell.innerHTML = `
-    <button id="edit-btn-${index}" onclick="editUser('${index}')">Edit</button>
+  actionsCell.innerHTML = `
+    <div id="actions-btns">
+      <button id="edit-btn-{{ $index }}" onclick='editUser("", ${index})'>Edit</button>
+      <button id="delete-btn-{{ $index }}" onclick="deleteUser('{{ $user.Uid }}', '{{ $index }}')">Delete</button>
+    </div>
   `
 }
 
@@ -110,5 +115,10 @@ function deleteUser(uid, index) {
   }
 }
 
-
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+  return '';
+}
 

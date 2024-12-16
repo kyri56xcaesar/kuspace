@@ -22,9 +22,8 @@
             <li><a href="#" onclick="showSection('users')">Manage Users</a></li>
         </ul>
         <button id="logout" class="logout-button">
-          <a hx-delete="/api/v1/verified/logout?access_token&refresh_token&username&groups" 
-            hx-swap="none" 
-            href="/api/v1/">⏼
+          <a hx-delete="/api/v1/verified/logout?access_token&refresh_token&username&groups" hx-swap="none" hx-trigger="click" href="/api/v1/">
+            ⏼
           </a>
         </button>
     </div>
@@ -45,14 +44,15 @@
                 <h2>Manage Users (this should be a portal to the auth service manager)</h2>
                 <p>Perform CRUD operations for users.</p>
                 <hr>
-                <div id="view-table-header"> 
-                  <h3>View existing users</h3>
-                  <button hx-trigger="click" hx-get="/api/v1/verified/admin/fetch-users" hx-target="#fetch-users-results" hx-swap="innerHTML">Reload</button>
-                </div>
-                <div hx-trigger="load" hx-get="/api/v1/verified/admin/fetch-users" hx-target="#fetch-users-results" hx-swap="innerHTML" id="fetch-users-results"></div>
+                <div id="fetch-users-results" hx-trigger="load" hx-get="/api/v1/verified/admin/fetch-users" hx-target="#fetch-users-results" hx-swap="innerHTML"></div>
                 <hr>
-                <div id="add-user-div">
+                <div id="hashing-tool-target" hx-trigger="load" hx-get="/api/v1/verified/admin/hasher" hx-target="#hashing-tool-target" hx-swap="innerHTML"></div>            
+                <hr>
+                <div id="add-user-div" class="admin-panel">
                   <h3>Add a new user</h3>
+                  <div class="info" style=" border-left: 6px solid #2196F3; font-size: 15px; margin-bottom: 15px;">
+                    <p><strong>Info!</strong> Keep in mind the password inserted from here is not hashed furtherly </p>
+                  </div>
                     <form id="add-user-form">
                         <div class="form-group">
                           <label for="username">Username:</label>

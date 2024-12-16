@@ -208,7 +208,6 @@ form input, form button {
   display: flex;
   flex-direction: row;
   gap: 15px;
-  padding: 1rem;
 }
 
 #add-user-div {
@@ -295,6 +294,7 @@ form input, form button {
 
 /* Table Styling */
 #all-users-table {
+    
     width: 100%;
     border-collapse: collapse;
     background-color: #f9f9f9;
@@ -303,24 +303,33 @@ form input, form button {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+#all-users-table th,
+#all-users-table td {
+  overflow: hidden; /* Prevents overflowing content */
+  text-overflow: ellipsis; /* Adds ellipsis for truncated text */
+  white-space: nowrap; /* Prevents wrapping */
+  padding: 8px;
+  text-align: left;
+}
+
 #all-users-table th {
     border: 1px solid #ddd;
     padding: 0.75rem 1rem;
-    text-align: center;
+    /*text-align: center;*/
+    
+    background-color: #333;
+    color: white;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+
 }
 
 #all-users-table td {
     border: 1px solid #ddd;
     padding: 0.75rem 1rem;
     text-align: left;
-}
-
-
-#all-users-table th {
-    background-color: #333;
-    color: white;
-    text-transform: uppercase;
-    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    width: 180px;
 }
 
 #all-users-table tbody tr:hover {
@@ -334,4 +343,120 @@ form input, form button {
     align-items: center;
 }
 
+/* Make the input fields fit seamlessly into the cells */
+#all-users-table td input {
+  width: 100%; /* Match the cell width */
+  height: 100%; /* Match the cell height */
+  box-sizing: border-box; /* Include padding and border in width/height */
+  font-size: inherit; /* Match the cell text size */
+  border: 1px solid #ccc; /* Light border for distinction */
+  transition: all 0.3s ease; /* Smooth transition */
+}
+
+
+#all-users-table td button {
+  width: 70px;
+}
+
+#actions-btns {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-evenly;
+  padding: 10px;
+  gap: 5px;
+}
+
+.admin-panel {
+  padding: 1rem;
+}
+
+#hashing-tool {
+  min-height: 200px;
+}
+
+#hasher-body{
+  display: flex; 
+  gap: 50px;
+}
+
+.hasher-content-header {
+}
+
+.hasher-content {
+  width: 100%;
+  padding: 20px;
+  border: 1px solid cadetblue;
+  border-radius: 5px;
+}
+
+.hasher-content-inside {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.hasher-content-inside label {
+  margin-right: 10px;
+}
+
+.hasher-content-inside input {
+  flex: 2;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: border-color 0.3s ease;
+}
+
+.hasher-content-inside input["text"] {
+  width: 150px;
+  border-radius: 5px;
+}
+
+#vhash {
+  display: flex;
+  flex-direction: row;
+}
+
+#inp-text-2 {
+  margin-left: 5px;
+}
+
+/* Ensure form inputs retain the same styles */
+.hasher-content-inside input,
+.hasher-content-inside select {
+  flex: 2;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: border-color 0.3s ease;
+}
+
+/* Style the submit button for forms (if used) */
+.hasher-content-inside button {
+  padding: 10px 15px;
+  border: 1px solid cadetblue;
+  background-color: #f0f8ff;
+  color: cadetblue;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.hasher-content-inside button:hover {
+  background-color: cadetblue;
+  color: #fff;
+}
+
+/* Maintain alignment inside vhash */
+#vhash {
+  display: flex;
+  flex-direction: row;
+}
+
+#inp-text-2 {
+  margin-left: 5px;
+}
 

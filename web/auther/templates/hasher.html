@@ -1,0 +1,68 @@
+<div id="hashing-tool" class="admin-panel">
+  <div id="hasher-header" class="content-header">
+    <h3>Hashing Tool</h3>
+  </div>
+  <div id="hasher-body">
+    <div class="hasher-content">
+      <div class="hasher-content-header">
+        <h5>Generate hash</h5>
+      </div>
+      <hr>
+      <div class="hasher-content-inside">
+        <div>
+          <label for="inp-text">Text:</label>
+          <input 
+            type="text" 
+            id="inp-text" 
+            name="text" 
+            placeholder="Type..."
+          >
+
+          <label style="margin-left: 15px;" for="inp-hashalg">Algo:</label>
+          <select id="inp-hashalg" name="inp-hashalg">
+            <!--<option value="sha256">SHA-256</option>
+            <option value="sha512">SHA-512</option>-->
+            <option value="bcrypt">Bcrypt</option>
+          </select>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <div style="width: 30%";><span id="result">Hash: <span id="generated-hash"></span></span></div>
+          
+          <div style="width: 54%;"><button 
+            id="gen-btn"
+            type="submit" 
+            hx-post="/api/v1/verified/admin/hasher"
+            hx-headers='{"Authorization": "Bearer " + getCookie("access_token")}'
+            hx-target="#result"
+            hx-swap="innerHTML"
+            hx-trigger="keyup delay:500ms, keydown[enter]"
+          >Generate</button>
+          </div>
+        </div>  
+      </div>
+    </div>
+ 
+    <div class="hasher-content">
+      <div class="hasher-content-header">
+        <h5>Verify hash</h5>
+      </div>
+      <hr>
+      <div id="vhash" class="hasher-content-inside">
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+          <div>  
+            <label for="inp-text-2">Text: </label>
+            <input type="text" id="inp-text-2" name="inp-text-2" placeholder="Text to verify...">
+          </div>
+          <div>
+            <label for="inp-hash">Hash:</label>
+            <input type="text" id="inp-hash" name="inp-hash" placeholder="Hash to verify...">
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; justify-content: space-between;">
+          <span id="result-2" style="display: block; margin-top: 5px;">->:<span id="verify-result"></span></span>
+          <button type="submit">Verify</button>
+        </div>  
+      </div>
+    </div>
+  </div>
+

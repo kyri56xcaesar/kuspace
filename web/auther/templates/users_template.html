@@ -1,4 +1,9 @@
+
 <div id="users-result-container" style="padding: 1rem;">
+  <div id="view-table-header"> 
+    <h3>View existing users</h3>
+    <button hx-trigger="click" hx-get="/api/v1/verified/admin/fetch-users" hx-target="#fetch-users-results" hx-swap="innerHTML">Reload</button>
+  </div>
   <table id="all-users-table" border="1" style="width: 100%; border-collapse: collapse;">
     <thead>
       <tr>
@@ -27,8 +32,10 @@
           {{ end }}
         </td>
         <td>
-          <button id="edit-btn-{{ $index }}" onclick="editUser('{{ $user.Uid }}', '{{ $index }}')">Edit</button>
-          <button id="delete-btn-{{ $index }}" onclick="deleteUser('{{ $user.Uid }}', '{{ $index }}')">Delete</button>
+          <div id="actions-btns">
+            <button id="edit-btn-{{ $index }}" onclick="editUser('{{ $user.Uid }}', '{{ $index }}')">Edit</button>
+            <button id="delete-btn-{{ $index }}" onclick="deleteUser('{{ $user.Uid }}', '{{ $index }}')">Delete</button>
+          </div>
         </td>
       </tr>
       {{ end }}
