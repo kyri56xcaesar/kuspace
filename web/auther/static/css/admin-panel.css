@@ -53,7 +53,11 @@ form input, form button {
   border: 2px solid gray;
 }
 
-.sidebar ul {
+.menu > hr {
+  width: 100%;
+}
+
+.sidebar > ul {
     list-style: none;
     padding: 0;
     margin: 0;
@@ -111,6 +115,14 @@ form input, form button {
     /*transform: scale(1.1); /* Slight enlarge effect */
     color: #fff;
 }
+
+
+.submenu {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
 
 
 
@@ -210,12 +222,16 @@ form input, form button {
   gap: 15px;
 }
 
-#add-user-div {
+#add-user-div, #add-group-div {
   padding: 1rem;
 }
 
+#add-group-div {
+  width: 500px;
+}
+
 /* add user form container */
-#add-user-form {
+#add-user-form, #add-group-form {
   display: flex;
   flex-direction: row;
   justify-content: center;
@@ -271,7 +287,7 @@ form input, form button {
 }
 
 /* Submit Button */
-#add-user-form button {
+#add-user-form button, #add-group-form button {
   align-self: center;
   padding: 10px 20px;
   background-color: #007bff;
@@ -284,7 +300,7 @@ form input, form button {
   width: 120px;
 }
 
-#add-user-form button:hover {
+#add-user-form button:hover, #add-group-form button:hover {
   background-color: #0056b3;
   transform: scale(1.05);
 }
@@ -293,7 +309,7 @@ form input, form button {
 
 
 /* Table Styling */
-#all-users-table {
+#all-users-table, #all-groups-table {
     
     width: 100%;
     border-collapse: collapse;
@@ -304,7 +320,9 @@ form input, form button {
 }
 
 #all-users-table th,
-#all-users-table td {
+#all-users-table td,
+#all-groups-table th,
+#all-groups-table td {
   overflow: hidden; /* Prevents overflowing content */
   text-overflow: ellipsis; /* Adds ellipsis for truncated text */
   white-space: nowrap; /* Prevents wrapping */
@@ -312,7 +330,7 @@ form input, form button {
   text-align: left;
 }
 
-#all-users-table th {
+#all-users-table th, #all-groups-table th {
     border: 1px solid #ddd;
     padding: 0.75rem 1rem;
     /*text-align: center;*/
@@ -324,7 +342,7 @@ form input, form button {
 
 }
 
-#all-users-table td {
+#all-users-table td, #all-groups-table td {
     border: 1px solid #ddd;
     padding: 0.75rem 1rem;
     text-align: left;
@@ -332,7 +350,7 @@ form input, form button {
     width: 180px;
 }
 
-#all-users-table tbody tr:hover {
+#all-users-table tbody tr:hover, #all-groups-table tbody tr:hover {
     background-color: #f1f1f1;
     cursor: pointer;
 }
@@ -344,7 +362,7 @@ form input, form button {
 }
 
 /* Make the input fields fit seamlessly into the cells */
-#all-users-table td input {
+#all-users-table td input, #all-groups-table td input {
   width: 100%; /* Match the cell width */
   height: 100%; /* Match the cell height */
   box-sizing: border-box; /* Include padding and border in width/height */
@@ -354,7 +372,7 @@ form input, form button {
 }
 
 
-#all-users-table td button {
+#all-users-table td button, #all-groups-table td button {
   width: 70px;
 }
 
@@ -386,13 +404,52 @@ form input, form button {
   width: 100%;
   padding: 20px;
   border: 1px solid cadetblue;
-  border-radius: 5px;
+  border-radius: 10px;
+  background-color: #f9f9f9;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .hasher-content-inside {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  justify-content: space-between;
   gap: 15px;
+}
+
+
+#hasher-content-gen-left {
+  width: 50%;
+}
+
+#hasher-content-gen-right {
+
+}
+
+.hasher-content-gen {
+  display: flex; 
+  flex-direction: column; 
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hasher-content-v {
+  display: flex; 
+  flex-direction: column; 
+  justify-content: space-between;
+  gap: 10px;
+
+}
+
+#hasher-content-v-left {
+  width: 50%;
+}
+
+#hasher-content-v-right {
+}
+
+.hasher-inp {
+  display: flex;
+  align-items: center;
 }
 
 .hasher-content-inside label {
@@ -460,3 +517,74 @@ form input, form button {
   margin-left: 5px;
 }
 
+#result-2 {
+  display: block; 
+  margin-top: 5px;
+}
+
+#result {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+}
+
+#result span, #verify-result {
+  display: block; /* Ensures proper spacing */
+  word-wrap: break-word; /* Breaks long words to the next line */
+  overflow-wrap: anywhere; /* Forces breaks at appropriate points */
+  max-width: 100%; /* Prevents overflow */
+  white-space: pre-wrap; /* Preserves spacing but allows wrapping */
+}
+
+#generated-hash {
+  overflow-x: auto; /* Adds a horizontal scroll if content overflows */
+  display: inline-block; /* Keeps text inline but scrollable */
+  padding: 5px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background-color: #f8f8f8; /* Light background for visibility */
+}
+
+#verify-result {
+  font-weight: bold;
+}
+
+#verify-result.true {
+  color: green;
+}
+
+#verify-result.false {
+  color: red;
+}
+
+#copy-btn {
+  border: none; /* Remove border */
+  background: none; /* Remove background */
+  padding: 5px; /* Add some padding for spacing */
+  cursor: pointer; /* Change cursor to indicate it's clickable */
+  font-size: 1.2rem; /* Make the icon visible but not too large */
+  margin-left: 10px; /* Add spacing between the hash and the button */
+  color: #555; /* Default icon color */
+  transition: color 0.3s ease; /* Smooth color transition */
+}
+
+#copy-btn:hover {
+  color: #000; /* Change color on hover */
+}
+
+#copy-btn:focus {
+  outline: none; /* Remove focus outline */
+}
+
+#copy-btn:active {
+  transform: scale(0.9); /* Slightly scale down on click */
+}
+
+.table-input {
+  border-radius: 5px;
+}
+
+.table-input:hover {
+  border: 2px solid cadetblue;
+}

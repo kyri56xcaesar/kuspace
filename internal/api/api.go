@@ -82,6 +82,22 @@ func (srv *HTTPService) ServeHTTP() {
 		})
 		apiV1.POST("/register", srv.handleRegister)
 
+		apiV1.DELETE("/logout", func(c *gin.Context) {
+			params := c.Request.URL.Query()
+
+			if params == nil {
+				c.JSON(http.StatusBadRequest, gin.H{"status": "no params specified"})
+				return
+			}
+
+			for key := range params {
+				// essentially overwrites and eventually gets the cookie deleted.
+				c.SetCookie(key, "", 1, "/api/v1/", "", false, true) // Set the username cookie
+			}
+			log.Print("cookies deleted")
+			c.Redirect(300, "/api/v1/login")
+		})
+
 	}
 
 	oauth := apiV1.Group("/auth")
@@ -102,12 +118,13 @@ func (srv *HTTPService) ServeHTTP() {
 			})
 		})
 		verified.GET("/admin/fetch-users", srv.handleFetchUsers)
+		verified.GET("/admin/fetch-groups", srv.handleFetchGroups)
 		verified.POST("/admin/useradd", srv.handleUseradd)
 		verified.DELETE("/admin/userdel", srv.handleUserdel)
 		verified.PATCH("/admin/userpatch", srv.handleUserpatch)
 
 		verified.GET("/admin/hasher", func(c *gin.Context) {
-			c.HTML(http.StatusOK, "hasher.html", nil)
+			c.HTML(http.StatusOK, "hasher_template.html", nil)
 		})
 		verified.POST("/admin/hasher", srv.handleHasher)
 
@@ -117,22 +134,6 @@ func (srv *HTTPService) ServeHTTP() {
 				"username": username,
 				"message":  "your dashboard ",
 			})
-		})
-
-		verified.DELETE("/logout", AuthMiddleware("user, admin"), func(c *gin.Context) {
-			params := c.Request.URL.Query()
-
-			if params == nil {
-				c.JSON(http.StatusBadRequest, gin.H{"status": "no params specified"})
-				return
-			}
-
-			for key := range params {
-				// essentially overwrites and eventually gets the cookie deleted.
-				c.SetCookie(key, "", 1, "/api/v1/", "", false, true) // Set the username cookie
-			}
-			log.Print("cookies deleted")
-			c.Redirect(300, "/api/v1/login")
 		})
 	}
 

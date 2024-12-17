@@ -1,0 +1,42 @@
+<div id="groups-result-container" style="padding: 1rem;">
+  <div id="view-table-header"> 
+    <h3>View existing groups</h3>
+    <button 
+      id="reload-btn"
+      hx-trigger="click" 
+      hx-get="/api/v1/verified/admin/fetch-groups" 
+      hx-target="#fetch-groups-results" 
+      hx-swap="innerHTML"
+    >Reload</button>
+  </div>
+  <table id="all-groups-table" border="1" style="width: 100%; border-collapse: collapse;">
+    <thead>
+      <tr>
+        <th>Group ID</th>
+        <th>Group Name</th>
+        <th>Users</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="users-body">
+      {{ range $index, $group := . }}
+      <tr id="table-{{ $index }}">
+        <td>{{ $group.Gid }}</td>
+        <td>{{ $group.Groupname }}</td>
+        <td>
+          {{ range $group.Users }}
+            <span>{{ .Username }} </span>
+          {{ end }}
+        </td>
+        <td>
+          <div id="actions-btns">
+        
+          </div>
+        </td>
+      </tr>
+      {{ end }}
+    </tbody>
+  </table>
+</div>
+
+

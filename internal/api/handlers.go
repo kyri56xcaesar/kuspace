@@ -58,13 +58,14 @@ type RegClaim struct {
 }
 
 type User struct {
-	Username string  `json:"username"`
-	Info     string  `json:"info"`
-	Home     string  `json:"home"`
-	Shell    string  `json:"shell"`
-	Groups   []Group `json:"groups"`
-	Uid      int     `json:"uid"`
-	Pgroup   int     `json:"pgroup"`
+	Username string   `json:"username"`
+	Info     string   `json:"info"`
+	Home     string   `json:"home"`
+	Shell    string   `json:"shell"`
+	Password Password `json:"password"`
+	Groups   []Group  `json:"groups"`
+	Uid      int      `json:"uid"`
+	Pgroup   int      `json:"pgroup"`
 }
 
 type Password struct {
@@ -95,7 +96,7 @@ func (srv *HTTPService) handleLogin(c *gin.Context) {
 	}
 
 	// Forward login request to the auth service
-	resp, err := forwardPostRequest(authServiceURL+authVersion+"/login", login)
+	resp, err := forwardPostRequest(authServiceURL+authVersion+"/login", "", login)
 	if err != nil {
 		log.Printf("Error forwarding login request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "forwarding fail"})
@@ -172,7 +173,7 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 		},
 	}
 	// Forward login request to the auth service
-	resp, err := forwardPostRequest(authServiceURL+authVersion+"/register", gin.H{
+	resp, err := forwardPostRequest(authServiceURL+authVersion+"/register", "", gin.H{
 		"user": data,
 	})
 	if err != nil {
@@ -264,13 +265,240 @@ func (srv *HTTPService) handleFetchUsers(c *gin.Context) {
 	c.HTML(http.StatusOK, "users_template.html", resp.Content)
 }
 
+func (srv *HTTPService) handleFetchGroups(c *gin.Context) {
+	accessToken, err := c.Cookie("access_token")
+	if err != nil {
+		log.Printf("missing access_token cookie: %v", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	req, err := http.NewRequest(http.MethodGet, authServiceURL+"/admin/groups", nil)
+	if err != nil {
+		log.Printf("failed to create request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	response, err := client.Do(req)
+	if err != nil {
+		log.Printf("failed to make request: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to fetch users"})
+		return
+	}
+	defer response.Body.Close()
+
+	var resp struct {
+		Content []Group `json:"content"`
+	}
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Printf("failed to read response body: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
+		return
+	}
+
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		log.Printf("failed to unmarshal response: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
+		return
+	}
+
+	// Render the HTML template
+	c.HTML(http.StatusOK, "groups_template.html", resp.Content)
+}
+
 func (srv *HTTPService) handleUseradd(c *gin.Context) {
+	accessToken, err := c.Cookie("access_token")
+	if err != nil {
+		log.Printf("missing access_token cookie: %v", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	var reg struct {
+		Username string `form:"username" json:"username"`
+		Password string `form:"password" json:"password"`
+		Email    string `form:"email" json:"email"`
+		Home     string `form:"home" json:"home"`
+	}
+
+	if err := c.ShouldBind(&reg); err != nil {
+		log.Printf("Register binding error: %v", err)
+		// Respond with the appropriate error on the template.
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Register binding"})
+		return
+	}
+
+	data := RegClaim{
+		Username: reg.Username,
+		Info:     reg.Email,
+		Home:     "/home/" + reg.Username,
+		Shell:    "gshell",
+		Password: PassClaim{
+			Hashpass: reg.Password,
+		},
+	}
+	// Forward login request to the auth service
+	resp, err := forwardPostRequest(authServiceURL+authVersion+"/register", accessToken, gin.H{
+		"user": data,
+	})
+	if err != nil {
+		log.Printf("Error forwarding register request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "forwarding fail"})
+		return
+
+	}
+	defer resp.Body.Close()
+
+	// Check the response status from the auth service
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Auth service returned status: %v", resp.Status)
+		var ErrResp struct {
+			Error string `json:"error"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&ErrResp); err != nil {
+			log.Printf("Error decoding auth err response: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "serious"})
+			return
+		}
+
+		c.JSON(resp.StatusCode, ErrResp)
+		return
+	}
 }
 
 func (srv *HTTPService) handleUserdel(c *gin.Context) {
+	accessToken, err := c.Cookie("access_token")
+	if err != nil {
+		log.Printf("missing access_token cookie: %v", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	uid := c.Request.URL.Query().Get("uid")
+	if uid == "" {
+		log.Printf("missing uid parameter, must provide...")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing uid param"})
+		return
+	}
+	req, err := http.NewRequest(http.MethodDelete, authServiceURL+"/admin/userdel?uid="+uid, nil)
+	if err != nil {
+		log.Printf("failed to create request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	response, err := client.Do(req)
+	if err != nil {
+		log.Printf("failed to make request: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to delete user"})
+		return
+	}
+	defer response.Body.Close()
+
+	var resp struct {
+		Message string `json:"message"`
+	}
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Printf("failed to read response body: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
+		return
+	}
+
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		log.Printf("failed to unmarshal response: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
+		return
+	}
+
+	// Render the HTML template
+	c.String(http.StatusOK, "%v", resp.Message)
 }
 
 func (srv *HTTPService) handleUserpatch(c *gin.Context) {
+	accessToken, err := c.Cookie("access_token")
+	if err != nil {
+		log.Printf("missing access_token cookie: %v", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var rq struct {
+		Uid      string `json:"uid"`
+		Username string `json:"username"`
+		Password string `json:"password"`
+		Home     string `json:"home"`
+		Shell    string `json:"shell"`
+		Gid      string `json:"gid"`
+		Groups   string `json:"groups"`
+	}
+
+	if err := c.ShouldBind(&rq); err != nil {
+		log.Printf("binding error: %v", err)
+		// Respond with the appropriate error on the template.
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad binding"})
+		return
+	}
+
+	jsonRq, err := json.Marshal(&rq)
+	if err != nil {
+		log.Printf("error marshalling req body: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error marshalling"})
+		return
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, authServiceURL+"/admin/userpatch", bytes.NewBuffer(jsonRq))
+	if err != nil {
+		log.Printf("failed to create request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	response, err := client.Do(req)
+	if err != nil {
+		log.Printf("failed to make request: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to delete user"})
+		return
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode >= 300 {
+		log.Printf("request failed with code: %v", response.Status)
+		c.JSON(response.StatusCode, gin.H{"error": "patch failed"})
+		return
+	}
+
+	var resp struct {
+		Message string `json:"message"`
+	}
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Printf("failed to read response body: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
+		return
+	}
+
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		log.Printf("failed to unmarshal response: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
+		return
+	}
+
+	// Render the HTML template
+	c.String(http.StatusOK, "%v", resp.Message)
 }
 
 func (srv *HTTPService) handleHasher(c *gin.Context) {
@@ -282,10 +510,10 @@ func (srv *HTTPService) handleHasher(c *gin.Context) {
 	}
 
 	var hashereq struct {
-		HashAlg  string `json:"hashalg"`
-		HashText string `json:"hash"`
-		Text     string `json:"text"`
-		HashCost int    `json:"hashcost"`
+		HashAlg  string `json:"hashalg" form:"hashalg"`
+		HashText string `json:"hash" form:"hash"`
+		Text     string `json:"text" form:"text"`
+		HashCost int    `json:"hashcost" form:"hashcost"`
 	}
 
 	if err := c.ShouldBind(&hashereq); err != nil {
@@ -295,7 +523,19 @@ func (srv *HTTPService) handleHasher(c *gin.Context) {
 		return
 	}
 
-	req, err := http.NewRequest(http.MethodGet, authServiceURL+"/admin/hasher", c.Request.Body)
+	if hashereq.Text == "" && hashereq.HashText == "" {
+		log.Printf("empty request.. shoulnd't be here..")
+		c.JSON(400, gin.H{"error": "empty request.."})
+		return
+	}
+
+	jsonData, err := json.Marshal(hashereq)
+	if err != nil {
+		log.Printf("error marshalling request data: %v", err)
+		c.JSON(500, gin.H{"error": "failed to marshal"})
+		return
+	}
+	req, err := http.NewRequest(http.MethodPost, authServiceURL+"/admin/hasher", bytes.NewBuffer(jsonData))
 	if err != nil {
 		log.Printf("failed to create request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
@@ -331,10 +571,10 @@ func (srv *HTTPService) handleHasher(c *gin.Context) {
 	}
 
 	// Render the HTML template
-	c.HTML(http.StatusOK, "hasher-results.html", resp)
+	c.String(http.StatusOK, "%v", resp.Result)
 }
 
-func forwardPostRequest(destinationURI string, requestData interface{}) (*http.Response, error) {
+func forwardPostRequest(destinationURI string, accessToken string, requestData interface{}) (*http.Response, error) {
 	// Marshal the request data into JSON
 	jsonData, err := json.Marshal(requestData)
 	if err != nil {
@@ -347,6 +587,7 @@ func forwardPostRequest(destinationURI string, requestData interface{}) (*http.R
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+accessToken)
 
 	// Use an HTTP client to send the request
 	client := &http.Client{Timeout: 10 * time.Second}

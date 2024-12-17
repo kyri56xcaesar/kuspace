@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -15,14 +15,49 @@
     <!-- Sidebar -->
     <div id="sidebar" class="sidebar">
         <button id="toggle-sidebar" class="sidebar-toggle">☰</button>
-        <ul>
-            <li><a href="#" onclick="showSection('dashboard')">Dashboard</a></li>
-            <li><a href="#" onclick="showSection('resources')">Manage Resources</a></li>
-            <li><a href="#" onclick="showSection('jobs')">Manage Jobs</a></li>
-            <li><a href="#" onclick="showSection('users')">Manage Users</a></li>
+        <ul class="menu">
+            <li>
+              <a href="#" onclick="showSection('dashboard')">Dashboard</a>
+              <ul class="submenu">
+                <p></p>
+              </ul>              
+            </li>
+            <hr>
+            <li>
+              <a href="#" onclick="showSection('resources')">Manage Resources</a>
+              <ul class="submenu">
+                <p></p>
+              </ul>
+            </li>
+            <hr>
+            <li>
+              <a href="#" onclick="showSection('jobs')">Manage Jobs</a>
+              <ul class="submenu">
+                <p></p>
+              </ul> 
+            </li>
+            <hr>
+            <li>
+              <a href="#" onclick="showSection('users')">Manage Users</a>
+              <ul class="submenu">
+                <p></p>
+              </ul>
+            </li>
+            <hr>
+            <li>
+              <a href="#" onclick="showSection('groups')">Manage Groups</a>
+              <ul class="submenu">
+                <p></p>
+              </ul>
+            </li>
+            <hr>
         </ul>
         <button id="logout" class="logout-button">
-          <a hx-delete="/api/v1/verified/logout?access_token&refresh_token&username&groups" hx-swap="none" hx-trigger="click" href="/api/v1/">
+          <a id="logout-a"
+            hx-delete="/api/v1/logout?access_token&refresh_token&username&groups" 
+            hx-swap="none" 
+            hx-trigger="click" 
+            href="/api/v1/login">
             ⏼
           </a>
         </button>
@@ -40,44 +75,103 @@
                 <p>This is the dashboard where you can use the system as a user.</p>
             </section>
 
+            <!-- users -->
             <section id="users" class="content-section hidden">
-                <h2>Manage Users (this should be a portal to the auth service manager)</h2>
-                <p>Perform CRUD operations for users.</p>
+                <h2>Manage Users </h2>
+                <p>Perform CRUD operations on users.</p>
                 <hr>
-                <div id="fetch-users-results" hx-trigger="load" hx-get="/api/v1/verified/admin/fetch-users" hx-target="#fetch-users-results" hx-swap="innerHTML"></div>
-                <hr>
-                <div id="hashing-tool-target" hx-trigger="load" hx-get="/api/v1/verified/admin/hasher" hx-target="#hashing-tool-target" hx-swap="innerHTML"></div>            
+                <div 
+                  id="fetch-users-results" 
+                  hx-trigger="load" 
+                  hx-get="/api/v1/verified/admin/fetch-users" 
+                  hx-target="this" 
+                  hx-swap="innerHTML"
+                ></div>
                 <hr>
                 <div id="add-user-div" class="admin-panel">
                   <h3>Add a new user</h3>
                   <div class="info" style=" border-left: 6px solid #2196F3; font-size: 15px; margin-bottom: 15px;">
-                    <p><strong>Info!</strong> Keep in mind the password inserted from here is not hashed furtherly </p>
+                    <p><strong>Info!</strong> Keep in mind the password inserted from here will be hashed internally </p>
                   </div>
-                    <form id="add-user-form">
+                    <form 
+                      id="add-user-form"
+                      hx-post="/api/v1/verified/admin/useradd"
+                      hx-swap="none" 
+                      hx-trigger="submit" 
+                      hx-target=""
+                    >
                         <div class="form-group">
                           <label for="username">Username:</label>
                           <input type="text" id="username" name="username" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
                         </div>
                         <div class="form-group">
                           <label for="password">Password:</label>
-                          <input type="password" id="password" name="password" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
+                          <input type="text" id="password" name="password" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
                         </div>
                         <div class="form-group">
                           <label for="email">Email:</label>
-                          <input type="email" id="email" name="email">
+                          <input type="email" id="email" name="email" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
                         </div>
                         <div class="form-group">
                           <label for="home">Home:</label>
-                          <input type="text" id="home" name="home">
+                          <input type="text" id="home" name="home" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
                         </div>
                       <div class="c-group">                  
-                        <button hx-post="/api/v1/verified/admin/adduser" type="submit">Add User</button>
+                        <button type="submit">
+                          Add User
+                        </button>
                       </div>
                     </form>
                 </div>
+                <hr>
+                <div 
+                  id="hashing-tool-target" 
+                  hx-trigger="load" 
+                  hx-get="/api/v1/verified/admin/hasher" 
+                  hx-target="this" 
+                  hx-swap="innerHTML"
+                ></div>            
 
             </section>
+            <!-- users -->
+            <section id="groups" class="content-section hidden">
+                <h2>Manage Groups </h2>
+                <p>Perform CRUD operations on groups.</p>
+                <hr>
+                <div 
+                  id="fetch-groups-results" 
+                  hx-trigger="load" 
+                  hx-get="/api/v1/verified/admin/fetch-groups" 
+                  hx-target="this" 
+                  hx-swap="innerHTML"
+                ></div>
+                <hr>
+                <div id="add-group-div" class="admin-panel">
+                  <h3>Add a new group</h3>
+                  <div class="info" style=" border-left: 6px solid #2196F3; font-size: 15px; margin-bottom: 15px;">
+                    <p><strong>Info!</strong> This will be updated </p>
+                  </div>
+                  <form 
+                    id="add-group-form"
+                    hx-post="/api/v1/verified/admin/groupadd"
+                    hx-swap="none" 
+                    hx-trigger="submit" 
+                    hx-target=""
+                  >
+                    <div class="form-group">
+                      <label for="groupname">Groupname:</label>
+                      <input type="text" id="groupname" name="groupname" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
+                    </div>
+                    <div class="c-group">                  
+                      <button type="submit">
+                        Add Group
+                      </button>
+                    </div>
+                  </form>
+                </div>
 
+            </section>
+            <!-- resources -->
             <section id="resources" class="content-section hidden">
                 <h2>Manage Resources</h2>
                 <p>View and adjust resource quotas.</p>
@@ -126,16 +220,4 @@
 </body>
 </html>
 
-<script>
-  document.body.addEventListener('htmx:afterRequest', function (event) {
-    if (event.detail.xhr.status >= 300 && event.detail.xhr.status < 400) {
-      const redirectLocation = event.detail.xhr.getResponseHeader("Location");
-      if (redirectLocation) {
-        window.location.href = redirectLocation;
-      } else {
-        console.error("Redirect location not found in the response.");
-      }
-    }
-  });
-</script>
 

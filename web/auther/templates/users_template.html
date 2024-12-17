@@ -1,8 +1,13 @@
-
 <div id="users-result-container" style="padding: 1rem;">
   <div id="view-table-header"> 
     <h3>View existing users</h3>
-    <button hx-trigger="click" hx-get="/api/v1/verified/admin/fetch-users" hx-target="#fetch-users-results" hx-swap="innerHTML">Reload</button>
+    <button 
+      id="reload-btn"
+      hx-trigger="click" 
+      hx-get="/api/v1/verified/admin/fetch-users" 
+      hx-target="#fetch-users-results" 
+      hx-swap="innerHTML"
+    >Reload</button>
   </div>
   <table id="all-users-table" border="1" style="width: 100%; border-collapse: collapse;">
     <thead>
@@ -22,19 +27,26 @@
       <tr id="table-{{ $index }}">
         <td>{{ $user.Uid }}</td>
         <td>{{ $user.Username }}</td>
-        <td>#$h4sh3d##</td>
+        <td>{{ $user.Password.Hashpass }}</td>
         <td>{{ $user.Home }}</td>
         <td>{{ $user.Shell }}</td>
         <td>{{ $user.Pgroup }}</td>
         <td>
           {{ range $user.Groups }}
-            <span>{{ .Groupname }}</span><br>
+            <span>{{ .Groupname }} </span>
           {{ end }}
         </td>
         <td>
           <div id="actions-btns">
             <button id="edit-btn-{{ $index }}" onclick="editUser('{{ $user.Uid }}', '{{ $index }}')">Edit</button>
-            <button id="delete-btn-{{ $index }}" onclick="deleteUser('{{ $user.Uid }}', '{{ $index }}')">Delete</button>
+            <button 
+              id="delete-btn-{{ $index }}"
+              hx-delete="/api/v1/verified/admin/userdel?uid={{ .Uid }}"
+              hx-swap="none"
+              hx-trigger="click"
+              hx-target="#table-{{ $index }}"
+              hx-confirm="Are you sure you want to delete user {{ .Uid }}?"
+            > Delete</button>
           </div>
         </td>
       </tr>

@@ -8,15 +8,21 @@ function editUser(uid, index) {
 
   const originalValues = {};
 
-  for (let i = 1; i < cells.length - 1; i++) {
+  for (let i = 0; i < cells.length - 1; i++) {
     const cell = cells[i];
     const originalText = cell.textContent.trim();
 
     originalValues[i] = originalText;
 
+    if (i == 0) {
+      continue;
+    }
+
     const input = document.createElement('input');
     input.type = 'text';
     //input.value = originalText;
+    input.id = 'edit-input-'+i;
+    input.classList.add("table-input");
     input.placeholder = originalText;
     input.dataset.index = i;
     cell.innerHTML = '';
@@ -26,10 +32,28 @@ function editUser(uid, index) {
   const actionsCell = cells[cells.length - 1];
   actionsCell.innerHTML = `
     <div id="actions-btns">
-      <button id="submit-btn-${index}" onclick='submitUser(${index}, ${JSON.stringify(originalValues).replace(/'/g, "\\'")})'>Submit</button>
+      <button 
+        id="submit-btn-${index}" 
+        hx-patch="/api/v1/verified/admin/userpatch"
+        hx-swap="none"
+        hx-trigger="click"
+        hx-confirm="Are you sure you want to update user ${originalValues[0]}?"
+        hx-vals='{
+          "uid": "${uid}",
+          "username": "${document.getElementById('edit-input-1').value}",
+          "password": "${document.getElementById('edit-input-2').value}",
+          "home": "${document.getElementById('edit-input-3').value}",
+          "shell": "${document.getElementById('edit-input-4').value}",
+          "pgroup": "${document.getElementById('edit-input-5').value}"
+        }'
+      >
+        Submit
+      </button>
       <button id="cancel-btn-${index}" onclick='cancelEdit(${index}, ${JSON.stringify(originalValues).replace(/'/g, "\\'")})'>Cancel</button>
     </div>
   `;
+  htmx.process(document.getElementById(`submit-btn-${index}`));
+
 }
 
 function cancelEdit(index, originalValues) {
@@ -37,83 +61,33 @@ function cancelEdit(index, originalValues) {
   if (!row) return;
 
   const cells = row.querySelectorAll('td');
-  for (let i = 1; i < cells.length - 1; i++) {
+  
+  // Restore original cell values
+  for (let i = 0; i < cells.length - 1; i++) {
     cells[i].innerHTML = originalValues[i];
   }
 
+  console.log(originalValues);
+
+  // Restore actions cell
   const actionsCell = cells[cells.length - 1];
   actionsCell.innerHTML = `
     <div id="actions-btns">
-      <button id="edit-btn-{{ $index }}" onclick='editUser("", ${index})'>Edit</button>
-      <button id="delete-btn-{{ $index }}" onclick="deleteUser('{{ $user.Uid }}', '{{ $index }}')">Delete</button>
+      <button id="edit-btn-${index}" onclick="editUser('${originalValues[0]}', ${index})">Edit</button>
+      <button 
+        id="delete-btn-${index}"
+        hx-delete="/api/v1/verified/admin/userdel?uid=${originalValues[0]}"
+        hx-swap="none"
+        hx-trigger="click"
+        hx-target="#table-${index}"
+        hx-confirm="Are you sure you want to delete user ${originalValues[0]}?"
+      >Delete</button>
     </div>
-  `
+  `;
+  htmx.process(document.getElementById(`delete-btn-${index}`));
+
 }
 
-function submitUser(index, originalValues) {
-  const row = document.getElementById(`table-${index}`);
-  if (!row) return;
-
-  const cells = row.querySelectorAll('td');
-  const updatedData = {};
-
-  // Gather updated data from the inputs
-  for (let i = 0; i < cells.length - 1; i++) {
-    const input = cells[i].querySelector('input');
-    if (input) {
-      updatedData[input.dataset.index] = input.value || input.placeholder; // Use placeholder if input is empty
-    }
-  }
-
-  // Ask for confirmation
-  if (!confirm('Are you sure you want to update this user?')) {
-    cancelEdit(index, originalValues);
-    return;
-  }
-
-  // Send PATCH request with updated data
-  fetch('/api/v1/admin/user/update', {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(updatedData),
-  })
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error('Failed to update user');
-      }
-      return response.json();
-    })
-    .then((data) => {
-      alert('User updated successfully!');
-      // Reload the page or update the row with the new data
-      for (let i = 0; i < cells.length - 1; i++) {
-        cells[i].innerHTML = updatedData[i];
-      }
-      // Restore the Actions column
-      const actionsCell = cells[cells.length - 1];
-      actionsCell.innerHTML = `
-        <button id="edit-btn-${index}" onclick="editUser('${index}')">Edit</button>
-      `;
-    })
-    .catch((err) => {
-      console.error(err);
-      alert('Failed to update user');
-      cancelEdit(index, originalValues);
-    });
-}
-
-function deleteUser(uid, index) {
-  console.log(`Deleting user with UID: ${uid}, Row Index: ${index}`);
-  const row = document.getElementById(`table-${index}`);
-  if (row) {
-    
-    alert(`User with ID: ${userId} deleted.`);
-
-    row.remove(); // Example: Remove the row from the table
-  }
-}
 
 function getCookie(name) {
   const value = `; ${document.cookie}`;
@@ -122,3 +96,77 @@ function getCookie(name) {
   return '';
 }
 
+function copyToClipboard(selector) {
+  const element = document.querySelector(selector);
+  if (element) {
+    const text = element.textContent.trim(); // Trim any extra spaces
+    navigator.clipboard.writeText(text).then(() => {
+      const copyBtn = document.getElementById("copy-btn");
+      if (copyBtn) {
+        copyBtn.textContent = "✔️"; // Show a checkmark temporarily
+        setTimeout(() => {
+          copyBtn.textContent = "📋"; // Revert back to clipboard icon
+        }, 2000); // Reset after 2 seconds
+      }
+    }).catch(err => {
+      alert("Failed to copy: " + err);
+    });
+  }
+}
+
+document.addEventListener('htmx:afterRequest', function (event) {
+  const triggeringElement = event.detail.elt;
+
+
+  if (triggeringElement.id === 'fetch-users-results') {
+    if (event.detail.xhr.status >= 300 && event.detail.xhr.status < 400) {
+      const redirectLocation = event.detail.xhr.getResponseHeader("Location");
+      if (redirectLocation) {
+        window.location.href = redirectLocation;
+      } else {
+        console.error("Redirect location not found in the response."); 
+      }    
+    }
+  
+  } else if (triggeringElement.id === 'reload-btn') {
+  } else if (triggeringElement.id === 'add-user-form') {
+    if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+      document.getElementById('reload-btn').dispatchEvent(new Event('click'));
+      triggeringElement.reset();
+    }
+  } else if (triggeringElement.id.startsWith('delete-btn-')) {
+      if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+        console.log("successfully deleted.");
+        // Successfully deleted
+        const rowId = triggeringElement.closest('tr').id; // Get the table row ID
+        document.getElementById(rowId).remove(); // Remove the table row
+        document.getElementById('reload-btn').dispatchEvent(new Event('click')); 
+      } else {
+        // Failed delete, apply red border
+        const rowId = triggeringElement.closest('tr').id;
+        document.getElementById(rowId).style.border = '2px solid red';
+      }
+  } else if (triggeringElement.id.startsWith("logout")) {
+      if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 400) {
+        console.log("logging out...");
+        window.location.href="/api/v1/login";
+      }
+  }
+});
+
+document.addEventListener('htmx:confirm', function(evt) {
+  if (evt.target.matches("[confirm-with-sweet-alert='true']")) {
+    evt.preventDefault();
+    swal({
+      title: "Are you sure?",
+      text: "Are you sure you are sure?",
+      icon: "warning",
+      buttons: true,
+      dangerMode: true,
+    }).then((confirmed) => {
+      if (confirmed) {
+        evt.detail.issueRequest();
+      }
+    });
+  }
+});
