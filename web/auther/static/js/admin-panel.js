@@ -21,7 +21,7 @@ function editUser(uid, index) {
     const input = document.createElement('input');
     input.type = 'text';
     //input.value = originalText;
-    input.id = 'edit-input-'+i;
+    input.id = 'edit-input-'+uid+'-'+i;
     input.classList.add("table-input");
     input.placeholder = originalText;
     input.dataset.index = i;
@@ -38,14 +38,10 @@ function editUser(uid, index) {
         hx-swap="none"
         hx-trigger="click"
         hx-confirm="Are you sure you want to update user ${originalValues[0]}?"
-        hx-vals='{
-          "uid": "${uid}",
-          "username": "${document.getElementById('edit-input-1').value}",
-          "password": "${document.getElementById('edit-input-2').value}",
-          "home": "${document.getElementById('edit-input-3').value}",
-          "shell": "${document.getElementById('edit-input-4').value}",
-          "pgroup": "${document.getElementById('edit-input-5').value}"
-        }'
+        hx-vals="js:{...getUserPatchValues(${uid})}"
+        hx-on="htmx:configRequest:console.log(event.detail)" 
+
+        type="button"
       >
         Submit
       </button>
@@ -54,6 +50,26 @@ function editUser(uid, index) {
   `;
   htmx.process(document.getElementById(`submit-btn-${index}`));
 
+}
+
+function getUserPatchValues(uid) {
+  let ed1 = document.getElementById("edit-input-"+uid+"-1");
+  let ed2 = document.getElementById("edit-input-"+uid+"-2");
+  let ed3 = document.getElementById("edit-input-"+uid+"-3");
+  let ed4 = document.getElementById("edit-input-"+uid+"-4");
+  let ed5 = document.getElementById("edit-input-"+uid+"-5");
+  let ed6 = document.getElementById("edit-input-"+uid+"-6");
+  r = {
+    uid: uid,
+    username : ed1.value || ed1.placeholder,
+    password : ed2.value || ed2.placeholder,
+    home: ed3.value || ed3.placeholder,
+    shell: ed4.value || ed4.placeholder,
+    pgroup: ed5.value || ed5.placeholder,
+    groups: ed6.value || ed6.placeholder
+  };
+
+  return r
 }
 
 function cancelEdit(index, originalValues) {
@@ -129,28 +145,34 @@ document.addEventListener('htmx:afterRequest', function (event) {
     }
   
   } else if (triggeringElement.id === 'reload-btn') {
+  
   } else if (triggeringElement.id === 'add-user-form') {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
       document.getElementById('reload-btn').dispatchEvent(new Event('click'));
       triggeringElement.reset();
     }
   } else if (triggeringElement.id.startsWith('delete-btn-')) {
-      if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
-        console.log("successfully deleted.");
-        // Successfully deleted
-        const rowId = triggeringElement.closest('tr').id; // Get the table row ID
-        document.getElementById(rowId).remove(); // Remove the table row
-        document.getElementById('reload-btn').dispatchEvent(new Event('click')); 
-      } else {
-        // Failed delete, apply red border
-        const rowId = triggeringElement.closest('tr').id;
-        document.getElementById(rowId).style.border = '2px solid red';
-      }
+    if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+      console.log("successfully deleted.");
+      // Successfully deleted
+      const rowId = triggeringElement.closest('tr').id; // Get the table row ID
+      document.getElementById(rowId).remove(); // Remove the table row
+      document.getElementById('reload-btn').dispatchEvent(new Event('click')); 
+    } else {
+      // Failed delete, apply red border
+      const rowId = triggeringElement.closest('tr').id;
+      document.getElementById(rowId).style.border = '2px solid red';
+    }
   } else if (triggeringElement.id.startsWith("logout")) {
-      if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 400) {
-        console.log("logging out...");
-        window.location.href="/api/v1/login";
-      }
+    if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 400) {
+      console.log("logging out...");
+      window.location.href="/api/v1/login";
+    }
+
+  } else if (triggeringElement.id.startsWith("inp-text")) {
+    if (event.detail.xhr.status >= 400) {
+      document.getElementById("generated-hash").textContent = "";
+    }     
   }
 });
 

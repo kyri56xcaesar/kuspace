@@ -433,13 +433,13 @@ func (srv *HTTPService) handleUserpatch(c *gin.Context) {
 	}
 
 	var rq struct {
-		Uid      string `json:"uid"`
-		Username string `json:"username"`
-		Password string `json:"password"`
-		Home     string `json:"home"`
-		Shell    string `json:"shell"`
-		Gid      string `json:"gid"`
-		Groups   string `json:"groups"`
+		Username string `json:"username" form:"username"`
+		Password string `json:"password" form:"password"`
+		Home     string `json:"home" form:"home"`
+		Shell    string `json:"shell" form:"shell"`
+		Gid      string `json:"pgroup" form:"pgroup"`
+		Groups   string `json:"groups" form:"groups"`
+		Uid      int    `json:"uid" form:"uid"`
 	}
 
 	if err := c.ShouldBind(&rq); err != nil {
@@ -501,6 +501,15 @@ func (srv *HTTPService) handleUserpatch(c *gin.Context) {
 	c.String(http.StatusOK, "%v", resp.Message)
 }
 
+func (srv *HTTPService) handleGroupadd(c *gin.Context) {
+}
+
+func (srv *HTTPService) handleGroupdel(c *gin.Context) {
+}
+
+func (srv *HTTPService) handleGrouppatch(c *gin.Context) {
+}
+
 func (srv *HTTPService) handleHasher(c *gin.Context) {
 	accessToken, err := c.Cookie("access_token")
 	if err != nil {
@@ -524,8 +533,7 @@ func (srv *HTTPService) handleHasher(c *gin.Context) {
 	}
 
 	if hashereq.Text == "" && hashereq.HashText == "" {
-		log.Printf("empty request.. shoulnd't be here..")
-		c.JSON(400, gin.H{"error": "empty request.."})
+		c.JSON(404, gin.H{"error": "empty request.."})
 		return
 	}
 

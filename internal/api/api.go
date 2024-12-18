@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"html/template"
 	"log"
 	"net/http"
 	"os/signal"
@@ -49,8 +50,16 @@ func (srv *HTTPService) ServeHTTP() {
 	corsconfig.AllowMethods = srv.Config.AllowedMethods
 	corsconfig.AllowHeaders = srv.Config.AllowedHeaders
 
+	// template functions
+	funcMap := template.FuncMap{
+		"sub": func(a, b int) int { return a - b },
+	}
+
+	// set a template eng
+	tmpl := template.Must(template.New("").Funcs(funcMap).ParseGlob(templatesPath + "/*.html"))
+
 	// Api
-	srv.Engine.LoadHTMLGlob(templatesPath + "/*.html")
+	srv.Engine.SetHTMLTemplate(tmpl)
 	srv.Engine.Use(static.Serve("/api/"+apiPathPrefix, static.LocalFile(staticsPath, true)))
 	srv.Engine.Use(cors.New(corsconfig))
 
@@ -122,6 +131,9 @@ func (srv *HTTPService) ServeHTTP() {
 		verified.POST("/admin/useradd", srv.handleUseradd)
 		verified.DELETE("/admin/userdel", srv.handleUserdel)
 		verified.PATCH("/admin/userpatch", srv.handleUserpatch)
+		verified.POST("/admin/groupadd", srv.handleGroupadd)
+		verified.DELETE("/admin/groupdel", srv.handleGroupdel)
+		verified.PATCH("/admin/grouppatch", srv.handleGrouppatch)
 
 		verified.GET("/admin/hasher", func(c *gin.Context) {
 			c.HTML(http.StatusOK, "hasher_template.html", nil)

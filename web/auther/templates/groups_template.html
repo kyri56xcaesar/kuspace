@@ -24,8 +24,9 @@
         <td>{{ $group.Gid }}</td>
         <td>{{ $group.Groupname }}</td>
         <td>
-          {{ range $group.Users }}
-            <span>{{ .Username }} </span>
+          {{ $total := len $group.Users }}
+          {{ range $i, $user := $group.Users }}
+          <span>{{ .Username }}{{ if lt $i (sub $total 1) }},{{ end }}</span>
           {{ end }}
         </td>
         <td>

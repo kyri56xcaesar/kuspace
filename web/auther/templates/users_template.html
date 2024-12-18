@@ -32,8 +32,9 @@
         <td>{{ $user.Shell }}</td>
         <td>{{ $user.Pgroup }}</td>
         <td>
-          {{ range $user.Groups }}
-            <span>{{ .Groupname }} </span>
+          {{ $total := len $user.Groups }}
+          {{ range $i, $group := $user.Groups }}
+          <span>{{ .Groupname }}{{ if lt $i (sub $total 1) }},{{ end }}</span>
           {{ end }}
         </td>
         <td>
