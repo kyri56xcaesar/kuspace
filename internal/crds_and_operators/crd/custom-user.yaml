@@ -1,7 +1,0 @@
-apiVersion: kyri56x.com/v1
-kind: Userspace
-metadata:
-  name: admin
-spec:
-  username: admin
-  storageSize: 2G

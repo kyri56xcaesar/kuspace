@@ -52,14 +52,14 @@
             </li>
             <hr>
         </ul>
-        <button id="logout" class="logout-button">
-          <a id="logout-a"
-            hx-delete="/api/v1/logout?access_token&refresh_token&username&groups" 
-            hx-swap="none" 
-            hx-trigger="click" 
-            href="/api/v1/login">
-            ⏼
-          </a>
+        <button  
+          class="logout-button"
+          id="logout-a"
+          hx-delete="/api/v1/logout?access_token&refresh_token&username&groups" 
+          hx-swap="none" 
+          hx-trigger="click" 
+          href="/api/v1/login">
+          ⏼
         </button>
     </div>
 
@@ -110,7 +110,7 @@
                         </div>
                         <div class="form-group">
                           <label for="email">Email:</label>
-                          <input type="email" id="email" name="email" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
+                          <input type="text" id="email" name="email" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
                         </div>
                         <div class="form-group">
                           <label for="home">Home:</label>

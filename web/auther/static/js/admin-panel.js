@@ -39,7 +39,6 @@ function editUser(uid, index) {
         hx-trigger="click"
         hx-confirm="Are you sure you want to update user ${originalValues[0]}?"
         hx-vals="js:{...getUserPatchValues(${uid})}"
-        hx-on="htmx:configRequest:console.log(event.detail)" 
 
         type="button"
       >
@@ -61,12 +60,12 @@ function getUserPatchValues(uid) {
   let ed6 = document.getElementById("edit-input-"+uid+"-6");
   r = {
     uid: uid,
-    username : ed1.value || ed1.placeholder,
-    password : ed2.value || ed2.placeholder,
-    home: ed3.value || ed3.placeholder,
-    shell: ed4.value || ed4.placeholder,
-    pgroup: ed5.value || ed5.placeholder,
-    groups: ed6.value || ed6.placeholder
+    username : ed1.value,
+    password : ed2.value,
+    home: ed3.value,
+    shell: ed4.value,
+    pgroup: ed5.value,
+    groups: ed6.value
   };
 
   return r
@@ -83,7 +82,6 @@ function cancelEdit(index, originalValues) {
     cells[i].innerHTML = originalValues[i];
   }
 
-  console.log(originalValues);
 
   // Restore actions cell
   const actionsCell = cells[cells.length - 1];
@@ -173,6 +171,37 @@ document.addEventListener('htmx:afterRequest', function (event) {
     if (event.detail.xhr.status >= 400) {
       document.getElementById("generated-hash").textContent = "";
     }     
+  } else if (triggeringElement.id.startsWith("submit-btn-")) {
+    if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+      const row = triggeringElement.closest('tr');
+      if (row) {
+        row.classList.add('check-highlight');
+
+        setTimeout(()=>{
+          row.classList.remove('check-highlight')
+        }, 2000);
+      }
+
+      document.getElementById('reload-btn').dispatchEvent(new Event('click'));
+    } else if (event.detail.xhr.status >= 500 || event.detail.xhr.status == 400){
+      const row = triggeringElement.closest('tr');
+      if (row) {
+        row.classList.add('error-highlight');
+
+        setTimeout(()=>{
+          row.classList.remove('error-highlight');
+        }, 2000);
+      }
+    } else if (event.detail.xhr.status == 404) {
+      const row = triggeringElement.closest('tr');
+      if (row) {
+        row.classList.add('warning-highlight');
+
+        setTimeout(()=>{
+          row.classList.remove('warning-highlight')
+        }, 2000);
+      }
+    }
   }
 });
 

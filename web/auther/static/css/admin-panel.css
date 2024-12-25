@@ -26,6 +26,9 @@ form input, form button {
     width: 100px;
 }
 
+tr {
+  border-radius: 15px;
+}
 
 /* Sidebar */
 .sidebar {
@@ -237,12 +240,14 @@ form input, form button {
   justify-content: center;
   align-items: flex-start;
   padding: 20px;
-  border: 1px solid aliceblue;
+  border: 1px solid cadetblue;
   border-radius: 8px;
   background-color: #f9f9f9;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   gap: 15px;
   font-family: Arial, sans-serif;
+  overflow-x: scroll;
+  box-sizing: border-box;
 }
 
 .a-group, b-group, c-group {
@@ -306,7 +311,15 @@ form input, form button {
 }
 
 
+#table-container {
+  overflow-x: auto;
+  white-space: nowrap;
+  border: 2px solid cadetblue;
+  border-radius: 15px;
+  margin-top: 1rem;
+  background-color: #f9f9f9;
 
+}
 
 /* Table Styling */
 #all-users-table, #all-groups-table {
@@ -315,7 +328,6 @@ form input, form button {
     border-collapse: collapse;
     background-color: #f9f9f9;
     font-family: Arial, sans-serif;
-    margin-top: 1rem;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
@@ -347,7 +359,7 @@ form input, form button {
     padding: 0.75rem 1rem;
     text-align: left;
     transition: all 0.3s ease;
-    width: 180px;
+    width: 120px;
 }
 
 #all-users-table tbody tr:hover, #all-groups-table tbody tr:hover {
@@ -587,4 +599,21 @@ form input, form button {
 
 .table-input:hover {
   border: 2px solid cadetblue;
+}
+
+.check-highlight {
+  border: 2px solid green;
+  border-radius: 15px;
+  transition: border-olor 0.3s ease;
+}
+
+.warning-highlight {
+  border: 2px solid yellow;
+  border-radius: 15px;
+  transition: border-olor 0.3s ease;
+}
+.error-highlight {
+  border: 2px solid red;
+  border-radius: 15px;
+  transition: border-olor 0.3s ease;
 }

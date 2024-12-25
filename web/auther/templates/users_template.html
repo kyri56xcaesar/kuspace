@@ -9,50 +9,53 @@
       hx-swap="innerHTML"
     >Reload</button>
   </div>
-  <table id="all-users-table" border="1" style="width: 100%; border-collapse: collapse;">
-    <thead>
-      <tr>
-        <th>User ID</th>
-        <th>Username</th>
-        <th>Password</th>
-        <th>Home</th>
-        <th>Shell</th>
-        <th>Group ID</th>
-        <th>Groups</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody id="users-body">
-      {{ range $index, $user := . }}
-      <tr id="table-{{ $index }}">
-        <td>{{ $user.Uid }}</td>
-        <td>{{ $user.Username }}</td>
-        <td>{{ $user.Password.Hashpass }}</td>
-        <td>{{ $user.Home }}</td>
-        <td>{{ $user.Shell }}</td>
-        <td>{{ $user.Pgroup }}</td>
-        <td>
-          {{ $total := len $user.Groups }}
-          {{ range $i, $group := $user.Groups }}
-          <span>{{ .Groupname }}{{ if lt $i (sub $total 1) }},{{ end }}</span>
-          {{ end }}
-        </td>
-        <td>
-          <div id="actions-btns">
-            <button id="edit-btn-{{ $index }}" onclick="editUser('{{ $user.Uid }}', '{{ $index }}')">Edit</button>
-            <button 
-              id="delete-btn-{{ $index }}"
-              hx-delete="/api/v1/verified/admin/userdel?uid={{ .Uid }}"
-              hx-swap="none"
-              hx-trigger="click"
-              hx-target="#table-{{ $index }}"
-              hx-confirm="Are you sure you want to delete user {{ .Uid }}?"
-            > Delete</button>
-          </div>
-        </td>
-      </tr>
-      {{ end }}
-    </tbody>
-  </table>
+  <div id="table-container" style="overflow-x: auto; white-space: nowrap;">
+    <table id="all-users-table" border="1" style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr>
+          <th>User ID</th>
+          <th>Username</th>
+          <th>Password</th>
+          <th>Home</th>
+          <th>Shell</th>
+          <th>Group ID</th>
+          <th>Groups</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="users-body">
+        {{ range $index, $user := . }}
+        <tr id="table-{{ $index }}">
+          <td>{{ $user.Uid }}</td>
+          <td>{{ $user.Username }}</td>
+          <td>{{ $user.Password.Hashpass }}</td>
+          <td>{{ $user.Home }}</td>
+          <td>{{ $user.Shell }}</td>
+          <td>{{ $user.Pgroup }}</td>
+          <td>
+            {{ $total := len $user.Groups }}
+            {{ range $i, $group := $user.Groups }}
+            <span>{{ .Groupname }}{{ if lt $i (sub $total 1) }},{{ end }}</span>
+            {{ end }}
+          </td>
+          <td>
+            <div id="actions-btns">
+              <button id="edit-btn-{{ $index }}" onclick="editUser('{{ $user.Uid }}', '{{ $index }}')">Edit</button>
+              <button 
+                id="delete-btn-{{ $index }}"
+                hx-delete="/api/v1/verified/admin/userdel?uid={{ .Uid }}"
+                hx-swap="none"
+                hx-trigger="click"
+                hx-target="#table-{{ $index }}"
+                hx-confirm="Are you sure you want to delete user {{ .Uid }}?"
+              > Delete</button>
+            </div>
+          </td>
+        </tr>
+        {{ end }}
+      </tbody>
+    </table>
+  </div>
+
 </div>
 

@@ -1,0 +1,23 @@
+# permissions for end users to view userspaces.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: userspace-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: userspace-viewer-role
+rules:
+- apiGroups:
+  - userspace.myapp.example.com
+  resources:
+  - userspaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - userspace.myapp.example.com
+  resources:
+  - userspaces/status
+  verbs:
+  - get
