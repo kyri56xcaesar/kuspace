@@ -18,9 +18,13 @@ type UService struct {
 }
 
 func NewUService(conf string) *UService {
+	cfg := LoadConfig(conf)
 	srv := &UService{
 		Engine: gin.Default(),
-		Config: LoadConfig(conf),
+		Config: cfg,
+		dbh: &DBHandler{
+			DBName: cfg.DB,
+		},
 	}
 
 	log.Print(srv.Config.ToString())
@@ -37,8 +41,13 @@ func (srv *UService) Serve() {
 	apiV1 := srv.Engine.Group("/api/v1")
 	{
 		apiV1.GET("/files", srv.GetFiles)
+
+		/* for these, i should check for permissions*/
+		// post needs write permission on parent
 		apiV1.POST("/files", srv.PostFile)
+		// patch needs write permission on parent and on the resource
 		apiV1.PATCH("/files/:id", srv.PatchFile)
+		// same as patch
 		apiV1.DELETE("/files/:id", srv.DeleteFiles)
 
 	}
