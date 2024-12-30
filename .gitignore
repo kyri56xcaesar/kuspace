@@ -4,6 +4,8 @@
 
 cmd/minioth/minioth
 cmd/minioth
+cmd/userspace
+cmd/userspace/userspace
 minioth
 notes
 gshell
