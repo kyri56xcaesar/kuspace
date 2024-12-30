@@ -5,33 +5,41 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/joho/godotenv"
 )
 
 type EnvConfig struct {
-	ConfigPath     string
-	API_PORT       string
-	FRONT_PORT     string
-	AUTH_PORT      string
-	IP             string
-	DB             string
-	JWTSecretKey   []byte
-	JWTRefreshKey  []byte
+	ConfigPath string
+
+	API_PORT   string
+	FRONT_PORT string
+	AUTH_PORT  string
+
+	DB string
+
+	IP string
+
+	JWTSecretKey  []byte
+	JWTRefreshKey []byte
+
 	AllowedOrigins []string
 	AllowedHeaders []string
 	AllowedMethods []string
+
+	AS_OPERATOR bool
 }
 
-func LoadConfig(path string) *EnvConfig {
+func LoadConfig(path string) EnvConfig {
 	if err := godotenv.Load(path); err != nil {
 		log.Printf("Could not load %s config file. Using default variables", path)
 	}
 
 	split := strings.Split(path, "/")
 
-	config := &EnvConfig{
+	config := EnvConfig{
 		ConfigPath:     split[len(split)-1],
 		DB:             getEnv("DB", "userspace.db"),
 		API_PORT:       getEnv("API_PORT", "8079"),
@@ -43,8 +51,10 @@ func LoadConfig(path string) *EnvConfig {
 		AllowedMethods: getEnvs("ALLOWED_METHODS", nil),
 		JWTSecretKey:   getJWTSecretKey("JWT_SECRET_KEY"),
 		JWTRefreshKey:  getJWTSecretKey("JWT_REFRESH_KEY"),
+		AS_OPERATOR:    getBoolEnv("AS_OPERATOR", "false"),
 	}
 
+	log.Print(config.ToString())
 	return config
 }
 
@@ -61,6 +71,15 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func getBoolEnv(key, fallback string) bool {
+	b, err := strconv.ParseBool(key)
+	if err != nil {
+		b, _ = strconv.ParseBool(fallback)
+	}
+
+	return b
 }
 
 func getEnvs(key string, fallback []string) []string {

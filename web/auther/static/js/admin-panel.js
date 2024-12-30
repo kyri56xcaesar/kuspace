@@ -18,6 +18,10 @@ function editUser(uid, index) {
       continue;
     }
 
+    if (i == 5) {
+      continue;
+    }
+
     const input = document.createElement('input');
     input.type = 'text';
     //input.value = originalText;
@@ -56,7 +60,6 @@ function getUserPatchValues(uid) {
   let ed2 = document.getElementById("edit-input-"+uid+"-2");
   let ed3 = document.getElementById("edit-input-"+uid+"-3");
   let ed4 = document.getElementById("edit-input-"+uid+"-4");
-  let ed5 = document.getElementById("edit-input-"+uid+"-5");
   let ed6 = document.getElementById("edit-input-"+uid+"-6");
   r = {
     uid: uid,
@@ -64,7 +67,6 @@ function getUserPatchValues(uid) {
     password : ed2.value,
     home: ed3.value,
     shell: ed4.value,
-    pgroup: ed5.value,
     groups: ed6.value
   };
 

@@ -1,4 +1,0 @@
-## Append samples of your project ##
-resources:
-- userspace_v1_userspace.yaml
-# +kubebuilder:scaffold:manifestskustomizesamples

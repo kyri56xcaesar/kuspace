@@ -192,6 +192,12 @@ func (m *DBHandler) GetResourceByIds(rids []int) ([]Resource, error) {
 }
 
 func (m *DBHandler) DeleteResourcesByIds(rids []int) error {
+	// can't have empty arg (might be destructive)
+	if rids == nil {
+		log.Printf("empty argument, returning...")
+		return fmt.Errorf("must provide input ids")
+	}
+
 	db, err := m.getConn()
 	if err != nil {
 		log.Printf("error getting db connection: %v", err)
@@ -326,6 +332,71 @@ func (m *DBHandler) InsertVolumes(volumes []Volume) error {
 		log.Printf("failed to commit transaction: %v", err)
 		return err
 	}
+
+	return nil
+}
+
+func (m *DBHandler) SelectAllVolumes() ([]Volume, error) {
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("error getting db connection: %v", err)
+		return nil, err
+	}
+
+	query := `
+    SELECT *
+    FROM volumes
+  `
+	rows, err := db.Query(query, nil)
+	if err != nil {
+		log.Printf("error querying: %v", err)
+		return nil, err
+	}
+
+	var volumes []Volume
+	for rows.Next() {
+		var volume Volume
+		err := rows.Scan(volume.PtrFields())
+		if err != nil {
+			log.Printf("failed to scan volume: %v", err)
+			return nil, err
+		}
+		volumes = append(volumes, volume)
+	}
+
+	return volumes, nil
+}
+
+func (m *DBHandler) DeleteVolumeByIds(ids []int) error {
+	if ids == nil {
+		return fmt.Errorf("must provide ids")
+	}
+
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("error getting database connetion")
+		return err
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("error starting transaction: %v", err)
+		return err
+	}
+
+	res, err := tx.Exec("DELETE FROM volumes WHERE vid IN (?)", ids)
+	if err != nil {
+		log.Printf("failed to exec deleteion query: %v", err)
+		return err
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		log.Printf("failed to retrieve rows affected: %v", err)
+		return err
+	}
+
+	log.Printf("deleted %v entries", rowsAffected)
 
 	return nil
 }

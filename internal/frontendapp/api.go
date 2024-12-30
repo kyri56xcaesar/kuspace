@@ -119,6 +119,7 @@ func (srv *HTTPService) ServeHTTP() {
 
 	verified := apiV1.Group("/verified")
 	{
+
 		verified.GET("/admin-panel", AuthMiddleware("admin"), func(c *gin.Context) {
 			username, _ := c.Cookie("username")
 			c.HTML(http.StatusOK, "admin-panel.html", gin.H{
@@ -126,19 +127,23 @@ func (srv *HTTPService) ServeHTTP() {
 				"message":  "Welcome to the Admin Panel ",
 			})
 		})
-		verified.GET("/admin/fetch-users", srv.handleFetchUsers)
-		verified.GET("/admin/fetch-groups", srv.handleFetchGroups)
-		verified.POST("/admin/useradd", srv.handleUseradd)
-		verified.DELETE("/admin/userdel", srv.handleUserdel)
-		verified.PATCH("/admin/userpatch", srv.handleUserpatch)
-		verified.POST("/admin/groupadd", srv.handleGroupadd)
-		verified.DELETE("/admin/groupdel", srv.handleGroupdel)
-		verified.PATCH("/admin/grouppatch", srv.handleGrouppatch)
 
-		verified.GET("/admin/hasher", func(c *gin.Context) {
+		admin := verified.Group("/admin")
+		/* minioth will verify token no need to worry here.*/
+		//admin.Use(AuthMiddleware("admin"))
+
+		admin.GET("/fetch-users", srv.handleFetchUsers)
+		admin.GET("/fetch-groups", srv.handleFetchGroups)
+		admin.POST("/useradd", srv.handleUseradd)
+		admin.DELETE("/userdel", srv.handleUserdel)
+		admin.PATCH("/userpatch", srv.handleUserpatch)
+		admin.POST("/groupadd", srv.handleGroupadd)
+		admin.DELETE("/groupdel", srv.handleGroupdel)
+		admin.PATCH("/grouppatch", srv.handleGrouppatch)
+		admin.GET("/hasher", func(c *gin.Context) {
 			c.HTML(http.StatusOK, "hasher_template.html", nil)
 		})
-		verified.POST("/admin/hasher", srv.handleHasher)
+		admin.POST("/hasher", srv.handleHasher)
 
 		/* This is oriented towards the froentend*/
 		verified.GET("/dashboard", AuthMiddleware("user, admin"), func(c *gin.Context) {

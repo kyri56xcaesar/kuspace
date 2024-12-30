@@ -36,6 +36,10 @@
             </a>
           </button>
         </div>
+        <div id="register-prompt">
+          <p> Don't have an account?</p>
+          <a href="/api/v1/register">Register</a>
+        </div>
         <span class="loader" id="login-loader" style="display: none;"></span>
         <div id="login-error" style="display: none; color: red; font-size: 15px;"></div>
       </form>
@@ -91,16 +95,6 @@ document.addEventListener('DOMContentLoaded', () => {
           if (errorDiv) {
             errorDiv.innerHTML = `<span>${'Login error: ' + err.message || 'Err^2'}</span>`;
             errorDiv.style.display = 'flex';
-          }
-
-          if (resp && resp.status == "404") {
-            regRef = document.createElement("button");
-            regRef.appendChild(document.createTextNode("Register?"));
-            regRef.addEventListener("click", function(event){
-              window.location.href = "/api/v1/register";
-              return;
-            });
-            errorDiv.appendChild(regRef);
           }
 
           // reset form
