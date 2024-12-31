@@ -21,11 +21,13 @@ const (
       gid INTEGER,
       pid INTEGER,
       size INTEGER,
+      links INTEGER,
       perms TEXT,
       name TEXT,
       type TEXT,
       created_at DATETIME,
-      updated_at DATETIME
+      updated_at DATETIME,
+      accessed_at DATETIME
     );
 
     CREATE TABLE IF NOT EXISTS volumes (
@@ -95,20 +97,20 @@ func (m *DBHandler) Init() {
 func (m *DBHandler) InsertResources(resources []Resource) error {
 	db, err := m.getConn()
 	if err != nil {
+		log.Printf("failed to get database connection: %v", err)
 		return err
 	}
 
 	tx, err := db.Begin()
 	if err != nil {
+		log.Printf("failed to begin transacation: %v", err)
 		return err
 	}
 
-	placeholder := strings.Repeat("(nextval('seq_resourceid'), ?, ?, ?, ?, ?, ?, ?, ?, ?),", len(resources))
-	query := fmt.Sprintf(`
+	query := `
     INSERT INTO 
-      resources (rid, uid, vid, name, type, pid, oid, gid, perms, size, created_at, updated_at) 
-    VALUES %s`, placeholder[:len(placeholder)-1])
-	query += `;`
+      resources (name, type, created_at, updated_at, accessed_at, perms, rid, uid, vid, gid, pid, size, links)
+    VALUES (?, ?, ?, ?, ?, ?, nextval('seq_resourceid'), ?, ?, ?, ?, ?, ?);`
 
 	log.Print(query)
 
@@ -142,22 +144,47 @@ func (m *DBHandler) GetAllResources() ([]Resource, error) {
 		log.Printf("error getting db connection: %v", err)
 		return nil, err
 	}
-
-	rows, err := db.Query("SELECT * FROM resources")
+	rows, err := db.Query(`
+    SELECT  
+      name, type, created_at, updated_at, accessed_at, rid, uid, vid, gid, pid, size, links
+    FROM 
+      resources`)
 	if err != nil {
 		log.Printf("error querying db: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
 
+	permrows, err := db.Query(`
+    SELECT 
+      perms 
+    FROM 
+      resources`)
+	if err != nil {
+		log.Printf("error querying db: %v", err)
+		return nil, err
+	}
+
 	var resources []Resource
-	for rows.Next() {
+	for rows.Next() && permrows.Next() {
 		var r Resource
 		err = rows.Scan(r.PtrFields()...)
 		if err != nil {
 			log.Printf("error scanning row: %v", err)
 			return nil, err
 		}
+		var permStr string
+		err = permrows.Scan(&permStr)
+		if err != nil {
+			log.Printf("error scanning permStr from row: %v", err)
+			return nil, err
+		}
+		err = r.Perms.fillFromStr(permStr)
+		if err != nil {
+			log.Printf("failed to translate perms str to bool: %v", err)
+			return nil, err
+		}
+
 		log.Printf("resource: %v", r)
 		resources = append(resources, r)
 	}
@@ -172,20 +199,50 @@ func (m *DBHandler) GetResourceByIds(rids []int) ([]Resource, error) {
 		return nil, err
 	}
 
-	rows, err := db.Query("SELECT * FROM resources WHERE rid IN (?)", rids)
+	rows, err := db.Query(`
+    SELECT 
+      name, type, created_at, updated_at, accessed_at, rid, uid, vid, gid, pid, size, links
+    FROM 
+      resources 
+    WHERE 
+      rid IN (?)`, rids)
+	if err != nil {
+		log.Printf("error querying db: %v", err)
+		return nil, err
+	}
+
+	prows, err := db.Query(`
+    SELECT 
+      perms 
+    FROM 
+      resources
+    WHERE 
+      rid IN (?)`, rids)
 	if err != nil {
 		log.Printf("error querying db: %v", err)
 		return nil, err
 	}
 
 	var resources []Resource
-	for rows.Next() {
+	for rows.Next() && prows.Next() {
 		var r Resource
 		err = rows.Scan(r.PtrFields()...)
 		if err != nil {
 			log.Printf("error scanning row: %v", err)
 			return nil, err
 		}
+		var permStr string
+		err = prows.Scan(&permStr)
+		if err != nil {
+			log.Printf("error scanning perms: %v", err)
+			return nil, err
+		}
+		err = r.Perms.fillFromStr(permStr)
+		if err != nil {
+			log.Printf("failed to translate perm str to boolean: %v", err)
+			return nil, err
+		}
+
 		resources = append(resources, r)
 	}
 	return resources, nil
@@ -200,9 +257,20 @@ func (m *DBHandler) GetResourceByFilename(filepath string) (*Resource, error) {
 	file := strings.Split(filepath, "/")
 
 	var resource Resource
-	err = db.QueryRow("SELECT * FROM resources WHERE name = ?", file[len(file)-1]).Scan(resource.PtrFields()...)
+	err = db.QueryRow("SELECT name, type, created_at, updated_at, accessed_at, rid, uid, vid, gid, pid, size, links FROM resources WHERE name = ?", file[len(file)-1]).Scan(resource.PtrFields()...)
 	if err != nil {
 		log.Printf("error scanning resource: %v", err)
+		return nil, err
+	}
+	var permStr string
+	err = db.QueryRow("SELECT perms FROM resources WHERE name = ?", filepath).Scan(&permStr)
+	if err != nil {
+		log.Printf("error scanning resource perms: %v", err)
+		return nil, err
+	}
+	err = resource.Perms.fillFromStr(permStr)
+	if err != nil {
+		log.Printf("failed to translate perm str to boolean")
 		return nil, err
 	}
 

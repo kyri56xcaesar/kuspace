@@ -57,6 +57,7 @@ func (srv *UService) Serve() {
 	* */
 	apiV1 := srv.Engine.Group("/api/v1")
 	{
+		apiV1.GET("/file", srv.GetFile)
 		apiV1.GET("/files", srv.GetFiles)
 
 		/* for these, i should check for permissions*/
@@ -67,8 +68,6 @@ func (srv *UService) Serve() {
 		// same as patch
 		apiV1.DELETE("/files", srv.DeleteFiles)
 
-		apiV1.GET("/volumes", srv.GetVolumes)
-		apiV1.DELETE("/volumes", srv.DeleteVolumes)
 	}
 
 	admin := srv.Engine.Group("/admin")

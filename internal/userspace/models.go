@@ -48,9 +48,51 @@ type Resource struct {
 }
 
 type Permissions struct {
-	Owner PermTriplet `json:"owner"`
-	Group PermTriplet `json:"group"`
-	Other PermTriplet `json:"other"`
+	Representation string `json:"perms"`
+	Owner          PermTriplet
+	Group          PermTriplet
+	Other          PermTriplet
+}
+
+/* this method goal is from the given argument "representation" which
+* looks like "r-x---r--" (or w.e) to transform into the boolean
+* */
+func (p *Permissions) fillFromStr(representation string) error {
+	if len(representation) != 9 {
+		log.Printf("fill fail, invalid representation input")
+		return fmt.Errorf("invalid representation")
+	}
+
+	chunks := [3]string{
+		representation[:3],
+		representation[3:6],
+		representation[6:],
+	}
+
+	parseTriplet := func(triplet string) (PermTriplet, error) {
+		if len(triplet) != 3 {
+			log.Printf("invalid tripled input length")
+			return PermTriplet{}, fmt.Errorf("invalid triplet")
+		}
+		return PermTriplet{
+			Read:    triplet[0] == 'r',
+			Write:   triplet[1] == 'w',
+			Execute: triplet[2] == 'x',
+		}, nil
+	}
+	var err error
+	p.Owner, err = parseTriplet(chunks[0])
+	p.Group, err = parseTriplet(chunks[1])
+	p.Other, err = parseTriplet(chunks[2])
+	if err != nil {
+		log.Printf("failed to parse triplets: %v", err)
+		return err
+	}
+	return nil
+}
+
+func (p *Permissions) toString() string {
+	return fmt.Sprintf("%s%s%s", p.Owner.ToString(), p.Group.ToString(), p.Other.ToString())
 }
 
 type PermTriplet struct {
@@ -89,19 +131,19 @@ type Volume struct {
 /* representative utility methods of the above structures */
 /* fields and ptrs fields for "resource" struct helper methods*/
 func (r *Resource) Fields() []any {
-	return []any{r.Rid, r.Uid, r.Vid, r.Gid, r.Pid, r.Size, r.Perms, r.Name, r.Type, r.Created_at, r.Updated_at}
+	return []any{r.Name, r.Type, r.Created_at, r.Updated_at, r.Accessed_at, r.Perms.toString(), r.Rid, r.Uid, r.Vid, r.Gid, r.Pid, r.Size, r.Links}
 }
 
 func (r *Resource) PtrFields() []any {
-	return []any{&r.Rid, &r.Uid, &r.Vid, &r.Gid, &r.Pid, &r.Size, &r.Perms, &r.Name, &r.Type, &r.Created_at, &r.Updated_at}
+	return []any{&r.Name, &r.Type, &r.Created_at, &r.Updated_at, &r.Accessed_at, &r.Rid, &r.Uid, &r.Vid, &r.Gid, &r.Pid, &r.Size, &r.Links}
 }
 
 func (r *Resource) FieldsNoId() []any {
-	return []any{r.Uid, r.Vid, r.Gid, r.Pid, r.Size, r.Perms, r.Name, r.Type, r.Created_at, r.Updated_at}
+	return []any{r.Name, r.Type, r.Created_at, r.Updated_at, r.Accessed_at, r.Perms.toString(), r.Uid, r.Vid, r.Gid, r.Pid, r.Size, r.Links}
 }
 
 func (r *Resource) PtrFieldsNoId() []any {
-	return []any{&r.Uid, &r.Vid, &r.Gid, &r.Pid, &r.Size, &r.Perms, &r.Name, &r.Type, &r.Created_at, &r.Updated_at}
+	return []any{&r.Name, &r.Type, &r.Created_at, &r.Updated_at, &r.Accessed_at, &r.Uid, &r.Vid, &r.Gid, &r.Pid, &r.Size, &r.Links}
 }
 
 /* fields and ptr fields for "volume" struct helper methods*/
@@ -130,6 +172,7 @@ type AccessClaim struct {
 	Gids string `json:"group_ids"`
 
 	Target string `json:"target"`
+	Type   string `json:"type"`
 }
 
 func (ac *AccessClaim) filter() AccessClaim {

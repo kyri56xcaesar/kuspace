@@ -19,8 +19,8 @@ mod:
 	go mod tidy
 
 
-.PHONY: user
-user:
+.PHONY: userspace
+userspace:
 	go build -o ${TARGET_API}${API_OUT} ${TARGET_API}${API_MAIN} 
 	./${TARGET_API}${API_OUT}
 
