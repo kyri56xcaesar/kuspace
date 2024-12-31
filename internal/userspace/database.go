@@ -191,6 +191,24 @@ func (m *DBHandler) GetResourceByIds(rids []int) ([]Resource, error) {
 	return resources, nil
 }
 
+func (m *DBHandler) GetResourceByFilename(filepath string) (*Resource, error) {
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("error getting db connection: %v", err)
+		return nil, err
+	}
+	file := strings.Split(filepath, "/")
+
+	var resource Resource
+	err = db.QueryRow("SELECT * FROM resources WHERE name = ?", file[len(file)-1]).Scan(resource.PtrFields()...)
+	if err != nil {
+		log.Printf("error scanning resource: %v", err)
+		return nil, err
+	}
+
+	return &resource, nil
+}
+
 func (m *DBHandler) DeleteResourcesByIds(rids []int) error {
 	// can't have empty arg (might be destructive)
 	if rids == nil {
