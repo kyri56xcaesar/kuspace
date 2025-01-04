@@ -132,9 +132,9 @@ function copyToClipboard(selector) {
 
 document.addEventListener('htmx:afterRequest', function (event) {
   const triggeringElement = event.detail.elt;
-
-
-  if (triggeringElement.id === 'fetch-users-results') {
+  // Handle different cases
+  // all users fetch
+  if (triggeringElement.id === 'fetch-users-results') { 
     if (event.detail.xhr.status >= 300 && event.detail.xhr.status < 400) {
       const redirectLocation = event.detail.xhr.getResponseHeader("Location");
       if (redirectLocation) {
@@ -143,17 +143,27 @@ document.addEventListener('htmx:afterRequest', function (event) {
         console.error("Redirect location not found in the response."); 
       }    
     }
-  
+    // reload users fetch
   } else if (triggeringElement.id === 'reload-btn') {
-  
   } else if (triggeringElement.id === 'add-user-form') {
+    // new user creation (from admin)
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
       document.getElementById('reload-btn').dispatchEvent(new Event('click'));
       triggeringElement.reset();
+    } else if (event.detail.xhr.status < 400) {
+    } else if (event.detail.xhr.status < 500) {
+      const form = triggeringElement.closest('form');
+      form.classList.add('error-highlight');
+      const feedback = document.getElementById('useradd-error-feedback');
+      feedback.textContent = event.detail.xhr.responseText.replace(/[{}]/g, '');
+      setTimeout(()=>{
+        form.classList.remove('error-highlight');
+        feedback.textContent = '';
+      }, 40000);
     }
+  // deleting users by admin 
   } else if (triggeringElement.id.startsWith('delete-btn-')) {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
-      console.log("successfully deleted.");
       // Successfully deleted
       const rowId = triggeringElement.closest('tr').id; // Get the table row ID
       document.getElementById(rowId).remove(); // Remove the table row
@@ -163,46 +173,61 @@ document.addEventListener('htmx:afterRequest', function (event) {
       const rowId = triggeringElement.closest('tr').id;
       document.getElementById(rowId).style.border = '2px solid red';
     }
+  } else if (triggeringElement.id.startsWith('delete-grp-btn')) {
+    if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+      // Successfully deleted
+      const rowId = triggeringElement.closest('tr').id; // Get the table row ID
+      document.getElementById(rowId).remove(); // Remove the table row
+      document.getElementById('reload-groups-btn').dispatchEvent(new Event('click')); 
+    } else {
+      // Failed delete, apply red border
+      const rowId = triggeringElement.closest('tr').id;
+      document.getElementById(rowId).style.border = '2px solid red';
+    }
+  // logging out (generic)
   } else if (triggeringElement.id.startsWith("logout")) {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 400) {
-      console.log("logging out...");
       window.location.href="/api/v1/login";
     }
-
+  // hasher related
   } else if (triggeringElement.id.startsWith("inp-text")) {
     if (event.detail.xhr.status >= 400) {
       document.getElementById("generated-hash").textContent = "";
     }     
+  // submit user patch by admin
   } else if (triggeringElement.id.startsWith("submit-btn-")) {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
       const row = triggeringElement.closest('tr');
       if (row) {
         row.classList.add('check-highlight');
-
         setTimeout(()=>{
           row.classList.remove('check-highlight')
         }, 2000);
       }
-
       document.getElementById('reload-btn').dispatchEvent(new Event('click'));
-    } else if (event.detail.xhr.status >= 500 || event.detail.xhr.status == 400){
+    }else if (event.detail.xhr.status >= 500 || event.detail.xhr.status == 400){
       const row = triggeringElement.closest('tr');
       if (row) {
         row.classList.add('error-highlight');
-
         setTimeout(()=>{
           row.classList.remove('error-highlight');
         }, 2000);
       }
     } else if (event.detail.xhr.status == 404) {
-      const row = triggeringElement.closest('tr');
-      if (row) {
-        row.classList.add('warning-highlight');
-
-        setTimeout(()=>{
-          row.classList.remove('warning-highlight')
-        }, 2000);
-      }
+        const row = triggeringElement.closest('tr');
+        if (row) {
+          row.classList.add('warning-highlight');
+          setTimeout(()=>{
+            row.classList.remove('warning-highlight')
+          }, 2000);
+        }
+    }
+  } else if (triggeringElement.id === 'add-group-form') {
+    if (event.detail.xhr.status >= 200 && event.detail.xhr.status <300) {
+      document.getElementById('reload-groups-btn').dispatchEvent(new Event('click'));
+      triggeringElement.reset();
+    } else if (event.detail.xhr.status >= 400 && event.detail.xhr.status < 500) {
+    } else {
     }
   }
 });

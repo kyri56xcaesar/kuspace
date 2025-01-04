@@ -57,22 +57,18 @@ func (srv *UService) Serve() {
 	* */
 	apiV1 := srv.Engine.Group("/api/v1")
 	{
-		apiV1.GET("/file", srv.GetFile)
-		apiV1.GET("/files", srv.GetFiles)
+		/* equivalent to "ls", will return the resources, from the given path*/
+		apiV1.GET("/resources", srv.ListResources)
+		apiV1.POST("/resources", srv.PostResources)
+		apiV1.PUT("/resources", srv.MoveResources)
 
-		/* for these, i should check for permissions*/
-		// post needs write permission on parent
-		apiV1.POST("/files", srv.PostFile)
-		// patch needs write permission on parent and on the resource
-		apiV1.PATCH("/files/:id", srv.PatchFile)
-		// same as patch
-		apiV1.DELETE("/files", srv.DeleteFiles)
-
+		apiV1.GET("/resource/download", srv.DownloadResource)
 	}
 
 	admin := srv.Engine.Group("/admin")
 	{
-		admin.GET("/files", srv.GetFiles)
+		admin.PATCH("/resource/permissions", srv.ChmodResource)
+		admin.PATCH("/resource/ownership", srv.ChownResource)
 	}
 
 	/* context handler */

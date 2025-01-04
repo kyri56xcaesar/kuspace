@@ -32,26 +32,26 @@ import (
 *
 * */
 type Resource struct {
-	Name        string      `json:"name"`
-	Type        string      `json:"type"`
-	Created_at  string      `json:"created_at"`
-	Updated_at  string      `json:"updated_at"`
-	Accessed_at string      `json:"accessed_at"`
-	Perms       Permissions `json:"perms"`
-	Rid         int         `json:"rid"`
-	Uid         int         `json:"uid"` // as in user id (owner)
-	Vid         int         `json:"vid"`
-	Gid         int         `json:"gid"` // as in group id
-	Pid         int         `json:"pid"` // as in parent id
-	Size        int         `json:"size"`
-	Links       int         `json:"links"`
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Created_at  string `json:"created_at"`
+	Updated_at  string `json:"updated_at"`
+	Accessed_at string `json:"accessed_at"`
+	Perms       string `json:"perms"`
+	Rid         int    `json:"rid"`
+	Uid         int    `json:"uid"` // as in user id (owner)
+	Vid         int    `json:"vid"`
+	Gid         int    `json:"gid"` // as in group id
+	Pid         int    `json:"pid"` // as in parent id
+	Size        int    `json:"size"`
+	Links       int    `json:"links"`
 }
 
 type Permissions struct {
-	Representation string `json:"perms"`
-	Owner          PermTriplet
-	Group          PermTriplet
-	Other          PermTriplet
+	Representation string      `json:"perms"`
+	Owner          PermTriplet `json:"owner"`
+	Group          PermTriplet `json:"group"`
+	Other          PermTriplet `json:"other"`
 }
 
 /* this method goal is from the given argument "representation" which
@@ -131,19 +131,19 @@ type Volume struct {
 /* representative utility methods of the above structures */
 /* fields and ptrs fields for "resource" struct helper methods*/
 func (r *Resource) Fields() []any {
-	return []any{r.Name, r.Type, r.Created_at, r.Updated_at, r.Accessed_at, r.Perms.toString(), r.Rid, r.Uid, r.Vid, r.Gid, r.Pid, r.Size, r.Links}
+	return []any{r.Rid, r.Uid, r.Vid, r.Gid, r.Pid, r.Size, r.Links, r.Perms, r.Name, r.Type, r.Created_at, r.Updated_at, r.Accessed_at}
 }
 
 func (r *Resource) PtrFields() []any {
-	return []any{&r.Name, &r.Type, &r.Created_at, &r.Updated_at, &r.Accessed_at, &r.Rid, &r.Uid, &r.Vid, &r.Gid, &r.Pid, &r.Size, &r.Links}
+	return []any{&r.Rid, &r.Uid, &r.Vid, &r.Gid, &r.Pid, &r.Size, &r.Links, &r.Perms, &r.Name, &r.Type, &r.Created_at, &r.Updated_at, &r.Accessed_at}
 }
 
 func (r *Resource) FieldsNoId() []any {
-	return []any{r.Name, r.Type, r.Created_at, r.Updated_at, r.Accessed_at, r.Perms.toString(), r.Uid, r.Vid, r.Gid, r.Pid, r.Size, r.Links}
+	return []any{r.Uid, r.Vid, r.Gid, r.Pid, r.Size, r.Links, r.Perms, r.Name, r.Type, r.Created_at, r.Updated_at, r.Accessed_at}
 }
 
 func (r *Resource) PtrFieldsNoId() []any {
-	return []any{&r.Name, &r.Type, &r.Created_at, &r.Updated_at, &r.Accessed_at, &r.Uid, &r.Vid, &r.Gid, &r.Pid, &r.Size, &r.Links}
+	return []any{&r.Uid, &r.Vid, &r.Gid, &r.Pid, &r.Size, &r.Links, &r.Perms, &r.Name, &r.Type, &r.Created_at, &r.Updated_at, &r.Accessed_at}
 }
 
 /* fields and ptr fields for "volume" struct helper methods*/
@@ -207,6 +207,9 @@ func (resource *Resource) HasAccess(userInfo AccessClaim) bool {
 	* owner   group   others
 	* */
 
+	var perm Permissions
+	perm.fillFromStr(resource.Perms)
+
 	/* check ownership
 	* if true, can exit prematurely
 	* */
@@ -214,7 +217,7 @@ func (resource *Resource) HasAccess(userInfo AccessClaim) bool {
 		log.Printf("error atoing user id")
 		return false
 	} else if uid == resource.Uid {
-		return resource.Perms.Owner.Read
+		return perm.Owner.Read
 	}
 
 	/* check groups */
@@ -225,11 +228,11 @@ func (resource *Resource) HasAccess(userInfo AccessClaim) bool {
 			log.Printf("error atoing group id")
 			return false
 		} else if igid == resource.Gid {
-			return resource.Perms.Group.Read
+			return perm.Group.Read
 		}
 	}
 	/* check others */
-	return resource.Perms.Other.Read
+	return perm.Other.Read
 }
 
 /* similar as above just for write access*/
@@ -240,6 +243,9 @@ func (resource *Resource) HasWriteAccess(userInfo AccessClaim) bool {
 	* owner   group   others
 	* */
 
+	var perm Permissions
+	perm.fillFromStr(resource.Perms)
+
 	/* check ownership
 	* if true, can exit prematurely
 	* */
@@ -247,7 +253,7 @@ func (resource *Resource) HasWriteAccess(userInfo AccessClaim) bool {
 		log.Printf("error atoing user id")
 		return false
 	} else if uid == resource.Uid {
-		return resource.Perms.Owner.Write
+		return perm.Owner.Write
 	}
 
 	/* check groups */
@@ -258,11 +264,11 @@ func (resource *Resource) HasWriteAccess(userInfo AccessClaim) bool {
 			log.Printf("error atoing group id")
 			return false
 		} else if igid == resource.Gid {
-			return resource.Perms.Group.Write
+			return perm.Group.Write
 		}
 	}
 	/* check others */
-	return resource.Perms.Other.Write
+	return perm.Other.Write
 }
 
 /* execution access is somewhat trivial at this point, perhaps it can be used in the future*/

@@ -121,7 +121,7 @@ func (srv *HTTPService) ServeHTTP() {
 	{
 
 		verified.GET("/admin-panel", AuthMiddleware("admin"), func(c *gin.Context) {
-			username, _ := c.Cookie("username")
+			username := c.GetString("username")
 			c.HTML(http.StatusOK, "admin-panel.html", gin.H{
 				"username": username,
 				"message":  "Welcome to the Admin Panel ",
@@ -131,12 +131,14 @@ func (srv *HTTPService) ServeHTTP() {
 		admin := verified.Group("/admin")
 		/* minioth will verify token no need to worry here.*/
 		//admin.Use(AuthMiddleware("admin"))
+		admin.GET("/fetch-resources", srv.handleFetchResources)
 
 		admin.GET("/fetch-users", srv.handleFetchUsers)
-		admin.GET("/fetch-groups", srv.handleFetchGroups)
 		admin.POST("/useradd", srv.handleUseradd)
 		admin.DELETE("/userdel", srv.handleUserdel)
 		admin.PATCH("/userpatch", srv.handleUserpatch)
+
+		admin.GET("/fetch-groups", srv.handleFetchGroups)
 		admin.POST("/groupadd", srv.handleGroupadd)
 		admin.DELETE("/groupdel", srv.handleGroupdel)
 		admin.PATCH("/grouppatch", srv.handleGrouppatch)
@@ -147,7 +149,7 @@ func (srv *HTTPService) ServeHTTP() {
 
 		/* This is oriented towards the froentend*/
 		verified.GET("/dashboard", AuthMiddleware("user, admin"), func(c *gin.Context) {
-			username, _ := c.Cookie("username")
+			username, _ := c.Get("username")
 			c.HTML(http.StatusOK, "dashboard.html", gin.H{
 				"username": username,
 				"message":  "your dashboard ",

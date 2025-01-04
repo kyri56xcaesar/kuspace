@@ -5,23 +5,37 @@
     "created_at":"",
     "updated_at":"",
     "accessed_at":"",
-    "perms":{
-      "owner":{
-        "read":true,
-        "write":true,
-        "execute":false
-      },
-      "group":{
-        "read":true,
-        "write":true,
-        "execute":true
-      },
-      "other":{
-        "read":false,
-        "write":false,
-        "execute":false
-      }
-    },
+    "perms":"rwxrwxrwx",
+    "rid":0,
+    "uid":0,
+    "vid":0,
+    "gid":0,
+    "pid":0,
+    "size":2048,
+    "links":0
+  },
+  {
+    "name":"file2",
+    "type":"file",
+    "created_at":"",
+    "updated_at":"",
+    "accessed_at":"",
+    "perms":"rwxrwxrwx",
+    "rid":0,
+    "uid":0,
+    "vid":0,
+    "gid":0,
+    "pid":0,
+    "size":2048,
+    "links":0
+  },
+  {
+    "name":"file3",
+    "type":"file",
+    "created_at":"",
+    "updated_at":"",
+    "accessed_at":"",
+    "perms":"rwxrwxrwx",
     "rid":0,
     "uid":1000,
     "vid":0,
@@ -31,28 +45,57 @@
     "links":0
   },
   {
-    "name":"file2",
+    "name":"file4",
     "type":"file",
     "created_at":"",
     "updated_at":"",
     "accessed_at":"",
-    "perms":{
-      "owner":{
-        "read":true,
-        "write":true,
-        "execute":false
-      },
-      "group":{
-        "read":false,
-        "write":false,
-        "execute":false
-      },
-      "other":{
-        "read":false,
-        "write":false,
-        "execute":false
-      }
-    },
+    "perms":"rwxrwxrwx",
+    "rid":0,
+    "uid":0,
+    "vid":0,
+    "gid":0,
+    "pid":0,
+    "size":2048,
+    "links":0
+  },
+  {
+    "name":"file5",
+    "type":"file",
+    "created_at":"",
+    "updated_at":"",
+    "accessed_at":"",
+    "perms":"rwxrwxrwx",
+    "rid":0,
+    "uid":0,
+    "vid":0,
+    "gid":0,
+    "pid":0,
+    "size":2048,
+    "links":0
+  },
+  {
+    "name":"file6",
+    "type":"file",
+    "created_at":"",
+    "updated_at":"",
+    "accessed_at":"",
+    "perms":"rwxrwxrwx",
+    "rid":0,
+    "uid":0,
+    "vid":0,
+    "gid":0,
+    "pid":0,
+    "size":2048,
+    "links":0
+  },
+  {
+    "name":"file7",
+    "type":"file",
+    "created_at":"",
+    "updated_at":"",
+    "accessed_at":"",
+    "perms":"rwxrwxrwx",
     "rid":0,
     "uid":0,
     "vid":0,

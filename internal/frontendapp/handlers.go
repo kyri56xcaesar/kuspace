@@ -135,8 +135,6 @@ func (srv *HTTPService) handleLogin(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie("username", authResponse.Username, 3600, "/api/v1/", "", false, true) // Set the username cookie
-	c.SetCookie("groups", authResponse.Groups, 3600, "/api/v1/", "", false, true)
 	c.SetCookie("access_token", authResponse.AccessToken, 3600, "/api/v1/", "", false, true)
 	c.SetCookie("refresh_token", authResponse.RefreshToken, 3600, "/api/v1/", "", false, true)
 
@@ -353,7 +351,7 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 		},
 	}
 	// Forward login request to the auth service
-	resp, err := forwardPostRequest(authServiceURL+authVersion+"/register", accessToken, gin.H{
+	resp, err := forwardPostRequest(authServiceURL+authVersion+"/admin/useradd", accessToken, gin.H{
 		"user": data,
 	})
 	if err != nil {
@@ -431,7 +429,7 @@ func (srv *HTTPService) handleUserdel(c *gin.Context) {
 	}
 
 	// Render the HTML template
-	c.String(http.StatusOK, "%v", resp.Message)
+	c.String(response.StatusCode, "%v", resp.Message)
 }
 
 func (srv *HTTPService) handleUserpatch(c *gin.Context) {
@@ -512,9 +510,105 @@ func (srv *HTTPService) handleUserpatch(c *gin.Context) {
 }
 
 func (srv *HTTPService) handleGroupadd(c *gin.Context) {
+	/* Since, this is an admin function, verify early that access token exists
+	* perhaps, unecessary.
+	* JWT is verified at the authentication service anyhow
+	* */
+	accessToken, err := c.Cookie("access_token")
+	if err != nil {
+		log.Printf("missing access_token cookie: %v", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var req struct {
+		Groupname string `json:"groupname" form:"groupname"`
+	}
+
+	if err := c.ShouldBind(&req); err != nil {
+		log.Printf("failed to bind request: %v", err)
+		c.JSON(400, gin.H{"error": "bad binding"})
+		return
+	}
+
+	// Forward login request to the auth service
+	resp, err := forwardPostRequest(authServiceURL+authVersion+"/admin/groupadd", accessToken, req)
+	if err != nil {
+		log.Printf("Error forwarding register request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "forwarding fail"})
+		return
+
+	}
+	defer resp.Body.Close()
+
+	// Check the response status from the auth service
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Auth service returned status: %v", resp.Status)
+		var ErrResp struct {
+			Error string `json:"error"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&ErrResp); err != nil {
+			log.Printf("Error decoding auth err response: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "serious"})
+			return
+		}
+
+		c.JSON(resp.StatusCode, ErrResp)
+		return
+	}
 }
 
 func (srv *HTTPService) handleGroupdel(c *gin.Context) {
+	accessToken, err := c.Cookie("access_token")
+	if err != nil {
+		log.Printf("missing access_token cookie: %v", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	gid := c.Request.URL.Query().Get("gid")
+	if gid == "" {
+		log.Printf("missing gid parameter, must provide...")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing gid param"})
+		return
+	}
+	req, err := http.NewRequest(http.MethodDelete, authServiceURL+"/admin/groupdel?gid="+gid, nil)
+	if err != nil {
+		log.Printf("failed to create request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	response, err := client.Do(req)
+	if err != nil {
+		log.Printf("failed to make request: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to delete group"})
+		return
+	}
+	defer response.Body.Close()
+
+	var resp struct {
+		Message string `json:"message"`
+	}
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Printf("failed to read response body: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
+		return
+	}
+
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		log.Printf("failed to unmarshal response: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
+		return
+	}
+
+	// Render the HTML template
+	c.String(response.StatusCode, "%v", resp.Message)
 }
 
 func (srv *HTTPService) handleGrouppatch(c *gin.Context) {
@@ -543,7 +637,7 @@ func (srv *HTTPService) handleHasher(c *gin.Context) {
 	}
 
 	if hashereq.Text == "" && hashereq.HashText == "" {
-		c.JSON(404, gin.H{"error": "empty request.."})
+		c.JSON(404, gin.H{"error": "empty  request.."})
 		return
 	}
 
@@ -592,6 +686,67 @@ func (srv *HTTPService) handleHasher(c *gin.Context) {
 	c.String(http.StatusOK, "%v", resp.Result)
 }
 
+/*
+*********************************************************************
+*   Resources
+* */
+
+func (srv *HTTPService) handleFetchResources(c *gin.Context) {
+	_, err := c.Cookie("access_token")
+	if err != nil {
+		log.Printf("missing access_token cookie: %v", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	req, err := http.NewRequest(http.MethodGet, authServiceURL+"/admin/users", nil)
+	if err != nil {
+		log.Printf("failed to create request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+	req.Header.Set("Access-Target", "")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	response, err := client.Do(req)
+	if err != nil {
+		log.Printf("failed to make request: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to fetch users"})
+		return
+	}
+	defer response.Body.Close()
+
+	var resp struct {
+		Content []User `json:"content"`
+	}
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Printf("failed to read response body: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
+		return
+	}
+
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		log.Printf("failed to unmarshal response: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
+		return
+	}
+
+	// sort users on uid
+	sort.Slice(resp.Content, func(i, j int) bool {
+		return resp.Content[i].Uid < resp.Content[j].Uid
+	})
+
+	// Render the HTML template
+	c.HTML(http.StatusOK, "users_template.html", resp.Content)
+}
+
+/*
+*********************************************************************
+* */
+/* helpful functions */
 func forwardPostRequest(destinationURI string, accessToken string, requestData interface{}) (*http.Response, error) {
 	// Marshal the request data into JSON
 	jsonData, err := json.Marshal(requestData)

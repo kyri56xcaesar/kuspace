@@ -55,7 +55,7 @@ func BindAccessTarget(http_header string) (*AccessClaim, error) {
 /* 'resource' handlers
 * SEE: models.go
 * */
-func (srv *UService) GetFile(c *gin.Context) {
+func (srv *UService) GetResource(c *gin.Context) {
 	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
 	if err != nil {
 		log.Printf("failed to bind access-target: %v", err)
@@ -94,7 +94,11 @@ func (srv *UService) GetFile(c *gin.Context) {
 	c.JSON(200, resource)
 }
 
-func (srv *UService) GetFiles(c *gin.Context) {
+/*
+* this should behave as:
+* 'ls'
+* */
+func (srv *UService) ListResources(c *gin.Context) {
 	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
 	if err != nil {
 		log.Printf("failed to bind access-target: %v", err)
@@ -103,7 +107,7 @@ func (srv *UService) GetFiles(c *gin.Context) {
 	}
 	log.Printf("binded access claim: %+v", ac)
 
-	resources, err := srv.dbh.GetAllResources()
+	resources, err := srv.dbh.GetAllResourcesAt(ac.Target + "/%")
 	if err != nil {
 		log.Printf("error retrieving resource: %v", err)
 		if strings.Contains(err.Error(), "scan") {
@@ -112,13 +116,18 @@ func (srv *UService) GetFiles(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "fatal"})
 		}
 		return
+	} else if resources == nil {
 	}
 
 	c.JSON(200, resources)
 }
 
-/* */
-func (srv *UService) PostFile(c *gin.Context) {
+/* this should behave as:
+* 'mkdir' for directory types,
+* for file types it should trigger file upload
+* simple resource
+* */
+func (srv *UService) PostResources(c *gin.Context) {
 	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
 	if err != nil {
 		log.Printf("failed to bind access-target: %v", err)
@@ -136,6 +145,7 @@ func (srv *UService) PostFile(c *gin.Context) {
 	}
 	currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 	for i := range resources {
+		resources[i].Name = ac.Target + "/" + resources[i].Name
 		resources[i].Created_at = currentTime
 		resources[i].Updated_at = currentTime
 		resources[i].Accessed_at = currentTime
@@ -155,33 +165,38 @@ func (srv *UService) PostFile(c *gin.Context) {
 	})
 }
 
-func (srv *UService) PatchFile(c *gin.Context) {
+func (srv *UService) MoveResources(c *gin.Context) {
 	c.JSON(200, gin.H{
-		"message": "fs",
+		"message": "tdb",
 	})
 }
 
-func (srv *UService) DeleteFiles(c *gin.Context) {
+func (srv *UService) RemoveResources(c *gin.Context) {
 	c.JSON(200, gin.H{
-		"message": "fs",
+		"message": "tdb",
 	})
 }
 
-/* Volume handlers */
-func (srv *UService) GetVolumes(c *gin.Context) {
+func (srv *UService) ChmodResource(c *gin.Context) {
 	c.JSON(200, gin.H{
-		"message": "v",
+		"message": "tbd",
 	})
 }
 
-func (srv *UService) PostVolumes(c *gin.Context) {
+func (srv *UService) ChownResource(c *gin.Context) {
 	c.JSON(200, gin.H{
-		"message": "vp",
+		"message": "tdb",
 	})
 }
 
-func (srv *UService) DeleteVolumes(c *gin.Context) {
+func (srv *UService) DownloadResource(c *gin.Context) {
 	c.JSON(200, gin.H{
-		"message": "vpp",
+		"message": "tbd",
+	})
+}
+
+func (srv *UService) UploadResource(c *gin.Context) {
+	c.JSON(200, gin.H{
+		"message": "tbd",
 	})
 }

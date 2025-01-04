@@ -12,211 +12,215 @@
 
 </head>
 <body>
-    <!-- Sidebar -->
-    <div id="sidebar" class="sidebar">
-        <button id="toggle-sidebar" class="sidebar-toggle">☰</button>
-        <ul class="menu">
-            <li>
-              <a href="#" onclick="showSection('dashboard')">Dashboard</a>
-              <ul class="submenu">
-                <p></p>
-              </ul>              
-            </li>
-            <hr>
-            <li>
-              <a href="#" onclick="showSection('resources')">Manage Resources</a>
-              <ul class="submenu">
-                <p></p>
-              </ul>
-            </li>
-            <hr>
-            <li>
-              <a href="#" onclick="showSection('jobs')">Manage Jobs</a>
-              <ul class="submenu">
-                <p></p>
-              </ul> 
-            </li>
-            <hr>
-            <li>
-              <a href="#" onclick="showSection('users')">Manage Users</a>
-              <ul class="submenu">
-                <p></p>
-              </ul>
-            </li>
-            <hr>
-            <li>
-              <a href="#" onclick="showSection('groups')">Manage Groups</a>
-              <ul class="submenu">
-                <p></p>
-              </ul>
-            </li>
-            <hr>
+  <!-- Sidebar -->
+  <div id="sidebar" class="sidebar">
+    <button id="toggle-sidebar" class="sidebar-toggle">☰</button>
+      <ul class="menu">
+        <li>
+          <a href="#" onclick="showSection('dashboard')">Dashboard</a>
+          <ul class="submenu">
+            <p></p>
+          </ul>              
+        </li>
+        <hr>
+        <li>
+          <a href="#" onclick="showSection('jobs')">Manage Jobs</a>
+          <ul class="submenu">
+            <p></p>
+          </ul> 
+        </li>
+        <hr>
+        <li>
+          <a href="#" onclick="showSection('resources')">Manage Resources</a>
+          <ul class="submenu">
+            <p></p>
+          </ul>
+        </li>
+        <hr>
+        <li>
+          <a href="#" onclick="showSection('users')">Manage Users</a>
+          <ul class="submenu">
+            <p></p>
+          </ul>
+        </li>
+        <hr>
+        <li>
+          <a href="#" onclick="showSection('groups')">Manage Groups</a>
+          <ul class="submenu">
+            <p></p>
+          </ul>
+        </li>
+        <hr>
+      </ul>
+      <div id="menu-bottom">
+        <hr>
+        <ul>
+          <li>
+            <a href="#" onclick="showSection('profile')">Profile</a>
+          </li>
         </ul>
-        <button  
-          class="logout-button"
-          id="logout-a"
-          hx-delete="/api/v1/logout?access_token&refresh_token&username&groups" 
-          hx-swap="none" 
-          hx-trigger="click" 
-          href="/api/v1/login">
-          ⏼
-        </button>
-    </div>
+      </div>
+      <button  
+        class="logout-button"
+        id="logout-a"
+        hx-delete="/api/v1/logout?access_token&refresh_token" 
+        hx-swap="none" 
+        hx-trigger="click" 
+        href="/api/v1/login">
+        ⏼
+      </button>
+  </div>
+  
+  <!-- Main Content -->
+  <div id="main-content-wrapper">
+    <header class="admin-header">
+      <h1>{{ .message }}, <i>"{{ .username }}"!</i></h1>
+    </header>
+    <main id="main-content">
+      <section id="dashboard" class="content-section">
+        <h2>Root Dashboard</h2>
+        <p>This is the dashboard where you can use the system as a user.</p>
+      </section>
+        
+      <!-- users -->
+      <section id="users" class="content-section hidden">
+        <h2>Manage Users </h2>
+        <p>Perform CRUD operations on users.</p>
+        <hr>
+        <div 
+          id="fetch-users-results" 
+          hx-trigger="load" 
+          hx-get="/api/v1/verified/admin/fetch-users" 
+          hx-target="this" 
+          hx-swap="innerHTML"
+        ></div>
+        <hr>
+        <div id="add-user-div" class="admin-panel">
+          <h3>Add a new user</h3>
+          <div class="info" style=" border-left: 6px solid #2196F3; font-size: 15px; margin-bottom: 15px;">
+            <p><strong>Info!</strong> Keep in mind the password inserted from here will be hashed internally </p>
+            <span id="useradd-error-feedback"></span>
+          </div>
+          <form 
+            id="add-user-form"
+            hx-post="/api/v1/verified/admin/useradd"
+            hx-swap="none" 
+            hx-trigger="submit" 
+            hx-target=""
+          >
+            <div class="form-group">
+              <label for="username">Username:</label>
+              <input type="text" id="username" name="username" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
+            </div>
+            <div class="form-group">
+              <label for="password">Password:</label>
+              <input type="text" id="password" name="password" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
+            </div>
+            <div class="form-group">
+              <label for="email">Email:</label>
+              <input type="text" id="email" name="email" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
+            </div>
+            <div class="form-group">
+              <label for="home">Home:</label>
+              <input type="text" id="home" name="home" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
+            </div>
+            <div class="c-group">                  
+              <button type="submit">
+                Add User
+              </button>
+            </div>
+          </form>
+        </div>
+        <hr>
+        <div 
+          id="hashing-tool-target" 
+          hx-trigger="load" 
+          hx-get="/api/v1/verified/admin/hasher" 
+          hx-target="this" 
+          hx-swap="innerHTML"
+        ></div>            
+      </section>
 
-    <!-- Main Content -->
-    <div id="main-content-wrapper">
-        <header class="admin-header">
-            <h1>{{ .message }}, <i>"{{ .username }}"!</i></h1>
-        </header>
-        <main id="main-content">
-            <!-- Default content for the dashboard -->
-            <section id="dashboard" class="content-section">
-                <h2>Root Dashboard</h2>
-                <p>This is the dashboard where you can use the system as a user.</p>
-            </section>
+      <!-- groups -->
+      <section id="groups" class="content-section hidden">
+        <h2>Manage Groups </h2>
+        <p>Perform CRUD operations on groups.</p>
+        <hr>
+        <div 
+          id="fetch-groups-results" 
+          hx-trigger="load" 
+          hx-get="/api/v1/verified/admin/fetch-groups" 
+          hx-target="this" 
+          hx-swap="innerHTML"
+        ></div>
+        <hr>
+        <div id="add-group-div" class="admin-panel">
+          <h3>Add a new group</h3>
+          <div class="info" style=" border-left: 6px solid #2196F3; font-size: 15px; margin-bottom: 15px;">
+            <p><strong>Info!</strong> This will be updated </p>
+          </div>
+          <form 
+            id="add-group-form"
+            hx-post="/api/v1/verified/admin/groupadd"
+            hx-swap="none" 
+            hx-trigger="submit" 
+            hx-target=""
+          >
+            <div class="form-group">
+              <label for="groupname">Groupname:</label>
+              <input type="text" id="groupname" name="groupname" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
+            </div>
+            <div class="c-group">                  
+              <button type="submit">
+                Add Group
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
 
-            <!-- users -->
-            <section id="users" class="content-section hidden">
-                <h2>Manage Users </h2>
-                <p>Perform CRUD operations on users.</p>
-                <hr>
-                <div 
-                  id="fetch-users-results" 
-                  hx-trigger="load" 
-                  hx-get="/api/v1/verified/admin/fetch-users" 
-                  hx-target="this" 
-                  hx-swap="innerHTML"
-                ></div>
-                <hr>
-                <div id="add-user-div" class="admin-panel">
-                  <h3>Add a new user</h3>
-                  <div class="info" style=" border-left: 6px solid #2196F3; font-size: 15px; margin-bottom: 15px;">
-                    <p><strong>Info!</strong> Keep in mind the password inserted from here will be hashed internally </p>
-                  </div>
-                    <form 
-                      id="add-user-form"
-                      hx-post="/api/v1/verified/admin/useradd"
-                      hx-swap="none" 
-                      hx-trigger="submit" 
-                      hx-target=""
-                    >
-                        <div class="form-group">
-                          <label for="username">Username:</label>
-                          <input type="text" id="username" name="username" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
-                        </div>
-                        <div class="form-group">
-                          <label for="password">Password:</label>
-                          <input type="text" id="password" name="password" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
-                        </div>
-                        <div class="form-group">
-                          <label for="email">Email:</label>
-                          <input type="text" id="email" name="email" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
-                        </div>
-                        <div class="form-group">
-                          <label for="home">Home:</label>
-                          <input type="text" id="home" name="home" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
-                        </div>
-                      <div class="c-group">                  
-                        <button type="submit">
-                          Add User
-                        </button>
-                      </div>
-                    </form>
-                </div>
-                <hr>
-                <div 
-                  id="hashing-tool-target" 
-                  hx-trigger="load" 
-                  hx-get="/api/v1/verified/admin/hasher" 
-                  hx-target="this" 
-                  hx-swap="innerHTML"
-                ></div>            
+      <section id="jobs" class="content-section hidden">
+        <h2>Manage Jobs</h2>
+        <p>Monitor, view, and manage jobs.</p>
+        <hr>
+        <form id="search-jobs-form">
+          <label>Job Name: <input type="text" name="job_name"></label>
+          <label>Resource ID: <input type="text" name="resource_id"></label>
+          <button type="submit"> Search Job</button>
+        </form>
+        <button>Load history</button>
+      </section>
+        
+      <!-- resources -->    
+      <section id="resources" class="content-section hidden">      
+        <h2>Manage Resources</h2>
+        <p>View and adjust resource quotas.</p>
+        <hr>
+        <form id="search-resource-form">
+          <label>Resource ID: <input type="text" name="resource_id"></label>
+        </form>
+        <button>View Resources</button>
+      </section>
+    </main>
+  </div>
 
-            </section>
-            <!-- users -->
-            <section id="groups" class="content-section hidden">
-                <h2>Manage Groups </h2>
-                <p>Perform CRUD operations on groups.</p>
-                <hr>
-                <div 
-                  id="fetch-groups-results" 
-                  hx-trigger="load" 
-                  hx-get="/api/v1/verified/admin/fetch-groups" 
-                  hx-target="this" 
-                  hx-swap="innerHTML"
-                ></div>
-                <hr>
-                <div id="add-group-div" class="admin-panel">
-                  <h3>Add a new group</h3>
-                  <div class="info" style=" border-left: 6px solid #2196F3; font-size: 15px; margin-bottom: 15px;">
-                    <p><strong>Info!</strong> This will be updated </p>
-                  </div>
-                  <form 
-                    id="add-group-form"
-                    hx-post="/api/v1/verified/admin/groupadd"
-                    hx-swap="none" 
-                    hx-trigger="submit" 
-                    hx-target=""
-                  >
-                    <div class="form-group">
-                      <label for="groupname">Groupname:</label>
-                      <input type="text" id="groupname" name="groupname" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
-                    </div>
-                    <div class="c-group">                  
-                      <button type="submit">
-                        Add Group
-                      </button>
-                    </div>
-                  </form>
-                </div>
+  <script>
+    // Sidebar toggle logic
+    const sidebar = document.getElementById('sidebar');
+    const toggleSidebarButton = document.getElementById('toggle-sidebar');
+    const sidebarList = document.querySelector('.sidebar ul');
 
-            </section>
-            <!-- resources -->
-            <section id="resources" class="content-section hidden">
-                <h2>Manage Resources</h2>
-                <p>View and adjust resource quotas.</p>
-                <hr>
-                <form id="search-resource-form">
-                    <label>Resource ID: <input type="text" name="resource_id"></label>
-                    <label>Quota: <input type="number" name="quota"></label>
-                    <button type="submit">Update Quota</button>
-                </form>
-                <button>View Resources</button>
-            </section>
-
-            <section id="jobs" class="content-section hidden">
-                <h2>Manage Jobs</h2>
-                <p>Monitor, view, and manage jobs.</p>
-                <hr>
-                <form id="search-jobs-form">
-                    <label>Job Name: <input type="text" name="job_name"></label>
-                    <label>Resource ID: <input type="text" name="resource_id"></label>
-                    <button type="submit"> Search Job</button>
-                </form>
-                <button>Load history</button>
-
-            </section>
-        </main>
-    </div>
-
-    <script>
-        // Sidebar toggle logic
-        const sidebar = document.getElementById('sidebar');
-        const toggleSidebarButton = document.getElementById('toggle-sidebar');
-        const sidebarList = document.querySelector('.sidebar ul');
-
-        toggleSidebarButton.addEventListener('click', () => {
-            sidebar.classList.toggle('collapsed');
-            if (sidebar.classList.contains('collapsed')) {
-                sidebarList.style.opacity = '0';
-                sidebarList.style.pointerEvents = 'none'; // Prevent interaction when hidden
-            } else {
-                sidebarList.style.opacity = '1';
-                sidebarList.style.pointerEvents = 'auto';
-            }
-        });
-
-    </script>
+    toggleSidebarButton.addEventListener('click', () => {
+      sidebar.classList.toggle('collapsed');
+      if (sidebar.classList.contains('collapsed')) {
+        sidebarList.style.opacity = '0';
+        sidebarList.style.pointerEvents = 'none'; // Prevent interaction when hidden
+      } else {
+        sidebarList.style.opacity = '1';
+        sidebarList.style.pointerEvents = 'auto';
+      }
+    });
+  </script>
 </body>
 </html>
 

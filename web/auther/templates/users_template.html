@@ -41,6 +41,7 @@
           <td>
             <div id="actions-btns">
               <button id="edit-btn-{{ $index }}" onclick="editUser('{{ $user.Uid }}', '{{ $index }}')">Edit</button>
+              {{ if ne $user.Uid 0 }}
               <button 
                 id="delete-btn-{{ $index }}"
                 hx-delete="/api/v1/verified/admin/userdel?uid={{ .Uid }}"
@@ -49,6 +50,7 @@
                 hx-target="#table-{{ $index }}"
                 hx-confirm="Are you sure you want to delete user {{ .Uid }}?"
               > Delete</button>
+              {{ end }}
             </div>
           </td>
         </tr>
