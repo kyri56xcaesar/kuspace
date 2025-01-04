@@ -2,7 +2,6 @@
 *.note
 *.env
 
-data/db/*
 cmd/minioth/minioth
 cmd/minioth
 cmd/userspace
