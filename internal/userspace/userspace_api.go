@@ -58,19 +58,20 @@ func (srv *UService) Serve() {
 	apiV1 := srv.Engine.Group("/api/v1")
 	{
 		/* equivalent to "ls", will return the resources, from the given path*/
-		apiV1.GET("/resources", srv.ListResources)
-		apiV1.POST("/resources", srv.PostResources)
-		apiV1.PUT("/resources", srv.MoveResources)
+		apiV1.GET("/resources", srv.ListResourcesHandler)
 
-		apiV1.GET("/resource/download", srv.DownloadResource)
+		apiV1.POST("/resource/upload", srv.HandleUpload)
+		apiV1.GET("/resource/download", srv.HandleDownload)
 	}
 
-	admin := srv.Engine.Group("/admin")
+	admin := apiV1.Group("/admin")
 	{
-		admin.PATCH("/resource/permissions", srv.ChmodResource)
-		admin.PATCH("/resource/ownership", srv.ChownResource)
-	}
+		admin.POST("/resources", srv.PostResourcesHandler)
+		admin.PUT("/resources", srv.MoveResourcesHandler)
 
+		admin.PATCH("/resource/permissions", srv.ChmodResourceHandler)
+		admin.PATCH("/resource/ownership", srv.ChownResourceHandler)
+	}
 	/* context handler */
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

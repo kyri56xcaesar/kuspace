@@ -18,7 +18,8 @@ type EnvConfig struct {
 	FRONT_PORT string
 	AUTH_PORT  string
 
-	DB string
+	DB      string
+	Volumes string
 
 	IP string
 
@@ -42,6 +43,7 @@ func LoadConfig(path string) EnvConfig {
 	config := EnvConfig{
 		ConfigPath:     split[len(split)-1],
 		DB:             getEnv("DB", "userspace.db"),
+		Volumes:        getEnv("VOLUMES", "data/volumes"),
 		API_PORT:       getEnv("API_PORT", "8079"),
 		FRONT_PORT:     getEnv("FRONT_PORT", "8080"),
 		AUTH_PORT:      getEnv("AUTH_PORT", "9090"),

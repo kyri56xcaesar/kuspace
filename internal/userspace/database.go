@@ -237,7 +237,7 @@ func (m *DBHandler) GetResourceByIds(rids []int) ([]Resource, error) {
 	return resources, nil
 }
 
-func (m *DBHandler) GetResourceByFilename(filepath string) (*Resource, error) {
+func (m *DBHandler) GetResourceByFilepath(filepath string) (*Resource, error) {
 	db, err := m.getConn()
 	if err != nil {
 		log.Printf("error getting db connection: %v", err)
