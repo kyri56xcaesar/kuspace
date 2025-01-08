@@ -76,7 +76,7 @@ func (srv *UService) GetResourceHandler(c *gin.Context) {
 	*/
 
 	/* find target resource */
-	resource, err := srv.dbh.GetResourceByFilename(ac.Target)
+	resource, err := srv.dbh.GetResourceByFilepath(ac.Target)
 	if err != nil {
 		log.Printf("error retrieving resource: %v", err)
 		if strings.Contains(err.Error(), "scan") {
@@ -201,16 +201,8 @@ func (srv *UService) HandleDownload(c *gin.Context) {
 		return
 	}
 	log.Printf("binded access claim: %+v", ac)
-  
-  resource, err := srv.dbh.GetResourceByFilepath(filepath string)
-  if err != nil {
-    log.Printf("failed to retrieve resource.") 
-    c.JSON(http.StatusBadRequest, gin.H{"error":""})
-    return 
-  }
 
-
-		c.JSON(200, gin.H{
+	c.JSON(200, gin.H{
 		"message": "tbd",
 	})
 }
@@ -226,33 +218,9 @@ func (srv *UService) HandleUpload(c *gin.Context) {
 	}
 	log.Printf("binded access claim: %+v", ac)
 
-	// 2]: lets check if destination is valid and if user is authorizated
-	/* this should be using the resource model calls
-	*
+	// 2]: we should check if destination is valid and if user is authorizated
+	/*
 	* */
-	var resources []Resource
-	err = c.BindJSON(&resources)
-	if err != nil {
-		log.Printf("error binding: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad binding"})
-		return
-	}
-	currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
-	for i := range resources {
-		resources[i].Name = ac.Target + "/" + resources[i].Name
-		resources[i].Created_at = currentTime
-		resources[i].Updated_at = currentTime
-		resources[i].Accessed_at = currentTime
-	}
-
-	log.Printf("binded resources: %+v", resources)
-
-	err = srv.dbh.InsertResources(resources)
-	if err != nil {
-		log.Printf("failed to insert resources: %v", err)
-		c.JSON(422, gin.H{"error": "failed to insert resources"})
-		return
-	}
 
 	// 3]: determine physical destination path
 	// parse the form files
@@ -301,6 +269,19 @@ func (srv *UService) HandleUpload(c *gin.Context) {
 		if err != nil {
 			log.Printf("failed to save file to storage: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save file"})
+			return
+		}
+
+		/* Insert the appropriate metadata as a resource */
+		currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
+    resource := Resource{
+      Name: 
+    } 
+
+		err = srv.dbh.InsertResource(resource)
+		if err != nil {
+			log.Printf("failed to insert resources: %v", err)
+			c.JSON(422, gin.H{"error": "failed to insert resources"})
 			return
 		}
 	}

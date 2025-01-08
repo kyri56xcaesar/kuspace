@@ -94,6 +94,27 @@ func (m *DBHandler) Init() {
 	}
 }
 
+func (m *DBHandler) InsertResource(resource Resource) error {
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("failed to get database connection: %v", err)
+		return err
+	}
+
+	query := `
+    INSERT INTO 
+      resources (rid, uid, vid, gid, pid, size, links, perms, name, type, created_at, updated_at, accessed_at)
+    VALUES (nextval('seq_resourceid'), ?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,?, ?);
+  `
+	_, err = db.Exec(query, resource.FieldsNoId()...)
+	if err != nil {
+		log.Printf("failed to insert the resource: %v", err)
+		return err
+	}
+
+	return nil
+}
+
 func (m *DBHandler) InsertResources(resources []Resource) error {
 	db, err := m.getConn()
 	if err != nil {
