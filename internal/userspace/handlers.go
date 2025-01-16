@@ -37,7 +37,9 @@ func BindAccessTarget(http_header string) (*AccessClaim, error) {
 	}
 
 	target := parts[0]
-	ftype := "file"
+	if !strings.HasSuffix(target, "/") {
+		target += "/"
+	}
 
 	sig := parts[1]
 	p := strings.SplitN(sig, ":", 2)
@@ -49,7 +51,6 @@ func BindAccessTarget(http_header string) (*AccessClaim, error) {
 		Uid:    p[0],
 		Gids:   p[1],
 		Target: target,
-		Type:   ftype,
 	}, nil
 }
 
@@ -106,8 +107,6 @@ func (srv *UService) ResourcesHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing Access-Target header"})
 		return
 	}
-	log.Printf("binded access claim: %+v", ac)
-
 	resources, err := srv.dbh.GetAllResourcesAt(ac.Target + "%")
 	if err != nil {
 		log.Printf("error retrieving resource: %v", err)
@@ -125,7 +124,6 @@ func (srv *UService) ResourcesHandler(c *gin.Context) {
 	// default is list
 	structure := c.Request.URL.Query().Get("struct")
 
-	log.Printf("struct argument: %s", structure)
 	switch structure {
 	case "list":
 		c.JSON(200, resources)
@@ -134,22 +132,27 @@ func (srv *UService) ResourcesHandler(c *gin.Context) {
 		// need to parse all the resources
 		tree := make(map[string]interface{})
 		for _, resource := range resources {
-			parts := strings.Split(strings.TrimPrefix(resource.Name, "/"), "/")
-
-			for index, part := range parts {
-				if index != len(parts)-1 {
-					sbtree := make(map[string]interface{})
-					tree[part] = sbtree
-				}
-			}
+			// buildTreeRec(tree, strings.Split(strings.TrimPrefix(resource.Name, "/"), "/"), resource)
+			buildTreeRec(tree, append([]string{"/"}, strings.Split(strings.TrimPrefix(resource.Name, "/"), "/")...), resource)
 		}
 
+		c.JSON(200, tree)
 	default:
 		c.JSON(200, resources)
 	}
 }
 
-func buildTreeRec() {
+func buildTreeRec(tree map[string]interface{}, entry []string, resource Resource) {
+	// Check if the current level already exists in the tree
+	if len(entry) == 1 {
+		tree[entry[0]] = resource
+		return
+	} else if _, exists := tree[entry[0]]; !exists {
+		tree[entry[0]] = make(map[string]interface{})
+	}
+
+	buildTreeRec(tree[entry[0]].(map[string]interface{}), entry[1:], resource)
+
 }
 
 /* this should behave as:
@@ -175,7 +178,7 @@ func (srv *UService) PostResourcesHandler(c *gin.Context) {
 	}
 	currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 	for i := range resources {
-		resources[i].Name = ac.Target + "/" + resources[i].Name
+		resources[i].Name = ac.Target + resources[i].Name
 		resources[i].Created_at = currentTime
 		resources[i].Updated_at = currentTime
 		resources[i].Accessed_at = currentTime
@@ -313,7 +316,7 @@ func (srv *UService) HandleUpload(c *gin.Context) {
 		//currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 		resource := Resource{
 			Name:        ac.Target + fileHeader.Filename,
-			Type:        ac.Type,
+			Type:        "file",
 			Created_at:  currentTime,
 			Updated_at:  currentTime,
 			Accessed_at: currentTime,

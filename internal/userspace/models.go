@@ -172,7 +172,6 @@ type AccessClaim struct {
 	Gids string `json:"group_ids"`
 
 	Target string `json:"target"`
-	Type   string `json:"type"`
 }
 
 func (ac *AccessClaim) filter() AccessClaim {
