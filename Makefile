@@ -19,20 +19,26 @@ mod:
 	go mod tidy
 
 
+.PHONY: run all
+run all: 
+	./${TARGET_AUTH}${AUTH_OUT} &
+	./${TARGET_F_APP}${F_APP_OUT} & 
+	./${TARGET_API}${API_OUT} &
+
 .PHONY: userspace
 userspace:
 	go build -o ${TARGET_API}${API_OUT} ${TARGET_API}${API_MAIN} 
-	./${TARGET_API}${API_OUT}
+	./${TARGET_API}${API_OUT} 
 
 .PHONY: front 
 front:
 	go build -o ${TARGET_F_APP}${F_APP_OUT} ${TARGET_F_APP}${F_APP_MAIN}
-	./${TARGET_F_APP}${F_APP_OUT}
+	./${TARGET_F_APP}${F_APP_OUT} 
 
 .PHONY: minioth
 minioth:
 	go build -o ${TARGET_AUTH}${AUTH_OUT} ${TARGET_AUTH}${AUTH_MAIN}
-	./${TARGET_AUTH}${AUTH_OUT}
+	./${TARGET_AUTH}${AUTH_OUT} 
 
 .PHONY: shell
 shell:
@@ -42,4 +48,4 @@ shell:
 .PHONY: clean
 clean:
 	rm -f ${TARGET_API}${API_OUT} ${TARGET_SHELL}${SHELL_OUT} ${TARGET_AUTH}${AUTH_OUT} ${TARGET_F_APP}${F_APP_OUT}
-
+	

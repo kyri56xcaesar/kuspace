@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	ut "kyri56xcaesar/myThesis/internal/utils"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
@@ -28,7 +30,7 @@ const (
 * Structs */
 type HTTPService struct {
 	Engine *gin.Engine
-	Config *EnvConfig
+	Config ut.EnvConfig
 }
 
 /*
@@ -37,7 +39,7 @@ type HTTPService struct {
 func NewService(conf string) HTTPService {
 	service := HTTPService{}
 	service.Engine = gin.Default()
-	service.Config = LoadConfig(conf)
+	service.Config = ut.LoadConfig(conf)
 	log.Print(service.Config.ToString())
 
 	return service

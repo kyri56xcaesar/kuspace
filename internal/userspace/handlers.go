@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -36,10 +37,6 @@ func BindAccessTarget(http_header string) (*AccessClaim, error) {
 
 	target := parts[0]
 	ftype := "file"
-	if strings.HasSuffix(parts[0], "/") {
-		ftype = "dir"
-		target, _ = strings.CutSuffix(target, "/")
-	}
 
 	sig := parts[1]
 	p := strings.SplitN(sig, ":", 2)
@@ -101,7 +98,7 @@ func (srv *UService) GetResourceHandler(c *gin.Context) {
 * this should behave as:
 * 'ls'
 * */
-func (srv *UService) ListResourcesHandler(c *gin.Context) {
+func (srv *UService) ResourcesHandler(c *gin.Context) {
 	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
 	if err != nil {
 		log.Printf("failed to bind access-target: %v", err)
@@ -110,7 +107,7 @@ func (srv *UService) ListResourcesHandler(c *gin.Context) {
 	}
 	log.Printf("binded access claim: %+v", ac)
 
-	resources, err := srv.dbh.GetAllResourcesAt(ac.Target + "/%")
+	resources, err := srv.dbh.GetAllResourcesAt(ac.Target + "%")
 	if err != nil {
 		log.Printf("error retrieving resource: %v", err)
 		if strings.Contains(err.Error(), "scan") {
@@ -122,7 +119,36 @@ func (srv *UService) ListResourcesHandler(c *gin.Context) {
 	} else if resources == nil {
 	}
 
-	c.JSON(200, resources)
+	// we should determine the structure to be returned.
+	// this is given as uri argument
+	// default is list
+	structure := c.Request.URL.Query().Get("struct")
+
+	log.Printf("struct argument: %s", structure)
+	switch structure {
+	case "list":
+		c.JSON(200, resources)
+	case "tree":
+		// build the tree and return it in json
+		// need to parse all the resources
+		tree := make(map[string]interface{})
+		for _, resource := range resources {
+			parts := strings.Split(strings.TrimPrefix(resource.Name, "/"), "/")
+
+			for index, part := range parts {
+				if index != len(parts)-1 {
+					sbtree := make(map[string]interface{})
+					tree[part] = sbtree
+				}
+			}
+		}
+
+	default:
+		c.JSON(200, resources)
+	}
+}
+
+func buildTreeRec() {
 }
 
 /* this should behave as:
@@ -216,11 +242,14 @@ func (srv *UService) HandleUpload(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing Access-Target header"})
 		return
 	}
-	log.Printf("binded access claim: %+v", ac)
-
 	// 2]: we should check if destination is valid and if user is authorizated
 	/*
 	* */
+	if !strings.HasPrefix(ac.Target, "/") {
+		log.Printf("invalid target path")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad target path, must provide a directory"})
+		return
+	}
 
 	// 3]: determine physical destination path
 	// parse the form files
@@ -257,7 +286,7 @@ func (srv *UService) HandleUpload(c *gin.Context) {
 		}
 		defer file.Close()
 
-		outFile, err := os.Create(physicalPath)
+		outFile, err := os.Create(physicalPath + fileHeader.Filename)
 		if err != nil {
 			log.Printf("failed to create output file: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create output file"})
@@ -272,11 +301,25 @@ func (srv *UService) HandleUpload(c *gin.Context) {
 			return
 		}
 
-		/* Insert the appropriate metadata as a resource */
+		uid, err := strconv.Atoi(ac.Uid)
+		if err != nil {
+			log.Printf("failed to atoi uid: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "bad uid"})
+			return
+		}
 		currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
-    resource := Resource{
-      Name: 
-    } 
+		/* Insert the appropriate metadata as a resource */
+		//currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
+		resource := Resource{
+			Name:        ac.Target + fileHeader.Filename,
+			Type:        ac.Type,
+			Created_at:  currentTime,
+			Updated_at:  currentTime,
+			Accessed_at: currentTime,
+			Perms:       "rw-r--r--",
+			Uid:         uid,
+			Size:        int(fileHeader.Size),
+		}
 
 		err = srv.dbh.InsertResource(resource)
 		if err != nil {
@@ -295,6 +338,9 @@ func (srv *UService) HandleUpload(c *gin.Context) {
 * */
 func determinePhysicalStorage(target string, fileSize int64) (string, error) {
 	// TODO: check
+
+	log.Printf("recieving target: %s", target)
+
 	targetParts := strings.Split(target, "/")
 	availableSpace, err := getAvailableSpace(strings.Join(targetParts[:2], "/"))
 	if err != nil {
@@ -343,6 +389,7 @@ func determinePhysicalStorage(target string, fileSize int64) (string, error) {
 }
 
 func getAvailableSpace(path string) (uint64, error) {
+	log.Printf("getting available space at path: %s", path)
 	var stat syscall.Statfs_t
 
 	// Get filesystem stats for the given path

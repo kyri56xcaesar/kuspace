@@ -154,6 +154,7 @@ func AuthMiddleware(group string) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+
 		/* set this context value for the template rendering needed later*/
 		c.Set("username", info.Info.Username)
 
@@ -163,13 +164,20 @@ func AuthMiddleware(group string) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+		log.Printf("info returned: %+v", info)
+		log.Printf("group needed: %s", group)
+		log.Printf("condition: %v", strings.Contains(info.Info.Groups, group))
 
-		if !strings.Contains(group, info.Info.Groups) {
-			log.Printf("access group not included")
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-			c.Abort()
-			return
+		contents := strings.Split(info.Info.Groups, ",")
+		for _, g := range contents {
+			if strings.Contains(group, strings.TrimSpace(g)) {
+				return
+			}
 		}
+
+		log.Printf("access group not included")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		c.Abort()
 	}
 }
 

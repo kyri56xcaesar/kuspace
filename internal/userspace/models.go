@@ -242,7 +242,6 @@ func (resource *Resource) HasWriteAccess(userInfo AccessClaim) bool {
 	*   |       |       |
 	* owner   group   others
 	* */
-
 	var perm Permissions
 	perm.fillFromStr(resource.Perms)
 

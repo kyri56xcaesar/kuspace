@@ -130,6 +130,16 @@ function copyToClipboard(selector) {
   }
 }
 
+document.addEventListener('htmx:beforeRequest', function(event) {
+  const triggeringElement = event.detail.elt;
+
+  // handle different cases: 
+  if (triggeringElement.id === 'inp-text' && triggeringElement.value === '') {
+    event.preventDefault();
+    document.getElementById("generated-hash").innerText = '';
+  }
+});
+
 document.addEventListener('htmx:afterRequest', function (event) {
   const triggeringElement = event.detail.elt;
   // Handle different cases
