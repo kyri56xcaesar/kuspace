@@ -8,8 +8,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
+
+	ut "kyri56xcaesar/myThesis/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -342,7 +343,7 @@ func determinePhysicalStorage(target string, fileSize int64) (string, error) {
 	log.Printf("recieving target: %s", target)
 
 	targetParts := strings.Split(target, "/")
-	availableSpace, err := getAvailableSpace(strings.Join(targetParts[:2], "/"))
+	availableSpace, err := ut.GetAvailableSpace(strings.Join(targetParts[:2], "/"))
 	if err != nil {
 		return "", fmt.Errorf("failed to get available space: %v", err)
 	}
@@ -386,19 +387,4 @@ func determinePhysicalStorage(target string, fileSize int64) (string, error) {
 	}
 
 	return target, nil
-}
-
-func getAvailableSpace(path string) (uint64, error) {
-	log.Printf("getting available space at path: %s", path)
-	var stat syscall.Statfs_t
-
-	// Get filesystem stats for the given path
-	err := syscall.Statfs(path, &stat)
-	if err != nil {
-		return 0, err
-	}
-
-	// Calculate available space in bytes
-	availableSpace := stat.Bavail * uint64(stat.Bsize)
-	return availableSpace, nil
 }
