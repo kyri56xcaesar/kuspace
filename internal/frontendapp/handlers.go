@@ -15,8 +15,10 @@ import (
 )
 
 var (
-	authServiceURL string = "http://localhost:9090"
-	authVersion           = ""
+	authServiceURL string
+	authVersion    string
+
+	apiServiceURL string
 )
 
 type LoginRequest struct {
@@ -83,6 +85,22 @@ type Group struct {
 	Groupname string `json:"groupname"`
 	Users     []User `json:"users"`
 	Gid       int    `json:"gid"`
+}
+
+type Resource struct {
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Created_at  string `json:"created_at"`
+	Updated_at  string `json:"updated_at"`
+	Accessed_at string `json:"accessed_at"`
+	Perms       string `json:"perms"`
+	Rid         int    `json:"rid"`
+	Uid         int    `json:"uid"` // as in user id (owner)
+	Vid         int    `json:"vid"`
+	Gid         int    `json:"gid"` // as in group id
+	Pid         int    `json:"pid"` // as in parent id
+	Size        int    `json:"size"`
+	Links       int    `json:"links"`
 }
 
 func (srv *HTTPService) handleLogin(c *gin.Context) {
@@ -699,13 +717,16 @@ func (srv *HTTPService) handleFetchResources(c *gin.Context) {
 		return
 	}
 
-	req, err := http.NewRequest(http.MethodGet, authServiceURL+"/admin/users", nil)
+	struc_type := c.DefaultQuery("struct", "list")
+
+	req, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/resources?struct="+struc_type, nil)
 	if err != nil {
 		log.Printf("failed to create request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
 	}
-	req.Header.Set("Access-Target", "")
+	req.Header.Set("Access-Target", "/ 0:0")
+	// req.Header.Set("Authorization", "Bearer "+acc)
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	response, err := client.Do(req)
@@ -716,10 +737,6 @@ func (srv *HTTPService) handleFetchResources(c *gin.Context) {
 	}
 	defer response.Body.Close()
 
-	var resp struct {
-		Content []User `json:"content"`
-	}
-
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		log.Printf("failed to read response body: %v", err)
@@ -727,20 +744,25 @@ func (srv *HTTPService) handleFetchResources(c *gin.Context) {
 		return
 	}
 
-	err = json.Unmarshal(body, &resp)
-	if err != nil {
-		log.Printf("failed to unmarshal response: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
-		return
+	switch struc_type {
+	case "tree":
+		var data map[string]interface{}
+		if err := json.Unmarshal(body, &data); err != nil {
+			log.Printf("failed to unmarshal response: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
+			return
+		}
+		c.HTML(http.StatusOK, "tree-resources.html", data)
+	default:
+		var data []Resource
+		err = json.Unmarshal(body, &data)
+		if err != nil {
+			log.Printf("failed to unmarshal response: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
+			return
+		}
+		c.HTML(http.StatusOK, "list-resources.html", data)
 	}
-
-	// sort users on uid
-	sort.Slice(resp.Content, func(i, j int) bool {
-		return resp.Content[i].Uid < resp.Content[j].Uid
-	})
-
-	// Render the HTML template
-	c.HTML(http.StatusOK, "users_template.html", resp.Content)
 }
 
 /*

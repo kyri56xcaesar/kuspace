@@ -140,6 +140,6 @@ func (cfg *EnvConfig) ToString() string {
 	return strBuilder.String()
 }
 
-func (cfg *EnvConfig) Addr() string {
-	return cfg.IP + ":" + cfg.API_PORT
+func (cfg *EnvConfig) Addr(port string) string {
+	return cfg.IP + ":" + port
 }

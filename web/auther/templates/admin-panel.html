@@ -6,7 +6,6 @@
     <link rel="icon" href="../assets/logos/cropped.png">
     <link href="../css/styles.css" rel="stylesheet">
     <link href="../css/admin-panel.css" rel="stylesheet">
-    <script src="../js/admin-panel.js"></script>
     <script src="../js/index.js"></script>
     <script src="https://unpkg.com/htmx.org"></script>
 
@@ -15,7 +14,7 @@
   <!-- Sidebar -->
   <div id="sidebar" class="sidebar">
     <button id="toggle-sidebar" class="sidebar-toggle">☰</button>
-      <ul class="menu">
+      <ul class="menu collapsing">
         <li>
           <a href="#" onclick="showSection('dashboard')">Dashboard</a>
           <ul class="submenu">
@@ -52,9 +51,9 @@
         </li>
         <hr>
       </ul>
-      <div id="menu-bottom">
+      <div id="menu-bottom" class="submenu">
         <hr>
-        <ul>
+        <ul class="collapsing">
           <li>
             <a href="#" onclick="showSection('profile')">Profile</a>
           </li>
@@ -80,6 +79,9 @@
       <section id="dashboard" class="content-section">
         <h2>Root Dashboard</h2>
         <p>This is the dashboard where you can use the system as a user.</p>
+        <div class="iframe-container">
+          <iframe id="dashboard-iframe" frameborder="0" src="/api/v1/verified/dashboard"></iframe>
+        </div>
       </section>
         
       <!-- users -->
@@ -194,33 +196,47 @@
       <!-- resources -->    
       <section id="resources" class="content-section hidden">      
         <h2>Manage Resources</h2>
-        <p>View and adjust resource quotas.</p>
+        <p>View and manage existing resources and volumes.</p>
         <hr>
-        <form id="search-resource-form">
-          <label>Resource ID: <input type="text" name="resource_id"></label>
-        </form>
-        <button>View Resources</button>
+        <div 
+          id="fetch-resources-display"
+          hx-trigger="load" 
+          hx-get="/api/v1/verified/admin/fetch-resources" 
+          hx-target="#resources-main" 
+          hx-swap="innerHTML"
+        >
+          <div id="resources-display-container" style="padding: 1rem;">
+              <div id="resources-header">
+                  <div>
+                      <h3>View existing resources</h3>
+                      <div>
+                        <form
+                          id="fetch-resources-form"
+                          hx-get="/api/v1/verified/admin/fetch-resources"
+                          hx-target="#resources-main"
+                          hx-swap="innerHTML"
+                        >
+                          <select type="resources-format-select" name="struct">
+                            <option value="tree">tree</option>
+                            <option value="list">list</option>
+                          </select>
+                          <button typ="submit">View Resources</button>
+                        </form>
+                      </div>
+                  </div>
+                  <label>Resource ID: <input type="text" name="resource_id"></label>
+                
+              </div>
+              <div id="resources-main">
+              </div>
+          </div>
+        </div>
+        
       </section>
     </main>
   </div>
+  <script src="../js/admin-panel.js"></script>
 
-  <script>
-    // Sidebar toggle logic
-    const sidebar = document.getElementById('sidebar');
-    const toggleSidebarButton = document.getElementById('toggle-sidebar');
-    const sidebarList = document.querySelector('.sidebar ul');
-
-    toggleSidebarButton.addEventListener('click', () => {
-      sidebar.classList.toggle('collapsed');
-      if (sidebar.classList.contains('collapsed')) {
-        sidebarList.style.opacity = '0';
-        sidebarList.style.pointerEvents = 'none'; // Prevent interaction when hidden
-      } else {
-        sidebarList.style.opacity = '1';
-        sidebarList.style.pointerEvents = 'auto';
-      }
-    });
-  </script>
 </body>
 </html>
 

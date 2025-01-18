@@ -152,7 +152,6 @@ func buildTreeRec(tree map[string]interface{}, entry []string, resource Resource
 	}
 
 	buildTreeRec(tree[entry[0]].(map[string]interface{}), entry[1:], resource)
-
 }
 
 /* this should behave as:

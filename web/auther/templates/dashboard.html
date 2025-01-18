@@ -2,28 +2,78 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>kuSpace Dashboard</title>
     <link rel="icon" href="../assets/logos/cropped.png">
     <link href="../css/styles.css" rel="stylesheet">
     <link href="../css/dashboard.css" rel="stylesheet">
-
-
+    <script src="https://unpkg.com/htmx.org"></script>
+    <script src="../js/index.js"></script>
 </head>
 <body>
     <div class="main-content-wrapper">
       <header class="dashboard-header">
-        <h1>{{ .message }} {{ .username }}!</h1>
-      </header>
-      <main id="main-content">
-        <section class="content-section">
-          <p>test...</p>
-        </section>
+        <div id="dashboard-title-div" class="collapsible">
+          <h1 id="dashboard-h1-title">{{ .message }} {{ .username }}!</h1>
+          <button id="toggle-button-collapse">
+            <svg class="arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="arrow">
+              <line x1="19" y1="12" x2="5" y2="12"></line>
+              <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+          </button>
+        </div>
+        <div class="profile-menu">
+          <button class="profile-button">
+            <div class="profile-icon">P</div>
+            <span>&#x25BC;</span>
+          </button>
+          <div class="dropdown">
+            <div class="dropdown-content">
+              <a href="#">Profile</a>
+              <hr>
+              <a
+                id="logout"
+                hx-delete="/api/v1/logout?access_token&refresh_token"
+                hx-swap="none"
+                hx-trigger="click"
+                href="/api/v1/login"
+              >Logout</a>
+            </div>
+          </div>
 
-        <section class="content-section">
-          <p>test...</p>
-        </section>
+        </div>
+      </header> 
+      <main id="main-content">
+        <div class="responsive-wrapper">
+          <div class="section-header">
+            <div class="section-main-header">
+              <div class="section-title">
+                <h1>Details</h1>
+              </div>
+              <div class="search-bar">
+                <input type="text" placeholder="Search">
+                <button type="submit">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+                    <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="section-options">
+              <a href="#">Profile</a>
+              <a href="#">My Jobs</a>
+              <a href="#">Status</a>
+              <a href="#">Settings</a>
+            </div>
+          </div>
+        </div>
+        <div class="section-content">
+
+        </div>
+
       </main>
     </div>
 </body>
+<script src="../js/dashboard.js"></script>
 </html>
 

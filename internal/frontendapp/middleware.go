@@ -164,10 +164,6 @@ func AuthMiddleware(group string) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		log.Printf("info returned: %+v", info)
-		log.Printf("group needed: %s", group)
-		log.Printf("condition: %v", strings.Contains(info.Info.Groups, group))
-
 		contents := strings.Split(info.Info.Groups, ",")
 		for _, g := range contents {
 			if strings.Contains(group, strings.TrimSpace(g)) {

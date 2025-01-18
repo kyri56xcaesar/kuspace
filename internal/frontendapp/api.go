@@ -2,10 +2,12 @@ package frontendapp
 
 import (
 	"context"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
 	"os/signal"
+	"reflect"
 	"syscall"
 	"time"
 
@@ -20,7 +22,7 @@ import (
 *
 * Constants */
 const (
-	apiPathPrefix string = "v1"
+	apiVersion    string = "v1"
 	templatesPath string = "./web/auther/templates"
 	staticsPath   string = "web/auther/static"
 )
@@ -40,7 +42,9 @@ func NewService(conf string) HTTPService {
 	service := HTTPService{}
 	service.Engine = gin.Default()
 	service.Config = ut.LoadConfig(conf)
-	log.Print(service.Config.ToString())
+
+	authServiceURL = fmt.Sprintf("http://%s:%s", service.Config.IP, service.Config.AUTH_PORT)
+	apiServiceURL = fmt.Sprintf("http://%s:%s", service.Config.IP, service.Config.API_PORT)
 
 	return service
 }
@@ -54,7 +58,12 @@ func (srv *HTTPService) ServeHTTP() {
 
 	// template functions
 	funcMap := template.FuncMap{
-		"sub": func(a, b int) int { return a - b },
+		"sub":    func(a, b int) int { return a - b },
+		"typeIs": func(value interface{}, t string) bool { return reflect.TypeOf(value).Kind().String() == t },
+		"hasKey": func(value map[string]interface{}, key string) bool {
+			_, exists := value[key]
+			return exists
+		},
 	}
 
 	// set a template eng
@@ -62,13 +71,13 @@ func (srv *HTTPService) ServeHTTP() {
 
 	// Api
 	srv.Engine.SetHTMLTemplate(tmpl)
-	srv.Engine.Use(static.Serve("/api/"+apiPathPrefix, static.LocalFile(staticsPath, true)))
+	srv.Engine.Use(static.Serve("/api/"+apiVersion, static.LocalFile(staticsPath, true)))
 	srv.Engine.Use(cors.New(corsconfig))
 
 	root := srv.Engine.Group("/")
 	{
 		root.GET("/", func(c *gin.Context) {
-			c.Redirect(http.StatusFound, "/api/"+apiPathPrefix)
+			c.Redirect(http.StatusFound, "/api/"+apiVersion)
 		})
 
 		root.GET("/healthz", func(c *gin.Context) {
@@ -78,10 +87,10 @@ func (srv *HTTPService) ServeHTTP() {
 		})
 	}
 
-	apiV1 := srv.Engine.Group("/api/" + apiPathPrefix)
+	apiV1 := srv.Engine.Group("/api/" + apiVersion)
 	{
 		apiV1.GET("/", func(c *gin.Context) {
-			c.HTML(http.StatusOK, "index.html", c.Request.UserAgent())
+			c.HTML(http.StatusOK, "login.html", c.Request.UserAgent())
 		})
 		apiV1.GET("/login", autoLogin(), func(c *gin.Context) {
 			c.HTML(http.StatusOK, "login.html", nil)
@@ -134,8 +143,8 @@ func (srv *HTTPService) ServeHTTP() {
 		/* minioth will verify token no need to worry here.*/
 		//admin.Use(AuthMiddleware("admin"))
 		admin.GET("/fetch-resources", srv.handleFetchResources)
-
 		admin.GET("/fetch-users", srv.handleFetchUsers)
+
 		admin.POST("/useradd", srv.handleUseradd)
 		admin.DELETE("/userdel", srv.handleUserdel)
 		admin.PATCH("/userpatch", srv.handleUserpatch)
@@ -154,7 +163,7 @@ func (srv *HTTPService) ServeHTTP() {
 			username, _ := c.Get("username")
 			c.HTML(http.StatusOK, "dashboard.html", gin.H{
 				"username": username,
-				"message":  "your dashboard ",
+				"message":  "Welcome to your dashboard, ",
 			})
 		})
 
@@ -171,7 +180,7 @@ func (srv *HTTPService) ServeHTTP() {
 	defer stop()
 
 	server := &http.Server{
-		Addr:              srv.Config.Addr(),
+		Addr:              srv.Config.Addr(srv.Config.FRONT_PORT),
 		Handler:           srv.Engine,
 		ReadHeaderTimeout: time.Second * 5,
 	}

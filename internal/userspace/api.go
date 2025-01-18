@@ -95,7 +95,7 @@ func (srv *UService) Serve() {
 
 	/* server std lib raw definition */
 	server := &http.Server{
-		Addr:              srv.config.Addr(),
+		Addr:              srv.config.Addr(srv.config.API_PORT),
 		Handler:           srv.Engine,
 		ReadHeaderTimeout: time.Second * 5,
 	}

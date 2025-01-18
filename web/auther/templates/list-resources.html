@@ -1,0 +1,23 @@
+<h3>List View</h3>
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Size</th>
+            <th>Permissions</th>
+            <th>Created At</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{ range . }}
+        <tr>
+            <td>{{ .Name }}</td>
+            <td>{{ .Type }}</td>
+            <td>{{ .Size }}</td>
+            <td>{{ .Perms }}</td>
+            <td>{{ .Created_at }}</td>
+        </tr>
+        {{ end }}
+    </tbody>
+</table>

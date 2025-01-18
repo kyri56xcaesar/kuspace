@@ -30,7 +30,6 @@ tr {
   border-radius: 15px;
 }
 
-
 .check-highlight, form.check-highlight {
   border: 2px solid green; !important 
   border-radius: 15px;
@@ -42,6 +41,7 @@ tr {
   border-radius: 15px;
   transition: border-olor 0.3s ease;
 }
+
 .error-highlight, #add-user-form.error-highlight {
   border: 3px solid red; !important
   border-radius: 15px;
@@ -73,15 +73,16 @@ tr {
     width: 60px;
 }
 
-.siderbar button {
+.sidebar button {
   margin: 3px;
+  border: 1px solid black;
 }
 
 .sidebar button:hover {
-  border: 2px solid gray;
+  border: 1px solid gray;
 }
 
-.menu > hr {
+.menu > hr, .submenu > hr {
   width: 100%;
 }
 
@@ -100,6 +101,7 @@ tr {
   flex-direction: column;
   justify-content: flex-start;
 }
+
 #menu-bottom ul li {
   padding: 1rem;
   text-align: left;
@@ -164,16 +166,11 @@ tr {
     color: #fff;
 }
 
-
 .submenu {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
 }
-
-
-
-
 
 /* Main Content Wrapper */
 #main-content-wrapper {
@@ -205,10 +202,6 @@ tr {
     margin: 0;
     font-size: 1.5rem;
 }
-
-
-
-
 
 .admin-nav ul {
     list-style: none;
@@ -261,7 +254,6 @@ tr {
   justify-content: space-between;
   width: 100%;
 }
-
 
 /* Manager jobs sections */
 #search-jobs-form, #search-resource-form {
@@ -355,7 +347,6 @@ tr {
   transform: scale(1.05);
 }
 
-
 #table-container {
   overflow-x: auto;
   white-space: nowrap;
@@ -412,9 +403,10 @@ tr {
 }
 
 #all-users-table td:last-child {
-    display: flex;
-    justify-content: space-evenly;
-    align-items: center;
+    d
+
+
+items: center;
 }
 
 /* Make the input fields fit seamlessly into the cells */
@@ -643,4 +635,34 @@ tr {
 
 .table-input:hover {
   border: 2px solid cadetblue;
+}
+
+.iframe-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#dashboard-iframe {
+  top: 0;
+  left: 0;
+  width: 80%;
+  height: 100%;
+  border: none;
+}
+
+
+#resources-header > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  text-align: center;
+}
+/* resources content display */
+.directory {
+  font-weight: bold;
+}
+.file {
+  color: gray;
 }

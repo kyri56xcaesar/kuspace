@@ -1,0 +1,17 @@
+<h3>Tree View</h3>
+{{ template "renderTree" . }}
+{{ define "renderTree" }}
+    <ul>
+    {{ range $key, $value := . }}
+        <li>
+            {{ if (and (typeIs $value "map") (not (hasKey $value "type"))) }}
+                <span class="folder">{{ $key }}</span>
+                {{ template "renderTree" $value }}
+            {{ else }}
+                <span class="file">{{ $key }}</span>
+            {{ end }}
+        </li>
+    {{ end }}
+    </ul>
+{{ end }}
+
