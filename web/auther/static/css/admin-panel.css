@@ -666,3 +666,17 @@ items: center;
 .file {
   color: gray;
 }
+
+#resource-list-table {
+  font-family: system-ui;
+  & :is(td, th) {
+    border-style: solid;
+    border-block-width: 1px 1px;
+    border-inline-width: 1px 1px;
+    /* &:last-of-type { border-inline-end-width: 1px } */
+  }
+
+  :is(td, th, tr):hover {
+    outline: 2px solid #666;
+  }
+}
