@@ -1,17 +1,65 @@
-<h3>Tree View</h3>
 {{ template "renderTree" . }}
 {{ define "renderTree" }}
-    <ul>
-    {{ range $key, $value := . }}
-        <li>
-            {{ if (and (typeIs $value "map") (not (hasKey $value "type"))) }}
-                <span class="folder">{{ $key }}</span>
-                {{ template "renderTree" $value }}
-            {{ else }}
-                <span class="file">{{ $key }}</span>
-            {{ end }}
-        </li>
+<ul>
+    {{ range $name, $node := .Children }}
+    <li>
+        {{ if eq $node.Type "file" }}
+            <span class="file" 
+                  data-name="{{ $node.Resource.Name }}" 
+                  data-type="{{ $node.Resource.Type }}"
+                  data-size="{{ $node.Resource.Size }}"
+                  data-perms="{{ $node.Resource.Perms }}"
+                  data-created="{{ $node.Resource.Created_at }}"
+                  data-updated="{{ $node.Resource.Updated_at }}"
+                  data-accessed="{{ $node.Resource.Accessed_at }}"
+                  data-owner="{{ $node.Resource.Uid }}"
+                  data-group="{{ $node.Resource.Gid }}"
+                  data-volume="{{ $node.Resource.Vid }}">
+                  {{ $node.Name }}
+            </span>
+        {{ else }}
+            <span class="folder">{{ $name }}</span>
+            {{ template "renderTree" $node }}
+        {{ end }}
+    </li>
     {{ end }}
-    </ul>
+</ul>
 {{ end }}
 
+
+<script>
+    files = document.querySelectorAll(".file");
+    files.forEach(file => {
+        file.addEventListener("click", (e) => {
+            // Prevent default event bubbling
+            e.stopPropagation();
+
+            const details = {
+                name: file.dataset.name,
+                type: file.dataset.type,
+                size: file.dataset.size,
+                perms: file.dataset.perms,
+                created: file.dataset.created,
+                updated: file.dataset.updated,
+                accessed: file.dataset.accessed,
+                owner: file.dataset.owner,
+                group: file.dataset.group,
+                volume: file.dataset.volume,
+            };
+            const detailsDiv = document.getElementById("resource-details");
+            detailsDiv.innerHTML = `
+                <h3>File Details</h3>
+                <p><strong>Name:</strong> ${details.name}</p>
+                <p><strong>Type:</strong> ${details.type}</p>
+                <p><strong>Size:</strong> ${details.size}</p>
+                <p><strong>Permissions:</strong> ${details.perms}</p>
+                <p><strong>Created At:</strong> ${details.created}</p>
+                <p><strong>Updated At:</strong> ${details.updated}</p>
+                <p><strong>Accessed At:</strong> ${details.accessed}</p>
+                <p><strong>Owner:</strong> ${details.owner}</p>
+                <p><strong>Group:</strong> ${details.group}</p>
+                <p><strong>Volume:</strong> ${details.volume}</p>
+            `;
+        });
+    });
+</script>

@@ -47,6 +47,18 @@ function getCookie(name) {
   return '';
 }
 
+document.addEventListener('htmx:afterSwap', function (event) {
+  const verifyResultElement = document.getElementById('verify-result');
+  if (verifyResultElement) {
+    const result = verifyResultElement.textContent.trim();
+    if (result.toLowerCase() === 'true') {
+      verifyResultElement.className = 'true';
+    } else if (result.toLowerCase() === 'false') {
+      verifyResultElement.className = 'false';
+    }
+  }
+});
+
 document.addEventListener('htmx:beforeRequest', function(event) {
   const triggeringElement = event.detail.elt;
 
@@ -59,6 +71,11 @@ document.addEventListener('htmx:beforeRequest', function(event) {
 
 document.addEventListener('htmx:afterRequest', function (event) {
   const triggeringElement = event.detail.elt;
+
+  if (event.detail.xhr.status == 401) {
+    window.location.href = "/api/v1/login";
+    return;
+  }
   // Handle different cases
   // all users fetch
   if (triggeringElement.id === 'fetch-users-results') { 

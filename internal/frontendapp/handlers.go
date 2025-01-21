@@ -87,6 +87,13 @@ type Group struct {
 	Gid       int    `json:"gid"`
 }
 
+type TreeNode struct {
+	Resource *Resource            `json:"resource,omitempty"`
+	Children map[string]*TreeNode `json:"children,omitempty"`
+	Name     string               `json:"name,omitempty"`
+	Type     string               `json:"type"` // "directory" or "file"
+}
+
 type Resource struct {
 	Name        string `json:"name"`
 	Type        string `json:"type"`
@@ -752,7 +759,15 @@ func (srv *HTTPService) handleFetchResources(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
 			return
 		}
-		c.HTML(http.StatusOK, "tree-resources.html", data)
+
+		tree := parseTreeNode("/", data)
+		if tree == nil {
+			log.Printf("failed to build tree struct")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to build tree struct"})
+			return
+		}
+
+		c.HTML(http.StatusOK, "tree-resources.html", tree)
 	default:
 		var data []Resource
 		err = json.Unmarshal(body, &data)
@@ -787,4 +802,38 @@ func forwardPostRequest(destinationURI string, accessToken string, requestData i
 	// Use an HTTP client to send the request
 	client := &http.Client{Timeout: 10 * time.Second}
 	return client.Do(req)
+}
+
+func parseTreeNode(name string, data map[string]interface{}) *TreeNode {
+	if isFileNode(data) {
+		var resource Resource
+		jsonData, _ := json.Marshal(data)
+		_ = json.Unmarshal(jsonData, &resource)
+
+		return &TreeNode{
+			Name:     name,
+			Type:     "file",
+			Resource: &resource,
+		}
+	}
+
+	node := &TreeNode{
+		Name:     name,
+		Type:     "directory",
+		Children: make(map[string]*TreeNode),
+	}
+
+	for key, value := range data {
+		if childData, ok := value.(map[string]interface{}); ok {
+			node.Children[key] = parseTreeNode(key, childData)
+		}
+	}
+
+	return node
+}
+
+func isFileNode(data map[string]interface{}) bool {
+	_, hasName := data["name"]
+	_, hasType := data["type"]
+	return hasName && hasType
 }

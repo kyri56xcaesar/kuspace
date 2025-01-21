@@ -103,6 +103,9 @@ function cancelEdit(index, originalValues) {
 
 }
 
+
+document.addEventListener("DOMContentLoaded", () => {
+
 const sidebar = document.getElementById('sidebar');
 const toggleSidebarButton = document.getElementById('toggle-sidebar');
 const sidebarList = document.querySelectorAll('.collapsing');
@@ -119,5 +122,7 @@ toggleSidebarButton.addEventListener('click', () => {
       item.style.pointerEvents = 'auto';
     }
   });
+
+});
 
 });

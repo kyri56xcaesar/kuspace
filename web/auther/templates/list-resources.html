@@ -2,6 +2,7 @@
 <table id="resource-list-table">
     <thead>
         <tr>
+            <th>Rid</th>
             <th>Name</th>
             <th>Type</th>
             <th>Size</th>
@@ -17,6 +18,7 @@
     <tbody>
         {{ range . }}
         <tr>
+            <td>{{ .Rid }}</td>
             <td>{{ .Name }}</td>
             <td>{{ .Type }}</td>
             <td>{{ .Size }}</td>
@@ -31,3 +33,49 @@
         {{ end }}
     </tbody>
 </table>
+
+<script>
+tableRows = document.querySelectorAll("#resource-list-table tbody tr");
+resourceDetails = document.getElementById("resource-details");
+
+tableRows.forEach((row) => {
+  row.addEventListener("click", () => {
+    // Remove 'selected' class from all rows
+    tableRows.forEach((r) => r.classList.remove("selected"));
+
+    // Add 'selected' class to the clicked row
+    row.classList.add("selected");
+
+    // Extract resource information from the row
+    const resource = {
+        id: row.cells[0].innerText,
+      name: row.cells[1].innerText,
+      type: row.cells[2].innerText,
+      size: row.cells[3].innerText,
+      perms: row.cells[4].innerText,
+      createdAt: row.cells[5].innerText,
+      updatedAt: row.cells[6].innerText,
+      accessedAt: row.cells[7].innerText,
+      owner: row.cells[8].innerText,
+      group: row.cells[9].innerText,
+      volume: row.cells[10].innerText,
+    };
+
+    // Update the resource details div
+    resourceDetails.innerHTML = `
+      <h3>Resource Details</h3>
+      <p><strong>Rid:</strong> ${resource.id}</p>
+      <p><strong>Name:</strong> ${resource.name}</p>
+      <p><strong>Type:</strong> ${resource.type}</p>
+      <p><strong>Size:</strong> ${resource.size}</p>
+      <p><strong>Permissions:</strong> ${resource.perms}</p>
+      <p><strong>Created At:</strong> ${resource.createdAt}</p>
+      <p><strong>Updated At:</strong> ${resource.updatedAt}</p>
+      <p><strong>Accessed At:</strong> ${resource.accessedAt}</p>
+      <p><strong>Owner:</strong> ${resource.owner}</p>
+      <p><strong>Group:</strong> ${resource.group}</p>
+      <p><strong>Volume:</strong> ${resource.volume}</p>
+    `;
+  });
+});
+</script>

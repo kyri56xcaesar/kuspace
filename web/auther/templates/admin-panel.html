@@ -199,10 +199,7 @@
         <p>View and manage existing resources and volumes.</p>
         <hr>
         <div>
-          
         </div>
-
-
         <div 
           id="fetch-resources-display"
           hx-trigger="load" 
@@ -222,8 +219,8 @@
                           hx-swap="innerHTML"
                         >
                           <select type="resources-format-select" name="struct">
+                            <option value="list" selected>list</option>
                             <option value="tree">tree</option>
-                            <option value="list">list</option>
                           </select>
                           <button typ="submit">View Resources</button>
                         </form>
@@ -234,9 +231,10 @@
               </div>
               <div id="resources-main">
               </div>
+              <div id="resource-details">
+              </div>              
           </div>
         </div>
-        
       </section>
     </main>
   </div>
