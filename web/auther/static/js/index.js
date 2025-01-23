@@ -7,6 +7,22 @@ let domReady = (cb) => {
 domReady(() => {
 // Display body when DOM is loaded 
   document.body.style.visibility = 'visible';
+
+  // attach the closing of infos/tips/warnings to the buttons 
+  const toggleButton = document.querySelectorAll(".toggle-button-collapse");
+  toggleButton.forEach(toggleButton => {
+    toggleButton.addEventListener("click", () => {
+      toggleButton.classList.toggle("collapsed");
+      // get the closest h1 or p or span...
+      target = toggleButton.closest(".info").querySelector(".target");
+      target.classList.toggle("collapsed");  
+      if (toggleButton.classList.contains("collapsed")) {
+        toggleButton.style.transform = `translateX(-${target.offsetWidth}px)`;
+      } else {
+        toggleButton.style.transform = `translateX(0)`;
+      }
+    });
+  });
 });
 
 function showSection(sectionId) {

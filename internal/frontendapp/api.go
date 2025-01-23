@@ -153,9 +153,6 @@ func (srv *HTTPService) ServeHTTP() {
 		admin.POST("/groupadd", srv.handleGroupadd)
 		admin.DELETE("/groupdel", srv.handleGroupdel)
 		admin.PATCH("/grouppatch", srv.handleGrouppatch)
-		admin.GET("/hasher", func(c *gin.Context) {
-			c.HTML(http.StatusOK, "hasher_template.html", nil)
-		})
 		admin.POST("/hasher", srv.handleHasher)
 
 		/* This is oriented towards the froentend*/
