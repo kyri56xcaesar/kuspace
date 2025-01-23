@@ -99,9 +99,16 @@
         <hr>
         <div id="add-user-div" class="admin-panel">
           <h3>Add a new user</h3>
-          <div class="info">
-            <p class="target"><strong>Info!</strong> Keep in mind the password inserted from here will be hashed internally </p>
-            <button class="toggle-button-collapse"></button>
+          <div class="collapsible info">
+            <div>
+              <p class="target"><strong>Info!</strong> Keep in mind the password inserted from here will be hashed internally </p>
+              <button class="toggle-button-collapse collapsible">
+                <svg class="arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="arrow">
+                  <line x1="19" y1="12" x2="5" y2="12"></line>
+                  <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+              </button>
+            </div>
             <span id="useradd-error-feedback"></span>
           </div>
           <form 
@@ -138,9 +145,16 @@
         <div id="hasher-body">
           <div>
             <h3>Hashing Tool</h3>
-            <div class="info">
-              <p class="target"><strong>Tip!</strong> Create and verify hashes for passwords. </p>
-              <button class="toggle-button-collapse"></button>
+            <div class="collapsible info">
+              <div>
+                <p class="target"><strong>Tip!</strong> Create and verify hashes for passwords. </p>
+                <button class="toggle-button-collapse collapsible">
+                  <svg class="arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="arrow">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                  </svg>  
+                </button>
+              </div>
               <span id="useradd-error-feedback"></span>
             </div>
           </div>
@@ -151,7 +165,7 @@
               </div>
               <hr>
               <form class="hasher-content-inside">
-                <div class="hasher-content-gen" id="hasher-content-gen-left">
+                <div class="hasher-content-r" id="hasher-content-gen-left">
                   <div class="hasher-inp">
                     <label for="inp-text">Text:</label>
                     <input 
@@ -178,7 +192,7 @@
                     >Copy</button>
                   </div>
                 </div>
-                <div class="hasher-content-gen" id="hasher-content-gen-right">
+                <div class="hasher-content-r" id="hasher-content-gen-right">
                   <div class="hasher-inp">
                     <label style="margin-left: 15px;" for="inp-hashalg">Algo:</label>
                     <select id="inp-hashalg" name="hashalg">

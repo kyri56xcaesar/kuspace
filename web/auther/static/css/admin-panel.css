@@ -34,6 +34,8 @@ tr {
   font-size: 15px;
   margin-bottom: 15px;
 
+  align-items: center;
+  text-align: center;
   transition: 0.3s ease;
   overflow: hidden;
 
@@ -43,6 +45,24 @@ tr {
     padding: 0;
     word-wrap: break-word;
     white-space: nowrap;
+  }
+
+  & :is(button) {
+    padding: 0;
+    margin: 1px;
+    background: transparent;
+    color: black;
+    border: none;
+  }
+
+  & :is(button):hover {
+    border: 1px solid gray;
+  }
+
+  & :is(div) {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
   }
 }
 
@@ -468,6 +488,10 @@ tr {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
+.hasher-content div {
+  margin: 0 20px;
+}
+
 .hasher-content-inside {
   display: flex;
   flex-direction: row;
@@ -476,14 +500,9 @@ tr {
 }
 
 
-#hasher-content-gen-left {
-  width: 50%;
-}
-
-.hasher-content-gen {
+.hasher-content-r {
   display: flex; 
-  flex-direction: column; 
-  justify-content: space-between;
+  flex-direction: row; 
 }
 
 .hasher-content-v {
@@ -509,7 +528,6 @@ tr {
 .hasher-inp {
   display: flex;
   align-items: center;
-  min-height: 90px;
 
   & :is(select):hover {
     cursor: pointer;
@@ -536,6 +554,10 @@ tr {
 
   & :is(#inp-text-2) {
     margin-left: 5px;
+  }
+
+  & :is(button) {
+    font-size: 6px;
   }
 }
 

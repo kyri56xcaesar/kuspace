@@ -287,35 +287,6 @@ section {
 }
 
 
-.toggle-button-collapse {
-	border: 1px solid gray;
-	border-radius: 8px;
-	margin-left: 1rem;
-	transition: 0.3s ease;
-}
-
-h1.collapsed,
-h2.collapsed,
-h3.collapsed
-p.collapsed,
-span.collapsed
-
-
-{
-  height: 0;
-	opacity: 0;
-	padding: 0;
-	visibility: hidden;
-}
-
-.arrow {
-	transition: transform 0.3s ease;
-}
-
-.collapsible.collapsed .arrow {
-	transform: rotate(-180deg);
-}
-
 #dashboard-title-div {
 	display: flex;
 	flex-direction: row;
