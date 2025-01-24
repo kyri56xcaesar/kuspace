@@ -74,6 +74,19 @@
   <div id="main-content-wrapper">
     <header class="admin-header">
       <h1>{{ .message }}, <i>"{{ .username }}"!</i></h1>
+      <div id="header-options">
+        <!-- From Uiverse.io by andrew-demchenk0 --> 
+        <label class="switch">
+          <input id="dark-mode-toggle" onclick="toggleDarkMode(this)" class="toggle" type="checkbox">
+          <span class="slider"></span>
+          <span class="card-side"></span>
+        </label>
+        <label class="switch">
+          <input class="toggle" type="checkbox">
+          <span class="slider"></span>
+          <span class="card-side"></span>
+        </label>
+      </div>
     </header>
     <main id="main-content">
       <section id="dashboard" class="content-section">

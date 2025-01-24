@@ -4,6 +4,9 @@ let domReady = (cb) => {
     : document.addEventListener('DOMContentLoaded', cb)
 };
 
+let elementsToToggle;
+
+
 domReady(() => {
 // Display body when DOM is loaded 
   document.body.style.visibility = 'visible';
@@ -23,7 +26,32 @@ domReady(() => {
       }
     });
   });
+
+  if (localStorage.getItem("darkMode") === "true") {
+    document.body.classList.add("dark-mode");
+    document.getElementById("dark-mode-toggle").checked = true;
+  } else {
+    document.getElementById("dark-mode-toggle").checked = false;
+  }
+
+   elementsToToggle = document.querySelectorAll("body, table, form, .hasher-content");
 });
+
+function toggleDarkMode(event) {
+  const darkMode = document.body.classList.toggle("dark-mode");
+
+  console.log(elementsToToggle);
+  // Toggle the `dark-mode` class for each element
+  elementsToToggle.forEach((el) => {
+    el.classList.toggle("dark-mode");
+  });
+
+  // Save the dark mode state in localStorage
+  localStorage.setItem("darkMode", darkMode);
+
+  console.log("Dark mode toggled");
+
+}
 
 function showSection(sectionId) {
   const sections = document.querySelectorAll('.content-section');
@@ -37,6 +65,8 @@ function showSection(sectionId) {
     });
   }
 }
+
+
 
 function copyToClipboard(selector) {
   const element = document.querySelector(selector);
