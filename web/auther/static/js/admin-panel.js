@@ -105,24 +105,60 @@ function cancelEdit(index, originalValues) {
 
 
 document.addEventListener("DOMContentLoaded", () => {
+  const sidebar = document.getElementById('sidebar');
+  const toggleSidebarButton = document.getElementById('toggle-sidebar');
+  const sidebarList = document.querySelectorAll('.collapsing');
+  toggleSidebarButton.addEventListener('click', () => {
+    sidebar.classList.toggle('collapsed');
+    sidebarList.forEach((item) => {
+      if (sidebar.classList.contains('collapsed')) {
+        item.style.opacity = '0';
+        item.style.pointerEvents = 'none'; // Prevent interaction when hidden
+      } else {
+        item.style.opacity = '1';
+        item.style.pointerEvents = 'auto';
+      }
+    });
+  });
+  const dropZone = document.getElementById("drop-zone");
+  const fileInput = document.getElementById("file");
+  const fileNameDisplay = document.getElementById("file-name");
 
-const sidebar = document.getElementById('sidebar');
-const toggleSidebarButton = document.getElementById('toggle-sidebar');
-const sidebarList = document.querySelectorAll('.collapsing');
+  // Handle dragover event (to show visual feedback)
+  dropZone.addEventListener("dragover", (event) => {
+    event.preventDefault(); // Prevent default behavior (like opening the file in the browser)
+    dropZone.classList.add("drag-over");
+  });
 
-toggleSidebarButton.addEventListener('click', () => {
-  sidebar.classList.toggle('collapsed');
+  // Handle dragleave event (to remove visual feedback)
+  dropZone.addEventListener("dragleave", () => {
+    dropZone.classList.remove("drag-over");
+  });
 
-  sidebarList.forEach((item) => {
-    if (sidebar.classList.contains('collapsed')) {
-      item.style.opacity = '0';
-      item.style.pointerEvents = 'none'; // Prevent interaction when hidden
-    } else {
-      item.style.opacity = '1';
-      item.style.pointerEvents = 'auto';
+  // Handle drop event
+  dropZone.addEventListener("drop", (event) => {
+    event.preventDefault(); // Prevent default behavior
+    dropZone.classList.remove("drag-over");
+
+    const files = event.dataTransfer.files;
+    if (files.length > 0) {
+      handleFiles(files);
     }
   });
 
-});
+  // Handle file selection via the input field
+  fileInput.addEventListener("change", (event) => {
+    handleFiles(event.target.files);
+  });
 
+  // Function to handle files
+  function handleFiles(files) {
+    const file = files[0];
+    if (file) {
+      fileNameDisplay.textContent = file.name;
+
+      // You can now process the file, e.g., upload it to a server
+      console.log("File selected:", file);
+    }
+  }
 });

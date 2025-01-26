@@ -3,12 +3,7 @@ let domReady = (cb) => {
     ? cb()
     : document.addEventListener('DOMContentLoaded', cb)
 };
-
-let elementsToToggle;
-
-
 domReady(() => {
-// Display body when DOM is loaded 
   document.body.style.visibility = 'visible';
 
   // attach the closing of infos/tips/warnings to the buttons 
@@ -27,31 +22,40 @@ domReady(() => {
     });
   });
 
-  if (localStorage.getItem("darkMode") === "true") {
-    document.body.classList.add("dark-mode");
-    document.getElementById("dark-mode-toggle").checked = true;
-  } else {
-    document.getElementById("dark-mode-toggle").checked = false;
+  const tglBtn = document.getElementById("dark-mode-toggle");
+  if (tglBtn) {
+    if (localStorage.getItem("darkMode") === "true") {
+      document.body.classList.add("dark-mode");
+      console.log(tglBtn);
+      tglBtn.checked = true;
+    } else {
+      tglBtn.checked = false;
+    }
   }
-
-   elementsToToggle = document.querySelectorAll("body, table, form, .hasher-content");
 });
 
-function toggleDarkMode(event) {
-  const darkMode = document.body.classList.toggle("dark-mode");
+function toggleCollapses() {
+  const collapsibleElmnts = document.querySelectorAll(".collapsible");
+  collapsibleElmnts.forEach((el) => {
+    if (el.tagName === "BUTTON") {
+      el.click();
+    } else {
+      el.classList.toggle("collapsed");
+    }
+  });
+}
 
-  console.log(elementsToToggle);
-  // Toggle the `dark-mode` class for each element
+function toggleDarkMode() {
+  const elementsToToggle = document.querySelectorAll(".darkened");
+
   elementsToToggle.forEach((el) => {
     el.classList.toggle("dark-mode");
   });
 
-  // Save the dark mode state in localStorage
+  const darkMode = document.body.classList.contains("dark-mode");
   localStorage.setItem("darkMode", darkMode);
-
-  console.log("Dark mode toggled");
-
 }
+
 
 function showSection(sectionId) {
   const sections = document.querySelectorAll('.content-section');

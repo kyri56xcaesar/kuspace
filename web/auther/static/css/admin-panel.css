@@ -15,19 +15,24 @@ button:hover {
   background: #0056b3;
 }
 
-form.dark-mode {
-  background: linear-gradient(90deg, rgba(18,17,29,1) 20%, rgba(30,30,34,1) 45%, rgba(29,34,39,1) 56%, rgba(28,59,65,1) 100%);
+
+
+.darkened.dark-mode {
+  background: linear-gradient(90deg, rgba(18,17,29,1) 20%, rgba(30,30,34,1) 45%, rgba(29,34,39,1) 56%, rgba(28,59,65,1) 100%) !important;
+  color: white !important;
   & :is(label) {
     color: white;
   }
-}
 
-table.dark-mode {
-  background: linear-gradient(90deg, rgba(18,17,29,1) 20%, rgba(30,30,34,1) 45%, rgba(29,34,39,1) 56%, rgba(28,59,65,1) 100%);
-}
+  & :is(#generated-hash) {
+    background: linear-gradient(90deg, rgba(18,17,29,1) 20%, rgba(30,30,34,1) 45%, rgba(29,34,39,1) 56%, rgba(28,59,65,1) 100%) !important;
+  }
 
-.hasher-content.dark-mode {
-  background: linear-gradient(90deg, rgba(18,17,29,1) 20%, rgba(30,30,34,1) 45%, rgba(29,34,39,1) 56%, rgba(28,59,65,1) 100%);
+  & :is(#all-users-table tbody tr:hover, #all-groups-table tbody tr:hover) {
+    background-color: #6490b9;
+    color: black;
+  }
+
 }
 
 form label {
@@ -111,6 +116,24 @@ tr {
   flex-direction: column;
 }
 
+#dark-mode-switch, #tips-switch {
+  display: inline-flex;
+  align-items: center;
+  text-align: center;
+}
+
+#dark-mode-switch::after {
+  content: "🌙";
+  margin-left: 8px;
+  display: inline-block;
+}
+
+#tips-switch::after {
+  content: "💡";
+  margin-left: 8px;
+  display: inline-block;
+}
+
 .switch {
   --input-focus: #2d8cf0;
   --font-color: #323232;
@@ -126,6 +149,7 @@ tr {
   gap: 30px;
   width: 50px;
   height: 20px;
+
 }
 
 .toggle {
@@ -468,7 +492,6 @@ tr {
   white-space: nowrap;
   border: 2px solid cadetblue;
   margin-top: 1rem;
-  background-color: #f9f9f9;
 
 }
 
@@ -514,7 +537,7 @@ tr {
 }
 
 #all-users-table tbody tr:hover, #all-groups-table tbody tr:hover {
-    background-color: #f1f1f1;
+    background-color: #7d8889;
     cursor: pointer;
 }
 
@@ -559,6 +582,10 @@ tr {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+#hasher-content > div {
+  overflow: auto;
 }
 
 .hasher-content {
@@ -702,7 +729,6 @@ tr {
 #result span, #verify-result {
   display: block; /* Ensures proper spacing */
   word-wrap: break-word; /* Breaks long words to the next line */
-  overflow-wrap: anywhere; /* Forces breaks at appropriate points */
   max-width: 100%; /* Prevents overflow */
   white-space: pre-wrap; /* Preserves spacing but allows wrapping */
 }
@@ -861,6 +887,90 @@ tr {
 
 #resource-details {
   margin-top: 20px;
-  padding: 10px;
+  padding: 1rem;
   border: 1px solid #ddd;
+  min-height: 500px;
 }
+
+/* From Uiverse.io by Yaya12085 */ 
+.fupload-container {
+  height: 300px;
+  width: 600px;
+  border-radius: 10px;
+  box-shadow: 4px 4px 30px rgba(0, 0, 0, .2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px;
+  gap: 5px;
+  background-color: rgba(0, 110, 255, 0.041);
+}
+
+.fupload-header {
+  flex: 1;
+  width: 100%;
+  border: 2px dashed royalblue;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.fupload-header svg {
+  height: 100px;
+}
+
+.fupload-header p {
+  text-align: center;
+  color: black;
+}
+
+.fupload-footer {
+  background-color: rgba(0, 110, 255, 0.075);
+  width: 100%;
+  height: 40px;
+  padding: 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  color: black;
+  border: none;
+}
+
+.fupload-footer svg {
+  height: 130%;
+  fill: royalblue;
+  background-color: rgba(70, 66, 66, 0.103);
+  border-radius: 50%;
+  padding: 2px;
+  cursor: pointer;
+  box-shadow: 0 2px 30px rgba(0, 0, 0, 0.205);
+}
+
+.fupload-footer p {
+  flex: 1;
+  text-align: center;
+}
+
+#file {
+  display: none;
+}
+
+#drop-zone {
+  border: 2px dashed #aaa;
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+  background-color: #f9f9f9;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+#drop-zone.drag-over {
+  background-color: #e0f7fa;
+  border-color: #00796b;
+}
+

@@ -10,11 +10,6 @@ body {
   height: 100%
 }
 
-body.dark-mode {
-  background: linear-gradient(to top, #2a5c59, #121212);
-  color: #f5f5f5;
-}
-
 img {
 
   user-select: none
