@@ -130,7 +130,7 @@ func (srv *HTTPService) ServeHTTP() {
 
 	verified := apiV1.Group("/verified")
 	{
-
+		// main pages after login
 		verified.GET("/admin-panel", AuthMiddleware("admin"), func(c *gin.Context) {
 			username := c.GetString("username")
 			c.HTML(http.StatusOK, "admin-panel.html", gin.H{
@@ -138,24 +138,6 @@ func (srv *HTTPService) ServeHTTP() {
 				"message":  "Welcome to the Admin Panel ",
 			})
 		})
-
-		admin := verified.Group("/admin")
-		/* minioth will verify token no need to worry here.*/
-		//admin.Use(AuthMiddleware("admin"))
-		admin.GET("/fetch-resources", srv.handleFetchResources)
-		admin.GET("/fetch-users", srv.handleFetchUsers)
-
-		admin.POST("/useradd", srv.handleUseradd)
-		admin.DELETE("/userdel", srv.handleUserdel)
-		admin.PATCH("/userpatch", srv.handleUserpatch)
-
-		admin.GET("/fetch-groups", srv.handleFetchGroups)
-		admin.POST("/groupadd", srv.handleGroupadd)
-		admin.DELETE("/groupdel", srv.handleGroupdel)
-		admin.PATCH("/grouppatch", srv.handleGrouppatch)
-		admin.POST("/hasher", srv.handleHasher)
-
-		/* This is oriented towards the froentend*/
 		verified.GET("/dashboard", AuthMiddleware("user, admin"), func(c *gin.Context) {
 			username, _ := c.Get("username")
 			c.HTML(http.StatusOK, "dashboard.html", gin.H{
@@ -164,6 +146,34 @@ func (srv *HTTPService) ServeHTTP() {
 			})
 		})
 
+		// actions for logged in users
+		verified.POST("/upload", AuthMiddleware("user, admin"), srv.handleResourceUpload)
+		verified.GET("/download", AuthMiddleware("user, admin"), srv.handleResourceDownload)
+		verified.PATCH("/mv", AuthMiddleware("user, admin"), srv.handleResourceMove)
+		verified.POST("/cp", AuthMiddleware("user, admin"), srv.handleResourceCopy)
+		verified.DELETE("/rm", AuthMiddleware("user, admin"), srv.handleResourceDelete)
+
+		admin := verified.Group("/admin")
+		/* minioth will verify token no need to worry here.*/
+		{
+			admin.Use(AuthMiddleware("admin"))
+			admin.GET("/fetch-resources", srv.handleFetchResources)
+			admin.GET("/fetch-users", srv.handleFetchUsers)
+
+			admin.POST("/useradd", srv.handleUseradd)
+			admin.DELETE("/userdel", srv.handleUserdel)
+			admin.PATCH("/userpatch", srv.handleUserpatch)
+
+			admin.GET("/fetch-groups", srv.handleFetchGroups)
+			admin.POST("/groupadd", srv.handleGroupadd)
+			admin.DELETE("/groupdel", srv.handleGroupdel)
+			admin.PATCH("/grouppatch", srv.handleGrouppatch)
+			admin.POST("/hasher", srv.handleHasher)
+
+			admin.PATCH("/chown", srv.handleResourcePerms)
+			admin.PATCH("/chmod", srv.handleResourcePerms)
+
+		}
 	}
 
 	srv.Engine.NoRoute(func(c *gin.Context) {

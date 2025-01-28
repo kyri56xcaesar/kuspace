@@ -1,0 +1,112 @@
+<html>
+
+    <style>
+        html,body {
+            background-color: blueviolet;
+        }
+        body > div {
+            max-width: 600px;
+            margin: auto;
+            display: flex;
+        }
+        #v-handler {
+            width: 400px;
+            margin: 50 25;
+            border: 1px solid black;
+            border-radius: 10px;
+            padding: 1rem;
+
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        #v-header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            flex-direction: row;
+            align-items: center;
+            border-bottom: 2px solid black;
+        }
+        #v-subheader {
+            display: flex;
+            justify-content: space-between;
+            margin: 1rem;
+        }
+
+        ul {
+            margin: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            list-style-type: none;
+        }
+
+        .v-ul-entry {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            align-content: center;
+            
+            & :is(input[type="range"]) {
+                flex-grow: 0;
+                width: 150px;
+            }
+
+            & :is(span) {
+                min-width: 30px;
+                text-align: center;
+                flex-grow: 0;
+            }
+
+            & :is(.inp-value)::after {
+                content: ' M';
+            }
+        }
+        
+
+    </style>
+    <body>
+        <div>
+            <div id="v-handler">
+                <div id="v-header" class="v-header">
+                    <h3>Manage Volumes</h3>
+                    <div>
+                        <label for="auto-volume">Dynamic volumes</label>
+                        <input type="checkbox" id="auto-volume" name="auto-volume" value="true"> 
+                    </div>
+                </div>
+                <div id="v-subheader" class="v-header">
+                    <div>
+                        <select>
+                            <option>Users</option>
+                            <option>Groups</option>
+                        </select>    
+                    </div>
+                    <span>
+                        40G
+                    </span>
+                </div>
+                <hr>
+                <div>
+                    <ul>
+                        <li>
+                            <div class="v-ul-entry">
+                                <span>John</span>
+                                <input type="range" min="1000" max="20000" step="100" value="1" oninput="this.nextElementSibling.innerHTML = this.value;">
+                                <span class="inp-value"></span>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="v-ul-entry">
+                                <span>Gohn</span>
+                                <input type="range" min="1000" max="20000" step="100" value="1" oninput="this.nextElementSibling.innerHTML = this.value;">
+                                <span class="inp-value"></span>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

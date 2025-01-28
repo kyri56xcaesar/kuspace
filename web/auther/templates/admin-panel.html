@@ -6,6 +6,7 @@
     <link rel="icon" href="../assets/logos/cropped.png">
     <link href="../css/styles.css" rel="stylesheet">
     <link href="../css/admin-panel.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="../js/index.js"></script>
     <script src="https://unpkg.com/htmx.org"></script>
 
@@ -37,6 +38,13 @@
         </li>
         <hr>
         <li>
+          <a href="#" onclick="showSection('volumes')">Manage Volumes</a>
+          <ul class="submenu">
+            <p></p>
+          </ul>
+        </li>
+        <hr>
+        <li>
           <a href="#" onclick="showSection('users')">Manage Users</a>
           <ul class="submenu">
             <p></p>
@@ -49,7 +57,6 @@
             <p></p>
           </ul>
         </li>
-        <hr>
       </ul>
       <div id="menu-bottom" class="submenu">
         <hr>
@@ -329,7 +336,7 @@
       <!-- resources -->    
       <section id="resources" class="content-section hidden">      
         <h2>Manage Resources</h2>
-        <p>View and manage existing resources and volumes.</p>
+        <p>View and manage existing resources.</p>
         <hr>
         <div>
         </div>
@@ -355,7 +362,7 @@
                             <option value="list" selected>list</option>
                             <option value="tree">tree</option>
                           </select>
-                          <button typ="submit">View Resources</button>
+                          <button type="submit">View Resources</button>
                         </form>
                       </div>
                   </div>
@@ -368,30 +375,68 @@
               </div>
               <!-- From Uiverse.io by Yaya12085 --> 
               <div id="fupload">
-                <h3>Upload files.</h3>
+                <h3>Upload files</h3>
                 <div class="fupload-container" id="drop-zone"> 
-                  <div class="fupload-header"> 
+                  <div class="fupload-header" id="file-boxes"> 
                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M7 10V9C7 6.23858 9.23858 4 12 4C14.7614 4 17 6.23858 17 9V10C19.2091 10 21 11.7909 21 14C21 15.4806 20.1956 16.8084 19 17.5M7 10C4.79086 10 3 11.7909 3 14C3 15.4806 3.8044 16.8084 5 17.5M7 10C7.43285 10 7.84965 10.0688 8.24006 10.1959M12 12V21M12 12L15 15M12 12L9 15" 
                         stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                       </path>
                     </svg> 
                     <p>Browse File to upload or drag & drop!</p>
-                  </div> 
-                  <label for="file" class="fupload-footer"> 
-                    <svg fill="#000000" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M15.331 6H8.5v20h15V14.154h-8.169z"></path>
-                      <path d="M18.153 6h-.009v5.342H23.5v-.002z"></path>
-                    </svg> 
-                    <p id="file-name">No file selected</p> 
-                  </label> 
-                  <input id="file" type="file" hidden> 
+                  </div>
+                  <form
+                    id="upload-files-form"
+                    hx-post="/api/v1/verified/upload"
+                    hx-swap="none" 
+                    hx-include="#file"
+                    hx-trigger="submit"
+                    hx-indicator="#progress-container"
+                    enctype="multipart/form-data"
+                    hx-on::before-request="showProgressBar(document.getElementById('progress-container'))" 
+                  >
+                    <label for="file" class="fupload-footer"> 
+                      <svg fill="#000000" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M15.331 6H8.5v20h15V14.154h-8.169z"></path>
+                        <path d="M18.153 6h-.009v5.342H23.5v-.002z"></path>
+                      </svg> 
+                      <div>
+                        <p id="file-name">No file selected</p> 
+                      </div>
+                      <button 
+                        id="upload-button"
+                        type="submit"
+                        disabled
+                      >Upload Files
+                      </button>
+                    </label> 
+                    <input id="file" type="file" name="files" multiple hidden>
+                  </form>
                 </div>
-              </div>
-              <div>
+                <div id="progress-container" class="hidden">
+                </div>
               </div>
           </div>
         </div>
+      </section>
+      <section id="volumes" class="content-section hidden">
+        <h2>Manage Volumes</h2>
+        <p>View and manage existing volumes</p>
+        <hr>
+        <div>
+        </div>
+        <div 
+          id="fetch-volumes-display"
+          hx-trigger="click" 
+          hx-get="/api/v1/verified/admin/fetch-volumes" 
+          hx-target="#volumes-main" 
+          hx-swap="innerHTML"
+        >
+        </div>
+        <div id="volumes-main">
+        </div>
+
+
       </section>
     </main>
   </div>

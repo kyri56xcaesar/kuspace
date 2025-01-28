@@ -10,6 +10,17 @@ button {
   border-radius: 4px;
   cursor: pointer;
 }
+button:disabled {
+  color: white;
+  background-color: gray;
+  cursor: not-allowed;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+button:disabled:hover {
+  background: none;
+}
 
 button:hover {
   background: #0056b3;
@@ -208,6 +219,7 @@ tr {
     transition: width 0.3s ease;
     overflow: hidden;
     border-right: 3px solid black;
+    overflow-y: auto;
 }
 
 .sidebar.collapsed {
@@ -407,10 +419,6 @@ tr {
   padding: 1rem;
 }
 
-#add-group-div {
-  width: 500px;
-}
-
 /* add user form container */
 #add-user-form, #add-group-form {
   display: flex;
@@ -425,6 +433,7 @@ tr {
   font-family: Arial, sans-serif;
   overflow-x: scroll;
   box-sizing: border-box;
+  justify-content: space-between;
 }
 
 .a-group, b-group, c-group {
@@ -440,7 +449,6 @@ tr {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
   gap: 10px;
 }
 
@@ -809,6 +817,11 @@ tr {
 #resources-main {
   margin-top: 20px;
   padding-left: 20px;
+  padding-bottom: 20px;
+  border: 1px solid #ddd;
+  overflow-x: auto;
+  max-height: 500px;
+  overflow-y: auto;
 
   & :is(ul) {
     margin-top: 10px;
@@ -886,16 +899,54 @@ tr {
 
 
 #resource-details {
-  margin-top: 20px;
   padding: 1rem;
   border: 1px solid #ddd;
   min-height: 500px;
+
+  & :is(.resource-details-inner) {
+    width: 65%;
+    white-space: nowrap;
+    overflow: auto;
+  }
+
+  & :is(.resource-preview-window) {
+    border-left: 2px solid black;
+    padding: 1rem;
+    width: 100%;
+    display: flex;
+    & :is(button) {
+      margin: auto;
+    }
+  }
+
+  & :is(.resource-options) {
+    align-items: center;
+    & :is(label) {
+      margin-right: 10px;
+    }
+    & :is(button) {
+      margin: 0 10px;
+    }
+
+    & :is(.resource-options-inner) {
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      transition: 0.1s ease;
+    }
+  }
+}
+#resource-details > div {
+  display: flex;
 }
 
+#fupload {
+  padding: 1rem;
+  border: 1px solid #ddd;
+}
 /* From Uiverse.io by Yaya12085 */ 
 .fupload-container {
-  height: 300px;
-  width: 600px;
+  height: 200px;
   border-radius: 10px;
   box-shadow: 4px 4px 30px rgba(0, 0, 0, .2);
   display: flex;
@@ -904,19 +955,41 @@ tr {
   justify-content: space-between;
   padding: 10px;
   gap: 5px;
-  background-color: rgba(0, 110, 255, 0.041);
+
+  & :is(form) {
+    width: 100%;
+  }
 }
 
 .fupload-header {
-  flex: 1;
-  width: 100%;
   border: 2px dashed royalblue;
   border-radius: 10px;
   display: flex;
+  gap: 10px;
+  position: relative;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
-  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
 }
+
+#file-boxes .file-box {
+  z-index: 2;
+}
+#file-boxes svg,
+#file-boxes p {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  opacity: 0.4;
+}
+#file-boxes p {
+  top: 70%;
+}
+
 
 .fupload-header svg {
   height: 100px;
@@ -936,7 +1009,7 @@ tr {
   cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   color: black;
   border: none;
 }
@@ -956,6 +1029,74 @@ tr {
   text-align: center;
 }
 
+#progress-container {
+  width: 0;
+  height: 4.8px;
+  display: inline-block;
+  position: relative;
+  background: green;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  box-sizing: border-box;
+  animation: animFw 8s linear infinite;
+}
+
+#progress-container::after,
+#progress-container::before{
+  content: '';
+  width: 10px;
+  height: 1px;
+  background: #FFF;
+  position: absolute;
+  top: 9px;
+  right: -2px;
+  opacity: 0;
+  transofrm: rotate(-45deg) translate(0px);
+  box-sizing: border-box;
+  animation: colil 0.3s linear infinite;
+}
+#progress-container::before {
+  top: -4px;
+  transform: rotate(45deg);
+  animation: coli2 0.3s linear infinite;
+}
+
+@keyframes animFw {
+  0% {
+    width: 0;
+  }
+  100% {
+    width: 100%;
+  }
+}
+@keyframes coli1 {
+  0% {
+    transform: rotate(-45deg) translateX(0px);
+    opacity: 0.7;
+  }
+
+  100% {
+    transform: rotate(-45deg) translateX(-45px);
+    opacity: 0;
+  }
+}
+
+@keyframes coli2 {
+  0% {
+    transform: rotate(45deg) translateX(0px);
+    opacity: 1;
+  }
+
+  100% {
+    transform: rotate(45deg) translateX(-45px);
+    opacity: 0.7;
+  }
+}
+
+
+.hidden {
+  display: none !important;
+}
+
 #file {
   display: none;
 }
@@ -965,12 +1106,95 @@ tr {
   border-radius: 10px;
   padding: 20px;
   text-align: center;
-  background-color: #f9f9f9;
   transition: background-color 0.2s, border-color 0.2s;
 }
 
 #drop-zone.drag-over {
   background-color: #e0f7fa;
   border-color: #00796b;
+}
+
+.file-box {
+  display: inline-flex;
+  align-items: center;
+  justifny-content: space-between;
+  padding: 5px 10px;
+  margin: 5px;
+  border: 2px dashed black;
+  border-radius: 5px;
+  cursor: pointer;
+  position: relative;
+  width: 40px;
+  height: 60px;
+  
+  overflow: hidden;
+}
+.file-box:hover {
+  background-color: #e0e0e0;
+}
+.file-box .close-btn {
+  font-size: 14px;
+  color: #ff0000;
+  cursor: pointer;
+  position: absolute;
+  top: 2px;
+  right: 5px;
+}
+
+.file-box span {
+  position: absolute;
+  bottom: 5px;
+  left: 5px;
+  font-size: 12px;
+  color: white;
+  text-shadow: 1px 1px 2px black;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+#file-list {
+  margin-top: 10px;
+  padding-left: 0;
+  list-style-type: none;
+  
+  & :is(li) {
+    background: #f0f0f0;
+    margin: 5px 0;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 0.9rem;
+  }
+}
+
+.file-box::before {
+  font-family: 'Font Awesome 6 Free'; /* Ensure FontAwesome is loaded */
+  font-weight: 900;
+  font-size: 50px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  content: ""; /* Default */ 
+  color: #b52b2b;
+}
+
+.file-box.image::before {
+  content: '\f03e'; /* FontAwesome image icon */
+}
+
+.file-box.pdf::before {
+  content: '\f1c1'; /* FontAwesome PDF icon */
+}
+
+.file-box.doc::before {
+  content: '\f1c2'; /* FontAwesome Word document icon */
+}
+
+.file-box.zip::before {
+  content: '\f1c6'; /* FontAwesome ZIP icon */
+}
+
+.file-box.default::before {
+  content: '\f15b'; /* FontAwesome generic file icon */
 }
 

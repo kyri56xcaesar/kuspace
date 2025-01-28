@@ -96,7 +96,6 @@ func autoLogin() gin.HandlerFunc {
 
 func AuthMiddleware(group string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		log.Print("Through Auth middleware...")
 		accessToken, err := c.Cookie("access_token")
 		if err != nil {
 			log.Printf("missing access token: %v", err)
@@ -155,9 +154,6 @@ func AuthMiddleware(group string) gin.HandlerFunc {
 			return
 		}
 
-		/* set this context value for the template rendering needed later*/
-		c.Set("username", info.Info.Username)
-
 		if info.Info.Valid == "false" {
 			log.Printf("token not valid anymore...")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized, invalid token"})
@@ -167,6 +163,11 @@ func AuthMiddleware(group string) gin.HandlerFunc {
 		contents := strings.Split(info.Info.Groups, ",")
 		for _, g := range contents {
 			if strings.Contains(group, strings.TrimSpace(g)) {
+				/* set this context value for the template rendering needed later*/
+				c.Set("username", info.Info.Username)
+				c.Set("user_id", info.Info.UserID)
+				c.Set("groups", info.Info.Groups)
+				c.Set("group_ids", info.Info.GroupIDS)
 				return
 			}
 		}

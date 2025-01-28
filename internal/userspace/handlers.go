@@ -203,9 +203,30 @@ func (srv *UService) MoveResourcesHandler(c *gin.Context) {
 	})
 }
 
-func (srv *UService) RemoveResourcesHandler(c *gin.Context) {
+func (srv *UService) RemoveResourceHandler(c *gin.Context) {
+	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
+	if err != nil {
+		log.Printf("failed to bind access-target: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing Access-Target header"})
+		return
+	}
+	log.Printf("binded access claim: %+v", ac)
+	target := c.Request.URL.Query().Get("target")
+	if target == "" {
+		log.Printf("must provide a target")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a target"})
+		return
+	}
+
+	err = srv.dbh.DeleteResourceByName(target)
+	if err != nil {
+		log.Printf("failed to delete resource: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete resource"})
+		return
+	}
+
 	c.JSON(200, gin.H{
-		"message": "tdb",
+		"message": "resource deleted successfully.",
 	})
 }
 

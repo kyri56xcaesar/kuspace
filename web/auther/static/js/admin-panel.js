@@ -103,6 +103,19 @@ function cancelEdit(index, originalValues) {
 
 }
 
+function showProgressBar(container) {
+  if (container){
+    container.classList.remove('hidden');
+  }
+}
+
+function hideProgressBar(container) {
+  if (container) {
+    container.classList.add('hidden');
+  } 
+}
+
+var filesList = [];
 
 document.addEventListener("DOMContentLoaded", () => {
   const sidebar = document.getElementById('sidebar');
@@ -122,7 +135,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   const dropZone = document.getElementById("drop-zone");
   const fileInput = document.getElementById("file");
-  const fileNameDisplay = document.getElementById("file-name");
+  const fileBoxContainer = document.getElementById("file-boxes");
 
   // Handle dragover event (to show visual feedback)
   dropZone.addEventListener("dragover", (event) => {
@@ -139,17 +152,78 @@ document.addEventListener("DOMContentLoaded", () => {
   dropZone.addEventListener("drop", (event) => {
     event.preventDefault(); // Prevent default behavior
     dropZone.classList.remove("drag-over");
-
-    const files = event.dataTransfer.files;
+    
+    const files = Array.from(event.dataTransfer.files);
     if (files.length > 0) {
-      handleFiles(files);
+      handleFileSelectionFromDrop(files);
     }
   });
+  
+  function toggleSubmitButton() {
+    const fileInput = document.getElementById("file");
+    const submitButton = document.getElementById("upload-button");
 
+    submitButton.disabled = fileInput.files.length === 0;
+  }
+  
+  function handleFileSelection(event) {
+    toggleSubmitButton();
+
+    const selectedFiles = Array.from(event.target.files);
+    
+    selectedFiles.forEach((file) => {
+      if (!filesList.some((f) => f.name === file.name)) {
+        filesList.push(file);
+        addFileBox(file);
+      }
+    });
+    
+     updateFileNameDisplay(filesList);
+  }
+
+  function handleFileSelectionFromDrop(files) {
+    const selectedFiles = Array.from(files);
+    selectedFiles.forEach((file) => {
+      if (!filesList.some((f) => f.name === file.name)) {
+        filesList.push(file);
+        addFileBox(file);
+      }
+    });
+    
+    updateFileNameDisplay(filesList);
+  }
+
+  function addFileBox(file) {
+    const fileBox = document.createElement("div");
+    fileBox.classList.add("file-box");
+
+    const extention = file.name.split(".").pop().toLowerCase();
+    const fileClass = getFileClass(extention);
+
+    fileBox.classList.add("file-box", fileClass);
+
+    const fileNameSpan = document.createElement("span");
+    fileNameSpan.textContent = file.name;
+    fileBox.appendChild(fileNameSpan);
+    
+    const closeButton = document.createElement("span");
+    closeButton.classList.add("close-btn");
+    closeButton.textContent = "✖";
+    closeButton.addEventListener("click", () => {
+      removeFile(file);
+      fileBox.remove();
+    });
+
+    fileBox.appendChild(closeButton);
+    fileBoxContainer.appendChild(fileBox);
+  }
+
+  function removeFile(file) {
+    filesList = filesList.filter((f) => f.name !== file.name);
+    updateFileNameDisplay(filesList);
+  }
   // Handle file selection via the input field
-  fileInput.addEventListener("change", (event) => {
-    handleFiles(event.target.files);
-  });
+  fileInput.addEventListener("change", handleFileSelection)
 
   // Function to handle files
   function handleFiles(files) {
@@ -161,4 +235,44 @@ document.addEventListener("DOMContentLoaded", () => {
       console.log("File selected:", file);
     }
   }
+
+  function getFileClass(extension) {
+    switch (extension) {
+    case "jpg":
+    case "jpeg":
+    case "png":
+    case "gif":
+      return "image";
+    case "pdf":
+      return "pdf";
+    case "doc":
+    case "docx":
+      return "doc";
+    case "zip":
+    case "rar":
+      return "zip";
+    default:
+      return "default";
+    }
+  }
+
 });
+
+function updateFileNameDisplay(filesList) {
+    const fileNameLabel = document.getElementById("file-name");
+    fileNameLabel.textContent = 
+      filesList.length > 0 
+        ? `${filesList.length} file(s) selected` 
+        : "No files selected";
+  }
+
+
+function resetFileBoxDisplay() {
+  const fileboxes = document.querySelectorAll(".file-box");
+  fileboxes.forEach((file_box) => {
+    file_box.remove();
+  });
+
+  updateFileNameDisplay([]);
+}
+ 

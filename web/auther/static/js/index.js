@@ -22,16 +22,25 @@ domReady(() => {
     });
   });
 
-  const tglBtn = document.getElementById("dark-mode-toggle");
-  if (tglBtn) {
-    if (localStorage.getItem("darkMode") === "true") {
-      document.body.classList.add("dark-mode");
-      console.log(tglBtn);
-      tglBtn.checked = true;
-    } else {
-      tglBtn.checked = false;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  sleep(1000).then(() => {
+    const tglBtn = document.getElementById("dark-mode-toggle");
+    if (tglBtn) {
+      const elementsToToggle = document.querySelectorAll(".darkened");
+
+      if (localStorage.getItem("darkMode") === "true") {
+        elementsToToggle.forEach((el) => {
+          el.classList.add("dark-mode");
+        });
+        tglBtn.checked = true;
+      } else {
+        elementsToToggle.forEach((el) => {
+          el.classList.remove("dark-mode");
+        });
+        tglBtn.checked = false;
+      }
     }
-  }
+  });
 });
 
 function toggleCollapses() {
@@ -97,6 +106,9 @@ function getCookie(name) {
   return '';
 }
 
+
+// htmx events handling
+
 document.addEventListener('htmx:afterSwap', function (event) {
   const verifyResultElement = document.getElementById('verify-result');
   if (verifyResultElement) {
@@ -138,7 +150,9 @@ document.addEventListener('htmx:afterRequest', function (event) {
       }    
     }
     // reload users fetch
+  
   } else if (triggeringElement.id === 'reload-btn') {
+  
   } else if (triggeringElement.id === 'add-user-form') {
     // new user creation (from admin)
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
@@ -156,6 +170,8 @@ document.addEventListener('htmx:afterRequest', function (event) {
       }, 40000);
     }
   // deleting users by admin 
+  
+  
   } else if (triggeringElement.id.startsWith('delete-btn-')) {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
       // Successfully deleted
@@ -167,6 +183,8 @@ document.addEventListener('htmx:afterRequest', function (event) {
       const rowId = triggeringElement.closest('tr').id;
       document.getElementById(rowId).style.border = '2px solid red';
     }
+  
+  
   } else if (triggeringElement.id.startsWith('delete-grp-btn')) {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
       // Successfully deleted
@@ -179,15 +197,21 @@ document.addEventListener('htmx:afterRequest', function (event) {
       document.getElementById(rowId).style.border = '2px solid red';
     }
   // logging out (generic)
+ 
+  
   } else if (triggeringElement.id.startsWith("logout")) {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 400) {
       window.location.href="/api/v1/login";
     }x
   // hasher related
+ 
+
   } else if (triggeringElement.id.startsWith("inp-text")) {
     if (event.detail.xhr.status >= 400) {
       document.getElementById("generated-hash").textContent = "";
-    }     
+    }  
+
+
   // submit user patch by admin
   } else if (triggeringElement.id.startsWith("submit-btn-")) {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
@@ -216,14 +240,56 @@ document.addEventListener('htmx:afterRequest', function (event) {
           }, 2000);
         }
     }
+ 
+
   } else if (triggeringElement.id === 'add-group-form') {
-    if (event.detail.xhr.status >= 200 && event.detail.xhr.status <300) {
-      document.getElementById('reload-groups-btn').dispatchEvent(new Event('click'));
-      triggeringElement.reset();
-    } else if (event.detail.xhr.status >= 400 && event.detail.xhr.status < 500) {
-    } else {
+      if (event.detail.xhr.status >= 200 && event.detail.xhr.status <300) {
+        document.getElementById('reload-groups-btn').dispatchEvent(new Event('click'));
+        triggeringElement.reset();
+      } 
+    
+
+  
+  } else if (triggeringElement.id === 'upload-files-form') {
+      setTimeout(() => {
+        hideProgressBar(document.getElementById('progress-container'))
+      }, 2000);
+      document.getElementById('upload-files-form').reset();
+      resetFileBoxDisplay();
+
+      if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+        while(filesList.length > 0) {
+          filesList.pop();
+        }
+        const feedback = document.querySelector(".fupload-header > svg");
+        feedback.style.opacity = "1";
+        feedback.style.color = "green";
+        const p = document.querySelector(".fupload-header > p");
+        p.textContent = "File(s) uploaded";
+        p.style.opacity = "1";
+        setTimeout(() => {
+          feedback.opacity = "0.4";
+          p.style.opacity = "0.4";
+          feedback.style.color = "black";
+          p.textContent = "Browse File to upload or drag & drop!";
+        }, 10000);  
+        // reload resources
+        document.querySelector("#fetch-resources-form").dispatchEvent(new Event("submit"));
+        document.getElementById("fetch-resources-form").scrollTo({ top: 0, behavior: "smooth"});
+
+      } else if (event.detail.xhr.status >= 300) {
+        const feedback = document.querySelector(".fupload-header > svg");
+        feedback.style.opacity = "1";
+        feedback.style.color = "red";
+        const p = feedback.nextSibling;
+        p.textContent = "Failed to upload.";
+        setTimeout(() => {
+          feedback.opacity = "0.4";
+          feedback.style.color = "black";
+          p.textContent = "Browse File to upload or drag & drop!";
+        }, 2000)
+      }
     }
-  }
 });
 
 document.addEventListener('htmx:confirm', function(evt) {

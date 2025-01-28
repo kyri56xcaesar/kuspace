@@ -49,7 +49,7 @@ func NewUService(conf string) UService {
 	// also ensure local pv path
 	_, err := os.Stat(cfg.Volumes)
 	if err != nil {
-		err = os.Mkdir(cfg.Volumes, 0700)
+		err = os.Mkdir(cfg.Volumes, 0o700)
 		if err != nil {
 			panic("crucial")
 		}
@@ -82,9 +82,9 @@ func (srv *UService) Serve() {
 
 	admin := apiV1.Group("/admin")
 	{
-
 		admin.POST("/resources", srv.PostResourcesHandler)
 		admin.PUT("/resources", srv.MoveResourcesHandler)
+		admin.DELETE("/resources", srv.RemoveResourceHandler)
 
 		admin.PATCH("/resource/permissions", srv.ChmodResourceHandler)
 		admin.PATCH("/resource/ownership", srv.ChownResourceHandler)

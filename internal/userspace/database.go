@@ -317,6 +317,40 @@ func (m *DBHandler) DeleteResourcesByIds(rids []int) error {
 	return nil
 }
 
+func (m *DBHandler) DeleteResourceByName(name string) error {
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("error getting db connection: %v", err)
+		return err
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("error starting transaction: %v", err)
+		return err
+	}
+
+	res, err := tx.Exec("DELETE FROM resources WHERE name = ?", name)
+	if err != nil {
+		log.Printf("failed to execute query: %v", err)
+		return err
+	}
+
+	rAff, err := res.RowsAffected()
+	if err != nil {
+		log.Printf("failed to get rows affected")
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("failed to commit transaction: %v", err)
+		return err
+	}
+	log.Printf("deleted %v rows", rAff)
+
+	return nil
+}
+
 func (m *DBHandler) UpdateResourceById(rid int, r Resource) error {
 	db, err := m.getConn()
 	if err != nil {
