@@ -289,6 +289,33 @@ document.addEventListener('htmx:afterRequest', function (event) {
           p.textContent = "Browse File to upload or drag & drop!";
         }, 2000)
       }
+    } else if (triggeringElement.className === "r-btn-delete") {
+      if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+        document.querySelector("#fetch-resources-form").dispatchEvent(new Event("submit"));
+        document.getElementById("fetch-resources-form").scrollTo({ top: 0, behavior: "smooth"});
+
+        const feedback = document.querySelector(".feedback");
+        const msg = document.createElement("p");
+        msg.textContent = "Success";
+        msg.style.color = "green";
+        feedback.appendChild(msg);
+
+        setTimeout(() => {
+          msg.remove();
+          hideProgressBar(document.querySelector(".r-loader"));
+        }, 4000);
+      } else {
+        const feedback = document.querySelector(".feedback");
+        const msg = document.createElement("p");
+        msg.textContent = "Failure";
+        msg.style.color = "red";
+        feedback.appendChild(msg);
+
+        setTimeout(() => {
+          msg.remove();
+          hideProgressBar(document.querySelector(".r-loader"));
+        }, 4000);
+      }
     }
 });
 

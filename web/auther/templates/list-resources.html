@@ -88,27 +88,30 @@ tableRows.forEach((row) => {
         <label for="resource-options-inner"><b>Options:</b></label>
         <div id="resource-options-inner">
           <button 
-            class="r-btn"
+            class="r-btn-download"
           >
             Download
           </button>
           <button 
-            class="r-btn"
+            class="r-btn-edit"
           >
             Edit
           </button>
           <button 
-            class="r-btn"
-            hx-delete="/api/v1/verified/rm?target=${resource.name}"
+            class="r-btn-delete"
+            hx-delete="/api/v1/verified/rm?rids=${resource.id}"
             hx-trigger="click"
             hx-swap="none"
+            hx-on::before-request="showProgressBar(document.querySelector('.r-loader'))"
           >
             Delete
           </button>
         </div>
+        <div class="feedback"></div>
+        <div class="r-loader hidden"><div></div></div>
       </div>
     `;
-    const btns = document.querySelectorAll(".r-btn");
+    const btns = document.querySelectorAll(".r-btn-download, .r-btn-edit, .r-btn-delete");
     btns.forEach(button => {
       htmx.process(button);
     })

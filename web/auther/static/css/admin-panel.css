@@ -98,19 +98,19 @@ tr {
 }
 
 .check-highlight, form.check-highlight {
-  border: 2px solid green; !important 
+  border: 2px solid green !important ;
   border-radius: 15px;
   transition: border-olor 0.3s ease;
 }
 
 .warning-highlight, form.warning-highlight {
-  border: 3px solid yellow; !important
+  border: 3px solid yellow !important;
   border-radius: 15px;
   transition: border-olor 0.3s ease;
 }
 
 .error-highlight, #add-user-form.error-highlight {
-  border: 3px solid red; !important
+  border: 3px solid red !important;
   border-radius: 15px;
   transition: border-olor 0.3s ease;
 }
@@ -436,9 +436,6 @@ tr {
   justify-content: space-between;
 }
 
-.a-group, b-group, c-group {
-}
-
 #fetch-users-results {
   min-height: 350px;
 }
@@ -545,7 +542,7 @@ tr {
 }
 
 #all-users-table tbody tr:hover, #all-groups-table tbody tr:hover {
-    background-color: #7d8889;
+    background-color: #cedadb;
     cursor: pointer;
 }
 
@@ -921,6 +918,10 @@ tr {
 
   & :is(.resource-options) {
     align-items: center;
+    display: flex;
+    flex-wrap: nowrap;
+    padding: 0.5rem;
+    height: 1em;
     & :is(label) {
       margin-right: 10px;
     }
@@ -928,11 +929,20 @@ tr {
       margin: 0 10px;
     }
 
-    & :is(.resource-options-inner) {
+    & :is(#resource-options-inner) {
       display: flex;
       flex-direction: row;
       justify-content: space-between;
       transition: 0.1s ease;
+      border-right: 1px solid black;
+    }
+
+    & :is(.feedback) {
+      margin-left: 20px;
+    }
+
+    & :is(.r-loader) {
+      width: 25%;
     }
   }
 }
@@ -1050,7 +1060,7 @@ tr {
   top: 9px;
   right: -2px;
   opacity: 0;
-  transofrm: rotate(-45deg) translate(0px);
+  transform: rotate(-45deg) translate(0px);
   box-sizing: border-box;
   animation: colil 0.3s linear infinite;
 }
@@ -1117,7 +1127,7 @@ tr {
 .file-box {
   display: inline-flex;
   align-items: center;
-  justifny-content: space-between;
+  justify-content: space-between;
   padding: 5px 10px;
   margin: 5px;
   border: 2px dashed black;
@@ -1198,3 +1208,31 @@ tr {
   content: '\f15b'; /* FontAwesome generic file icon */
 }
 
+/* From Uiverse.io by gagan-gv */ 
+.r-loader {
+  margin-left: 10px;
+  width: 12em;
+  height: 1em;
+  border-radius: 8px;
+  background-color: #47a7ff44;
+}
+
+.r-loader div {
+  height: 100%;
+  width: 100%;
+  border-radius: 8px;
+  background-color: #47a7ff;
+  animation: width7435 4s linear infinite;
+  transition: all;
+}
+
+@keyframes width7435 {
+  from {
+    /*width: 0;*/
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}

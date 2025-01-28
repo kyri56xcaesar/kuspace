@@ -211,14 +211,15 @@ func (srv *UService) RemoveResourceHandler(c *gin.Context) {
 		return
 	}
 	log.Printf("binded access claim: %+v", ac)
-	target := c.Request.URL.Query().Get("target")
+	target := c.Request.URL.Query().Get("rids")
 	if target == "" {
 		log.Printf("must provide a target")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a target"})
 		return
 	}
+	rids_str := strings.Split(target, ",")
 
-	err = srv.dbh.DeleteResourceByName(target)
+	err = srv.dbh.DeleteResourcesByIds(rids_str)
 	if err != nil {
 		log.Printf("failed to delete resource: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete resource"})

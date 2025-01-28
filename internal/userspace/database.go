@@ -276,9 +276,9 @@ func (m *DBHandler) GetResourceByFilepath(filepath string) (*Resource, error) {
 	return &resource, nil
 }
 
-func (m *DBHandler) DeleteResourcesByIds(rids []int) error {
+func (m *DBHandler) DeleteResourcesByIds(rids []string) error {
 	// can't have empty arg (might be destructive)
-	if rids == nil {
+	if rids == nil || len(rids) == 0 {
 		log.Printf("empty argument, returning...")
 		return fmt.Errorf("must provide input ids")
 	}
@@ -295,7 +295,16 @@ func (m *DBHandler) DeleteResourcesByIds(rids []int) error {
 		return err
 	}
 
-	res, err := tx.Exec("DELETE FROM resources WHERE rid IN (?)", rids)
+	placeholders := make([]string, len(rids))
+	args := make([]interface{}, len(rids))
+	for i := range rids {
+		placeholders[i] = "?"
+		args[i] = rids[i]
+	}
+
+	query := fmt.Sprintf("DELETE FROM resources WHERE rid IN (%s)", strings.Join(placeholders, ","))
+
+	res, err := tx.Exec(query, args...)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
 		return err

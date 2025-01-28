@@ -828,7 +828,7 @@ func (srv *HTTPService) handleResourceMove(c *gin.Context) {
 }
 
 func (srv *HTTPService) handleResourceDelete(c *gin.Context) {
-	resource_target := c.Request.URL.Query().Get("target")
+	resource_target := c.Request.URL.Query().Get("rids")
 	if resource_target == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing target parameter"})
 		return
@@ -836,7 +836,7 @@ func (srv *HTTPService) handleResourceDelete(c *gin.Context) {
 	uid, _ := c.Get("user_id")
 	group_ids, _ := c.Get("group_ids")
 
-	req, err := http.NewRequest(http.MethodDelete, apiServiceURL+"/api/v1/admin/resources?target="+resource_target, c.Request.Body)
+	req, err := http.NewRequest(http.MethodDelete, apiServiceURL+"/api/v1/admin/resources?rids="+resource_target, c.Request.Body)
 	if err != nil {
 		log.Printf("failed to create a new request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
