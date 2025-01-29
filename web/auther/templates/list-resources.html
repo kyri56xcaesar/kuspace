@@ -83,6 +83,7 @@ tableRows.forEach((row) => {
         <div class="resource-preview-window">
           <button>Preview</button>
         </div>
+        <div id="edit-modal" class="modal hidden"></div>
       </div>
       <hr>
       <div class="resource-options">
@@ -101,7 +102,7 @@ tableRows.forEach((row) => {
             hx-swap="innerHTML"
             hx-trigger="click"
             hx-target="#edit-modal"
-            hx-on::afterRequest="(e) => showModal(this)"
+            hx-on::after-request="showModal('edit-modal')"
             >
             Edit
           </button>

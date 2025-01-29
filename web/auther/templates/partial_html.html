@@ -1,0 +1,40 @@
+{{ define "edit-form.html"}} 
+  <div class="close-btn-div"><button onclick="closeModal('edit-modal')" class="button-close"></button></div>
+	<form 
+    hx-put="/api/v1/verified/resource/${rid}" 
+    hx-target="#resource-details" 
+    hx-swap="innerHTML"
+  >   
+      <h3>Edit Resource</h3>
+      <p>Auto save on key release</p>
+      <hr> 
+      <label for="filename">Filename</label>
+  	  <input 
+		    name="filename" 
+        value="{{ .filename }}"
+			  hx-patch="/api/v1/verified/mv"
+			  hx-trigger="keyup changed delay:3000ms"
+		  >
+  		<label for="owner">Owner</label>
+  		<input 
+				name="owner" 
+      value="{{ .owner }}"
+				hx-patch="/api/v1/verified/admin/chown"
+				hx-trigger="keyup changed delay:3000ms"
+			>
+			<label for="group">Group</label>
+  		<input 
+				name="group" 
+      value="{{ .group }}"
+				hx-patch="/api/v1/verified/admin/chgroup"
+				hx-trigger="keyup changed delay:3000ms"
+			>
+  		<label for="permissions">Permissions</label>
+  		<input 
+				name="permissions" 
+      value="{{ .perms }}"
+				hx-patch="/api/v1/verified/admin/chmod"
+				hx-trigger="keyup changed delay:3000ms"
+			>
+	</form>
+{{ end }}

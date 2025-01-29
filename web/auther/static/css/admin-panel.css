@@ -907,7 +907,7 @@ tr {
   }
 
   & :is(.resource-preview-window) {
-    border-left: 2px solid black;
+    border-left: 1px solid black;
     padding: 1rem;
     width: 100%;
     display: flex;
@@ -934,7 +934,6 @@ tr {
       flex-direction: row;
       justify-content: space-between;
       transition: 0.1s ease;
-      border-right: 1px solid black;
       align-items: center;
     }
 
@@ -1238,12 +1237,107 @@ tr {
   }
 }
 
+.blurred {
+  filter: blur(4px);
+  transition: filter 0.3s ease;
+}
+
 .modal {
-  position: fixed; 
-  left: 50%; top: 50%;
+  position: absolute; 
+  left: 60%; top: 50%;
   transform: translate(-50%, -50%);
   background: #fff;
   padding: 1em;
   border: 2px solid #444;
-  z-index: 9999;
+  border-radius: 15px;
+  backdrop-filter: blur(5px);
+  z-index: 100;
+  transition: opacity 0.3s ease, transform 0.3s, visibility 0.3s;
+  filter: blur(0px);
+
+  & :is(form) {
+    display: flex;
+    flex-direction: column;
+    width: 300px;
+    height: 100%;
+    padding: 1rem;
+  }
+
+  & :is(form > input) {
+    width: 90%;
+    border-radius: 5px;
+  }
+
+  & :is(form > label) {
+    font-weight: bolder;
+  }
+
+  & :is(h3) {
+    margin: 0px;
+  }
+
+  & :is(p) {
+    margin-top: 2px;
+    margin-bottom: 0px;
+    opacity: 0.5;
+  }
+
+  & :is(hr) {
+    width: 100%;
+  }
+}
+
+.close-btn-div {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.button-close{
+  display: block;
+  position: relative;
+  width: 24px;
+  height: 24px;
+  background: #fff;
+  color: $line-color;
+  border: 1px solid #a1905d;
+  outline: none;
+  padding: 0;
+  color: white;
+  
+  &:hover{
+    background: white;
+    &:before{
+      width: 15px;
+    }
+    
+    &:after{
+      width: 15px;
+    }
+  }
+  
+  &:before{
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0;
+    height: 1px;
+    border-left: 8px solid #a1905d;
+    border-right: 8px solid #a1905d;
+    -webkit-transform: translate3d(-50%,-50%,0) rotate(-45deg);
+    transition: all .2s cubic-bezier(.25,.46,.45,.94);
+  }
+  
+  &:after{
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0;
+    height: 1px;
+    border-left: 8px solid #a1905d;
+    border-right: 8px solid #a1905d;
+    -webkit-transform: translate3d(-50%,-50%,0) rotate(45deg);
+    transition: all .2s cubic-bezier(.25,.46,.45,.94);
+  }
 }

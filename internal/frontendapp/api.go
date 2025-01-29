@@ -165,43 +165,12 @@ func (srv *HTTPService) ServeHTTP() {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "must provide information"})
 				return
 			}
-			form_tmpl := `
-				<form hx-put="/api/v1/verified/resource/${rid}" hx-target="#resource-details" hx-swap="innerHTML">
-  					<label for="filename">Filename</label>
-  					<input 
-						name="filename" 
-						value="` + filename + `"
-						hx-patch="/api/v1/verified/mv"
-						hx-trigger="keyup changed delay:3000ms"
-					>
-			
-  					<label for="owner">Owner</label>
-  					<input 
-						name="owner" 
-						value="` + owner + `"
-						hx-patch="/api/v1/verified/admin/chown"
-						hx-trigger="keyup changed delay:3000ms"
-					>
-
-					<label for="group">group</label>
-  					<input 
-						name="group" 
-						value="` + group + `"
-						hx-patch="/api/v1/verified/admin/chgroup"
-						hx-trigger="keyup changed delay:3000ms"
-					>
-
-  					<label for="permissions">Permissions</label>
-  					<input 
-						name="permissions" 
-						value="` + perms + `"
-						hx-patch="/api/v1/verified/admin/chmod"
-						hx-trigger="keyup changed delay:3000ms"
-					>
-		
-				</form>`
-
-			c.String(200, form_tmpl)
+			c.HTML(200, "edit-form.html", gin.H{
+				"filename": filename,
+				"owner":    owner,
+				"group":    group,
+				"perms":    perms,
+			})
 		})
 		admin := verified.Group("/admin")
 		/* minioth will verify token no need to worry here.*/
