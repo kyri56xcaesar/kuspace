@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	filepath "path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -822,6 +823,52 @@ func (srv *HTTPService) handleResourceUpload(c *gin.Context) {
 }
 
 func (srv *HTTPService) handleResourceDownload(c *gin.Context) {
+	uid, _ := c.Get("user_id")
+	group_ids, _ := c.Get("group_ids")
+	fpath := c.Request.URL.Query().Get("target")
+
+	if fpath == "" {
+		log.Printf("must provide a target")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a target"})
+		return
+	}
+
+	req, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/resource/download", c.Request.Body)
+	if err != nil {
+		log.Printf("failed to create a new request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	for key, values := range c.Request.Header {
+		for _, value := range values {
+			req.Header.Add(key, value)
+		}
+	}
+	req.Header.Add("Access-Target", fmt.Sprintf("%v %v:%v", fpath, uid, group_ids))
+	req.Header.Add("Authorization", c.Request.Header.Get("Authorization"))
+
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Printf("failed to forward request: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to upload resource"})
+		return
+	}
+
+	defer response.Body.Close()
+	c.Status(response.StatusCode)
+	for key, values := range response.Header {
+		for _, value := range values {
+			c.Header(key, value)
+		}
+	}
+	downloadName := filepath.Base(fpath)
+	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, downloadName))
+	_, err = io.Copy(c.Writer, response.Body)
+	if err != nil {
+		log.Printf("failed to write response: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write response"})
+	}
 }
 
 func (srv *HTTPService) handleResourceMove(c *gin.Context) {

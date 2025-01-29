@@ -252,10 +252,17 @@ func (srv *UService) HandleDownload(c *gin.Context) {
 		return
 	}
 	log.Printf("binded access claim: %+v", ac)
+	log.Printf("trimmed: %v", strings.TrimSuffix(ac.Target, "/"))
+	path := strings.TrimSuffix(ac.Target, "/")
+	_, err = srv.dbh.GetResourceByFilepath(path)
+	if err != nil {
+		log.Printf("failed to retrieve resource: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to retrieve resource"})
+		return
+	}
 
-	c.JSON(200, gin.H{
-		"message": "tbd",
-	})
+	split := strings.Split(path, "/")
+	c.FileAttachment(srv.config.Volumes+path, split[len(split)-1])
 }
 
 /* This is the main endpoint handler for data uploading */
@@ -346,7 +353,7 @@ func (srv *UService) HandleUpload(c *gin.Context) {
 			Size:        int(fileHeader.Size),
 		}
 
-		err = srv.dbh.InsertResource(resource)
+		err = srv.dbh.InsertResourceUniqueName(resource)
 		if err != nil {
 			log.Printf("failed to insert resources: %v", err)
 			c.JSON(422, gin.H{"error": "failed to insert resources"})

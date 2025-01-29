@@ -149,10 +149,60 @@ func (srv *HTTPService) ServeHTTP() {
 		// actions for logged in users
 		verified.POST("/upload", AuthMiddleware("user, admin"), srv.handleResourceUpload)
 		verified.GET("/download", AuthMiddleware("user, admin"), srv.handleResourceDownload)
+
 		verified.PATCH("/mv", AuthMiddleware("user, admin"), srv.handleResourceMove)
 		verified.POST("/cp", AuthMiddleware("user, admin"), srv.handleResourceCopy)
 		verified.DELETE("/rm", AuthMiddleware("user, admin"), srv.handleResourceDelete)
 
+		verified.GET("/edit-form", AuthMiddleware("user, admin"), func(c *gin.Context) {
+			filename := c.Request.URL.Query().Get("filename")
+			owner := c.Request.URL.Query().Get("owner")
+			group := c.Request.URL.Query().Get("group")
+			perms := c.Request.URL.Query().Get("perms")
+
+			if filename == "" || owner == "" || group == "" || perms == "" {
+				log.Printf("must provide args")
+				c.JSON(http.StatusBadRequest, gin.H{"error": "must provide information"})
+				return
+			}
+			form_tmpl := `
+				<form hx-put="/api/v1/verified/resource/${rid}" hx-target="#resource-details" hx-swap="innerHTML">
+  					<label for="filename">Filename</label>
+  					<input 
+						name="filename" 
+						value="` + filename + `"
+						hx-patch="/api/v1/verified/mv"
+						hx-trigger="keyup changed delay:3000ms"
+					>
+			
+  					<label for="owner">Owner</label>
+  					<input 
+						name="owner" 
+						value="` + owner + `"
+						hx-patch="/api/v1/verified/admin/chown"
+						hx-trigger="keyup changed delay:3000ms"
+					>
+
+					<label for="group">group</label>
+  					<input 
+						name="group" 
+						value="` + group + `"
+						hx-patch="/api/v1/verified/admin/chgroup"
+						hx-trigger="keyup changed delay:3000ms"
+					>
+
+  					<label for="permissions">Permissions</label>
+  					<input 
+						name="permissions" 
+						value="` + perms + `"
+						hx-patch="/api/v1/verified/admin/chmod"
+						hx-trigger="keyup changed delay:3000ms"
+					>
+		
+				</form>`
+
+			c.String(200, form_tmpl)
+		})
 		admin := verified.Group("/admin")
 		/* minioth will verify token no need to worry here.*/
 		{
@@ -172,6 +222,7 @@ func (srv *HTTPService) ServeHTTP() {
 
 			admin.PATCH("/chown", srv.handleResourcePerms)
 			admin.PATCH("/chmod", srv.handleResourcePerms)
+			admin.PATCH("/chgroup", srv.handleResourcePerms)
 
 		}
 	}

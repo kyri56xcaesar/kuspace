@@ -115,6 +115,43 @@ func (m *DBHandler) InsertResource(resource Resource) error {
 	return nil
 }
 
+func (m *DBHandler) InsertResourceUniqueName(resource Resource) error {
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("failed to get database connection: %v", err)
+		return err
+	}
+
+	// Check if a resource with the same name and UID already exists
+	queryCheck := `SELECT 1 FROM resources WHERE name = ? LIMIT 1;`
+	var exists int
+	err = db.QueryRow(queryCheck, resource.Name).Scan(&exists)
+
+	if err == nil {
+		log.Printf("resource with name '%s' already exists", resource.Name)
+		return fmt.Errorf("resource with name '%s' already exists", resource.Name)
+	} else if err != sql.ErrNoRows {
+		// Return any other query errors
+		log.Printf("error checking name uniqueness: %v", err)
+		return err
+	}
+
+	// Insert the resource if no duplicate was found
+	queryInsert := `
+    INSERT INTO 
+      resources (rid, uid, vid, gid, pid, size, links, perms, name, type, created_at, updated_at, accessed_at)
+    VALUES (nextval('seq_resourceid'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+  `
+
+	_, err = db.Exec(queryInsert, resource.FieldsNoId()...)
+	if err != nil {
+		log.Printf("failed to insert the resource: %v", err)
+		return err
+	}
+
+	return nil
+}
+
 func (m *DBHandler) InsertResources(resources []Resource) error {
 	db, err := m.getConn()
 	if err != nil {
@@ -148,6 +185,73 @@ func (m *DBHandler) InsertResources(resources []Resource) error {
 		}
 	}
 
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("failed to commit transaction: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func (m *DBHandler) InsertResourcesUniqueName(resources []Resource) error {
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("failed to get database connection: %v", err)
+		return err
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("failed to begin transaction: %v", err)
+		return err
+	}
+
+	// Prepare the SELECT query to check if the resource exists
+	queryCheck := `SELECT 1 FROM resources WHERE name = ? LIMIT 1;`
+	stmtCheck, err := tx.Prepare(queryCheck)
+	if err != nil {
+		log.Printf("error preparing uniqueness check statement: %v", err)
+		return err
+	}
+	defer stmtCheck.Close()
+
+	// Prepare the INSERT statement
+	queryInsert := `
+    INSERT INTO 
+      resources (rid, uid, vid, gid, pid, size, links, perms, name, type, created_at, updated_at, accessed_at)
+    VALUES (nextval('seq_resourceid'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+	stmtInsert, err := tx.Prepare(queryInsert)
+	if err != nil {
+		log.Printf("error preparing insert statement: %v", err)
+		return err
+	}
+	defer stmtInsert.Close()
+
+	for _, r := range resources {
+		var exists int
+
+		log.Printf("resource: %+v", r)
+		// Check if the resource already exists
+		err = stmtCheck.QueryRow(r.Name).Scan(&exists)
+		if err == nil {
+			log.Printf("resource with name '%s' already exists", r.Name)
+			return fmt.Errorf("resource with name '%s' already exists", r.Name)
+		} else if err != sql.ErrNoRows {
+			// If any other error occurs during the query, return it
+			log.Printf("error checking name uniqueness: %v", err)
+			return err
+		}
+
+		// If the resource doesn't exist, insert it
+		_, err = stmtInsert.Exec(r.FieldsNoId()...)
+		if err != nil {
+			log.Printf("error executing insert: %v", err)
+			return err
+		}
+	}
+
+	// Commit the transaction
 	err = tx.Commit()
 	if err != nil {
 		log.Printf("failed to commit transaction: %v", err)
@@ -264,10 +368,9 @@ func (m *DBHandler) GetResourceByFilepath(filepath string) (*Resource, error) {
 		log.Printf("error getting db connection: %v", err)
 		return nil, err
 	}
-	file := strings.Split(filepath, "/")
 
 	var resource Resource
-	err = db.QueryRow("SELECT * FROM resources WHERE name = ?", file[len(file)-1]).Scan(resource.PtrFields()...)
+	err = db.QueryRow("SELECT * FROM resources WHERE name = ?", filepath).Scan(resource.PtrFields()...)
 	if err != nil {
 		log.Printf("error scanning resource: %v", err)
 		return nil, err

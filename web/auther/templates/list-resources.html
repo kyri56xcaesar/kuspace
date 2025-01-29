@@ -33,6 +33,7 @@
         {{ end }}
     </tbody>
 </table>
+<div id="edit-modal" class="modal hidden"></div>
 
 <script>
 tableRows = document.querySelectorAll("#resource-list-table tbody tr");
@@ -87,14 +88,21 @@ tableRows.forEach((row) => {
       <div class="resource-options">
         <label for="resource-options-inner"><b>Options:</b></label>
         <div id="resource-options-inner">
-          <button 
+          <a 
+            href="/api/v1/verified/download?target=${resource.name}"
+            download
             class="r-btn-download"
           >
             Download
-          </button>
+          </a>
           <button 
             class="r-btn-edit"
-          >
+            hx-get="/api/v1/verified/edit-form?filename=${resource.name}&owner=${resource.owner}&group=${resource.group}&perms=${resource.perms}"
+            hx-swap="innerHTML"
+            hx-trigger="click"
+            hx-target="#edit-modal"
+            hx-on::afterRequest="(e) => showModal(this)"
+            >
             Edit
           </button>
           <button 

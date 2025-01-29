@@ -79,7 +79,12 @@ function showSection(sectionId) {
   }
 }
 
-
+function showModal(modalId) {
+  document.getElementById(modalId).classList.remove("hidden");
+}
+function closeModal(modalId) {
+  document.getElementById(modalId).classList.add("hidden");
+}
 
 function copyToClipboard(selector) {
   const element = document.querySelector(selector);
@@ -281,8 +286,9 @@ document.addEventListener('htmx:afterRequest', function (event) {
         const feedback = document.querySelector(".fupload-header > svg");
         feedback.style.opacity = "1";
         feedback.style.color = "red";
-        const p = feedback.nextSibling;
+        const p = document.querySelector(".fupload-header > p");
         p.textContent = "Failed to upload.";
+        p.style.opacity = "1";
         setTimeout(() => {
           feedback.opacity = "0.4";
           feedback.style.color = "black";

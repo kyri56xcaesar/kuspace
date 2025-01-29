@@ -935,6 +935,7 @@ tr {
       justify-content: space-between;
       transition: 0.1s ease;
       border-right: 1px solid black;
+      align-items: center;
     }
 
     & :is(.feedback) {
@@ -1235,4 +1236,14 @@ tr {
   to {
     transform: scaleX(1);
   }
+}
+
+.modal {
+  position: fixed; 
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  padding: 1em;
+  border: 2px solid #444;
+  z-index: 9999;
 }
