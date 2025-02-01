@@ -1,0 +1,61 @@
+<div>
+    <h3>Volume Quota Management</h3>
+    {{range .volumes}} 
+    {{ $v := . }} 
+    <div class="v-header">
+        <div>
+            <h3>Total Volume</h3>
+            <p>Fixed Amount: {{$v.Capacity}} GB</p>
+            <p>Currently Used: {{$v.Usage}} GB</p>
+        </div>
+        <div>
+            <label for="dynamicQuota">Enable Dynamic Quota</label>
+            <input type="checkbox"
+                   id="dynamicQuota"
+                   name="dynamicQuota"
+                   onchange="toggleDynamicQuota(this)"
+                   {{if $v.Dynamic}}checked{{end}}>
+                   <script>
+                    toggleDynamicQuota(document.getElementById("dynamicQuota"));
+                   </script>
+        </div>
+    </div>
+    <div class="v-main">
+        <div>
+            <h3>Groups</h3>
+            {{range $.groups}} 
+            <div>
+                <div>
+                    <label for="group-{{.Gid}}">{{.Groupname}}</label>
+                    <input type="range"
+                           id="group-{{.Gid}}"
+                           name="group-{{.Gid}}"
+                           min="0"
+                           max="{{$v.Capacity}}"
+                           value="0"
+                           class="quota-range">
+                    <span>0 GB</span>
+                </div>
+            </div>
+            {{end}}
+        </div>
+        <div>
+            <h3>Users</h3>
+            {{range $.users}}
+            <div>
+                <label for="user-{{.Uid}}">{{.Username}}</label>
+                <input type="range"
+                       id="user-{{.Uid}}"
+                       name="user-{{.Uid}}"
+                       min="0"
+                       max="{{$v.Capacity}}"
+                       value="0"
+                       class="quota-range">
+                <span>0 GB</span>
+            </div>
+            {{end}}
+        </div>
+
+    {{end}} 
+    </div>
+</div>

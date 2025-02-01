@@ -10,6 +10,7 @@ import (
 	filepath "path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -109,6 +110,21 @@ type Resource struct {
 	Pid         int    `json:"pid"` // as in parent id
 	Size        int    `json:"size"`
 	Links       int    `json:"links"`
+}
+
+type Volume struct {
+	Vid      int    `json:"vid"`
+	Path     string `json:"path"`
+	Dynamic  bool   `json:"dynamic"`
+	Capacity int    `json:"capacity"`
+	Usage    int    `json:"usage"`
+}
+type UserVolume struct {
+	Vid        int    `json:"vid"`
+	Uid        int    `json:"uid"`
+	Usage      int    `json:"usage"`
+	Quota      int    `json:"quota"`
+	Updated_at string `json:"updated_at"`
 }
 
 func (srv *HTTPService) handleLogin(c *gin.Context) {
@@ -291,8 +307,11 @@ func (srv *HTTPService) handleFetchUsers(c *gin.Context) {
 		return resp.Content[i].Uid < resp.Content[j].Uid
 	})
 
+	// answer according to format
+	format := c.Request.URL.Query().Get("format")
+
 	// Render the HTML template
-	c.HTML(http.StatusOK, "users_template.html", resp.Content)
+	respondInFormat(c, format, resp.Content, "users_template.html")
 }
 
 func (srv *HTTPService) handleFetchGroups(c *gin.Context) {
@@ -343,7 +362,155 @@ func (srv *HTTPService) handleFetchGroups(c *gin.Context) {
 	})
 
 	// Render the HTML template
-	c.HTML(http.StatusOK, "groups_template.html", resp.Content)
+
+	format := c.Request.URL.Query().Get("format")
+
+	// Render the HTML template
+	respondInFormat(c, format, resp.Content, "groups_template.html")
+}
+
+func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
+	accessToken, err := c.Cookie("access_token")
+	if err != nil {
+		log.Printf("missing access_token cookie: %v", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	userReq, err := http.NewRequest(http.MethodGet, authServiceURL+"/admin/users", nil)
+	if err != nil {
+		log.Printf("failed to create request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+	userReq.Header.Set("Authorization", "Bearer "+accessToken)
+
+	groupReq, err := http.NewRequest(http.MethodGet, authServiceURL+"/admin/groups", nil)
+	if err != nil {
+		log.Printf("failed to create request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+	groupReq.Header.Set("Authorization", "Bearer "+accessToken)
+
+	volumeReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/volumes", nil)
+	if err != nil {
+		log.Printf("failed to create request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+	volumeReq.Header.Set("Authorization", "Bearer "+accessToken)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	var (
+		userResp struct {
+			Content []User `json:"content"`
+		}
+		groupResp struct {
+			Content []Group `json:"content"`
+		}
+		volumeResp struct {
+			Content []Volume `json:"content"`
+		}
+	)
+
+	var userErr, groupErr, volumeErr error
+
+	var wg sync.WaitGroup
+	wg.Add(3)
+
+	// 1) fetch Users
+	go func() {
+		defer wg.Done() // signals that this goroutine is finished
+		resp, err := client.Do(userReq)
+		if err != nil {
+			userErr = err
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			userErr = fmt.Errorf("failed to fetch users; status: %d", resp.StatusCode)
+			return
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&userResp); err != nil {
+			userErr = fmt.Errorf("failed to decode users response: %v", err)
+			return
+		}
+	}()
+
+	// 2) fetch Groups
+	go func() {
+		defer wg.Done()
+		resp, err := client.Do(groupReq)
+		if err != nil {
+			groupErr = err
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			groupErr = fmt.Errorf("failed to fetch groups; status: %d", resp.StatusCode)
+			return
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&groupResp); err != nil {
+			groupErr = fmt.Errorf("failed to decode groups response: %v", err)
+			return
+		}
+	}()
+
+	// 3) fetch Volumes
+	go func() {
+		defer wg.Done()
+		resp, err := client.Do(volumeReq)
+		if err != nil {
+			volumeErr = err
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			volumeErr = fmt.Errorf("failed to fetch volumes; status: %d", resp.StatusCode)
+			return
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&volumeResp); err != nil {
+			volumeErr = fmt.Errorf("failed to decode volume response: %v", err)
+			return
+		}
+	}()
+
+	wg.Wait()
+
+	if userErr != nil {
+		log.Printf("user request error: %v", userErr)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch users"})
+		return
+	}
+	if groupErr != nil {
+		log.Printf("group request error: %v", groupErr)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch groups"})
+		return
+	}
+
+	if volumeErr != nil {
+		log.Printf("volume request error: %v", volumeErr)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch volumes"})
+		return
+	}
+
+	combinedData := gin.H{
+		"users":   userResp.Content,
+		"groups":  groupResp.Content,
+		"volumes": volumeResp.Content,
+	}
+
+	format := c.Request.URL.Query().Get("format")
+
+	// Render the HTML template
+	respondInFormat(c, format, combinedData, "volumes_template.html")
+
 }
 
 func (srv *HTTPService) handleUseradd(c *gin.Context) {
@@ -982,4 +1149,13 @@ func isFileNode(data map[string]interface{}) bool {
 	_, hasName := data["name"]
 	_, hasType := data["type"]
 	return hasName && hasType
+}
+
+func respondInFormat(c *gin.Context, format string, data interface{}, template_name string) {
+	switch format {
+	case "json":
+		c.JSON(http.StatusOK, data)
+	default:
+		c.HTML(http.StatusOK, template_name, data)
+	}
 }

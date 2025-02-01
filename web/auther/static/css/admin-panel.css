@@ -434,6 +434,7 @@ tr {
   overflow-x: scroll;
   box-sizing: border-box;
   justify-content: space-between;
+  position: relative;
 }
 
 #fetch-users-results {
@@ -900,12 +901,6 @@ tr {
   border: 1px solid #ddd;
   min-height: 500px;
 
-  & :is(.resource-details-inner) {
-    width: 65%;
-    white-space: nowrap;
-    overflow: auto;
-  }
-
   & :is(.resource-preview-window) {
     border-left: 1px solid black;
     padding: 1rem;
@@ -945,10 +940,31 @@ tr {
       width: 25%;
     }
   }
+  
+  & :is(.resource-details-footer) {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  & :is(.resource-details-headers) {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: nowrap;
+    overflow-x: hidden;
+  }
+
+  & :is(.resource-details-main) {
+    display: flex;
+    & :is(.resource-details-inner) {
+      width: 65%;
+      white-space: nowrap;
+      overflow: auto;
+    }
+  }
 }
-#resource-details > div {
-  display: flex;
-}
+
 
 #fupload {
   padding: 1rem;
@@ -1244,7 +1260,7 @@ tr {
 
 .modal {
   position: absolute; 
-  left: 60%; top: 50%;
+  left: 50%; top: 50%;
   transform: translate(-50%, -50%);
   background: #fff;
   padding: 1em;
@@ -1298,7 +1314,7 @@ tr {
   width: 24px;
   height: 24px;
   background: #fff;
-  color: $line-color;
+  color: #a1905d;
   border: 1px solid #a1905d;
   outline: none;
   padding: 0;
@@ -1340,4 +1356,146 @@ tr {
     -webkit-transform: translate3d(-50%,-50%,0) rotate(45deg);
     transition: all .2s cubic-bezier(.25,.46,.45,.94);
   }
+}
+
+/* From Uiverse.io by bociKond */ 
+.loader {
+  width: 44.8px;
+  height: 44.8px;
+  color: #554cb5;
+  position: relative;
+  background: radial-gradient(11.2px,currentColor 94%,#0000);
+}
+
+.loader:before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(10.08px at bottom right,#0000 94%,currentColor) top    left,
+          radial-gradient(10.08px at bottom left ,#0000 94%,currentColor) top    right,
+          radial-gradient(10.08px at top    right,#0000 94%,currentColor) bottom left,
+          radial-gradient(10.08px at top    left ,#0000 94%,currentColor) bottom right;
+  background-size: 22.4px 22.4px;
+  background-repeat: no-repeat;
+  animation: loader 1.5s infinite cubic-bezier(0.3,1,0,1);
+}
+
+@keyframes loader {
+  33% {
+    inset: -11.2px;
+    transform: rotate(0deg);
+  }
+
+  66% {
+    inset: -11.2px;
+    transform: rotate(90deg);
+  }
+
+  100% {
+    inset: 0;
+    transform: rotate(90deg);
+  }
+}
+
+/* From Uiverse.io by bociKond */ 
+/* From Uiverse.io by PriyanshuGupta28 */ 
+.useradd-spinner {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  top: 50%;
+  left: 50%;
+}
+
+.useradd-spinner div {
+  position: absolute;
+  width: 50%;
+  height: 150%;
+  background: #000000;
+  transform: rotate(calc(var(--rotation) * 1deg)) translate(0, calc(var(--translation) * 1%));
+  animation: spinner-fzua35 1s calc(var(--delay) * 1s) infinite ease;
+}
+
+.useradd-spinner div:nth-child(1) {
+  --delay: 0.1;
+  --rotation: 36;
+  --translation: 150;
+}
+
+.useradd-spinner div:nth-child(2) {
+  --delay: 0.2;
+  --rotation: 72;
+  --translation: 150;
+}
+
+.useradd-spinner div:nth-child(3) {
+  --delay: 0.3;
+  --rotation: 108;
+  --translation: 150;
+}
+
+.useradd-spinner div:nth-child(4) {
+  --delay: 0.4;
+  --rotation: 144;
+  --translation: 150;
+}
+
+.useradd-spinner div:nth-child(5) {
+  --delay: 0.5;
+  --rotation: 180;
+  --translation: 150;
+}
+
+.useradd-spinner div:nth-child(6) {
+  --delay: 0.6;
+  --rotation: 216;
+  --translation: 150;
+}
+
+.useradd-spinner div:nth-child(7) {
+  --delay: 0.7;
+  --rotation: 252;
+  --translation: 150;
+}
+
+.useradd-spinner div:nth-child(8) {
+  --delay: 0.8;
+  --rotation: 288;
+  --translation: 150;
+}
+
+.useradd-spinner div:nth-child(9) {
+  --delay: 0.9;
+  --rotation: 324;
+  --translation: 150;
+}
+
+.useradd-spinner div:nth-child(10) {
+  --delay: 1;
+  --rotation: 360;
+  --translation: 150;
+}
+
+@keyframes spinner-fzua35 {
+  0%, 10%, 20%, 30%, 50%, 60%, 70%, 80%, 90%, 100% {
+    transform: rotate(calc(var(--rotation) * 1deg)) translate(0, calc(var(--translation) * 1%));
+  }
+
+  50% {
+    transform: rotate(calc(var(--rotation) * 1deg)) translate(0, calc(var(--translation) * 1.5%));
+  }
+}
+.disabled {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+
+.v-header {
+
+}
+
+.v-main {
+  
 }

@@ -2,6 +2,7 @@ package userspace
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -12,6 +13,7 @@ import (
 	ut "kyri56xcaesar/myThesis/internal/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 /* Structure containing all needed aspects of this service */
@@ -44,7 +46,7 @@ func NewUService(conf string) UService {
 	}
 
 	// datbase
-	srv.dbh.Init()
+	srv.dbh.Init(cfg.DBPath, cfg.Volumes, cfg.VCapacity)
 
 	// also ensure local pv path
 	_, err := os.Stat(cfg.Volumes)
@@ -88,6 +90,12 @@ func (srv *UService) Serve() {
 
 		admin.PATCH("/resource/permissions", srv.ChmodResourceHandler)
 		admin.PATCH("/resource/ownership", srv.ChownResourceHandler)
+
+		admin.GET("/volumes", srv.HandleVolumes)
+		admin.POST("/volumes", srv.HandleVolumes)
+		admin.PUT("/volumes", srv.HandleVolumes)
+		admin.DELETE("/volumes", srv.HandleVolumes)
+		admin.PATCH("/volumes", srv.HandleVolumes)
 	}
 	/* context handler */
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -125,4 +133,44 @@ func (srv *UService) Serve() {
 	}
 
 	log.Println("Server exiting")
+}
+
+/*
+	take this function to forge a jwt token for minioth
+
+This service wants to have admin access to minioth
+*/
+func (u *UService) generateAccessJWT(userID, username, groups, gids string) (string, error) {
+
+	type CustomClaims struct {
+		UserID   string `json:"user_id"`
+		Username string `json:"username"`
+		Groups   string `json:"groups"`
+		GroupIDS string `json:"group_ids"`
+		jwt.RegisteredClaims
+	}
+	// Set the claims for the token
+	claims := CustomClaims{
+		UserID:   userID,
+		Username: username,
+		Groups:   groups,
+		GroupIDS: gids,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    "minioth",
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 10)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Subject:   userID,
+		},
+	}
+
+	// Create the token using the HS256 signing method
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	// Sign the token using the secret key
+	tokenString, err := token.SignedString(u.config.JWTSecretKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to sign token: %w", err)
+	}
+
+	return tokenString, nil
 }

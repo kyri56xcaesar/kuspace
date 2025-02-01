@@ -3,6 +3,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const profileButton = document.querySelector(".profile-button");
 
     profileButton.addEventListener("click", () => {
+        console.log("test");
         profileMenu.classList.toggle("open");
     });
 

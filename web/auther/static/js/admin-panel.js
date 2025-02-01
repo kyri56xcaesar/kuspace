@@ -276,3 +276,13 @@ function resetFileBoxDisplay() {
   updateFileNameDisplay([]);
 }
  
+function toggleDynamicQuota(checkbox) {
+  const ranges = document.querySelectorAll('.quota-range');
+  ranges.forEach(range => {
+      if (checkbox.checked) {
+          range.classList.add('disabled');
+      } else {
+          range.classList.remove('disabled');
+      }
+  });
+}

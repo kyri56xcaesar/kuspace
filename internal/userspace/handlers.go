@@ -197,12 +197,6 @@ func (srv *UService) PostResourcesHandler(c *gin.Context) {
 	})
 }
 
-func (srv *UService) MoveResourcesHandler(c *gin.Context) {
-	c.JSON(200, gin.H{
-		"message": "tdb",
-	})
-}
-
 func (srv *UService) RemoveResourceHandler(c *gin.Context) {
 	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
 	if err != nil {
@@ -228,6 +222,12 @@ func (srv *UService) RemoveResourceHandler(c *gin.Context) {
 
 	c.JSON(200, gin.H{
 		"message": "resource deleted successfully.",
+	})
+}
+
+func (srv *UService) MoveResourcesHandler(c *gin.Context) {
+	c.JSON(200, gin.H{
+		"message": "tdb",
 	})
 }
 
@@ -363,6 +363,71 @@ func (srv *UService) HandleUpload(c *gin.Context) {
 	c.JSON(200, gin.H{
 		"message": "file/s uploaded.",
 	})
+}
+
+func (srv *UService) HandleVolumes(c *gin.Context) {
+	switch c.Request.Method {
+	case http.MethodGet:
+		volumes, err := srv.dbh.GetVolumes()
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"content": volumes})
+
+	case http.MethodPut:
+		c.JSON(200, gin.H{"status": "tbd"})
+	case http.MethodDelete:
+		vid := c.Request.URL.Query().Get("vid")
+		if vid == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "must provide vid"})
+			return
+		}
+		vid_int, err := strconv.Atoi(vid)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "couldn't convert to int"})
+			return
+		}
+
+		err = srv.dbh.DeleteVolume(vid_int)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete the volume"})
+			return
+		}
+
+		c.JSON(http.StatusAccepted, gin.H{"status": "successfully deleted volume"})
+
+	case http.MethodPatch:
+		c.JSON(200, gin.H{"status": "tbd"})
+	case http.MethodPost:
+		var volumes []Volume
+		err := c.BindJSON(&volumes)
+		if err != nil {
+			log.Printf("failed to bind volumes: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "couldn't bind volumes"})
+			return
+		}
+		err = srv.dbh.InsertVolumes(volumes)
+		if err != nil {
+			log.Printf("failed to insert volumes: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "couldn't insert volumes"})
+			return
+		}
+		c.JSON(http.StatusCreated, gin.H{"error": "inserted volume(s)"})
+	default:
+		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "not allowed."})
+	}
+}
+
+func (srv *UService) HandleUserVolumes(c *gin.Context) {
+	switch c.Request.Method {
+	case http.MethodPost:
+	case http.MethodDelete:
+	case http.MethodPatch:
+	case http.MethodGet:
+	default:
+		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "method not allowed"})
+	}
 }
 
 /* this should be determined by configurating Volume destination.

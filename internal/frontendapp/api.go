@@ -178,6 +178,7 @@ func (srv *HTTPService) ServeHTTP() {
 			admin.Use(AuthMiddleware("admin"))
 			admin.GET("/fetch-resources", srv.handleFetchResources)
 			admin.GET("/fetch-users", srv.handleFetchUsers)
+			admin.GET("/fetch-volumes", srv.handleFetchVolumes)
 
 			admin.POST("/useradd", srv.handleUseradd)
 			admin.DELETE("/userdel", srv.handleUserdel)

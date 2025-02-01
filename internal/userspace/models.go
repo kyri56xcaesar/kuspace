@@ -122,8 +122,9 @@ func (pt *PermTriplet) ToString() string {
 
 /* This will represent the physical volumes provides by Kubernetes and supervised by the controller */
 type Volume struct {
-	Path     string `json:"path"`
 	Vid      int    `json:"vid"`
+	Path     string `json:"path"`
+	Dynamic  bool   `json:"dynamic"`
 	Capacity int    `json:"capacity"`
 	Usage    int    `json:"usage"`
 }
@@ -148,19 +149,35 @@ func (r *Resource) PtrFieldsNoId() []any {
 
 /* fields and ptr fields for "volume" struct helper methods*/
 func (v *Volume) Fields() []any {
-	return []any{v.Vid, v.Path, v.Capacity, v.Usage}
+	return []any{v.Vid, v.Path, v.Dynamic, v.Capacity, v.Usage}
 }
 
 func (v *Volume) PtrFields() []any {
-	return []any{&v.Vid, &v.Path, &v.Capacity, &v.Usage}
+	return []any{&v.Vid, &v.Path, &v.Dynamic, &v.Capacity, &v.Usage}
 }
 
 func (v *Volume) FieldsNoId() []any {
-	return []any{v.Path, v.Capacity, v.Usage}
+	return []any{v.Path, v.Dynamic, v.Capacity, v.Usage}
 }
 
 func (v *Volume) PtrFieldsNoId() []any {
-	return []any{&v.Path, &v.Capacity, &v.Usage}
+	return []any{&v.Path, &v.Dynamic, &v.Capacity, &v.Usage}
+}
+
+/* a struct to represent each user volume relationship */
+type UserVolume struct {
+	Vid        int    `json:"vid"`
+	Uid        int    `json:"uid"`
+	Usage      int    `json:"usage"`
+	Quota      int    `json:"quota"`
+	Updated_at string `json:"updated_at"`
+}
+
+func (uv *UserVolume) PtrFields() []any {
+	return []any{&uv.Vid, &uv.Uid, &uv.Usage, &uv.Quota, &uv.Updated_at}
+}
+func (uv *UserVolume) Fields() []any {
+	return []any{uv.Vid, uv.Uid, uv.Usage, uv.Quota, uv.Updated_at}
 }
 
 /* This service will handle requests

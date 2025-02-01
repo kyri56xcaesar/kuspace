@@ -6,7 +6,7 @@ let domReady = (cb) => {
 domReady(() => {
   document.body.style.visibility = 'visible';
 
-  // attach the closing of infos/tips/warnings to the buttons 
+  // TIPS/INFO BUTTONS
   const toggleButton = document.querySelectorAll(".toggle-button-collapse");
   toggleButton.forEach(toggleButton => {
     toggleButton.addEventListener("click", () => {
@@ -114,6 +114,10 @@ function getCookie(name) {
 
 // htmx events handling
 
+//global variable of a list that will hold the users
+let fetchedUsers = null;
+let fetchedGroups = null;
+
 document.addEventListener('htmx:afterSwap', function (event) {
   const verifyResultElement = document.getElementById('verify-result');
   if (verifyResultElement) {
@@ -150,11 +154,40 @@ document.addEventListener('htmx:afterRequest', function (event) {
       const redirectLocation = event.detail.xhr.getResponseHeader("Location");
       if (redirectLocation) {
         window.location.href = redirectLocation;
+      } else if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+
       } else {
         console.error("Redirect location not found in the response."); 
-      }    
+      }  
     }
     // reload users fetch
+  
+  } else if (triggeringElement.id === 'fetch-groups-results') {
+    if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+
+    }
+  
+  } else if (triggeringElement.id === 'load-users-to-cache') {
+    if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+      const rawResponse = event.detail.xhr.responseText;
+      try {
+        fetchedUsers = JSON.parse(rawResponse); 
+        console.log("Fetched users:", fetchedUsers);
+      } catch (error) {
+        console.error("Could not parse JSON:", error, rawResponse);
+      }
+    }
+  
+  } else if (triggeringElement.id === 'load-groups-to-cache') {
+    if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+      const rawResponse = event.detail.xhr.responseText;
+      try {
+        fetchedGroups = JSON.parse(rawResponse); 
+        console.log("Fetched groups:", fetchedUsers);
+      } catch (error) {
+        console.error("Could not parse JSON:", error, rawResponse);
+      }
+    }
   
   } else if (triggeringElement.id === 'reload-btn') {
   
@@ -207,7 +240,7 @@ document.addEventListener('htmx:afterRequest', function (event) {
   } else if (triggeringElement.id.startsWith("logout")) {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 400) {
       window.location.href="/api/v1/login";
-    }x
+    }
   // hasher related
  
 
@@ -279,7 +312,7 @@ document.addEventListener('htmx:afterRequest', function (event) {
           p.textContent = "Browse File to upload or drag & drop!";
         }, 10000);  
         // reload resources
-        document.querySelector("#fetch-resources-form").dispatchEvent(new Event("submit"));
+        document.querySelector("#fetch-resources-form").requestSubmit();
         document.getElementById("fetch-resources-form").scrollTo({ top: 0, behavior: "smooth"});
 
       } else if (event.detail.xhr.status >= 300) {
@@ -297,7 +330,7 @@ document.addEventListener('htmx:afterRequest', function (event) {
       }
     } else if (triggeringElement.className === "r-btn-delete") {
       if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
-        document.querySelector("#fetch-resources-form").dispatchEvent(new Event("submit"));
+        document.querySelector("#fetch-resources-form").requestSubmit();
         document.getElementById("fetch-resources-form").scrollTo({ top: 0, behavior: "smooth"});
 
         const feedback = document.querySelector(".feedback");
@@ -305,6 +338,16 @@ document.addEventListener('htmx:afterRequest', function (event) {
         msg.textContent = "Success";
         msg.style.color = "green";
         feedback.appendChild(msg);
+
+        // remove the selected 
+        tableRows = document.querySelectorAll("#resource-list-table tbody tr");
+        resourceDetails = document.getElementById("resource-details");
+
+        tableRows.forEach((row) => {
+            // Remove 'selected' class from all rows
+            tableRows.forEach((r) => r.classList.remove("selected"));
+        });
+        resourceDetails.innerHTML ="";
 
         setTimeout(() => {
           msg.remove();
@@ -321,6 +364,25 @@ document.addEventListener('htmx:afterRequest', function (event) {
           msg.remove();
           hideProgressBar(document.querySelector(".r-loader"));
         }, 4000);
+      }
+    } else if (triggeringElement.id === 'root-dashboard-loader') {
+      if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+        const profmenu = document.querySelector(".profile-menu");
+        profmenu.remove();
+        const toggleButton = document.querySelectorAll(".toggle-button-collapse");
+        toggleButton.forEach(toggleButton => {
+          toggleButton.addEventListener("click", () => {
+            toggleButton.classList.toggle("collapsed");
+            // get the closest h1 or p or span...
+            target = toggleButton.closest(".info").querySelector(".target");
+            target.classList.toggle("collapsed");  
+            if (toggleButton.classList.contains("collapsed")) {
+              toggleButton.style.transform = `translateX(-${target.offsetWidth}px)`;
+            } else {
+              toggleButton.style.transform = `translateX(0)`;
+            }
+          });
+        });
       }
     }
 });

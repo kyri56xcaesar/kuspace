@@ -27,8 +27,10 @@ type EnvConfig struct {
 	FRONT_PORT string
 	AUTH_PORT  string
 
-	DB      string
-	Volumes string
+	DB        string
+	DBPath    string
+	Volumes   string
+	VCapacity string
 
 	IP string
 
@@ -54,7 +56,9 @@ func LoadConfig(path string) EnvConfig {
 		CertFile:       getEnv("CERT", "localhost.pem"),
 		KeyFile:        getEnv("KEY", "localhost-key.pem"),
 		DB:             getEnv("DB", "database.db"),
+		DBPath:         getEnv("DATABASE", "data/db"),
 		Volumes:        getEnv("VOLUMES", "data/volumes"),
+		VCapacity:      getEnv("V_CAPACITY", "20"),
 		API_PORT:       getEnv("API_PORT", "8079"),
 		FRONT_PORT:     getEnv("FRONT_PORT", "8080"),
 		AUTH_PORT:      getEnv("AUTH_PORT", "9090"),
