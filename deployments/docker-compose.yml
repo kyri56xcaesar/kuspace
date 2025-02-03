@@ -1,0 +1,35 @@
+networks:
+  app_network:
+    driver: bridge
+
+services:
+  minioth:
+    build:
+      context: .. 
+      dockerfile: build/Dockerfile.minioth
+    container_name: minioth
+    networks:
+      - app_network
+    volumes:
+      - ../data:/root/data
+    
+  userspace:
+    build:
+      context: ..
+      dockerfile: build/Dockerfile.userspace 
+    container_name: userspace 
+    networks:
+      - app_network
+    volumes:
+      - ../data:/root/data 
+
+  frontapp:
+    build:
+      context: ..
+      dockerfile: build/Dockerfile.frontapp
+    container_name: frontapp 
+    networks:
+      - app_network
+    ports: 
+      - "8080:8080"
+

@@ -23,16 +23,21 @@ type EnvConfig struct {
 	CertFile   string
 	KeyFile    string
 
-	API_PORT   string
-	FRONT_PORT string
-	AUTH_PORT  string
+	API_PORT    string
+	API_ADDRESS string
+
+	FRONT_PORT    string
+	FRONT_ADDRESS string
+
+	AUTH_PORT    string
+	AUTH_ADDRESS string
+
+	IP string
 
 	DB        string
 	DBPath    string
 	Volumes   string
 	VCapacity string
-
-	IP string
 
 	JWTSecretKey  []byte
 	JWTRefreshKey []byte
@@ -60,9 +65,12 @@ func LoadConfig(path string) EnvConfig {
 		Volumes:        getEnv("VOLUMES", "data/volumes"),
 		VCapacity:      getEnv("V_CAPACITY", "20"),
 		API_PORT:       getEnv("API_PORT", "8079"),
+		API_ADDRESS:    getEnv("API_ADDRESS", "localhost"),
 		FRONT_PORT:     getEnv("FRONT_PORT", "8080"),
+		FRONT_ADDRESS:  getEnv("FRONT_ADDRESS", "localhost"),
 		AUTH_PORT:      getEnv("AUTH_PORT", "9090"),
-		IP:             getEnv("IP", "localhost"),
+		AUTH_ADDRESS:   getEnv("AUTH_ADDRESS", "localhost"),
+		IP:             getEnv("IP", "0.0.0.0"),
 		AllowedOrigins: getEnvs("ALLOWED_ORIGINS", []string{"None"}),
 		AllowedHeaders: getEnvs("ALLOWED_HEADERS", nil),
 		AllowedMethods: getEnvs("ALLOWED_METHODS", nil),

@@ -43,8 +43,8 @@ func NewService(conf string) HTTPService {
 	service.Engine = gin.Default()
 	service.Config = ut.LoadConfig(conf)
 
-	authServiceURL = fmt.Sprintf("http://%s:%s", service.Config.IP, service.Config.AUTH_PORT)
-	apiServiceURL = fmt.Sprintf("http://%s:%s", service.Config.IP, service.Config.API_PORT)
+	authServiceURL = fmt.Sprintf("http://%s:%s", service.Config.AUTH_ADDRESS, service.Config.AUTH_PORT)
+	apiServiceURL = fmt.Sprintf("http://%s:%s", service.Config.API_ADDRESS, service.Config.API_PORT)
 
 	return service
 }

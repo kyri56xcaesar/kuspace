@@ -126,7 +126,6 @@ func (m *DBHandler) Init(database_path, volumes_path, capacity string) {
 			log.Fatalf("failed to insert init data, destructive: %v", err)
 		}
 	}
-
 }
 
 func (m *DBHandler) InsertUserVolume(uv UserVolume) error {
@@ -147,6 +146,7 @@ func (m *DBHandler) InsertUserVolume(uv UserVolume) error {
 
 	return nil
 }
+
 func (m *DBHandler) DeleteUserVolumeByUid(uid int) error {
 	db, err := m.getConn()
 	if err != nil {
@@ -162,6 +162,7 @@ func (m *DBHandler) DeleteUserVolumeByUid(uid int) error {
 
 	return nil
 }
+
 func (m *DBHandler) DeleteUserVolumeByVid(vid int) error {
 	db, err := m.getConn()
 	if err != nil {
@@ -177,6 +178,7 @@ func (m *DBHandler) DeleteUserVolumeByVid(vid int) error {
 
 	return nil
 }
+
 func (m *DBHandler) UpdateUserVolume(uv UserVolume) error {
 	var setClauses []string
 	var params []interface{}

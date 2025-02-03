@@ -141,7 +141,6 @@ func (srv *UService) Serve() {
 This service wants to have admin access to minioth
 */
 func (u *UService) generateAccessJWT(userID, username, groups, gids string) (string, error) {
-
 	type CustomClaims struct {
 		UserID   string `json:"user_id"`
 		Username string `json:"username"`
