@@ -154,24 +154,7 @@ func (srv *HTTPService) ServeHTTP() {
 		verified.POST("/cp", AuthMiddleware("user, admin"), srv.handleResourceCopy)
 		verified.DELETE("/rm", AuthMiddleware("user, admin"), srv.handleResourceDelete)
 
-		verified.GET("/edit-form", AuthMiddleware("user, admin"), func(c *gin.Context) {
-			filename := c.Request.URL.Query().Get("filename")
-			owner := c.Request.URL.Query().Get("owner")
-			group := c.Request.URL.Query().Get("group")
-			perms := c.Request.URL.Query().Get("perms")
-
-			if filename == "" || owner == "" || group == "" || perms == "" {
-				log.Printf("must provide args")
-				c.JSON(http.StatusBadRequest, gin.H{"error": "must provide information"})
-				return
-			}
-			c.HTML(200, "edit-form.html", gin.H{
-				"filename": filename,
-				"owner":    owner,
-				"group":    group,
-				"perms":    perms,
-			})
-		})
+		verified.GET("/edit-form", AuthMiddleware("user, admin"), srv.editFormHandler)
 		admin := verified.Group("/admin")
 		/* minioth will verify token no need to worry here.*/
 		{

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	filepath "path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -113,18 +114,75 @@ type Resource struct {
 }
 
 type Volume struct {
-	Vid      int    `json:"vid"`
 	Path     string `json:"path"`
 	Dynamic  bool   `json:"dynamic"`
 	Capacity int    `json:"capacity"`
 	Usage    int    `json:"usage"`
+	Vid      int    `json:"vid"`
 }
 type UserVolume struct {
+	Updated_at string `json:"updated_at"`
 	Vid        int    `json:"vid"`
 	Uid        int    `json:"uid"`
 	Usage      int    `json:"usage"`
 	Quota      int    `json:"quota"`
-	Updated_at string `json:"updated_at"`
+}
+
+type FilePermissions struct {
+	OwnerR bool
+	OwnerW bool
+	OwnerX bool
+	GroupR bool
+	GroupW bool
+	GroupX bool
+	OtherR bool
+	OtherW bool
+	OtherX bool
+}
+
+// parsePermissionsString translates something like "rwxr-xr--" into a FilePermissions struct.
+func parsePermissionsString(permsStr string) FilePermissions {
+	// We assume permsStr has length >= 9 (like "rwxr-xr--").
+	fp := FilePermissions{}
+	if len(permsStr) < 9 {
+		return fp // or handle error; for safety
+	}
+	fp.OwnerR = permsStr[0] == 'r'
+	fp.OwnerW = permsStr[1] == 'w'
+	fp.OwnerX = permsStr[2] == 'x'
+
+	fp.GroupR = permsStr[3] == 'r'
+	fp.GroupW = permsStr[4] == 'w'
+	fp.GroupX = permsStr[5] == 'x'
+
+	fp.OtherR = permsStr[6] == 'r'
+	fp.OtherW = permsStr[7] == 'w'
+	fp.OtherX = permsStr[8] == 'x'
+
+	return fp
+}
+
+// buildPermissionsString goes the other way around (if you need to reconstruct the string):
+func buildPermissionsString(fp FilePermissions) string {
+	// Convert booleans back into 'r', 'w', 'x' or '-'
+	return string([]rune{
+		boolChar(fp.OwnerR, 'r'),
+		boolChar(fp.OwnerW, 'w'),
+		boolChar(fp.OwnerX, 'x'),
+		boolChar(fp.GroupR, 'r'),
+		boolChar(fp.GroupW, 'w'),
+		boolChar(fp.GroupX, 'x'),
+		boolChar(fp.OtherR, 'r'),
+		boolChar(fp.OtherW, 'w'),
+		boolChar(fp.OtherX, 'x'),
+	})
+}
+
+func boolChar(b bool, c rune) rune {
+	if b {
+		return c
+	}
+	return '-'
 }
 
 func (srv *HTTPService) handleLogin(c *gin.Context) {
@@ -510,7 +568,6 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 
 	// Render the HTML template
 	respondInFormat(c, format, combinedData, "volumes_template.html")
-
 }
 
 func (srv *HTTPService) handleUseradd(c *gin.Context) {
@@ -1091,6 +1148,195 @@ func (srv *HTTPService) handleResourceCopy(c *gin.Context) {
 }
 
 func (srv *HTTPService) handleResourcePerms(c *gin.Context) {
+	accessToken, err := c.Cookie("access_token")
+	if err != nil {
+		log.Printf("missing access_token cookie: %v", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var (
+		owner struct {
+			Owner string `json:"owner"`
+		}
+		group struct {
+			Group string `json:"group"`
+		}
+		permissions struct {
+			FilePermissions string `json:"permissions"`
+		}
+		req *http.Request
+	)
+
+	err = c.BindJSON(&owner)
+	if err != nil {
+		err = c.Bind(&group)
+		if err != nil {
+			err = c.Bind(&permissions)
+			if err != nil {
+				log.Printf("none binding successful, bad req")
+				c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
+				return
+			} else {
+				// perms
+				req, err = http.NewRequest(http.MethodPatch, apiServiceURL+"/api/v1/admin/chmod", c.Request.Body)
+				if err != nil {
+					log.Printf("failed to create a request: %v", err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "fatal"})
+					return
+				}
+			}
+		} else {
+			// group
+			req, err = http.NewRequest(http.MethodPatch, apiServiceURL+"/api/v1/admin/chmgroup", c.Request.Body)
+			if err != nil {
+				log.Printf("failed to create a request: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "fatal"})
+				return
+			}
+		}
+	} else {
+		// owner
+		req, err = http.NewRequest(http.MethodPatch, apiServiceURL+"/api/v1/admin/chown", c.Request.Body)
+		if err != nil {
+			log.Printf("failed to create a request: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "fatal"})
+			return
+		}
+	}
+
+	whoami, exists := c.Get("user_id")
+	mygroups, gexists := c.Get("groups")
+	if !exists || !gexists {
+		log.Printf("uid or groups were not set correctly. Authencitation fail")
+		c.JSON(http.StatusInsufficientStorage, gin.H{"error": "failed auth"})
+		return
+	}
+
+	req.Header.Add("Access-Target", fmt.Sprintf("/ %v:%v", whoami, mygroups))
+	req.Header.Add("Authorization", "Bearer "+accessToken)
+
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Printf("failed to forward request: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to upload resource"})
+		return
+	}
+
+	defer response.Body.Close()
+}
+
+func (srv *HTTPService) editFormHandler(c *gin.Context) {
+	filename := c.Request.URL.Query().Get("filename")
+	owner := c.Request.URL.Query().Get("owner")
+	group := c.Request.URL.Query().Get("group")
+	perms := c.Request.URL.Query().Get("perms")
+
+	if filename == "" || owner == "" || group == "" || perms == "" {
+		log.Printf("must provide args")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide information"})
+		return
+	}
+
+	// need to request for all the users and all the groups... again..
+	// should implement a caching mechanism asap...
+	accessToken, err := c.Cookie("access_token")
+	if err != nil {
+		log.Printf("missing access_token cookie: %v", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	usersReq, err := http.NewRequest(http.MethodGet, authServiceURL+"/admin/users", nil)
+	if err != nil {
+		log.Printf("failed to create request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+	usersReq.Header.Set("Authorization", "Bearer "+accessToken)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	response, err := client.Do(usersReq)
+	if err != nil {
+		log.Printf("failed to make request: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to fetch users"})
+		return
+	}
+	defer response.Body.Close()
+
+	var usersResp struct {
+		Content []User `json:"content"`
+	}
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Printf("failed to read response body: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
+		return
+	}
+
+	err = json.Unmarshal(body, &usersResp)
+	if err != nil {
+		log.Printf("failed to unmarshal response: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
+		return
+	}
+
+	groupsReq, err := http.NewRequest(http.MethodGet, authServiceURL+"/admin/groups", nil)
+	if err != nil {
+		log.Printf("failed to create request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+	groupsReq.Header.Set("Authorization", "Bearer "+accessToken)
+
+	response, err = client.Do(groupsReq)
+	if err != nil {
+		log.Printf("failed to make request: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to fetch users"})
+		return
+	}
+	defer response.Body.Close()
+
+	var groupsResp struct {
+		Content []Group `json:"content"`
+	}
+
+	body, err = io.ReadAll(response.Body)
+	if err != nil {
+		log.Printf("failed to read response body: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
+		return
+	}
+
+	err = json.Unmarshal(body, &groupsResp)
+	if err != nil {
+		log.Printf("failed to unmarshal response: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
+		return
+	}
+
+	owner_int, err := strconv.Atoi(owner)
+	if err != nil {
+		log.Printf("failed to atoi owner: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad owner value"})
+		return
+	}
+	group_int, err := strconv.Atoi(group)
+	if err != nil {
+		log.Printf("failed to atoi group: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad group value"})
+		return
+	}
+
+	c.HTML(200, "edit-form.html", gin.H{
+		"filename": filename,
+		"owner":    owner_int,
+		"group":    group_int,
+		"perms":    parsePermissionsString(perms),
+		"users":    usersResp.Content,
+		"groups":   groupsResp.Content,
+	})
 }
 
 /*

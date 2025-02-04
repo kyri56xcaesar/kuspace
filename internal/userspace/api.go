@@ -90,6 +90,7 @@ func (srv *UService) Serve() {
 
 		admin.PATCH("/resource/permissions", srv.ChmodResourceHandler)
 		admin.PATCH("/resource/ownership", srv.ChownResourceHandler)
+		admin.PATCH("/resource/group", srv.ChgroupResourceHandler)
 
 		admin.GET("/volumes", srv.HandleVolumes)
 		admin.POST("/volumes", srv.HandleVolumes)

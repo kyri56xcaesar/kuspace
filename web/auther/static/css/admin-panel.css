@@ -1499,3 +1499,22 @@ tr {
 .v-main {
   
 }
+
+#permissions-container {
+  display: flex;
+  gap: 20px;
+
+  & :is(h4) {
+    margin-bottom: 0;
+  }
+}
+.perm-display-div {
+  display: flex;
+  gap: 10px;
+
+  & :is(input) {
+    width: 15px;
+    margin: 0;
+  }
+}
+

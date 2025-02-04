@@ -243,6 +243,12 @@ func (srv *UService) ChownResourceHandler(c *gin.Context) {
 	})
 }
 
+func (srv *UService) ChgroupResourceHandler(c *gin.Context) {
+	c.JSON(200, gin.H{
+		"message": "tdb",
+	})
+}
+
 func (srv *UService) HandleDownload(c *gin.Context) {
 	/* 1]: parse location from header*/
 	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))

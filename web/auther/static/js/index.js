@@ -369,7 +369,8 @@ document.addEventListener('htmx:afterRequest', function (event) {
       if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
         const profmenu = document.querySelector(".profile-menu");
         profmenu.remove();
-        const toggleButton = document.querySelectorAll(".toggle-button-collapse");
+        const toggleButton = document.querySelectorAll("#root-dashboard-loader .toggle-button-collapse");
+        console.log(toggleButton);
         toggleButton.forEach(toggleButton => {
           toggleButton.addEventListener("click", () => {
             toggleButton.classList.toggle("collapsed");

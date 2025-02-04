@@ -286,3 +286,30 @@ function toggleDynamicQuota(checkbox) {
       }
   });
 }
+
+function updatePermissionString() {
+    // We assume 9 bits: owner r/w/x, group r/w/x, other r/w/x
+    // Grab the checkboxes in order
+    const ownerR = document.querySelector('input[name="owner-r"]').checked ? 'r' : '-';
+    const ownerW = document.querySelector('input[name="owner-w"]').checked ? 'w' : '-';
+    const ownerX = document.querySelector('input[name="owner-x"]').checked ? 'x' : '-';
+
+    const groupR = document.querySelector('input[name="group-r"]').checked ? 'r' : '-';
+    const groupW = document.querySelector('input[name="group-w"]').checked ? 'w' : '-';
+    const groupX = document.querySelector('input[name="group-x"]').checked ? 'x' : '-';
+
+    const otherR = document.querySelector('input[name="other-r"]').checked ? 'r' : '-';
+    const otherW = document.querySelector('input[name="other-w"]').checked ? 'w' : '-';
+    const otherX = document.querySelector('input[name="other-x"]').checked ? 'x' : '-';
+
+    const newPerms = ownerR + ownerW + ownerX + groupR + groupW + groupX + otherR + otherW + otherX;
+
+    // Update hidden field
+    const permInput = document.getElementById("permissionsInput");
+    if (permInput) {
+      permInput.value = newPerms;
+      // Manually trigger a "change" event so HTMX sees it (if you want immediate patch)
+      // or we rely on the 'delay:300ms' in hx-trigger
+      permInput.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
