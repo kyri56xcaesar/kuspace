@@ -56,6 +56,8 @@ func BindAccessTarget(http_header string) (*AccessClaim, error) {
 
 /* 'resource' handlers
 * SEE: models.go
+*
+* WARNING: Deprecated
 * */
 func (srv *UService) GetResourceHandler(c *gin.Context) {
 	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
@@ -158,6 +160,8 @@ func buildTreeRec(tree map[string]interface{}, entry []string, resource Resource
 * 'mkdir' for directory types,
 * for file types it should trigger file upload
 * simple resource
+*
+* WARNING: don't use this...
 * */
 func (srv *UService) PostResourcesHandler(c *gin.Context) {
 	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
@@ -198,13 +202,6 @@ func (srv *UService) PostResourcesHandler(c *gin.Context) {
 }
 
 func (srv *UService) RemoveResourceHandler(c *gin.Context) {
-	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
-	if err != nil {
-		log.Printf("failed to bind access-target: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "missing Access-Target header"})
-		return
-	}
-	log.Printf("binded access claim: %+v", ac)
 	target := c.Request.URL.Query().Get("rids")
 	if target == "" {
 		log.Printf("must provide a target")
@@ -213,12 +210,16 @@ func (srv *UService) RemoveResourceHandler(c *gin.Context) {
 	}
 	rids_str := strings.Split(target, ",")
 
-	err = srv.dbh.DeleteResourcesByIds(rids_str)
+	err := srv.dbh.DeleteResourcesByIds(rids_str)
 	if err != nil {
 		log.Printf("failed to delete resource: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete resource"})
 		return
 	}
+
+	// delete the phyiscal data (on the volume)
+	// @TODO:
+	//
 
 	c.JSON(200, gin.H{
 		"message": "resource deleted successfully.",
@@ -226,27 +227,118 @@ func (srv *UService) RemoveResourceHandler(c *gin.Context) {
 }
 
 func (srv *UService) MoveResourcesHandler(c *gin.Context) {
+	rid := c.Request.URL.Query().Get("rid")
+	if rid == "" {
+		log.Printf("empty rid, not allowed")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a rid"})
+		return
+	}
+	newName := c.Request.FormValue("resourcename")
+	if newName == "" {
+		log.Printf("empty resourcename, not allowed")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a resourcename as formvalue"})
+		return
+	}
+
+	// update resource name
+	err := srv.dbh.UpdateResourceNameById(rid, newName)
+	if err != nil {
+		log.Printf("error updating resource name: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
+		return
+	}
+
 	c.JSON(200, gin.H{
-		"message": "tdb",
+		"message": "resource updated successfully",
 	})
 }
 
 func (srv *UService) ChmodResourceHandler(c *gin.Context) {
+	rid := c.Request.URL.Query().Get("rid")
+	if rid == "" {
+		log.Printf("empty rid, not allowed")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a rid"})
+		return
+	}
+	newPerms := c.PostForm("permissions")
+	log.Printf("perms: %v", newPerms)
+	if newPerms == "" {
+		log.Printf("empty perms, not allowed")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide perms as formvalue"})
+		return
+	}
+
+	// update resource name
+	err := srv.dbh.UpdateResourcePermsById(rid, newPerms)
+	if err != nil {
+		log.Printf("error updating resource perms: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
+		return
+	}
+
 	c.JSON(200, gin.H{
-		"message": "tbd",
+		"message": "resource updated successfully",
 	})
 }
 
 func (srv *UService) ChownResourceHandler(c *gin.Context) {
+	rid := c.Request.URL.Query().Get("rid")
+	if rid == "" {
+		log.Printf("empty rid, not allowed")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a rid"})
+		return
+	}
+	newOwner := c.PostForm("owner")
+	log.Printf("owner id: %v", newOwner)
+	if newOwner == "" {
+		log.Printf("empty uid, not allowed")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a uid as formvalue"})
+		return
+	}
+
+	// update resource name
+	err := srv.dbh.UpdateResourceOwnerById(rid, newOwner)
+	if err != nil {
+		log.Printf("error updating resource uid: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
+		return
+	}
+
 	c.JSON(200, gin.H{
-		"message": "tdb",
+		"message": "resource updated successfully",
 	})
 }
 
 func (srv *UService) ChgroupResourceHandler(c *gin.Context) {
+	rid := c.Request.URL.Query().Get("rid")
+	if rid == "" {
+		log.Printf("empty rid, not allowed")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a rid"})
+		return
+	}
+	newGroup := c.PostForm("group")
+	log.Printf("new gid: %v", newGroup)
+	if newGroup == "" {
+		log.Printf("empty gid, not allowed")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a gid as formvalue"})
+		return
+	}
+
+	// update resource name
+	err := srv.dbh.UpdateResourceGroupById(rid, newGroup)
+	if err != nil {
+		log.Printf("error updating resource group: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
+		return
+	}
+
 	c.JSON(200, gin.H{
-		"message": "tdb",
+		"message": "resource updated successfully",
 	})
+}
+
+func (srv *UService) ResourceCpHandler(c *gin.Context) {
+	c.JSON(200, gin.H{"message": "tbd"})
 }
 
 func (srv *UService) HandleDownload(c *gin.Context) {
@@ -271,7 +363,7 @@ func (srv *UService) HandleDownload(c *gin.Context) {
 	c.FileAttachment(srv.config.Volumes+path, split[len(split)-1])
 }
 
-/* This is the main endpoint handler for data uploading */
+/* the main endpoint handler for resource uploading */
 func (srv *UService) HandleUpload(c *gin.Context) {
 	/* 1]: parse location from header*/
 	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
@@ -490,3 +582,6 @@ func determinePhysicalStorage(target string, fileSize int64) (string, error) {
 
 	return target, nil
 }
+
+// we need some methods for determening if an incoming request from a user has proper authorization upon the resouce
+// or perhaps as middleware

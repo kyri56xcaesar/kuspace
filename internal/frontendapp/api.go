@@ -171,12 +171,12 @@ func (srv *HTTPService) ServeHTTP() {
 			admin.POST("/groupadd", srv.handleGroupadd)
 			admin.DELETE("/groupdel", srv.handleGroupdel)
 			admin.PATCH("/grouppatch", srv.handleGrouppatch)
+
 			admin.POST("/hasher", srv.handleHasher)
 
 			admin.PATCH("/chown", srv.handleResourcePerms)
-			admin.PATCH("/chmod", srv.handleResourcePerms)
 			admin.PATCH("/chgroup", srv.handleResourcePerms)
-
+			admin.PATCH("/chmod", srv.handleResourcePerms)
 		}
 	}
 

@@ -176,6 +176,7 @@ type UserVolume struct {
 func (uv *UserVolume) PtrFields() []any {
 	return []any{&uv.Vid, &uv.Uid, &uv.Usage, &uv.Quota, &uv.Updated_at}
 }
+
 func (uv *UserVolume) Fields() []any {
 	return []any{uv.Vid, uv.Uid, uv.Usage, uv.Quota, uv.Updated_at}
 }
@@ -289,6 +290,15 @@ func (resource *Resource) HasWriteAccess(userInfo AccessClaim) bool {
 /* execution access is somewhat trivial at this point, perhaps it can be used in the future*/
 func (resource *Resource) HasExecutionAccess(userInfo AccessClaim) bool {
 	return false
+}
+
+func (resource *Resource) IsOwner(ac AccessClaim) bool {
+	int_uid, err := strconv.Atoi(ac.Uid)
+	if err != nil {
+		log.Printf("failed to atoi access_claim")
+		return false
+	}
+	return resource.Uid == int_uid
 }
 
 /* generic helpers*/

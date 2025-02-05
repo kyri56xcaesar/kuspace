@@ -33,7 +33,7 @@
         {{ end }}
     </tbody>
 </table>
-<div id="edit-modal" class="modal hidden"></div>
+<div id="edit-modal" class="modal hidden darkened"></div>
 
 <script>
 tableRows = document.querySelectorAll("#resource-list-table tbody tr");
@@ -79,7 +79,7 @@ tableRows.forEach((row) => {
               </a>
               <button 
                 class="r-btn-edit"
-                hx-get="/api/v1/verified/edit-form?filename=${resource.name}&owner=${resource.owner}&group=${resource.group}&perms=${resource.perms}"
+                hx-get="/api/v1/verified/edit-form?resourcename=${resource.name}&owner=${resource.owner}&group=${resource.group}&perms=${resource.perms}&rid=${resource.id}"
                 hx-swap="innerHTML"
                 hx-trigger="click"
                 hx-target="#edit-modal"
@@ -120,7 +120,7 @@ tableRows.forEach((row) => {
         <div class="resource-preview-window">
           <button>Preview</button>
         </div>
-        <div id="edit-modal" class="modal hidden"></div>
+        <div id="edit-modal" class="modal hidden darkened"></div>
       </div>
       <hr>
       <div class="resource-details-footer">

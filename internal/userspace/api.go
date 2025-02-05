@@ -79,18 +79,21 @@ func (srv *UService) Serve() {
 		apiV1.GET("/resources", srv.ResourcesHandler)
 
 		apiV1.POST("/resource/upload", srv.HandleUpload)
-		apiV1.GET("/resource/download", srv.HandleDownload)
+		apiV1.GET("/resource/download", hasAccessMiddleware("r", srv), srv.HandleDownload)
+
+		apiV1.DELETE("/resource/rm", hasAccessMiddleware("w", srv), srv.RemoveResourceHandler)
+		apiV1.PATCH("/resource/mv", hasAccessMiddleware("w", srv), srv.MoveResourcesHandler)
+		apiV1.POST("/resource/cp", hasAccessMiddleware("r", srv), srv.ResourceCpHandler)
+
+		apiV1.PATCH("/resource/permissions", isOwner(srv), srv.ChmodResourceHandler)
+		apiV1.PATCH("/resource/ownership", isOwner(srv), srv.ChownResourceHandler)
+		apiV1.PATCH("/resource/group", isOwner(srv), srv.ChgroupResourceHandler)
+
 	}
 
 	admin := apiV1.Group("/admin")
 	{
 		admin.POST("/resources", srv.PostResourcesHandler)
-		admin.PUT("/resources", srv.MoveResourcesHandler)
-		admin.DELETE("/resources", srv.RemoveResourceHandler)
-
-		admin.PATCH("/resource/permissions", srv.ChmodResourceHandler)
-		admin.PATCH("/resource/ownership", srv.ChownResourceHandler)
-		admin.PATCH("/resource/group", srv.ChgroupResourceHandler)
 
 		admin.GET("/volumes", srv.HandleVolumes)
 		admin.POST("/volumes", srv.HandleVolumes)

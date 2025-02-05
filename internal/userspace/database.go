@@ -765,6 +765,178 @@ func (m *DBHandler) DeleteResourceByName(name string) error {
 	return nil
 }
 
+func (m *DBHandler) UpdateResourceNameById(rid, name string) error {
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("error getting db connection: %v", err)
+		return err
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("error starting transaction: %v", err)
+		return err
+	}
+
+	query := `
+    UPDATE 
+      resources 
+    SET 
+      name = ?
+    WHERE 
+      rid = ?;
+  `
+
+	res, err := tx.Exec(query, name, rid)
+	if err != nil {
+		log.Printf("error executing query: %v", err)
+		return err
+	}
+
+	rAff, err := res.RowsAffected()
+	if err != nil {
+		log.Printf("failed to get rows affected")
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("error committing transaction: %v", err)
+		return err
+	}
+	log.Printf("updated %v rows", rAff)
+
+	return nil
+}
+
+func (m *DBHandler) UpdateResourcePermsById(rid, perms string) error {
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("error getting db connection: %v", err)
+		return err
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("error starting transaction: %v", err)
+		return err
+	}
+
+	query := `
+    UPDATE 
+      resources 
+    SET 
+      perms = ?
+    WHERE 
+      rid = ?;
+  `
+
+	res, err := tx.Exec(query, perms, rid)
+	if err != nil {
+		log.Printf("error executing query: %v", err)
+		return err
+	}
+
+	rAff, err := res.RowsAffected()
+	if err != nil {
+		log.Printf("failed to get rows affected")
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("error committing transaction: %v", err)
+		return err
+	}
+	log.Printf("updated %v rows", rAff)
+
+	return nil
+}
+
+func (m *DBHandler) UpdateResourceOwnerById(rid, uid string) error {
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("error getting db connection: %v", err)
+		return err
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("error starting transaction: %v", err)
+		return err
+	}
+
+	query := `
+    UPDATE 
+      resources 
+    SET 
+      uid = ?
+    WHERE 
+      rid = ?;
+  `
+
+	res, err := tx.Exec(query, uid, rid)
+	if err != nil {
+		log.Printf("error executing query: %v", err)
+		return err
+	}
+
+	rAff, err := res.RowsAffected()
+	if err != nil {
+		log.Printf("failed to get rows affected")
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("error committing transaction: %v", err)
+		return err
+	}
+	log.Printf("updated %v rows", rAff)
+
+	return nil
+}
+
+func (m *DBHandler) UpdateResourceGroupById(rid, gid string) error {
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("error getting db connection: %v", err)
+		return err
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("error starting transaction: %v", err)
+		return err
+	}
+
+	query := `
+    UPDATE 
+      resources 
+    SET 
+      gid = ?
+    WHERE 
+      rid = ?;
+  `
+
+	res, err := tx.Exec(query, gid, rid)
+	if err != nil {
+		log.Printf("error executing query: %v", err)
+		return err
+	}
+
+	rAff, err := res.RowsAffected()
+	if err != nil {
+		log.Printf("failed to get rows affected")
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("error committing transaction: %v", err)
+		return err
+	}
+	log.Printf("updated %v rows", rAff)
+
+	return nil
+}
+
 func (m *DBHandler) UpdateResourceById(rid int, r Resource) error {
 	db, err := m.getConn()
 	if err != nil {
