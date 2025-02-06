@@ -117,9 +117,34 @@ tableRows.forEach((row) => {
           <p><strong>Group:</strong> ${resource.group}</p>
           <p><strong>Volume:</strong> ${resource.volume}</p>
         </div>
-        <div class="resource-preview-window">
+        <div id="resource-preview" class="resource-preview-window">
           <button>Preview</button>
+          <div class="resource-preview-main blurred">
+            <div id="resource-preview-content"></div>
+            <div id="resource-preview-controls">
+              <div id="next-arrow-left" class="next-arrow">
+                <svg width="24" height="8" viewBox="0 0 16 8" fill="none" xmlns="http://www.w3.org/2000/svg" class="arrow-icon">
+                <g transform="scale(-1,1) translate(-16,0)">
+                  <path d="M15 4H4V1" stroke="white"/>
+                  <path d="M14.5 4H3.5H0" stroke="white"/>
+                  <path d="M15.8536 4.35355C16.0488 4.15829 16.0488 3.84171 15.8536 3.64645L12.6716 0.464466C12.4763 0.269204 12.1597 0.269204 11.9645 0.464466C11.7692 0.659728 11.7692 0.976311 11.9645 1.17157L14.7929 4L11.9645 6.82843C11.7692 7.02369 11.7692 7.34027 11.9645 7.53553C12.1597 7.7308 12.4763 7.7308 12.6716 7.53553L15.8536 4.35355ZM15 4.5L15.5 4.5L15.5 3.5L15 3.5L15 4.5Z" fill="white"/>
+                </g>
+                </svg>
+              </div>
+              <div>
+                <span id="page-index">1</span>
+              </div>
+              <div id="next-arrow-right" class="next-arrow">
+                <svg width="24" height="8" viewBox="0 0 16 8" fill="none" xmlns="http://www.w3.org/2000/svg" class="arrow-icon">
+                  <path d="M15 4H4V1" stroke="white"/>
+                  <path d="M14.5 4H3.5H0" stroke="white"/>
+                  <path d="M15.8536 4.35355C16.0488 4.15829 16.0488 3.84171 15.8536 3.64645L12.6716 0.464466C12.4763 0.269204 12.1597 0.269204 11.9645 0.464466C11.7692 0.659728 11.7692 0.976311 11.9645 1.17157L14.7929 4L11.9645 6.82843C11.7692 7.02369 11.7692 7.34027 11.9645 7.53553C12.1597 7.7308 12.4763 7.7308 12.6716 7.53553L15.8536 4.35355ZM15 4.5L15.5 4.5L15.5 3.5L15 3.5L15 4.5Z" fill="white"/>
+                </svg>
+              </div>
+            </div>
+          </div>
         </div>
+
         <div id="edit-modal" class="modal hidden darkened"></div>
       </div>
       <hr>

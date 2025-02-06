@@ -76,9 +76,10 @@
       <div id="menu-bottom" class="submenu">
         <hr>
         <ul class="collapsing">
-          <li>
+          <!--<li>
             <a href="#" onclick="showSection('profile')">Profile</a>
           </li>
+          -->
         </ul>
       </div>
       <button  
@@ -450,6 +451,30 @@
                 <div id="progress-container" class="hidden">
                 </div>
               </div>
+              <div id="symlink-add">
+                <h3>Add a symlink</h3>
+                <div id="symlink-add-container" class="fupload-container">
+                    <label for="symlink" class="fupload-footer"> 
+                      <svg fill="#000000" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M15.331 6H8.5v20h15V14.154h-8.169z"></path>
+                        <path d="M18.153 6h-.009v5.342H23.5v-.002z"></path>
+                      </svg> 
+                      <button 
+                        id="upload-button"
+                        type="submit"
+                        disabled
+                      >Add Symlink
+                      </button>
+                    </label> 
+                    <input 
+                      id="symlink" 
+                      type="" 
+                      name="symlink" 
+                      hidden
+                      hx-get=""
+                    >           
+                </div>
+              </div> 
           </div>
         </div>
       </section>

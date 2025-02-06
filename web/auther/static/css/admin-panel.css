@@ -901,14 +901,56 @@ tr {
   border: 1px solid #ddd;
   min-height: 500px;
 
+
   & :is(.resource-preview-window) {
     border-left: 1px solid black;
     padding: 1rem;
+
     width: 100%;
     display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+
     & :is(button) {
-      margin: auto;
+      position: absolute;
+      z-index: 10;
     }
+
+    & :is(.resource-preview-main) {
+      position: relative;
+      z-index: 5;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+
+      & :is(#resource-preview-controls) {
+        position: absolute;
+        bottom: 10px;
+        width: 100%;
+        z-index: 7;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        border-radius: 5px;
+        border: 1px dashed black;
+
+        & :is(#page-index) {
+          padding-right: 15px;
+          padding-left: 15px;
+          padding-top: 3px;
+          padding-bottom: 3px;
+          border: 1px dashed red;
+          border-radius: 5px;
+        }
+      }
+
+    }
+    
   }
 
   & :is(.resource-options) {
@@ -1529,4 +1571,58 @@ tr {
   & :is(label) {
     text-decoration: underline
   }
+}
+
+#symlink-add {
+  padding: 1rem;
+  border: 1px solid #ddd;
+
+  & > div {
+    border: 2px dashed #aaa;
+    height: 75px;
+
+    padding-right: 1rem;
+    padding-left: 1rem;
+
+
+  }
+}
+
+.next-arrow {
+
+  cursor: grab;
+  & :is(svg) {
+    width: 50px;
+    height: auto;
+  }
+
+  & :is(.arrow-icon) {
+    stroke: cadetblue !important;
+  }
+
+  & :is(path) {
+    stroke: cadetblue !important;
+  }
+
+  & :is(.arrow-icon path:nth-child(2)) {
+    d: path("M14.5 4H3.5H4");
+  }
+
+  & :is(.arrow-icon path) {
+    transition: 0.25 ease;
+  }
+
+  & :is(arrow-icon:hover path:nth-child(1)) {
+    d: path("M15 4H4V4");
+  }
+
+  & :is(arrow-icon:hover path:nth-child(2)) {
+    d: path("M14.5 4H3.5H0");
+    transform: translateX(4px);
+  }
+  
+  & :is(.arrow-icon:hover path:nth-child(3)) {
+    transform: translate(4px);
+  }
+
 }

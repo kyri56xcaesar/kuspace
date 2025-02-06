@@ -391,7 +391,7 @@ document.addEventListener('htmx:afterRequest', function (event) {
       }
     } else if (triggeringElement.id === 'permissionsInput' || triggeringElement.id === 'resource-path-select' || triggeringElement.id === 'resource-owner-select' || triggeringElement.id === 'resource-group-select') {
       if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
-        document.getElementById("view-resources-btn").click();
+        
       } else {
 
       }

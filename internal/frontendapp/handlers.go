@@ -717,6 +717,9 @@ func (srv *HTTPService) handleResourceDownload(c *gin.Context) {
 	}
 }
 
+func (srv *HTTPService) handleResourcePreview(c *gin.Context) {
+}
+
 func (srv *HTTPService) handleResourceMove(c *gin.Context) {
 	access_token, err := c.Cookie("access_token")
 	if err != nil {
@@ -1439,6 +1442,10 @@ func (srv *HTTPService) handleHasher(c *gin.Context) {
 
 	// Render the HTML template
 	c.String(http.StatusOK, "%v", resp.Result)
+}
+
+func (srv *HTTPService) addSymlinkFormHandler(c *gin.Context) {
+	c.HTML(200, "add-symlink-form.html", nil)
 }
 
 /*

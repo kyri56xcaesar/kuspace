@@ -149,12 +149,15 @@ func (srv *HTTPService) ServeHTTP() {
 		// actions for logged in users
 		verified.POST("/upload", AuthMiddleware("user, admin"), srv.handleResourceUpload)
 		verified.GET("/download", AuthMiddleware("user, admin"), srv.handleResourceDownload)
+		verified.GET("/preview", AuthMiddleware("user, admin"), srv.handleResourcePreview)
 
 		verified.PATCH("/mv", AuthMiddleware("user, admin"), srv.handleResourceMove)
 		verified.POST("/cp", AuthMiddleware("user, admin"), srv.handleResourceCopy)
 		verified.DELETE("/rm", AuthMiddleware("user, admin"), srv.handleResourceDelete)
 
 		verified.GET("/edit-form", AuthMiddleware("user, admin"), srv.editFormHandler)
+		verified.GET("/add-symlink-form", AuthMiddleware("user, admin"), srv.addSymlinkFormHandler)
+
 		admin := verified.Group("/admin")
 		/* minioth will verify token no need to worry here.*/
 		{
