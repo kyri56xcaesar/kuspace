@@ -101,6 +101,11 @@ func (srv *UService) Serve() {
 		admin.PUT("/volumes", srv.HandleVolumes)
 		admin.DELETE("/volumes", srv.HandleVolumes)
 		admin.PATCH("/volumes", srv.HandleVolumes)
+
+		admin.GET("/user/volume", srv.HandleUserVolumes)
+		admin.POST("/user/volume", srv.HandleUserVolumes)
+		admin.PATCH("/user/volume", srv.HandleUserVolumes)
+		admin.DELETE("/user/volume", srv.HandleUserVolumes)
 	}
 	/* context handler */
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
