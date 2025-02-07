@@ -80,6 +80,7 @@ func (srv *UService) Serve() {
 
 		apiV1.POST("/resource/upload", srv.HandleUpload)
 		apiV1.GET("/resource/download", hasAccessMiddleware("r", srv), srv.HandleDownload)
+		apiV1.GET("/resource/preview", hasAccessMiddleware("r", srv), srv.HandlePreview)
 
 		apiV1.DELETE("/resource/rm", hasAccessMiddleware("w", srv), srv.RemoveResourceHandler)
 		apiV1.PATCH("/resource/mv", hasAccessMiddleware("w", srv), srv.MoveResourcesHandler)

@@ -1,14 +1,28 @@
 <div>
-    <h3>Volume Quota Management</h3>
+    <div style="display: flex; justify-content: space-between;">
+      <h3>Existing Volumes</h3>
+      <button
+        id="fetch-volumes-btn"
+        hx-get="/api/v1/verified/admin/fetch-volumes"
+        hx-target="#fetch-volumes-display"
+        hx-swap="innerHTML"
+      >View    Volumes</button>
+    </div>
     {{range .volumes}} 
     {{ $v := . }} 
     <div class="v-header">
+        <div>
+          <h3>Volume Details</h3>
+          <p>Name: {{$v.Name}}</p>
+          <p>Path: {{$v.Path}}</p>
+        </div>
         <div>
             <h3>Total Volume</h3>
             <p>Fixed Amount: {{$v.Capacity}} GB</p>
             <p>Currently Used: {{$v.Usage}} GB</p>
         </div>
         <div>
+            <h3>Settings</h3>
             <label for="dynamicQuota">Enable Dynamic Quota</label>
             <input type="checkbox"
                    id="dynamicQuota"
@@ -20,40 +34,56 @@
                    </script>
         </div>
     </div>
+    <h3>Volume Quota Management</h3>
     <div class="v-main">
         <div>
             <h3>Groups</h3>
-            {{range $.groups}} 
+            <div class="v-main-inner-content">
             <div>
-                <div>
-                    <label for="group-{{.Gid}}">{{.Groupname}}</label>
-                    <input type="range"
-                           id="group-{{.Gid}}"
-                           name="group-{{.Gid}}"
-                           min="0"
-                           max="{{$v.Capacity}}"
-                           value="0"
-                           class="quota-range">
-                    <span>0 GB</span>
-                </div>
-            </div>
+            {{range $.groups}} 
+              <label for="group-{{.Gid}}">{{.Groupname}}</label>
             {{end}}
+            </div>
+            <div>
+            {{range $.groups}}
+              <div>
+              <input type="range"
+                id="group-{{.Gid}}"
+                name="group-{{.Gid}}"
+                min="0"
+                max="{{$v.Capacity}}"
+                value="0"
+                class="quota-range">           
+              <span>0GB</span>
+              </div>
+            {{end}}
+            </div>
+            </div>
         </div>
         <div>
             <h3>Users</h3>
-            {{range $.users}}
+            <div class="v-main-inner-content">
             <div>
+            {{range $.users}}
                 <label for="user-{{.Uid}}">{{.Username}}</label>
-                <input type="range"
-                       id="user-{{.Uid}}"
-                       name="user-{{.Uid}}"
-                       min="0"
-                       max="{{$v.Capacity}}"
-                       value="0"
-                       class="quota-range">
-                <span>0 GB</span>
-            </div>
             {{end}}
+            </div>
+            <div>
+            {{range $.users}}
+              <div>
+              <input type="range"
+                id="user-{{.Uid}}"
+                name="user-{{.Uid}}"
+                min="0"
+                max="{{$v.Capacity}}"
+                value="0"
+                class="quota-range">
+ 
+               <span>0GB</span>
+              </div>
+            {{end}}
+            </div>
+            </div>
         </div>
 
     {{end}} 

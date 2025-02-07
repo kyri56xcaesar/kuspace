@@ -395,7 +395,12 @@ document.addEventListener('htmx:afterRequest', function (event) {
       } else {
 
       }
+    } else if (triggeringElement.id === 'preview-resource-btn') {
+    if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+      document.querySelector(".resource-preview-main").classList.remove("blurred");
+      document.querySelector("#preview-resource-btn").remove();
     }
+  }
 });
 
 document.addEventListener('htmx:confirm', function(evt) {

@@ -1,6 +1,7 @@
 package userspace
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -463,6 +464,62 @@ func (srv *UService) HandleUpload(c *gin.Context) {
 	})
 }
 
+func (srv *UService) HandlePreview(c *gin.Context) {
+	// parse resource target header:
+	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
+	if err != nil {
+		log.Printf("failed to bind access-target: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing Access-Target header"})
+		return
+	}
+	log.Printf("binded access claim: %+v", ac)
+	path := strings.TrimSuffix(ac.Target, "/")
+	// get the resource info
+	resource, err := srv.dbh.GetResourceByFilepath(path)
+	if err != nil {
+		log.Printf("failed to get the resource: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "resource not found"})
+		return
+	}
+
+	// read the actual file to a buffer
+
+	// parse byte range header
+	start, end, totalLength := 0, 4095, resource.Size
+	rangeHeader := c.GetHeader("Range")
+	if rangeHeader != "" {
+		// Expected format: "bytes=0-1023"
+		parts := strings.Split(strings.TrimPrefix(rangeHeader, "bytes="), "-")
+		if len(parts) == 2 {
+			if s, err := strconv.Atoi(parts[0]); err == nil {
+				start = s
+			}
+			if e, err := strconv.Atoi(parts[1]); err == nil {
+				end = e
+			}
+		}
+	}
+	if start > totalLength {
+		c.JSON(http.StatusRequestedRangeNotSatisfiable, gin.H{"error": "Requested range exceeds file size"})
+		return
+	}
+	if end >= totalLength {
+		end = totalLength - 1
+	}
+
+	pContent, err := fetchResource(srv.config.Volumes+path, int64(start), int64(end))
+	if err != nil {
+		log.Printf("failed to fetch resource: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch resoruc"})
+		return
+	}
+
+	c.Header("Content-Range", "bytes "+strconv.Itoa(start)+"-"+strconv.Itoa(end)+"/"+strconv.Itoa(totalLength))
+	c.Header("Accept-Ranges", "bytes")
+	c.Header("Content-Length", strconv.Itoa(len(pContent)))
+	c.Data(http.StatusPartialContent, "text/plain", pContent)
+}
+
 func (srv *UService) HandleVolumes(c *gin.Context) {
 	switch c.Request.Method {
 	case http.MethodGet:
@@ -583,5 +640,37 @@ func determinePhysicalStorage(target string, fileSize int64) (string, error) {
 	return target, nil
 }
 
-// we need some methods for determening if an incoming request from a user has proper authorization upon the resouce
-// or perhaps as middleware
+// fetchResource reads a file from the given path within the specified byte range.
+func fetchResource(filePath string, start, end int64) ([]byte, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	fileSize := fileInfo.Size()
+
+	if start >= fileSize {
+		return nil, errors.New("requested range exceeds file size")
+	}
+	if end >= fileSize {
+		end = fileSize - 1
+	}
+
+	_, err = file.Seek(start, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+
+	data := make([]byte, end-start+1)
+	_, err = file.Read(data)
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+
+	return data, nil
+}

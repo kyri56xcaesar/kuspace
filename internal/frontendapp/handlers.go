@@ -120,6 +120,7 @@ type Resource struct {
 }
 
 type Volume struct {
+	Name     string `json:"name"`
 	Path     string `json:"path"`
 	Dynamic  bool   `json:"dynamic"`
 	Capacity int    `json:"capacity"`
@@ -718,6 +719,58 @@ func (srv *HTTPService) handleResourceDownload(c *gin.Context) {
 }
 
 func (srv *HTTPService) handleResourcePreview(c *gin.Context) {
+	whoami, exists := c.Get("user_id")
+	groups, gexists := c.Get("group_ids")
+	if !exists || !gexists {
+		log.Printf("uid or gids don't exist... bad authentication")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "bad auth"})
+		return
+	}
+	rid := c.Request.URL.Query().Get("rid")
+	r_name := c.Request.URL.Query().Get("resourcename")
+	if r_name == "" || rid == "" {
+		log.Printf("must provide resource name")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide resource name"})
+		return
+	}
+
+	req, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/resource/preview?rid="+rid, c.Request.Body)
+	for key, values := range c.Request.Header {
+		for _, value := range values {
+			req.Header.Add(key, value)
+		}
+	}
+	req.Header.Add("Access-Target", fmt.Sprintf("%v %v:%v", r_name, whoami, groups))
+
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Printf("request error: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed request"})
+		return
+	}
+
+	defer response.Body.Close()
+
+	c.Status(response.StatusCode)
+	for key, values := range response.Header {
+		for _, value := range values {
+			if key != "Content-Length" {
+				c.Header(key, value)
+			}
+		}
+	}
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Printf("failed to read response body: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed rq"})
+		return
+	}
+
+	format := c.Request.URL.Query().Get("format")
+
+	// respond with a rendered template with the data
+	respondInFormat(c, format, string(body), "resource-preview.html")
 }
 
 func (srv *HTTPService) handleResourceMove(c *gin.Context) {

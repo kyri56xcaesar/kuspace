@@ -32,6 +32,7 @@ const (
 
     CREATE TABLE IF NOT EXISTS volumes (
       vid INTEGER PRIMARY KEY,
+      name TEXT,
       path TEXT,
 	  dynamic BOOLEAN,
       capacity INTEGER,
@@ -116,12 +117,12 @@ func (m *DBHandler) Init(database_path, volumes_path, capacity string) {
 		// insert an init volume
 		vquery := `
 		INSERT INTO 
-			volumes (vid, path, dynamic, capacity, usage)
+			volumes (vid, name, path, dynamic, capacity, usage)
 		VALUES
-			(nextval('seq_volumeid'), ?, ?, ?, ?)
+			(nextval('seq_volumeid'), ?, ?, ?, ?, ?)
 		 `
 
-		_, err = db.Exec(vquery, volumes_path, "true", capacity, 0)
+		_, err = db.Exec(vquery, "SYSTEMv", volumes_path, "true", capacity, 0)
 		if err != nil {
 			log.Fatalf("failed to insert init data, destructive: %v", err)
 		}
@@ -343,12 +344,12 @@ func (m *DBHandler) UpdateVolume(volume Volume) error {
 		UPDATE 
 			volumes
 		SET
-			path = ?, dynamic = ?, capacity = ?, usage = ?
+			name = ?, path = ?, dynamic = ?, capacity = ?, usage = ?
 		WHERE
 			vid = ?;
 	`
 
-	_, err = db.Exec(query, volume.Path, volume.Dynamic, volume.Capacity, volume.Usage)
+	_, err = db.Exec(query, volume.Name, volume.Path, volume.Dynamic, volume.Capacity, volume.Usage)
 	if err != nil {
 		log.Printf("error on query execution: %v", err)
 		return err
@@ -388,7 +389,7 @@ func (m *DBHandler) InsertVolume(volume Volume) error {
 	_, err = db.Exec(`
 		INSERT INTO 
 			volumes (path, dynamic, capacity, usage) 
-		VALUES (nextval('seq_volumeid'), ?, ?, ?, ?)`, volume.FieldsNoId()...)
+		VALUES (nextval('seq_volumeid'), ?, ?, ?, ?, ?)`, volume.FieldsNoId()...)
 	if err != nil {
 		log.Printf("error upon executing insert query: %v", err)
 		return err

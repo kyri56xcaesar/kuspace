@@ -118,7 +118,14 @@ tableRows.forEach((row) => {
           <p><strong>Volume:</strong> ${resource.volume}</p>
         </div>
         <div id="resource-preview" class="resource-preview-window">
-          <button>Preview</button>
+          <button
+            id="preview-resource-btn"
+            hx-target="#resource-preview-content"
+            hx-trigger="click"
+            hx-swap="innerHTML"
+            hx-get="/api/v1/verified/preview?rid=${resource.id}&resourcename=${resource.name}"
+            hx-headers='{"Range": "bytes=0-4095"}'
+          >Preview</button>
           <div class="resource-preview-main blurred">
             <div id="resource-preview-content"></div>
             <div id="resource-preview-controls">
@@ -154,7 +161,7 @@ tableRows.forEach((row) => {
       </div>
       </div>
     `;
-    const btns = document.querySelectorAll(".r-btn-download, .r-btn-edit, .r-btn-delete");
+    const btns = document.querySelectorAll(".r-btn-download, .r-btn-edit, .r-btn-delete, #preview-resource-btn");
     btns.forEach(button => {
       htmx.process(button);
     })
