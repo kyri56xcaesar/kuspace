@@ -145,7 +145,9 @@ document.addEventListener('htmx:afterRequest', function (event) {
   
   //console.log(triggeringElement.id);
 
-  if (event.detail.xhr.status == 401) {
+  console.log(triggeringElement.id);
+  console.log(event.detail.xhr.status);
+  if (event.detail.xhr.status == 401 || event.detail.xhr.status == 303) {
     window.location.href = "/api/v1/login";
     location.reload(); 
 

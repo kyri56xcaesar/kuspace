@@ -100,7 +100,6 @@ func AuthMiddleware(group string) gin.HandlerFunc {
 		if err != nil {
 			log.Printf("missing access token: %v", err)
 			c.Redirect(http.StatusSeeOther, "/api/v1/login")
-			c.Abort()
 			return
 		}
 		//  Decode and verify the token (e.g., JWT validation)

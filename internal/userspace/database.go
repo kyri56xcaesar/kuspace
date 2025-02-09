@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 
 	_ "github.com/marcboeker/go-duckdb"
@@ -57,6 +58,13 @@ type DBHandler struct {
 	db     *sql.DB
 	DBName string
 }
+
+var (
+	default_capacity    int
+	default_db_path     string
+	default_v_path      string
+	default_volume_name string = "kUspace_defaultv"
+)
 
 func (m *DBHandler) getConn() (*sql.DB, error) {
 	if m.db == nil {
@@ -113,7 +121,6 @@ func (m *DBHandler) Init(database_path, volumes_path, capacity string) {
 	}
 
 	if !exists {
-
 		// insert an init volume
 		vquery := `
 		INSERT INTO 
@@ -122,11 +129,18 @@ func (m *DBHandler) Init(database_path, volumes_path, capacity string) {
 			(nextval('seq_volumeid'), ?, ?, ?, ?, ?)
 		 `
 
-		_, err = db.Exec(vquery, "SYSTEMv", volumes_path, "true", capacity, 0)
+		_, err = db.Exec(vquery, default_volume_name, volumes_path, "true", capacity, 0)
 		if err != nil {
 			log.Fatalf("failed to insert init data, destructive: %v", err)
 		}
 	}
+
+	default_capacity, err = strconv.Atoi(capacity)
+	if err != nil {
+		log.Fatalf("failed to atoi capacity value: %v", err)
+	}
+	default_db_path = database_path
+	default_v_path = volumes_path
 }
 
 func (m *DBHandler) InsertUserVolume(uv UserVolume) error {
@@ -222,6 +236,102 @@ func (m *DBHandler) UpdateUserVolume(uv UserVolume) error {
 		return fmt.Errorf("failed to update user volume: %v", err)
 	}
 
+	return nil
+}
+
+func (m *DBHandler) UpdateUserVolumeQuotaByUid(quota, uid int) error {
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("failed to retrieve database connection: %v", err)
+		return err
+	}
+
+	query := `
+    UPDATE 
+      userVolume
+    SET
+      quota = ? 
+    WHERE 
+      uid = ?
+      
+  `
+
+	res, err := db.Exec(query, quota, uid)
+	if err != nil {
+		log.Printf("failed to exec query: %v", err)
+		return err
+	}
+
+	rAff, err := res.RowsAffected()
+	if err != nil {
+		log.Printf("failed to retrieve info about rows affected")
+		return err
+	}
+	log.Printf("rows affected: %v", rAff)
+	return nil
+}
+
+func (m *DBHandler) UpdateUserVolumeUsageByUid(usage, uid int) error {
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("failed to retrieve database connection: %v", err)
+		return err
+	}
+
+	query := `
+    UPDATE 
+      userVolume
+    SET
+      usage = ? 
+    WHERE 
+      uid = ?
+      
+  `
+
+	res, err := db.Exec(query, usage, uid)
+	if err != nil {
+		log.Printf("failed to exec query: %v", err)
+		return err
+	}
+
+	rAff, err := res.RowsAffected()
+	if err != nil {
+		log.Printf("failed to retrieve info about rows affected")
+		return err
+	}
+	log.Printf("rows affected: %v", rAff)
+	return nil
+}
+
+func (m *DBHandler) UpdateUserVolumeQuotaAndUsageByUid(usage, quota, uid int) error {
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("failed to retrieve database connection: %v", err)
+		return err
+	}
+
+	query := `
+    UPDATE 
+      userVolume
+    SET
+      usage = ?, quota = ? 
+    WHERE 
+      uid = ?
+      
+  `
+
+	res, err := db.Exec(query, usage, quota, uid)
+	if err != nil {
+		log.Printf("failed to exec query: %v", err)
+		return err
+	}
+
+	rAff, err := res.RowsAffected()
+	if err != nil {
+		log.Printf("failed to retrieve info about rows affected")
+		return err
+	}
+	log.Printf("rows affected: %v", rAff)
 	return nil
 }
 
