@@ -1,6 +1,7 @@
 *.log
 *.note
 *.env
+configs/*.env
 
 cmd/minioth/minioth
 cmd/minioth
