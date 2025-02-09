@@ -4,6 +4,7 @@
 configs/*.env
 api.env 
 minioth.env
+userspace.env
 
 cmd/minioth/minioth
 cmd/minioth
