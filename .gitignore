@@ -2,6 +2,8 @@
 *.note
 *.env
 configs/*.env
+api.env 
+minioth.env
 
 cmd/minioth/minioth
 cmd/minioth
