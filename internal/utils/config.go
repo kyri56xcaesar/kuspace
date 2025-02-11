@@ -42,6 +42,8 @@ type EnvConfig struct {
 	JWTSecretKey  []byte
 	JWTRefreshKey []byte
 
+	ServiceSecret []byte
+
 	AllowedOrigins []string
 	AllowedHeaders []string
 	AllowedMethods []string
@@ -74,8 +76,9 @@ func LoadConfig(path string) EnvConfig {
 		AllowedOrigins: getEnvs("ALLOWED_ORIGINS", []string{"None"}),
 		AllowedHeaders: getEnvs("ALLOWED_HEADERS", nil),
 		AllowedMethods: getEnvs("ALLOWED_METHODS", nil),
-		JWTSecretKey:   getJWTSecretKey("JWT_SECRET_KEY"),
-		JWTRefreshKey:  getJWTSecretKey("JWT_REFRESH_KEY"),
+		JWTSecretKey:   getSecretKey("JWT_SECRET_KEY"),
+		JWTRefreshKey:  getSecretKey("JWT_REFRESH_KEY"),
+		ServiceSecret:  getSecretKey("SERVICE_SECRET"),
 		AS_OPERATOR:    getBoolEnv("AS_OPERATOR", "false"),
 	}
 
@@ -83,10 +86,10 @@ func LoadConfig(path string) EnvConfig {
 	return config
 }
 
-func getJWTSecretKey(envVar string) []byte {
+func getSecretKey(envVar string) []byte {
 	secret := os.Getenv(envVar)
 	if secret == "" {
-		log.Fatalf("%s must not be empty", secret)
+		log.Fatalf("Config variable %s must not be empty", envVar)
 	}
 	return []byte(secret)
 }

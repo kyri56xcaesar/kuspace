@@ -74,6 +74,7 @@ func (srv *UService) Serve() {
 	*    to the permissions of the user. For now, we will just implement the endpoints without any
 	* */
 	apiV1 := srv.Engine.Group("/api/v1")
+	apiV1.Use(serviceAuth(srv))
 	{
 		/* equivalent to "ls", will return the resources, from the given path*/
 		apiV1.GET("/resources", srv.ResourcesHandler)
@@ -93,6 +94,7 @@ func (srv *UService) Serve() {
 	}
 
 	admin := apiV1.Group("/admin")
+	admin.Use(serviceAuth(srv))
 	{
 		admin.POST("/resources", srv.PostResourcesHandler)
 
@@ -106,6 +108,12 @@ func (srv *UService) Serve() {
 		admin.POST("/user/volume", srv.HandleUserVolumes)
 		admin.PATCH("/user/volume", srv.HandleUserVolumes)
 		admin.DELETE("/user/volume", srv.HandleUserVolumes)
+
+		admin.GET("/group/volume", srv.HandleGroupVolumes)
+		admin.POST("/group/volume", srv.HandleGroupVolumes)
+		admin.PATCH("/group/volume", srv.HandleGroupVolumes)
+		admin.DELETE("/group/volume", srv.HandleGroupVolumes)
+
 	}
 	/* context handler */
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

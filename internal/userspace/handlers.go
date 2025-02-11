@@ -30,8 +30,6 @@ import (
 *
 * */
 func BindAccessTarget(http_header string) (*AccessClaim, error) {
-	log.Printf("trying to bind header: %s", http_header)
-
 	parts := strings.SplitN(http_header, " ", 2)
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("invalid header format")
@@ -163,6 +161,8 @@ func buildTreeRec(tree map[string]interface{}, entry []string, resource Resource
 * simple resource
 *
 * WARNING: don't use this...
+* resource uploading is sufficient, "directories" are pseudo elements.
+* resource path is enough.
 * */
 func (srv *UService) PostResourcesHandler(c *gin.Context) {
 	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
@@ -384,7 +384,7 @@ func (srv *UService) HandleUpload(c *gin.Context) {
 
 	// 3]: determine physical destination path
 	// parse the form files
-	err = c.Request.ParseMultipartForm(10 << 20)
+	err = c.Request.ParseMultipartForm(10 << 10)
 	if err != nil {
 		log.Printf("failed to parse multipart form: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to parse multipart form"})
@@ -399,10 +399,21 @@ func (srv *UService) HandleUpload(c *gin.Context) {
 	for _, fileHeader := range c.Request.MultipartForm.File["files"] {
 		totalUploadSize += fileHeader.Size
 	}
+
+	// 3.1] Should check if user is limited by a quota
+	err = srv.ClaimVolumeSpace(totalUploadSize, ac)
+	if err != nil {
+		log.Printf("unable to proceed with resource: %v", err)
+		c.JSON(http.StatusForbidden, gin.H{"error": "not allowed"})
+		return
+	}
+
+	// perhaphs we could avoid this step, since we checking frm volume metadata
+	// 3.2] or by the system..
 	physicalPath, err := determinePhysicalStorage(srv.config.Volumes+ac.Target, totalUploadSize)
 	if err != nil {
 		log.Printf("could't establish physical storage: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "storage failure"})
+		c.JSON(http.StatusInsufficientStorage, gin.H{"error": "storage failure"})
 		return
 	}
 
@@ -449,6 +460,7 @@ func (srv *UService) HandleUpload(c *gin.Context) {
 			Accessed_at: currentTime,
 			Perms:       "rw-r--r--",
 			Uid:         uid,
+			Gid:         uid,
 			Size:        int(fileHeader.Size),
 		}
 
@@ -523,12 +535,29 @@ func (srv *UService) HandlePreview(c *gin.Context) {
 func (srv *UService) HandleVolumes(c *gin.Context) {
 	switch c.Request.Method {
 	case http.MethodGet:
-		volumes, err := srv.dbh.GetVolumes()
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
-			return
+
+		vid := c.Request.URL.Query().Get("vid")
+		if vid != "" {
+			vid_int, err := strconv.Atoi(vid)
+			if err != nil {
+				log.Printf("failed to atoi vid: %v", err)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "bad vid"})
+				return
+			}
+			volume, err := srv.dbh.GetVolumeByVid(vid_int)
+			if err != nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"content": volume})
+		} else {
+			volumes, err := srv.dbh.GetVolumes()
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"content": volumes})
 		}
-		c.JSON(http.StatusOK, gin.H{"content": volumes})
 
 	case http.MethodPut:
 		c.JSON(200, gin.H{"status": "tbd"})
@@ -577,22 +606,226 @@ func (srv *UService) HandleVolumes(c *gin.Context) {
 func (srv *UService) HandleUserVolumes(c *gin.Context) {
 	switch c.Request.Method {
 	case http.MethodPost:
+		var (
+			userVolumes []UserVolume
+			userVolume  UserVolume
+		)
+
+		err := c.BindJSON(&userVolumes)
+		if err != nil {
+			log.Printf("didn't bind usersVolumes, lets try a userVolume..")
+			err = c.BindJSON(&userVolume)
+			// single userVolume
+			if err != nil {
+				log.Printf("fail to bind body: %v", err)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "bad request, failed to bind"})
+				return
+			}
+			err = srv.dbh.InsertUserVolume(userVolume)
+			if err != nil {
+				log.Printf("failed to insert user volume: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert uv"})
+				return
+			}
+			c.JSON(http.StatusCreated, gin.H{"status": "inserted user volume"})
+			return
+		}
+		// binded user
+		err = srv.dbh.InsertUserVolumes(userVolumes)
+		if err != nil {
+			log.Printf("failed to insert user volumes: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert uv"})
+			return
+		}
+		c.JSON(http.StatusCreated, gin.H{"status": "inserted user volumes"})
+
 	case http.MethodDelete:
 	case http.MethodPatch:
 	case http.MethodGet:
+		uids := c.Request.URL.Query().Get("uids")
+		vids := c.Request.URL.Query().Get("vids")
+		var (
+			userVolumes []UserVolume
+			data        interface{}
+			err         error
+		)
+
+		if uids == "" && vids == "" {
+			// return all
+			data, err = srv.dbh.GetUserVolumes()
+			if err != nil {
+				log.Printf("failed to retrieve user volumes: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user volumes"})
+				return
+			}
+			userVolumes = data.([]UserVolume)
+		} else if uids == "" {
+			// return by vids
+			data, err = srv.dbh.GetUserVolumesByVolumeIds(strings.Split(strings.TrimSpace(vids), ","))
+			if err != nil {
+				log.Printf("failed to retrieve user volumes: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user volumes"})
+				return
+			}
+			userVolumes = data.([]UserVolume)
+		} else if vids == "" {
+			// return by uids
+			data, err = srv.dbh.GetUserVolumesByUserIds(strings.Split(strings.TrimSpace(uids), ","))
+			if err != nil {
+				log.Printf("failed to retrieve user volumes: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user volumes"})
+				return
+			}
+			userVolumes = data.([]UserVolume)
+		} else {
+			// return by both
+			data, err = srv.dbh.GetUserVolumesByUidsAndVids(strings.Split(strings.TrimSpace(uids), ","), strings.Split(strings.TrimSpace(vids), ","))
+			if err != nil {
+				log.Printf("failed to retrieve user volumes: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user volumes"})
+				return
+			}
+			userVolumes = data.([]UserVolume)
+		}
+		c.JSON(http.StatusOK, userVolumes)
+
 	default:
 		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "method not allowed"})
 	}
+}
+
+func (srv *UService) HandleGroupVolumes(c *gin.Context) {
+	switch c.Request.Method {
+	case http.MethodPost:
+		var (
+			groupVolumes []GroupVolume
+			groupVolume  GroupVolume
+		)
+
+		err := c.BindJSON(&groupVolumes)
+		if err != nil {
+			log.Printf("didn't bind groupVolumes, lets try a groupVolume..")
+			err = c.BindJSON(&groupVolume)
+			// single userVolume
+			if err != nil {
+				log.Printf("fail to bind body: %v", err)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "bad request, failed to bind"})
+				return
+			}
+			err = srv.dbh.InsertGroupVolume(groupVolume)
+			if err != nil {
+				log.Printf("failed to insert group volume: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert gv"})
+				return
+			}
+			c.JSON(http.StatusCreated, gin.H{"status": "inserted group volume"})
+			return
+		}
+		// binded user
+		err = srv.dbh.InsertGroupVolumes(groupVolumes)
+		if err != nil {
+			log.Printf("failed to insert group volumes: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert gv"})
+			return
+		}
+		c.JSON(http.StatusCreated, gin.H{"status": "inserted group volumes"})
+
+	case http.MethodDelete:
+	case http.MethodPatch:
+	case http.MethodGet:
+		gids := c.Request.URL.Query().Get("gids")
+		vids := c.Request.URL.Query().Get("vids")
+		var (
+			groupVolumes []GroupVolume
+			data         interface{}
+			err          error
+		)
+
+		if gids == "" && vids == "" {
+			// return all
+			data, err = srv.dbh.GetGroupVolumes()
+			if err != nil {
+				log.Printf("failed to retrieve group volumes: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve group volumes"})
+				return
+			}
+			groupVolumes = data.([]GroupVolume)
+		} else if gids == "" {
+			// return by vids
+			data, err = srv.dbh.GetGroupVolumesByVolumeIds(strings.Split(strings.TrimSpace(vids), ","))
+			if err != nil {
+				log.Printf("failed to retrieve group volumes: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve group volumes"})
+				return
+			}
+			groupVolumes = data.([]GroupVolume)
+		} else if vids == "" {
+			// return by uids
+			data, err = srv.dbh.GetGroupVolumesByGroupIds(strings.Split(strings.TrimSpace(gids), ","))
+			if err != nil {
+				log.Printf("failed to retrieve group volumes: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve group volumes"})
+				return
+			}
+			groupVolumes = data.([]GroupVolume)
+		} else {
+			// return by both
+			data, err = srv.dbh.GetGroupVolumesByVidsAndGids(strings.Split(strings.TrimSpace(vids), ","), strings.Split(strings.TrimSpace(gids), ","))
+			if err != nil {
+				log.Printf("failed to retrieve group volumes: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retireve group volumes"})
+				return
+			}
+			groupVolumes = data.([]GroupVolume)
+		}
+		c.JSON(http.StatusOK, groupVolumes)
+
+	default:
+		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "method not allowed"})
+	}
+}
+
+func (srv *UService) ClaimVolumeSpace(size int64, ac *AccessClaim) error {
+	// for now:
+	ac.Vid = 1
+	volume, err := srv.dbh.GetVolumeByVid(ac.Vid)
+	if err != nil {
+		log.Printf("could not retrieve volume: %v", err)
+		return fmt.Errorf("could not retrieve volume: %w", err)
+	}
+	// check for current volume usage.
+	// size is in Bytes
+	size_inGB := float32(size) / 1000000000
+
+	if volume.Usage+size_inGB > volume.Capacity {
+		log.Printf("volume is full.")
+		return fmt.Errorf("claim exceeds capacity")
+	}
+
+	log.Printf("current size: %v, volume: %+v", size_inGB, volume)
+
+	// if not dynamic, we should check for per user/group quota
+	uv, err := srv.dbh.GetUserVolumesByUserIds([]string{ac.Uid})
+	if err != nil {
+		log.Printf("failed to retrieve user volume: %v", err)
+		return err
+	}
+	log.Printf("user volume: %+v", uv)
+
+	gv, err := srv.dbh.GetGroupVolumesByGroupIds(strings.Split(ac.Gids, ","))
+	if err != nil {
+		log.Printf("failed to retrieve group volume: %v", err)
+		return err
+	}
+	log.Printf("group volume: %+v", gv)
+
+	return nil
 }
 
 /* this should be determined by configurating Volume destination.
 *  also it will ensure the destination location exists.
 * */
 func determinePhysicalStorage(target string, fileSize int64) (string, error) {
-	// TODO: check
-
-	log.Printf("recieving target: %s", target)
-
 	targetParts := strings.Split(target, "/")
 	availableSpace, err := ut.GetAvailableSpace(strings.Join(targetParts[:2], "/"))
 	if err != nil {
@@ -621,9 +854,7 @@ func determinePhysicalStorage(target string, fileSize int64) (string, error) {
 		}
 	}
 
-	log.Printf("targetParts: %v", targetParts)
 	for index, part := range targetParts[2:] {
-		log.Printf("index: %v, part: %v", index, part)
 		if part == "" || index == len(targetParts)-1 {
 			continue
 		}

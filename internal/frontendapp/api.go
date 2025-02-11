@@ -77,7 +77,7 @@ func (srv *HTTPService) ServeHTTP() {
 	root := srv.Engine.Group("/")
 	{
 		root.GET("/", func(c *gin.Context) {
-			c.Redirect(http.StatusFound, "/api/"+apiVersion)
+			c.Redirect(http.StatusFound, "/api/"+apiVersion+"/login")
 		})
 
 		root.GET("/healthz", func(c *gin.Context) {

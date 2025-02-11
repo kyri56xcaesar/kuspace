@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	_ "github.com/marcboeker/go-duckdb"
 )
@@ -36,17 +37,24 @@ const (
       name TEXT,
       path TEXT,
 	  dynamic BOOLEAN,
-      capacity INTEGER,
-      usage INTEGER
+      capacity FLOAT,
+      usage FLOAT
     );
 
 	CREATE TABLE IF NOT EXISTS userVolume(
 		vid INTEGER,
 		uid INTEGER,
-		usage INTEGER,
-		quota INTEGER,
+		usage FLOAT,
+		quota FLOAT,
 		updated_at DATETIME
 	);
+  CREATE TABLE IF NOT EXISTS groupVolume(
+    vid INTEGER,
+    gid INTEGER,
+    usage FLOAT,
+    quota FLOAT,
+    updated_at DATETIME
+  );
 
     CREATE SEQUENCE IF NOT EXISTS seq_resourceid START 1;
     CREATE SEQUENCE IF NOT EXISTS seq_volumeid START 1; 
@@ -83,6 +91,7 @@ func (m *DBHandler) Close() {
 	}
 }
 
+/* Initialization routines for the userspace database */
 func (m *DBHandler) Init(database_path, volumes_path, capacity string) {
 	log.Printf("Initializing %v database", m.DBName)
 	_, err := os.Stat("data")
@@ -143,10 +152,21 @@ func (m *DBHandler) Init(database_path, volumes_path, capacity string) {
 	default_v_path = volumes_path
 }
 
+/* database call handlers regarding the UserVolume table */
+/* UNIQUE (vid, uid) pair*/
 func (m *DBHandler) InsertUserVolume(uv UserVolume) error {
 	db, err := m.getConn()
 	if err != nil {
 		return fmt.Errorf("failed to get database connection: %v", err)
+	}
+
+	// check for uniquness
+	var exists bool
+	err = db.QueryRow(`SELECT 1 FROM userVolume WHERE vid = ? AND uid = ? LIMIT 1;`, uv.Vid, uv.Uid).Scan(&exists)
+	log.Printf("exists? %v", exists)
+	if err != nil || exists {
+		log.Printf("error checking for uniqunes or not unique: %v", err)
+		return fmt.Errorf("error checking for uniqueness or not unique pair: %w", err)
 	}
 
 	query := `
@@ -157,6 +177,52 @@ func (m *DBHandler) InsertUserVolume(uv UserVolume) error {
 	_, err = db.Exec(query, uv.Vid, uv.Uid, uv.Usage, uv.Quota, uv.Updated_at)
 	if err != nil {
 		return fmt.Errorf("failed to insert user volume: %v", err)
+	}
+
+	return nil
+}
+
+func (m *DBHandler) InsertUserVolumes(uvs []UserVolume) error {
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("error getting db connection: %v", err)
+		return err
+	}
+	currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
+
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("error starting transaction: %v", err)
+		return err
+	}
+
+	placeholder := strings.Repeat("(?, ?, ?, ?, ?),", len(uvs))
+	query := fmt.Sprintf(`
+    INSERT INTO 
+      userVolume (vid, uid, usage, quota, updated_at)
+    VALUES %s`, placeholder[:len(placeholder)-1])
+
+	stmt, err := tx.Prepare(query)
+	if err != nil {
+		log.Printf("error preparing transaction: %v", err)
+		return err
+	}
+	defer stmt.Close()
+
+	for _, uv := range uvs {
+		uv.Updated_at = currentTime
+		_, err = stmt.Exec(uv.Fields()...)
+		if err != nil {
+			log.Printf("error executing transaction: %v", err)
+			tx.Rollback()
+			return err
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("failed to commit transaction: %v", err)
+		return err
 	}
 
 	return nil
@@ -335,7 +401,38 @@ func (m *DBHandler) UpdateUserVolumeQuotaAndUsageByUid(usage, quota, uid int) er
 	return nil
 }
 
-func (m *DBHandler) GetUserVolumesByUserIds(uids []int) (interface{}, error) {
+func (m *DBHandler) GetUserVolumes() (interface{}, error) {
+	db, err := m.getConn()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get database connection: %v", err)
+	}
+
+	query := `SELECT * FROM userVolume`
+
+	rows, err := db.Query(query, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query user volumes: %v", err)
+	}
+	defer rows.Close()
+
+	var userVolumes []UserVolume
+	for rows.Next() {
+		var uv UserVolume
+		err = rows.Scan(uv.PtrFields()...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan user volume: %v", err)
+		}
+		userVolumes = append(userVolumes, uv)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over rows: %v", err)
+	}
+
+	return userVolumes, nil
+}
+
+func (m *DBHandler) GetUserVolumesByUserIds(uids []string) (interface{}, error) {
 	db, err := m.getConn()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get database connection: %v", err)
@@ -373,7 +470,7 @@ func (m *DBHandler) GetUserVolumesByUserIds(uids []int) (interface{}, error) {
 	return userVolumes, nil
 }
 
-func (m *DBHandler) GetUserVolumesByVolumeIds(vids []int) (interface{}, error) {
+func (m *DBHandler) GetUserVolumesByVolumeIds(vids []string) (interface{}, error) {
 	db, err := m.getConn()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get database connection: %v", err)
@@ -411,6 +508,455 @@ func (m *DBHandler) GetUserVolumesByVolumeIds(vids []int) (interface{}, error) {
 	return userVolumes, nil
 }
 
+func (m *DBHandler) GetUserVolumesByUidsAndVids(uids, vids []string) (interface{}, error) {
+	db, err := m.getConn()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get database connection: %v", err)
+	}
+
+	query := `
+		SELECT 
+      * 
+    FROM 
+      userVolume 
+    WHERE 
+      vid IN (?` + strings.Repeat(",?", len(vids)-1) + `)
+    AND 
+      uid IN (?` + strings.Repeat(",?", len(uids)-1) + `)
+	  	
+  `
+
+	args := make([]interface{}, len(vids))
+	for i, uid := range vids {
+		args[i] = uid
+	}
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query user volumes: %v", err)
+	}
+	defer rows.Close()
+
+	var userVolumes []UserVolume
+	for rows.Next() {
+		var uv UserVolume
+		err = rows.Scan(uv.PtrFields()...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan user volume: %v", err)
+		}
+		userVolumes = append(userVolumes, uv)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over rows: %v", err)
+	}
+
+	return userVolumes, nil
+}
+
+/* database call handlers regarding the GroupVolume tabke*/
+
+/* UNIQUE pair (gid, vid) SHOULD BE (we checking)*/
+func (m *DBHandler) InsertGroupVolume(gv GroupVolume) error {
+	db, err := m.getConn()
+	if err != nil {
+		return fmt.Errorf("failed to get database connection: %v", err)
+	}
+
+	// check for uniquness
+	var exists bool
+	err = db.QueryRow(`SELECT 1 FROM groupVolume WHERE vid = ? AND gid = ? LIMIT 1;`, gv.Vid, gv.Gid).Scan(&exists)
+	log.Printf("exists? %v", exists)
+	if err != nil || exists {
+		log.Printf("error checking for uniqunes or not unique: %v", err)
+		return fmt.Errorf("error checking for uniqueness or not unique pair: %w", err)
+	}
+
+	query := `
+		INSERT INTO groupVolume (vid, gid, usage, quota, updated_at)
+		VALUES (?, ?, ?, ?, ?)
+	`
+
+	_, err = db.Exec(query, gv.Vid, gv.Gid, gv.Usage, gv.Quota, gv.Updated_at)
+	if err != nil {
+		return fmt.Errorf("failed to insert group volume: %v", err)
+	}
+
+	return nil
+}
+
+func (m *DBHandler) InsertGroupVolumes(gvs []GroupVolume) error {
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("error getting db connection: %v", err)
+		return err
+	}
+	currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
+
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("error starting transaction: %v", err)
+		return err
+	}
+
+	placeholder := strings.Repeat("(?, ?, ?, ?, ?),", len(gvs))
+	query := fmt.Sprintf(`
+    INSERT INTO 
+      groupVolume (vid, gid, usage, quota, updated_at)
+    VALUES %s`, placeholder[:len(placeholder)-1])
+
+	stmt, err := tx.Prepare(query)
+	if err != nil {
+		log.Printf("error preparing transaction: %v", err)
+		return err
+	}
+	defer stmt.Close()
+
+	for _, gv := range gvs {
+		gv.Updated_at = currentTime
+		_, err = stmt.Exec(gv.Fields()...)
+		if err != nil {
+			log.Printf("error executing transaction: %v", err)
+			tx.Rollback()
+			return err
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("failed to commit transaction: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func (m *DBHandler) DeleteGroupVolumeByGid(gid int) error {
+	db, err := m.getConn()
+	if err != nil {
+		return fmt.Errorf("failed to get database connection: %v", err)
+	}
+
+	query := `DELETE FROM groupVolume WHERE gid = ?`
+
+	_, err = db.Exec(query, gid)
+	if err != nil {
+		return fmt.Errorf("failed to delete group volume: %v", err)
+	}
+
+	return nil
+}
+
+func (m *DBHandler) DeleteGroupVolumeByVid(vid int) error {
+	db, err := m.getConn()
+	if err != nil {
+		return fmt.Errorf("failed to get database connection: %v", err)
+	}
+
+	query := `DELETE FROM groupVolume WHERE vid = ?`
+
+	_, err = db.Exec(query, vid)
+	if err != nil {
+		return fmt.Errorf("failed to delete group volume: %v", err)
+	}
+
+	return nil
+}
+
+func (m *DBHandler) UpdateGroupVolume(gv GroupVolume) error {
+	var setClauses []string
+	var params []interface{}
+
+	val := reflect.ValueOf(gv)
+	typ := reflect.TypeOf(gv)
+
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Field(i)
+		fieldName := typ.Field(i).Name
+
+		if isEmpty(field) {
+			continue
+		}
+
+		columnName := toSnakeCase(fieldName)
+		setClauses = append(setClauses, fmt.Sprintf("%s = ?", columnName))
+		params = append(params, field.Interface())
+	}
+
+	if len(setClauses) == 0 {
+		return fmt.Errorf("no fields to update")
+	}
+
+	params = append(params, gv.Vid, gv.Gid)
+
+	query := fmt.Sprintf(`
+		UPDATE groupVolume
+		SET %s
+		WHERE vid = ? AND gid = ?
+	`, strings.Join(setClauses, ", "))
+
+	db, err := m.getConn()
+	if err != nil {
+		return fmt.Errorf("failed to get database connection: %v", err)
+	}
+
+	_, err = db.Exec(query, gv.Usage, gv.Quota, gv.Updated_at, gv.Vid, gv.Gid)
+	if err != nil {
+		return fmt.Errorf("failed to update group volume: %v", err)
+	}
+
+	return nil
+}
+
+func (m *DBHandler) UpdateGroupVolumeQuotaByGid(quota, gid int) error {
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("failed to retrieve database connection: %v", err)
+		return err
+	}
+
+	query := `
+    UPDATE 
+      groupVolume
+    SET
+      quota = ? 
+    WHERE 
+      gid = ?
+      
+  `
+
+	res, err := db.Exec(query, quota, gid)
+	if err != nil {
+		log.Printf("failed to exec query: %v", err)
+		return err
+	}
+
+	rAff, err := res.RowsAffected()
+	if err != nil {
+		log.Printf("failed to retrieve info about rows affected")
+		return err
+	}
+	log.Printf("rows affected: %v", rAff)
+	return nil
+}
+
+func (m *DBHandler) UpdateGroupVolumeUsageByGid(usage, gid int) error {
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("failed to retrieve database connection: %v", err)
+		return err
+	}
+
+	query := `
+    UPDATE 
+      groupVolume
+    SET
+      usage = ? 
+    WHERE 
+      gid = ?
+      
+  `
+
+	res, err := db.Exec(query, usage, gid)
+	if err != nil {
+		log.Printf("failed to exec query: %v", err)
+		return err
+	}
+
+	rAff, err := res.RowsAffected()
+	if err != nil {
+		log.Printf("failed to retrieve info about rows affected")
+		return err
+	}
+	log.Printf("rows affected: %v", rAff)
+	return nil
+}
+
+func (m *DBHandler) UpdateGroupVolumeQuotaAndUsageByUid(usage, quota, gid int) error {
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("failed to retrieve database connection: %v", err)
+		return err
+	}
+
+	query := `
+    UPDATE 
+      groupVolume
+    SET
+      usage = ?, quota = ? 
+    WHERE 
+      gid = ?
+      
+  `
+
+	res, err := db.Exec(query, usage, quota, gid)
+	if err != nil {
+		log.Printf("failed to exec query: %v", err)
+		return err
+	}
+
+	rAff, err := res.RowsAffected()
+	if err != nil {
+		log.Printf("failed to retrieve info about rows affected")
+		return err
+	}
+	log.Printf("rows affected: %v", rAff)
+	return nil
+}
+
+func (m *DBHandler) GetGroupVolumes() (interface{}, error) {
+	db, err := m.getConn()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get database connection: %v", err)
+	}
+
+	query := `SELECT * FROM groupVolume`
+
+	rows, err := db.Query(query, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query group volumes: %v", err)
+	}
+	defer rows.Close()
+
+	var groupVolumes []GroupVolume
+	for rows.Next() {
+		var gv GroupVolume
+		err = rows.Scan(gv.PtrFields()...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan group volume: %v", err)
+		}
+		groupVolumes = append(groupVolumes, gv)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over rows: %v", err)
+	}
+
+	return groupVolumes, nil
+}
+
+func (m *DBHandler) GetGroupVolumesByGroupIds(gids []string) (interface{}, error) {
+	db, err := m.getConn()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get database connection: %v", err)
+	}
+
+	query := `
+			SELECT * FROM groupVolume WHERE gid IN (?` + strings.Repeat(",?", len(gids)-1) + `)
+		`
+
+	args := make([]interface{}, len(gids))
+	for i, uid := range gids {
+		args[i] = uid
+	}
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query group volumes: %v", err)
+	}
+	defer rows.Close()
+
+	var groupVolumes []GroupVolume
+	for rows.Next() {
+		var gv GroupVolume
+		err = rows.Scan(gv.PtrFields()...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan group volume: %v", err)
+		}
+		groupVolumes = append(groupVolumes, gv)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over rows: %v", err)
+	}
+
+	return groupVolumes, nil
+}
+
+func (m *DBHandler) GetGroupVolumesByVolumeIds(vids []string) (interface{}, error) {
+	db, err := m.getConn()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get database connection: %v", err)
+	}
+
+	query := `
+			SELECT * FROM groupVolume WHERE vid IN (?` + strings.Repeat(",?", len(vids)-1) + `)
+		`
+
+	args := make([]interface{}, len(vids))
+	for i, uid := range vids {
+		args[i] = uid
+	}
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query group volumes: %v", err)
+	}
+	defer rows.Close()
+
+	var groupVolumes []GroupVolume
+	for rows.Next() {
+		var gv GroupVolume
+		err = rows.Scan(gv.PtrFields()...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan group volume: %v", err)
+		}
+		groupVolumes = append(groupVolumes, gv)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over rows: %v", err)
+	}
+
+	return groupVolumes, nil
+}
+
+func (m *DBHandler) GetGroupVolumesByVidsAndGids(vids, gids []string) (interface{}, error) {
+	db, err := m.getConn()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get database connection: %v", err)
+	}
+
+	query := `
+		SELECT 
+      * 
+    FROM 
+      groupVolume 
+    WHERE 
+      vid IN (?` + strings.Repeat(",?", len(vids)-1) + `)
+    AND 
+      gid IN (?` + strings.Repeat(",?", len(gids)-1) + `)
+	`
+
+	args := make([]interface{}, len(vids))
+	for i, uid := range vids {
+		args[i] = uid
+	}
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query group volumes: %v", err)
+	}
+	defer rows.Close()
+
+	var groupVolumes []GroupVolume
+	for rows.Next() {
+		var gv GroupVolume
+		err = rows.Scan(gv.PtrFields()...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan group volume: %v", err)
+		}
+		groupVolumes = append(groupVolumes, gv)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over rows: %v", err)
+	}
+
+	return groupVolumes, nil
+}
+
+/* database call handlers regarding the Volume table */
 func (m *DBHandler) GetVolumes() ([]Volume, error) {
 	db, err := m.getConn()
 	if err != nil {
@@ -441,6 +987,21 @@ func (m *DBHandler) GetVolumes() ([]Volume, error) {
 	}
 
 	return volumes, nil
+}
+
+func (m *DBHandler) GetVolumeByVid(vid int) (Volume, error) {
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("failed to get database connection: %v", err)
+		return Volume{}, err
+	}
+	var volume Volume
+	err = db.QueryRow(`SELECT * FROM volumes WHERE vid = ?`, vid).Scan(volume.PtrFields()...)
+	if err != nil {
+		log.Printf("failed to scan result query: %v", err)
+		return Volume{}, err
+	}
+	return volume, nil
 }
 
 func (m *DBHandler) UpdateVolume(volume Volume) error {
@@ -507,6 +1068,116 @@ func (m *DBHandler) InsertVolume(volume Volume) error {
 	return nil
 }
 
+func (m *DBHandler) InsertVolumes(volumes []Volume) error {
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("error getting db connection: %v", err)
+		return err
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("error starting transaction: %v", err)
+		return err
+	}
+
+	placeholder := strings.Repeat("(nextval('seq_volumeid'), ?, ?, ?),", len(volumes))
+	query := fmt.Sprintf(`
+    INSERT INTO 
+      volumes (vid, path, capacity, usage)
+    VALUES %s`, placeholder[:len(placeholder)-1])
+
+	stmt, err := tx.Prepare(query)
+	if err != nil {
+		log.Printf("error preparing transaction: %v", err)
+		return err
+	}
+	defer stmt.Close()
+
+	for _, v := range volumes {
+		_, err = stmt.Exec(v.Path, v.Capacity, v.Usage)
+		if err != nil {
+			log.Printf("error executing transaction: %v", err)
+			tx.Rollback()
+			return err
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("failed to commit transaction: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func (m *DBHandler) SelectAllVolumes() ([]Volume, error) {
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("error getting db connection: %v", err)
+		return nil, err
+	}
+
+	query := `
+    SELECT *
+    FROM volumes
+  `
+	rows, err := db.Query(query, nil)
+	if err != nil {
+		log.Printf("error querying: %v", err)
+		return nil, err
+	}
+
+	var volumes []Volume
+	for rows.Next() {
+		var volume Volume
+		err := rows.Scan(volume.PtrFields())
+		if err != nil {
+			log.Printf("failed to scan volume: %v", err)
+			return nil, err
+		}
+		volumes = append(volumes, volume)
+	}
+
+	return volumes, nil
+}
+
+func (m *DBHandler) DeleteVolumeByIds(ids []int) error {
+	if ids == nil {
+		return fmt.Errorf("must provide ids")
+	}
+
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("error getting database connetion")
+		return err
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("error starting transaction: %v", err)
+		return err
+	}
+
+	res, err := tx.Exec("DELETE FROM volumes WHERE vid IN (?)", ids)
+	if err != nil {
+		log.Printf("failed to exec deleteion query: %v", err)
+		return err
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		log.Printf("failed to retrieve rows affected: %v", err)
+		return err
+	}
+
+	log.Printf("deleted %v entries", rowsAffected)
+
+	return nil
+}
+
+/* database call handlers regarding the Resource table */
 func (m *DBHandler) InsertResource(resource Resource) error {
 	db, err := m.getConn()
 	if err != nil {
@@ -794,7 +1465,7 @@ func (m *DBHandler) GetResourceByFilepath(filepath string) (*Resource, error) {
 
 func (m *DBHandler) DeleteResourcesByIds(rids []string) error {
 	// can't have empty arg (might be destructive)
-	if rids == nil || len(rids) == 0 {
+	if len(rids) == 0 {
 		log.Printf("empty argument, returning...")
 		return fmt.Errorf("must provide input ids")
 	}
@@ -1104,115 +1775,6 @@ func (m *DBHandler) UpdateResourceById(rid int, r Resource) error {
 	}
 
 	stmt.Exec()
-
-	return nil
-}
-
-func (m *DBHandler) InsertVolumes(volumes []Volume) error {
-	db, err := m.getConn()
-	if err != nil {
-		log.Printf("error getting db connection: %v", err)
-		return err
-	}
-
-	tx, err := db.Begin()
-	if err != nil {
-		log.Printf("error starting transaction: %v", err)
-		return err
-	}
-
-	placeholder := strings.Repeat("(nextval('seq_volumeid'), ?, ?, ?),", len(volumes))
-	query := fmt.Sprintf(`
-    INSERT INTO 
-      volumes (vid, path, capacity, usage)
-    VALUES %s`, placeholder[:len(placeholder)-1])
-
-	stmt, err := tx.Prepare(query)
-	if err != nil {
-		log.Printf("error preparing transaction: %v", err)
-		return err
-	}
-	defer stmt.Close()
-
-	for _, v := range volumes {
-		_, err = stmt.Exec(v.Path, v.Capacity, v.Usage)
-		if err != nil {
-			log.Printf("error executing transaction: %v", err)
-			tx.Rollback()
-			return err
-		}
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		log.Printf("failed to commit transaction: %v", err)
-		return err
-	}
-
-	return nil
-}
-
-func (m *DBHandler) SelectAllVolumes() ([]Volume, error) {
-	db, err := m.getConn()
-	if err != nil {
-		log.Printf("error getting db connection: %v", err)
-		return nil, err
-	}
-
-	query := `
-    SELECT *
-    FROM volumes
-  `
-	rows, err := db.Query(query, nil)
-	if err != nil {
-		log.Printf("error querying: %v", err)
-		return nil, err
-	}
-
-	var volumes []Volume
-	for rows.Next() {
-		var volume Volume
-		err := rows.Scan(volume.PtrFields())
-		if err != nil {
-			log.Printf("failed to scan volume: %v", err)
-			return nil, err
-		}
-		volumes = append(volumes, volume)
-	}
-
-	return volumes, nil
-}
-
-func (m *DBHandler) DeleteVolumeByIds(ids []int) error {
-	if ids == nil {
-		return fmt.Errorf("must provide ids")
-	}
-
-	db, err := m.getConn()
-	if err != nil {
-		log.Printf("error getting database connetion")
-		return err
-	}
-
-	tx, err := db.Begin()
-	if err != nil {
-		log.Printf("error starting transaction: %v", err)
-		return err
-	}
-
-	res, err := tx.Exec("DELETE FROM volumes WHERE vid IN (?)", ids)
-	if err != nil {
-		log.Printf("failed to exec deleteion query: %v", err)
-		return err
-	}
-
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		log.Printf("failed to retrieve rows affected: %v", err)
-		return err
-	}
-
-	log.Printf("deleted %v entries", rowsAffected)
 
 	return nil
 }

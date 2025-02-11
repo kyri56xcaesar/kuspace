@@ -264,6 +264,53 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 		c.JSON(resp.StatusCode, ErrResp)
 		return
 	}
+
+	var useraddResp struct {
+		Message   string `json:"message"`
+		Login_url string `json:"login_url"`
+	}
+	err = json.NewDecoder(resp.Body).Decode(&useraddResp)
+	if err != nil {
+		log.Printf("failed to decode resp json body: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to decode response"})
+		return
+	}
+	uid, err := strconv.Atoi(strings.Split(useraddResp.Message, " ")[1])
+	if err != nil {
+		log.Printf("failed to retrieve and atoi uid of added user: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve uid"})
+		return
+	}
+
+	type uvClaim struct {
+		Updated_at string  `json:"updated_at"`
+		Vid        int     `json:"vid"`
+		Uid        int     `json:"uid"`
+		Usage      float32 `json:"usage"`
+		Quota      float32 `json:"quota"`
+	}
+
+	json_data, err := json.Marshal(uvClaim{Vid: 1, Uid: uid})
+	if err != nil {
+		log.Printf("failed to marshal to json: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
+		return
+	}
+	req, err := http.NewRequest(http.MethodPost, apiServiceURL+"/api/v1/admin/user/volume", bytes.NewBuffer(json_data))
+	if err != nil {
+		log.Printf("failed to create a new request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
+		return
+	}
+
+	go func() {
+		_, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Printf("failed to send user volume claim request: %v", err)
+		}
+	}()
+
+	c.JSON(http.StatusOK, gin.H{"status": "user added"})
 }
 
 func (srv *HTTPService) handleUserdel(c *gin.Context) {
@@ -581,6 +628,7 @@ func (srv *HTTPService) handleFetchResources(c *gin.Context) {
 		return
 	}
 	req.Header.Set("Access-Target", "/ 0:0")
+	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
 	// req.Header.Set("Authorization", "Bearer "+acc)
 
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -591,6 +639,17 @@ func (srv *HTTPService) handleFetchResources(c *gin.Context) {
 		return
 	}
 	defer response.Body.Close()
+
+	if response.StatusCode >= 300 {
+		c.Status(http.StatusBadGateway)
+		_, err = io.Copy(c.Writer, response.Body)
+		if err != nil {
+			log.Printf("failed to write response: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write response"})
+			return
+		}
+		return
+	}
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
@@ -646,6 +705,7 @@ func (srv *HTTPService) handleResourceUpload(c *gin.Context) {
 	}
 	req.Header.Add("Access-Target", fmt.Sprintf("/ %v:%v", uid, group_ids))
 	req.Header.Add("Authorization", c.Request.Header.Get("Authorization"))
+	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
 
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -694,6 +754,7 @@ func (srv *HTTPService) handleResourceDownload(c *gin.Context) {
 	}
 	req.Header.Add("Access-Target", fmt.Sprintf("%v %v:%v", fpath, uid, group_ids))
 	req.Header.Add("Authorization", c.Request.Header.Get("Authorization"))
+	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
 
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -741,6 +802,7 @@ func (srv *HTTPService) handleResourcePreview(c *gin.Context) {
 		}
 	}
 	req.Header.Add("Access-Target", fmt.Sprintf("%v %v:%v", r_name, whoami, groups))
+	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
 
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -815,6 +877,7 @@ func (srv *HTTPService) handleResourceMove(c *gin.Context) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Add("Authorization", "Bearer "+access_token)
 	req.Header.Add("Access-Target", fmt.Sprintf("%v %v:%v", r_name, user_id, gids))
+	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Printf("failed to forward request: %v", err)
@@ -861,6 +924,7 @@ func (srv *HTTPService) handleResourceDelete(c *gin.Context) {
 
 	req.Header.Add("Access-Target", fmt.Sprintf("/ %v:%v", uid, group_ids))
 	req.Header.Add("Authorization", c.Request.Header.Get("Authorization"))
+	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
 
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -925,6 +989,7 @@ func (srv *HTTPService) handleResourceCopy(c *gin.Context) {
 
 	req.Header.Add("Authorization", "Bearer "+access_token)
 	req.Header.Add("Access-Target", fmt.Sprintf("%v %v:%v", r_name, user_id, gids))
+	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Printf("failed to forward request: %v", err)
@@ -1004,6 +1069,7 @@ func (srv *HTTPService) handleResourcePerms(c *gin.Context) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Access-Target", fmt.Sprintf("/ %v:%v", whoami, mygroups))
 	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
 
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -1046,6 +1112,7 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 		return
 	}
 	userReq.Header.Set("Authorization", "Bearer "+accessToken)
+	userReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
 
 	groupReq, err := http.NewRequest(http.MethodGet, authServiceURL+"/admin/groups", nil)
 	if err != nil {
@@ -1054,6 +1121,7 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 		return
 	}
 	groupReq.Header.Set("Authorization", "Bearer "+accessToken)
+	groupReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
 
 	volumeReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/volumes", nil)
 	if err != nil {
@@ -1062,6 +1130,7 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 		return
 	}
 	volumeReq.Header.Set("Authorization", "Bearer "+accessToken)
+	volumeReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	var (

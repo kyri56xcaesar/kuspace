@@ -122,12 +122,12 @@ func (pt *PermTriplet) ToString() string {
 
 /* This will represent the physical volumes provides by Kubernetes and supervised by the controller */
 type Volume struct {
-	Name     string `json:"name"`
-	Path     string `json:"path"`
-	Vid      int    `json:"vid"`
-	Dynamic  bool   `json:"dynamic"`
-	Capacity int    `json:"capacity"`
-	Usage    int    `json:"usage"`
+	Name     string  `json:"name"`
+	Path     string  `json:"path"`
+	Vid      int     `json:"vid"`
+	Dynamic  bool    `json:"dynamic"`
+	Capacity float32 `json:"capacity"`
+	Usage    float32 `json:"usage"`
 }
 
 /* representative utility methods of the above structures */
@@ -167,11 +167,11 @@ func (v *Volume) PtrFieldsNoId() []any {
 
 /* a struct to represent each user volume relationship */
 type UserVolume struct {
-	Updated_at string `json:"updated_at"`
-	Vid        int    `json:"vid"`
-	Uid        int    `json:"uid"`
-	Usage      int    `json:"usage"`
-	Quota      int    `json:"quota"`
+	Updated_at string  `json:"updated_at"`
+	Vid        int     `json:"vid"`
+	Uid        int     `json:"uid"`
+	Usage      float32 `json:"usage"`
+	Quota      float32 `json:"quota"`
 }
 
 func (uv *UserVolume) PtrFields() []any {
@@ -180,6 +180,23 @@ func (uv *UserVolume) PtrFields() []any {
 
 func (uv *UserVolume) Fields() []any {
 	return []any{uv.Vid, uv.Uid, uv.Usage, uv.Quota, uv.Updated_at}
+}
+
+/* a struct to represent a volume claim by a group*/
+type GroupVolume struct {
+	Updated_at string  `json:"updated_at"`
+	Vid        int     `json:"vid"`
+	Gid        int     `json:"gid"`
+	Usage      float32 `json:"usage"`
+	Quota      float32 `json:"quota"`
+}
+
+func (gv *GroupVolume) PtrFields() []any {
+	return []any{&gv.Vid, &gv.Gid, &gv.Usage, &gv.Quota, &gv.Updated_at}
+}
+
+func (gv *GroupVolume) Fields() []any {
+	return []any{gv.Vid, gv.Gid, gv.Usage, gv.Quota, gv.Updated_at}
 }
 
 /* This service will handle requests
@@ -191,6 +208,7 @@ type AccessClaim struct {
 	Gids string `json:"group_ids"`
 
 	Target string `json:"target"`
+	Vid    int    `json:"volume_id"`
 }
 
 func (ac *AccessClaim) filter() AccessClaim {
@@ -199,6 +217,7 @@ func (ac *AccessClaim) filter() AccessClaim {
 		Uid:    strings.TrimSpace(ac.Uid),
 		Gids:   strings.TrimSpace(ac.Gids),
 		Target: strings.TrimSpace(ac.Target),
+		Vid:    ac.Vid,
 	}
 }
 

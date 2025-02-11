@@ -7,6 +7,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func serviceAuth(srv *UService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if s_secret_claim := c.GetHeader("X-Service-Secret"); s_secret_claim != "" {
+			if s_secret_claim == string(srv.config.ServiceSecret) {
+				c.Next()
+				return
+			}
+		}
+		c.JSON(http.StatusForbidden, gin.H{"error": "must provide service token"})
+		c.Abort()
+	}
+}
+
 func isOwner(srv *UService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
