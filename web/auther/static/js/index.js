@@ -118,16 +118,44 @@ function getCookie(name) {
 let fetchedUsers = null;
 let fetchedGroups = null;
 
-document.addEventListener('htmx:afterSwap', function (event) {
-  const verifyResultElement = document.getElementById('verify-result');
-  if (verifyResultElement) {
-    const result = verifyResultElement.textContent.trim();
-    if (result.toLowerCase() === 'true') {
-      verifyResultElement.className = 'true';
-    } else if (result.toLowerCase() === 'false') {
-      verifyResultElement.className = 'false';
+document.addEventListener('htmx:afterSettle', function(event) {
+  const triggeringElement = event.detail.elt;
+  const triggeringElementId = triggeringElement.id;
+  if (triggeringElementId === 'fetch-users-results')  {
+    // the dark mode part for all reload/partial html fethc
+    if (localStorage.getItem("darkMode") === "true") {
+      const table = event.detail.target.querySelector('#all-users-table');
+      if (table) {
+        table.classList.add('dark-mode');
+      }
+    }
+  } else if (triggeringElementId === 'fetch-groups-results') {
+    // the dark mode part for all reload/partial html fethc
+    if (localStorage.getItem("darkMode") === "true") {
+      const table = event.detail.target.querySelector('#all-groups-table');
+      if (table) {
+        table.classList.add('dark-mode');
+      }
     }
   }
+})
+
+document.addEventListener('htmx:afterSwap', function (event) {
+  const triggeringElement = event.detail.elt;
+  const triggeringElementId = triggeringElement.id;
+
+  if (triggeringElementId === 'hasher-verify-btn') {
+    const verifyResultElement = document.getElementById('verify-result');
+    if (verifyResultElement) {
+      const result = verifyResultElement.textContent.trim();
+      if (result.toLowerCase() === 'true') {
+        verifyResultElement.className = 'true';
+      } else if (result.toLowerCase() === 'false') {
+        verifyResultElement.className = 'false';
+      }
+    }
+  }
+  
 });
 
 document.addEventListener('htmx:beforeRequest', function(event) {
@@ -142,11 +170,9 @@ document.addEventListener('htmx:beforeRequest', function(event) {
 
 document.addEventListener('htmx:afterRequest', function (event) {
   const triggeringElement = event.detail.elt;
-  
+
   //console.log(triggeringElement.id);
 
-  console.log(triggeringElement.id);
-  console.log(event.detail.xhr.status);
   if (event.detail.xhr.status == 401 || event.detail.xhr.status == 303) {
     window.location.href = "/api/v1/login";
     location.reload(); 
@@ -287,10 +313,10 @@ document.addEventListener('htmx:afterRequest', function (event) {
  
 
   } else if (triggeringElement.id === 'add-group-form') {
-      if (event.detail.xhr.status >= 200 && event.detail.xhr.status <300) {
-        document.getElementById('reload-groups-btn').dispatchEvent(new Event('click'));
-        triggeringElement.reset();
-      } 
+    if (event.detail.xhr.status >= 200 && event.detail.xhr.status <300) {
+      document.getElementById('reload-groups-btn').dispatchEvent(new Event('click'));
+      triggeringElement.reset();
+    } 
     
 
   
@@ -334,7 +360,7 @@ document.addEventListener('htmx:afterRequest', function (event) {
           p.textContent = "Browse File to upload or drag & drop!";
         }, 2000)
       }
-    } else if (triggeringElement.className === "r-btn-delete") {
+  } else if (triggeringElement.className === "r-btn-delete") {
       if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
         document.querySelector("#fetch-resources-form").requestSubmit();
         document.getElementById("fetch-resources-form").scrollTo({ top: 0, behavior: "smooth"});
@@ -371,7 +397,7 @@ document.addEventListener('htmx:afterRequest', function (event) {
           hideProgressBar(document.querySelector(".r-loader"));
         }, 4000);
       }
-    } else if (triggeringElement.id === 'root-dashboard-loader') {
+  } else if (triggeringElement.id === 'root-dashboard-loader') {
       if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
         const profmenu = document.querySelector(".profile-menu");
         profmenu.remove();
@@ -391,16 +417,20 @@ document.addEventListener('htmx:afterRequest', function (event) {
           });
         });
       }
-    } else if (triggeringElement.id === 'permissionsInput' || triggeringElement.id === 'resource-path-select' || triggeringElement.id === 'resource-owner-select' || triggeringElement.id === 'resource-group-select') {
+  } else if (triggeringElement.id === 'permissionsInput' || triggeringElement.id === 'resource-path-select' || triggeringElement.id === 'resource-owner-select' || triggeringElement.id === 'resource-group-select') {
       if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
         
       } else {
 
       }
-    } else if (triggeringElement.id === 'preview-resource-btn') {
+  } else if (triggeringElement.id === 'preview-resource-btn') {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
       document.querySelector(".resource-preview-main").classList.remove("blurred");
       document.querySelector("#preview-resource-btn").remove();
+    }
+  } else if (triggeringElement.id === 'register-form') {
+    if (event.detail.xhr.status < 300) {
+      
     }
   }
 });

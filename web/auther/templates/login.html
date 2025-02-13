@@ -11,7 +11,12 @@
   <body style="visibility: hidden;">
     <script>0</script>
     <div class="main-login">
-      <form method="post" id="login-form" action="/api/v1/login">
+      <form 
+        id="login-form"   
+        hx-post="/api/1v/login" 
+        hx-trigger="submit"
+        hx-swap="none"
+      >
         <div class="login-logo">
           <a tabindex="-1" href="/">
             <img class="selectDisable" src=assets/logos/cropped.png>

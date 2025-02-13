@@ -44,7 +44,7 @@ func isOwner(srv *UService) gin.HandlerFunc {
 			return
 		}
 
-		if !resource.IsOwner(*ac) {
+		if !resource.IsOwner(ac) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "user does not own this file"})
 			c.Abort()
 			return
@@ -83,21 +83,21 @@ func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
 
 		switch mode {
 		case "r":
-			if !resource.HasAccess(*ac) {
+			if !resource.HasAccess(ac) {
 				log.Printf("user has no read access upon this resource")
 				c.JSON(http.StatusForbidden, gin.H{"error": "not allowed read access on resource"})
 				c.Abort()
 				return
 			}
 		case "w":
-			if !resource.HasWriteAccess(*ac) {
+			if !resource.HasWriteAccess(ac) {
 				log.Printf("user has no write access upon this resource")
 				c.JSON(http.StatusForbidden, gin.H{"error": "not allowed write access on resource"})
 				c.Abort()
 				return
 			}
 		case "x":
-			if !resource.HasExecutionAccess(*ac) {
+			if !resource.HasExecutionAccess(ac) {
 				log.Printf("user has no execution access upon this resource")
 				c.JSON(http.StatusForbidden, gin.H{"error": "not allowed execution access on resource"})
 				c.Abort()

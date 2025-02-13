@@ -1,6 +1,7 @@
 package userspace
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -29,10 +30,10 @@ import (
 *
 *
 * */
-func BindAccessTarget(http_header string) (*AccessClaim, error) {
+func BindAccessTarget(http_header string) (AccessClaim, error) {
 	parts := strings.SplitN(http_header, " ", 2)
 	if len(parts) != 2 {
-		return nil, fmt.Errorf("invalid header format")
+		return AccessClaim{}, fmt.Errorf("invalid header format")
 	}
 
 	target := parts[0]
@@ -43,10 +44,13 @@ func BindAccessTarget(http_header string) (*AccessClaim, error) {
 	sig := parts[1]
 	p := strings.SplitN(sig, ":", 2)
 	if len(p) != 2 {
-		return nil, fmt.Errorf("invalid signature format")
+		return AccessClaim{}, fmt.Errorf("invalid signature format")
+	}
+	if p == nil || p[0] == "" || p[1] == "" {
+		return AccessClaim{}, fmt.Errorf("nil parameters")
 	}
 
-	return &AccessClaim{
+	return AccessClaim{
 		Uid:    p[0],
 		Gids:   p[1],
 		Target: target,
@@ -89,7 +93,7 @@ func (srv *UService) GetResourceHandler(c *gin.Context) {
 
 	/* Check for access authorization */
 	/* This method requires Read Access to the Resource */
-	if !resource.HasAccess(*ac) {
+	if !resource.HasAccess(ac) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "not allowed"})
 		return
 	}
@@ -203,6 +207,15 @@ func (srv *UService) PostResourcesHandler(c *gin.Context) {
 }
 
 func (srv *UService) RemoveResourceHandler(c *gin.Context) {
+	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
+	if err != nil {
+		log.Printf("failed to bind access-target: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing Access-Target header"})
+		return
+	}
+	ac.Vid = 1 //for now
+	log.Printf("binded access claim: %+v", ac)
+
 	target := c.Request.URL.Query().Get("rids")
 	if target == "" {
 		log.Printf("must provide a target")
@@ -211,12 +224,17 @@ func (srv *UService) RemoveResourceHandler(c *gin.Context) {
 	}
 	rids_str := strings.Split(target, ",")
 
-	err := srv.dbh.DeleteResourcesByIds(rids_str)
+	// needs to return some info bout what is deleted, lets do the size
+	size, err := srv.dbh.DeleteResourcesByIds(rids_str)
 	if err != nil {
 		log.Printf("failed to delete resource: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete resource"})
 		return
 	}
+
+	// release the volume space
+
+	err = srv.ReleaseVolumeSpace(size, ac)
 
 	// delete the phyiscal data (on the volume)
 	// @TODO:
@@ -297,8 +315,14 @@ func (srv *UService) ChownResourceHandler(c *gin.Context) {
 		return
 	}
 
+	rid_int, err := strconv.Atoi(rid)
+	newOwner_int, err := strconv.Atoi(newOwner)
+	if err != nil {
+		log.Printf("failed to atoi ids: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request format"})
+	}
 	// update resource name
-	err := srv.dbh.UpdateResourceOwnerById(rid, newOwner)
+	err = srv.dbh.UpdateResourceOwnerById(rid_int, newOwner_int)
 	if err != nil {
 		log.Printf("error updating resource uid: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
@@ -326,7 +350,13 @@ func (srv *UService) ChgroupResourceHandler(c *gin.Context) {
 	}
 
 	// update resource name
-	err := srv.dbh.UpdateResourceGroupById(rid, newGroup)
+	rid_int, err := strconv.Atoi(rid)
+	newGroup_int, err := strconv.Atoi(newGroup)
+	if err != nil {
+		log.Printf("failed to atoi ids: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request format"})
+	}
+	err = srv.dbh.UpdateResourceGroupById(rid_int, newGroup_int)
 	if err != nil {
 		log.Printf("error updating resource group: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
@@ -368,6 +398,7 @@ func (srv *UService) HandleDownload(c *gin.Context) {
 func (srv *UService) HandleUpload(c *gin.Context) {
 	/* 1]: parse location from header*/
 	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
+	log.Printf("ac: %+v", ac)
 	if err != nil {
 		log.Printf("failed to bind access-target: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing Access-Target header"})
@@ -611,10 +642,16 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 			userVolume  UserVolume
 		)
 
-		err := c.BindJSON(&userVolumes)
+		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			log.Printf("didn't bind usersVolumes, lets try a userVolume..")
-			err = c.BindJSON(&userVolume)
+			log.Printf("failed to read request body: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read request body"})
+			return
+		}
+
+		err = json.Unmarshal(body, &userVolumes)
+		if err != nil {
+			err = json.Unmarshal(body, &userVolume)
 			// single userVolume
 			if err != nil {
 				log.Printf("fail to bind body: %v", err)
@@ -641,6 +678,7 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 
 	case http.MethodDelete:
 	case http.MethodPatch:
+
 	case http.MethodGet:
 		uids := c.Request.URL.Query().Get("uids")
 		vids := c.Request.URL.Query().Get("vids")
@@ -785,9 +823,14 @@ func (srv *UService) HandleGroupVolumes(c *gin.Context) {
 	}
 }
 
-func (srv *UService) ClaimVolumeSpace(size int64, ac *AccessClaim) error {
+func (srv *UService) ClaimVolumeSpace(size int64, ac AccessClaim) error {
 	// for now:
 	ac.Vid = 1
+	uid, err := strconv.Atoi(ac.Uid)
+	if err != nil {
+		log.Printf("failed to atoi ac.Uid, shouldn't have passed till here tbh...:%v", err)
+		return fmt.Errorf("atoi failure, shouldn't be here: %v", err)
+	}
 	volume, err := srv.dbh.GetVolumeByVid(ac.Vid)
 	if err != nil {
 		log.Printf("could not retrieve volume: %v", err)
@@ -796,28 +839,117 @@ func (srv *UService) ClaimVolumeSpace(size int64, ac *AccessClaim) error {
 	// check for current volume usage.
 	// size is in Bytes
 	size_inGB := float32(size) / 1000000000
+	new_usage_inGB := volume.Usage + size_inGB
 
-	if volume.Usage+size_inGB > volume.Capacity {
+	if new_usage_inGB > volume.Capacity {
 		log.Printf("volume is full.")
 		return fmt.Errorf("claim exceeds capacity")
 	}
 
-	log.Printf("current size: %v, volume: %+v", size_inGB, volume)
-
 	// if not dynamic, we should check for per user/group quota
-	uv, err := srv.dbh.GetUserVolumesByUserIds([]string{ac.Uid})
+	uv, err := srv.dbh.GetUserVolumeByUid(uid)
 	if err != nil {
 		log.Printf("failed to retrieve user volume: %v", err)
 		return err
 	}
-	log.Printf("user volume: %+v", uv)
-
-	gv, err := srv.dbh.GetGroupVolumesByGroupIds(strings.Split(ac.Gids, ","))
+	gid, err := strconv.Atoi(strings.Split(strings.TrimSpace(ac.Gids), ",")[0])
+	if err != nil {
+		return fmt.Errorf("atoi failure, shouldn't be here: %v", err)
+	}
+	gv, err := srv.dbh.GetGroupVolumeByGid(gid)
 	if err != nil {
 		log.Printf("failed to retrieve group volume: %v", err)
 		return err
 	}
+
+	// update all usages
+	// volume
+	// volume claims user/group
+	uv.Usage += size_inGB
+	gv.Usage += size_inGB
+	volume.Usage = new_usage_inGB
+
+	log.Printf("user volume: %+v", uv)
 	log.Printf("group volume: %+v", gv)
+	log.Printf("current size: %v, volume: %+v", size_inGB, volume)
+
+	err = srv.dbh.UpdateVolume(volume)
+	if err != nil {
+		log.Printf("failed to update volume usages: %v", err)
+		return err
+	}
+	err = srv.dbh.UpdateUserVolume(uv)
+	if err != nil {
+		log.Printf("failed to update user volume usages: %v", err)
+		return err
+	}
+	err = srv.dbh.UpdateGroupVolume(gv)
+	if err != nil {
+		log.Printf("failed to update group volume usages: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func (srv *UService) ReleaseVolumeSpace(size int64, ac AccessClaim) error {
+	// for now:
+	ac.Vid = 1
+	uid, err := strconv.Atoi(ac.Uid)
+	if err != nil {
+		log.Printf("failed to atoi ac.Uid, shouldn't have passed till here tbh...:%v", err)
+		return fmt.Errorf("atoi failure, shouldn't be here: %v", err)
+	}
+	volume, err := srv.dbh.GetVolumeByVid(ac.Vid)
+	if err != nil {
+		log.Printf("could not retrieve volume: %v", err)
+		return fmt.Errorf("could not retrieve volume: %w", err)
+	}
+
+	size_inGB := float32(size) / 1000000000
+	new_usage_inGB := volume.Usage - size_inGB
+
+	if new_usage_inGB < 0 {
+		new_usage_inGB = 0
+	}
+
+	uv, err := srv.dbh.GetUserVolumeByUid(uid)
+	if err != nil {
+		log.Printf("failed to retrieve user volume: %v", err)
+		return err
+	}
+	gid, err := strconv.Atoi(strings.Split(strings.TrimSpace(ac.Gids), ",")[0])
+	if err != nil {
+		return fmt.Errorf("atoi failure, shouldn't be here: %v", err)
+	}
+	gv, err := srv.dbh.GetGroupVolumeByGid(gid)
+	if err != nil {
+		log.Printf("failed to retrieve group volume: %v", err)
+		return err
+	}
+
+	// update all usages
+	// volume
+	// volume claims user/group
+	uv.Usage -= size_inGB
+	gv.Usage -= size_inGB
+	volume.Usage = new_usage_inGB
+
+	err = srv.dbh.UpdateVolume(volume)
+	if err != nil {
+		log.Printf("failed to update volume usages: %v", err)
+		return err
+	}
+	err = srv.dbh.UpdateUserVolume(uv)
+	if err != nil {
+		log.Printf("failed to update user volume usages: %v", err)
+		return err
+	}
+	err = srv.dbh.UpdateGroupVolume(gv)
+	if err != nil {
+		log.Printf("failed to update group volume usages: %v", err)
+		return err
+	}
 
 	return nil
 }

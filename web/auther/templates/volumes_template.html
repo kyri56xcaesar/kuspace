@@ -12,14 +12,16 @@
     {{ $v := . }} 
     <div class="v-header">
         <div>
+            <h3>Volume Info </h3>
+            <p>Fixed Amount: {{$v.Capacity}} GB</p>
+            <p>Currently Used: {{printf "%.2f" $v.Usage}} GB</p>
+            <p>Usage Percentage: {{printf "%.2f" (mul (div $v.Usage $v.Capacity) 100)}}%</p>
+            <p>Available Percentage: {{printf "%.2f" (mul (div (sub $v.Capacity $v.Usage) $v.Capacity) 100)}}%</p>
+        </div>
+        <div>
           <h3>Volume Details</h3>
           <p>Name: {{$v.Name}}</p>
           <p>Path: {{$v.Path}}</p>
-        </div>
-        <div>
-            <h3>Total Volume</h3>
-            <p>Fixed Amount: {{$v.Capacity}} GB</p>
-            <p>Currently Used: {{$v.Usage}} GB</p>
         </div>
         <div>
             <h3>Settings</h3>

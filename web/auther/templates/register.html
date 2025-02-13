@@ -11,7 +11,12 @@
   <body style="visibility: hidden;">
     <script>0</script>
     <div class="main-register">
-      <form id="register-form" method="post" action="/api/v1/register">
+      <form 
+        id="register-form"
+        hx-post="/api/v1/register"
+        hx-trigger="submit"
+        hx-swap="none"
+      >
         <div class="register-logo">
           <a href="/api/v1/login">
             <img class="selectDisable" src=assets/logos/cropped.png>

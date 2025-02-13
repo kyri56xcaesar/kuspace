@@ -1,3 +1,7 @@
+/* code specific that only admin panel should use. */
+
+
+// users control 
 function editUser(uid, index) {
   const row = document.getElementById(`table-${index}`);
   if (!row) return;
@@ -103,6 +107,7 @@ function cancelEdit(index, originalValues) {
 
 }
 
+/* */
 function showProgressBar(container) {
   if (container){
     container.classList.remove('hidden');

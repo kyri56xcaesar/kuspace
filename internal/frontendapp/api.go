@@ -58,11 +58,31 @@ func (srv *HTTPService) ServeHTTP() {
 
 	// template functions
 	funcMap := template.FuncMap{
-		"sub":    func(a, b int) int { return a - b },
+		"add": func(a, b interface{}) float64 {
+			return ut.ToFloat64(a) + ut.ToFloat64(b)
+		},
+		"sub": func(a, b interface{}) float64 {
+			return ut.ToFloat64(a) - ut.ToFloat64(b)
+		},
+		"mul": func(a, b interface{}) float64 {
+			return ut.ToFloat64(a) * ut.ToFloat64(b)
+		},
+		"div": func(a, b interface{}) float64 {
+			if ut.ToFloat64(b) == 0 {
+				return 0
+			}
+			return ut.ToFloat64(a) / ut.ToFloat64(b)
+		},
 		"typeIs": func(value interface{}, t string) bool { return reflect.TypeOf(value).Kind().String() == t },
 		"hasKey": func(value map[string]interface{}, key string) bool {
 			_, exists := value[key]
 			return exists
+		},
+		"lt": func(a, b interface{}) bool {
+			return ut.ToFloat64(a) < ut.ToFloat64(b)
+		},
+		"gr": func(a, b interface{}) bool {
+			return ut.ToFloat64(a) > ut.ToFloat64(b)
 		},
 	}
 

@@ -120,12 +120,12 @@ type Resource struct {
 }
 
 type Volume struct {
-	Name     string `json:"name"`
-	Path     string `json:"path"`
-	Dynamic  bool   `json:"dynamic"`
-	Capacity int    `json:"capacity"`
-	Usage    int    `json:"usage"`
-	Vid      int    `json:"vid"`
+	Name     string  `json:"name"`
+	Path     string  `json:"path"`
+	Dynamic  bool    `json:"dynamic"`
+	Capacity float32 `json:"capacity"`
+	Usage    float32 `json:"usage"`
+	Vid      int     `json:"vid"`
 }
 
 type UserVolume struct {
@@ -300,14 +300,17 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 	if err != nil {
 		log.Printf("failed to create a new request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
+		req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
 		return
 	}
 
 	go func() {
-		_, err := http.DefaultClient.Do(req)
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			log.Printf("failed to send user volume claim request: %v", err)
 		}
+		body, err := io.ReadAll(resp.Body)
+		log.Printf("body: %+v", string(body))
 	}()
 
 	c.JSON(http.StatusOK, gin.H{"status": "user added"})
@@ -1360,8 +1363,7 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 		c.JSON(resp.StatusCode, ErrResp)
 		return
 	}
-
-	// Parse the response from the auth service
+	// parse response.
 	var authResponse struct {
 		Login_url string `json:"login_url"`
 		Message   string `json:"message"`
@@ -1371,11 +1373,51 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "serious"})
 		return
 	}
+	uid, err := strconv.Atoi(strings.Split(authResponse.Message, " ")[1])
+	if err != nil {
+		log.Printf("failed to retrieve and atoi uid of added user: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve uid"})
+		return
+	}
 
+	type uvClaim struct {
+		Updated_at string  `json:"updated_at"`
+		Vid        int     `json:"vid"`
+		Uid        int     `json:"uid"`
+		Usage      float32 `json:"usage"`
+		Quota      float32 `json:"quota"`
+	}
+
+	// Send A Volume Claim for this user
+	json_data, err := json.Marshal(uvClaim{Vid: 1, Uid: uid})
+	if err != nil {
+		log.Printf("failed to marshal to json: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
+		return
+	}
+	req, err := http.NewRequest(http.MethodPost, apiServiceURL+"/api/v1/admin/user/volume", bytes.NewBuffer(json_data))
+	if err != nil {
+		log.Printf("failed to create a new request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
+		req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
+		return
+	}
+
+	req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
+
+	go func() {
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Printf("failed to send user volume claim request: %v", err)
+		}
+		body, err := io.ReadAll(resp.Body)
+		log.Printf("body: %+v", string(body))
+	}()
 	// at this point registration should be successful, we can directly login the user
 	// .. somehow
 
-	time.Sleep(2 * time.Second)
+	// perform login idk bout htis
+	//nvm
 	c.Redirect(303, "/api/v1/login")
 }
 
