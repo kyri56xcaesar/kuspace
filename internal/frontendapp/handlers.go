@@ -129,11 +129,19 @@ type Volume struct {
 }
 
 type UserVolume struct {
-	Updated_at string `json:"updated_at"`
-	Vid        int    `json:"vid"`
-	Uid        int    `json:"uid"`
-	Usage      int    `json:"usage"`
-	Quota      int    `json:"quota"`
+	Updated_at string  `json:"updated_at"`
+	Vid        int     `json:"vid"`
+	Uid        int     `json:"uid"`
+	Usage      float32 `json:"usage"`
+	Quota      float32 `json:"quota"`
+}
+
+type GroupVolume struct {
+	Updated_at string  `json:"updated_at"`
+	Vid        int     `json:"vid"`
+	Gid        int     `json:"uid"`
+	Usage      float32 `json:"usage"`
+	Quota      float32 `json:"quota"`
 }
 
 type FilePermissions struct {
@@ -1135,6 +1143,24 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 	volumeReq.Header.Set("Authorization", "Bearer "+accessToken)
 	volumeReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
 
+	uvReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/user/volume?uids=*", nil)
+	if err != nil {
+		log.Printf("failed to create request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+	uvReq.Header.Set("Authorization", "Bearer "+accessToken)
+	uvReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+
+	gvReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/group/volume?gids=*", nil)
+	if err != nil {
+		log.Printf("failed to create request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+	gvReq.Header.Set("Authorization", "Bearer "+accessToken)
+	gvReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+
 	client := &http.Client{Timeout: 10 * time.Second}
 	var (
 		userResp struct {
@@ -1146,12 +1172,18 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 		volumeResp struct {
 			Content []Volume `json:"content"`
 		}
+		userVolumesResp struct {
+			Content []UserVolume `json:"content"`
+		}
+		groupVolumesResp struct {
+			Content []GroupVolume `json:"content"`
+		}
 	)
 
-	var userErr, groupErr, volumeErr error
+	var userErr, groupErr, volumeErr, uvError, gvError error
 
 	var wg sync.WaitGroup
-	wg.Add(3)
+	wg.Add(5)
 
 	// 1) fetch Users
 	go func() {
@@ -1215,6 +1247,46 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 		}
 	}()
 
+	// 4) fetch userVolumes
+	go func() {
+		defer wg.Done()
+		resp, err := client.Do(uvReq)
+		if err != nil {
+			uvError = err
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			uvError = fmt.Errorf("failed to fetch user volumes; status: %d", resp.StatusCode)
+			return
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&userVolumesResp); err != nil {
+			uvError = fmt.Errorf("failed to decode user volume response: %v", err)
+			return
+		}
+	}()
+
+	// 5) fetch groupVolumes
+	go func() {
+		defer wg.Done()
+		resp, err := client.Do(gvReq)
+		if err != nil {
+			gvError = err
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			gvError = fmt.Errorf("failed to fetch group volumes; status: %d", resp.StatusCode)
+			return
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&groupVolumesResp); err != nil {
+			gvError = fmt.Errorf("failed to decode group volume response: %v", err)
+			return
+		}
+	}()
+
 	wg.Wait()
 
 	if userErr != nil {
@@ -1234,12 +1306,27 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 		return
 	}
 
-	combinedData := gin.H{
-		"users":   userResp.Content,
-		"groups":  groupResp.Content,
-		"volumes": volumeResp.Content,
+	if uvError != nil {
+		log.Printf("user volume request error: %v", uvError)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch user volumes"})
+		return
 	}
 
+	if gvError != nil {
+		log.Printf("group volume request error: %v", gvError)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch group volumes"})
+		return
+	}
+
+	combinedData := gin.H{
+		"users":         userResp.Content,
+		"groups":        groupResp.Content,
+		"volumes":       volumeResp.Content,
+		"user_volumes":  userVolumesResp.Content,
+		"group_volumes": groupVolumesResp.Content,
+	}
+
+	log.Printf("combinedData: %+v", combinedData)
 	format := c.Request.URL.Query().Get("format")
 
 	// Render the HTML template
@@ -1417,7 +1504,7 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 	// .. somehow
 
 	// perform login idk bout htis
-	//nvm
+	// nvm
 	c.Redirect(303, "/api/v1/login")
 }
 

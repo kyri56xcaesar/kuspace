@@ -489,6 +489,10 @@ func (m *DBHandler) GetUserVolumesByUserIds(uids []string) (interface{}, error) 
 			SELECT * FROM userVolume WHERE uid IN (?` + strings.Repeat(",?", len(uids)-1) + `)
 		`
 
+	if len(uids) == 1 && uids[0] == "*" {
+		query = `SELECT * FROM userVolume;`
+	}
+
 	args := make([]interface{}, len(uids))
 	for i, uid := range uids {
 		args[i] = uid
@@ -526,6 +530,10 @@ func (m *DBHandler) GetUserVolumesByVolumeIds(vids []string) (interface{}, error
 	query := `
 			SELECT * FROM userVolume WHERE vid IN (?` + strings.Repeat(",?", len(vids)-1) + `)
 		`
+
+	if len(vids) == 1 && vids[0] == "*" {
+		query = `SELECT * FROM userVolume;`
+	}
 
 	args := make([]interface{}, len(vids))
 	for i, uid := range vids {
@@ -858,6 +866,7 @@ func (m *DBHandler) GetGroupVolumes() (interface{}, error) {
 
 	return groupVolumes, nil
 }
+
 func (m *DBHandler) GetGroupVolumeByGid(gid int) (GroupVolume, error) {
 	db, err := m.getConn()
 	if err != nil {
@@ -883,6 +892,9 @@ func (m *DBHandler) GetGroupVolumesByGroupIds(gids []string) (interface{}, error
 	query := `
 			SELECT * FROM groupVolume WHERE gid IN (?` + strings.Repeat(",?", len(gids)-1) + `)
 		`
+	if len(gids) == 1 && gids[0] == "*" {
+		query = `SELECT * FROM groupVolume;`
+	}
 
 	args := make([]interface{}, len(gids))
 	for i, uid := range gids {
@@ -922,6 +934,9 @@ func (m *DBHandler) GetGroupVolumesByVolumeIds(vids []string) (interface{}, erro
 			SELECT * FROM groupVolume WHERE vid IN (?` + strings.Repeat(",?", len(vids)-1) + `)
 		`
 
+	if len(vids) == 1 && vids[0] == "*" {
+		query = `SELECT * FROM groupVolume;`
+	}
 	args := make([]interface{}, len(vids))
 	for i, uid := range vids {
 		args[i] = uid

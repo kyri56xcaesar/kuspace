@@ -213,7 +213,7 @@ func (srv *UService) RemoveResourceHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing Access-Target header"})
 		return
 	}
-	ac.Vid = 1 //for now
+	ac.Vid = 1 // for now
 	log.Printf("binded access claim: %+v", ac)
 
 	target := c.Request.URL.Query().Get("rids")
@@ -725,7 +725,7 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 			}
 			userVolumes = data.([]UserVolume)
 		}
-		c.JSON(http.StatusOK, userVolumes)
+		c.JSON(http.StatusOK, gin.H{"content": userVolumes})
 
 	default:
 		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "method not allowed"})
@@ -816,7 +816,7 @@ func (srv *UService) HandleGroupVolumes(c *gin.Context) {
 			}
 			groupVolumes = data.([]GroupVolume)
 		}
-		c.JSON(http.StatusOK, groupVolumes)
+		c.JSON(http.StatusOK, gin.H{"content": groupVolumes})
 
 	default:
 		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "method not allowed"})
