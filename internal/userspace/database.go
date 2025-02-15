@@ -123,10 +123,7 @@ func (m *DBHandler) Init(database_path, volumes_path, capacity string) {
 		log.Fatalf("failed to init db, destrcutive: %v", err)
 	}
 
-	var (
-		exists bool
-		id     int64
-	)
+	var exists bool
 
 	err = db.QueryRow("SELECT COUNT(*) > 0 FROM volumes").Scan(&exists)
 	if err != nil {
@@ -142,15 +139,10 @@ func (m *DBHandler) Init(database_path, volumes_path, capacity string) {
 			(nextval('seq_volumeid'), ?, ?, ?, ?, ?)
 		 `
 
-		res, err := db.Exec(vquery, default_volume_name, volumes_path, "true", capacity, 0)
+		_, err := db.Exec(vquery, default_volume_name, volumes_path, "true", capacity, 0)
 		if err != nil {
 			log.Fatalf("failed to insert init data, destructive: %v", err)
 		}
-		id, err = res.LastInsertId()
-		if err != nil {
-			log.Fatalf("failed to retrieve vid inserted: %v", err)
-		}
-
 	}
 
 	default_capacity, err = strconv.ParseFloat(capacity, 64)
@@ -178,7 +170,7 @@ func (m *DBHandler) Init(database_path, volumes_path, capacity string) {
 
 		currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 
-		_, err = db.Exec(vquery, id, 0, 0, capacity, currentTime)
+		_, err = db.Exec(vquery, 1, 0, 0, capacity, currentTime)
 		if err != nil {
 			log.Fatalf("failed to insert init data, destructive: %v", err)
 		}
@@ -195,14 +187,27 @@ func (m *DBHandler) Init(database_path, volumes_path, capacity string) {
 		INSERT INTO 
 			groupVolume (vid, gid, usage, quota, updated_at)
 		VALUES
+			(?, ?, ?, ?, ?),
+    	(?, ?, ?, ?, ?),
 			(?, ?, ?, ?, ?)
+
 		 `
 
 		currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 
-		_, err = db.Exec(vquery, id, 0, 0, capacity, currentTime)
+		res, err := db.Exec(vquery, 1, 0, 0, capacity, currentTime, 1, 100, 0, capacity, currentTime, 1, 1000, 0, capacity, currentTime)
 		if err != nil {
 			log.Fatalf("failed to insert init data, destructive: %v", err)
+		}
+
+		rAff, err := res.RowsAffected()
+		if err != nil {
+			log.Printf("failed to retrieve rows affected: %v", err)
+			return
+		}
+
+		if rAff != 3 {
+			log.Fatalf("failed to insert essential groupVolumes")
 		}
 	}
 }
