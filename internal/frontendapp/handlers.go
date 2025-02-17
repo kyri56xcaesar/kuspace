@@ -139,7 +139,7 @@ type UserVolume struct {
 type GroupVolume struct {
 	Updated_at string  `json:"updated_at"`
 	Vid        int     `json:"vid"`
-	Gid        int     `json:"uid"`
+	Gid        int     `json:"gid"`
 	Usage      float32 `json:"usage"`
 	Quota      float32 `json:"quota"`
 }
@@ -1318,6 +1318,14 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 		return
 	}
 
+	sort.Slice(userResp.Content, func(i, j int) bool {
+		return userResp.Content[i].Uid < userResp.Content[j].Uid
+	})
+
+	sort.Slice(groupResp.Content, func(i, j int) bool {
+		return groupResp.Content[i].Gid < groupResp.Content[j].Gid
+	})
+
 	combinedData := gin.H{
 		"users":         userResp.Content,
 		"groups":        groupResp.Content,
@@ -1326,7 +1334,6 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 		"group_volumes": groupVolumesResp.Content,
 	}
 
-	log.Printf("combinedData: %+v", combinedData)
 	format := c.Request.URL.Query().Get("format")
 
 	// Render the HTML template

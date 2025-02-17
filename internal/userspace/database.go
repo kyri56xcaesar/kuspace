@@ -745,6 +745,89 @@ func (m *DBHandler) UpdateGroupVolume(gv GroupVolume) error {
 	return nil
 }
 
+func (m *DBHandler) UpdateGroupVolumes(gvs []GroupVolume) error {
+	if len(gvs) == 0 {
+		return nil // No updates needed
+	}
+
+	log.Printf("incoming gvs: %+v", gvs)
+
+	query := `
+		UPDATE groupVolume
+		SET usage = ?, quota = ?, updated_at = ?
+		WHERE vid = ? AND gid = ?
+	`
+
+	db, err := m.getConn()
+	if err != nil {
+		return fmt.Errorf("failed to get database connection: %v", err)
+	}
+
+	// Begin a transaction
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %v", err)
+	}
+
+	stmt, err := tx.Prepare(query)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to prepare statement: %v", err)
+	}
+	defer stmt.Close()
+
+	// Get current UTC timestamp
+	current_time := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
+
+	// Execute updates within the transaction
+	for _, gv := range gvs {
+		_, err := stmt.Exec(gv.Usage, gv.Quota, current_time, gv.Vid, gv.Gid)
+		if err != nil {
+			tx.Rollback() // Rollback on error
+			return fmt.Errorf("failed to update group volume (vid=%d, gid=%d): %v", gv.Vid, gv.Gid, err)
+		}
+	}
+
+	// Commit transaction if all updates succeed
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %v", err)
+	}
+
+	return nil
+}
+
+func (m *DBHandler) UpdateGroupVolumesUsageByGids(gids []string) error {
+	query := `
+    UPDATE groupVolume 
+    SET usage = ? 
+    WHERE gid IN (?
+    ` + strings.Repeat(", ?", len(gids)-1) + `)`
+
+	db, err := m.getConn()
+	if err != nil {
+		log.Printf("failed to retrieve the database connection: %v", err)
+		return err
+	}
+	args := make([]interface{}, len(gids))
+	for i, v := range gids {
+		args[i] = v
+	}
+	res, err := db.Exec(query, args...)
+	if err != nil {
+		log.Printf("failed to exec query: %v", err)
+		return err
+	}
+
+	rAff, err := res.RowsAffected()
+	if err != nil {
+		log.Printf("failed to retrieve rows affected: %v", err)
+		return err
+	}
+
+	log.Printf("len(gids): %v, rAff: %v", len(gids), rAff)
+	return nil
+}
+
 func (m *DBHandler) UpdateGroupVolumeQuotaByGid(quota float32, gid int) error {
 	db, err := m.getConn()
 	if err != nil {

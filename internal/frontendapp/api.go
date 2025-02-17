@@ -84,6 +84,28 @@ func (srv *HTTPService) ServeHTTP() {
 		"gr": func(a, b interface{}) bool {
 			return ut.ToFloat64(a) > ut.ToFloat64(b)
 		},
+		"index": func(m map[int]interface{}, key int) interface{} {
+			if val, ok := m[key]; ok {
+				return val
+			}
+			return nil // Return nil if key does not exist
+		},
+		"findGroupVolume": func(s []GroupVolume, gid int) *GroupVolume {
+			for _, v := range s {
+				if v.Gid == gid {
+					return &v
+				}
+			}
+			return nil
+		},
+		"findUserVolume": func(s []UserVolume, uid int) *UserVolume {
+			for _, v := range s {
+				if v.Uid == uid {
+					return &v
+				}
+			}
+			return nil
+		},
 	}
 
 	// set a template eng

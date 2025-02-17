@@ -1584,6 +1584,8 @@ tr {
     &  div {
       display: flex;
       gap: 10px;
+      justify-content: space-around;
+
     }
 
     & label {
@@ -1683,3 +1685,35 @@ tr {
     padding: 1rem;
   }
 }
+
+.quota-container {
+    position: relative;
+    width: 100%;
+    margin: 10px 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    width: 100%
+}
+
+.quota-bar-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.quota-range {
+    width: 100%;
+    position: relative;
+    z-index: 2;
+}
+
+.usage-bar {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    height: 5px;
+    background-color: green;
+    transform: translateY(-50%);
+    z-index: 3;
+}
+

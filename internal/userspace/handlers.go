@@ -852,11 +852,12 @@ func (srv *UService) ClaimVolumeSpace(size int64, ac AccessClaim) error {
 		log.Printf("failed to retrieve user volume: %v", err)
 		return err
 	}
-	gid, err := strconv.Atoi(strings.Split(strings.TrimSpace(ac.Gids), ",")[0])
-	if err != nil {
-		return fmt.Errorf("atoi failure, shouldn't be here: %v", err)
+	gids := strings.Split(strings.TrimSpace(ac.Gids), ",")
+	log.Printf("gids: %v, ac: %+v", gids, ac)
+	if len(gids) == 0 {
+		return fmt.Errorf("empty gids, shouldn't be here: %v", err)
 	}
-	gv, err := srv.dbh.GetGroupVolumeByGid(gid)
+	gvs, err := srv.dbh.GetGroupVolumesByGroupIds(gids)
 	if err != nil {
 		log.Printf("failed to retrieve group volume: %v", err)
 		return err
@@ -866,12 +867,16 @@ func (srv *UService) ClaimVolumeSpace(size int64, ac AccessClaim) error {
 	// volume
 	// volume claims user/group
 	uv.Usage += size_inGB
-	gv.Usage += size_inGB
+	gvs_casted := gvs.([]GroupVolume)
+	for index, gv := range gvs_casted {
+		log.Printf("gv: %+v", gv)
+		gvs_casted[index].Usage += size_inGB
+	}
 	volume.Usage = new_usage_inGB
 
-	log.Printf("user volume: %+v", uv)
-	log.Printf("group volume: %+v", gv)
-	log.Printf("current size: %v, volume: %+v", size_inGB, volume)
+	log.Printf("updated volume: %+v", volume)
+	log.Printf("updated uv: %+v", uv)
+	log.Printf("updated gvs: %+v", gvs_casted)
 
 	err = srv.dbh.UpdateVolume(volume)
 	if err != nil {
@@ -883,7 +888,7 @@ func (srv *UService) ClaimVolumeSpace(size int64, ac AccessClaim) error {
 		log.Printf("failed to update user volume usages: %v", err)
 		return err
 	}
-	err = srv.dbh.UpdateGroupVolume(gv)
+	err = srv.dbh.UpdateGroupVolumes(gvs_casted)
 	if err != nil {
 		log.Printf("failed to update group volume usages: %v", err)
 		return err
