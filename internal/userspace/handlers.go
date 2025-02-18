@@ -492,7 +492,7 @@ func (srv *UService) HandleUpload(c *gin.Context) {
 			Perms:       "rw-r--r--",
 			Uid:         uid,
 			Gid:         uid,
-			Size:        int(fileHeader.Size),
+			Size:        int64(fileHeader.Size),
 		}
 
 		err = srv.dbh.InsertResourceUniqueName(resource)
@@ -528,17 +528,18 @@ func (srv *UService) HandlePreview(c *gin.Context) {
 	// read the actual file to a buffer
 
 	// parse byte range header
-	start, end, totalLength := 0, 4095, resource.Size
+	var start, end, totalLength int64
+	start, end, totalLength = 0, 4095, resource.Size
 	rangeHeader := c.GetHeader("Range")
 	if rangeHeader != "" {
 		// Expected format: "bytes=0-1023"
 		parts := strings.Split(strings.TrimPrefix(rangeHeader, "bytes="), "-")
 		if len(parts) == 2 {
 			if s, err := strconv.Atoi(parts[0]); err == nil {
-				start = s
+				start = int64(s)
 			}
 			if e, err := strconv.Atoi(parts[1]); err == nil {
-				end = e
+				end = int64(e)
 			}
 		}
 	}
@@ -557,7 +558,7 @@ func (srv *UService) HandlePreview(c *gin.Context) {
 		return
 	}
 
-	c.Header("Content-Range", "bytes "+strconv.Itoa(start)+"-"+strconv.Itoa(end)+"/"+strconv.Itoa(totalLength))
+	c.Header("Content-Range", "bytes "+strconv.FormatInt(start, 10)+"-"+strconv.FormatInt(end, 10)+"/"+strconv.FormatInt(totalLength, 10))
 	c.Header("Accept-Ranges", "bytes")
 	c.Header("Content-Length", strconv.Itoa(len(pContent)))
 	c.Data(http.StatusPartialContent, "text/plain", pContent)
@@ -659,9 +660,9 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 				return
 			}
 
-			if capacity, _ := strconv.ParseFloat(srv.config.VCapacity, 32); int(userVolume.Quota) == 0 || userVolume.Quota > float32(capacity) {
+			if capacity, _ := strconv.ParseFloat(srv.config.VCapacity, 64); int(userVolume.Quota) == 0 || userVolume.Quota > float64(capacity) {
 				log.Printf("inserted")
-				userVolume.Quota = float32(capacity)
+				userVolume.Quota = float64(capacity)
 			}
 
 			err = srv.dbh.InsertUserVolume(userVolume)
@@ -739,7 +740,6 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 }
 
 func (srv *UService) HandleGroupVolumes(c *gin.Context) {
-
 	switch c.Request.Method {
 	case http.MethodPost:
 		var (
@@ -765,9 +765,9 @@ func (srv *UService) HandleGroupVolumes(c *gin.Context) {
 				return
 			}
 
-			if capacity, _ := strconv.ParseFloat(srv.config.VCapacity, 32); int(groupVolume.Quota) == 0 || groupVolume.Quota > float32(capacity) {
+			if capacity, _ := strconv.ParseFloat(srv.config.VCapacity, 64); int(groupVolume.Quota) == 0 || groupVolume.Quota > float64(capacity) {
 				log.Printf("inserted")
-				groupVolume.Quota = float32(capacity)
+				groupVolume.Quota = float64(capacity)
 			}
 
 			err = srv.dbh.InsertGroupVolume(groupVolume)
@@ -859,7 +859,7 @@ func (srv *UService) ClaimVolumeSpace(size int64, ac AccessClaim) error {
 	}
 	// check for current volume usage.
 	// size is in Bytes
-	size_inGB := float32(size) / 1000000000
+	size_inGB := float64(size) / 1000000000
 	new_usage_inGB := volume.Usage + size_inGB
 
 	if new_usage_inGB > volume.Capacity {
@@ -932,7 +932,7 @@ func (srv *UService) ReleaseVolumeSpace(size int64, ac AccessClaim) error {
 		return fmt.Errorf("could not retrieve volume: %w", err)
 	}
 
-	size_inGB := float32(size) / 1000000000
+	size_inGB := float64(size) / 1000000000
 	new_usage_inGB := volume.Usage - size_inGB
 
 	if new_usage_inGB < 0 {

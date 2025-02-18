@@ -51,7 +51,7 @@ func NewUService(conf string) UService {
 	// also ensure local pv path
 	_, err := os.Stat(cfg.Volumes)
 	if err != nil {
-		err = os.Mkdir(cfg.Volumes, 0o700)
+		err = os.Mkdir(cfg.Volumes, 0o777)
 		if err != nil {
 			panic("crucial")
 		}

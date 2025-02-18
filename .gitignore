@@ -1,6 +1,7 @@
 *.log
 *.note
 *.env
+*.wal
 configs/*.env
 api.env 
 minioth.env

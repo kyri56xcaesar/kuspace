@@ -22,7 +22,7 @@ const (
       vid INTEGER,
       gid INTEGER,
       pid INTEGER,
-      size INTEGER,
+      size BIGINT,
       links INTEGER,
       perms TEXT,
       name TEXT,

@@ -43,7 +43,7 @@ type Resource struct {
 	Vid         int    `json:"vid"`
 	Gid         int    `json:"gid"` // as in group id
 	Pid         int    `json:"pid"` // as in parent id
-	Size        int    `json:"size"`
+	Size        int64  `json:"size"`
 	Links       int    `json:"links"`
 }
 
@@ -126,8 +126,8 @@ type Volume struct {
 	Path     string  `json:"path"`
 	Vid      int     `json:"vid"`
 	Dynamic  bool    `json:"dynamic"`
-	Capacity float32 `json:"capacity"`
-	Usage    float32 `json:"usage"`
+	Capacity float64 `json:"capacity"`
+	Usage    float64 `json:"usage"`
 }
 
 /* representative utility methods of the above structures */
@@ -170,8 +170,8 @@ type UserVolume struct {
 	Updated_at string  `json:"updated_at"`
 	Vid        int     `json:"vid"`
 	Uid        int     `json:"uid"`
-	Usage      float32 `json:"usage"`
-	Quota      float32 `json:"quota"`
+	Usage      float64 `json:"usage"`
+	Quota      float64 `json:"quota"`
 }
 
 func (uv *UserVolume) PtrFields() []any {
@@ -187,8 +187,8 @@ type GroupVolume struct {
 	Updated_at string  `json:"updated_at"`
 	Vid        int     `json:"vid"`
 	Gid        int     `json:"gid"`
-	Usage      float32 `json:"usage"`
-	Quota      float32 `json:"quota"`
+	Usage      float64 `json:"usage"`
+	Quota      float64 `json:"quota"`
 }
 
 func (gv *GroupVolume) PtrFields() []any {
