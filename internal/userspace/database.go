@@ -225,7 +225,7 @@ func (m *DBHandler) InsertUserVolume(uv UserVolume) error {
 	_ = db.QueryRow(`SELECT 1 FROM userVolume WHERE vid = ? AND uid = ? LIMIT 1;`, uv.Vid, uv.Uid).Scan(&exists)
 	if exists {
 		log.Printf("error checking for uniqunes or not unique: %v", err)
-		return fmt.Errorf("error checking for uniqueness or not unique pair: %w", err)
+		return fmt.Errorf("error checking for uniqueness or not unique pair: %v", err)
 	}
 
 	query := `
@@ -626,10 +626,9 @@ func (m *DBHandler) InsertGroupVolume(gv GroupVolume) error {
 	// check for uniquness
 	var exists bool
 	err = db.QueryRow(`SELECT 1 FROM groupVolume WHERE vid = ? AND gid = ? LIMIT 1;`, gv.Vid, gv.Gid).Scan(&exists)
-	log.Printf("exists? %v", exists)
-	if err != nil || exists {
+	if exists {
 		log.Printf("error checking for uniqunes or not unique: %v", err)
-		return fmt.Errorf("error checking for uniqueness or not unique pair: %w", err)
+		return fmt.Errorf("error checking for uniqueness or not unique pair: %v", err)
 	}
 
 	query := `
@@ -637,7 +636,9 @@ func (m *DBHandler) InsertGroupVolume(gv GroupVolume) error {
 		VALUES (?, ?, ?, ?, ?)
 	`
 
-	_, err = db.Exec(query, gv.Vid, gv.Gid, gv.Usage, gv.Quota, gv.Updated_at)
+	currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
+
+	_, err = db.Exec(query, gv.Vid, gv.Gid, gv.Usage, gv.Quota, currentTime)
 	if err != nil {
 		return fmt.Errorf("failed to insert group volume: %v", err)
 	}

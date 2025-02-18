@@ -658,6 +658,12 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "bad request, failed to bind"})
 				return
 			}
+
+			if capacity, _ := strconv.ParseFloat(srv.config.VCapacity, 32); int(userVolume.Quota) == 0 || userVolume.Quota > float32(capacity) {
+				log.Printf("inserted")
+				userVolume.Quota = float32(capacity)
+			}
+
 			err = srv.dbh.InsertUserVolume(userVolume)
 			if err != nil {
 				log.Printf("failed to insert user volume: %v", err)
@@ -733,6 +739,7 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 }
 
 func (srv *UService) HandleGroupVolumes(c *gin.Context) {
+
 	switch c.Request.Method {
 	case http.MethodPost:
 		var (
@@ -740,16 +747,29 @@ func (srv *UService) HandleGroupVolumes(c *gin.Context) {
 			groupVolume  GroupVolume
 		)
 
-		err := c.BindJSON(&groupVolumes)
+		body, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			log.Printf("failed to read request body: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read request body"})
+			return
+		}
+
+		err = json.Unmarshal(body, &groupVolumes)
 		if err != nil {
 			log.Printf("didn't bind groupVolumes, lets try a groupVolume..")
-			err = c.BindJSON(&groupVolume)
+			err = json.Unmarshal(body, &groupVolume)
 			// single userVolume
 			if err != nil {
 				log.Printf("fail to bind body: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "bad request, failed to bind"})
 				return
 			}
+
+			if capacity, _ := strconv.ParseFloat(srv.config.VCapacity, 32); int(groupVolume.Quota) == 0 || groupVolume.Quota > float32(capacity) {
+				log.Printf("inserted")
+				groupVolume.Quota = float32(capacity)
+			}
+
 			err = srv.dbh.InsertGroupVolume(groupVolume)
 			if err != nil {
 				log.Printf("failed to insert group volume: %v", err)
@@ -759,6 +779,7 @@ func (srv *UService) HandleGroupVolumes(c *gin.Context) {
 			c.JSON(http.StatusCreated, gin.H{"status": "inserted group volume"})
 			return
 		}
+
 		// binded user
 		err = srv.dbh.InsertGroupVolumes(groupVolumes)
 		if err != nil {

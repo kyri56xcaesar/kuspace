@@ -276,6 +276,8 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 	var useraddResp struct {
 		Message   string `json:"message"`
 		Login_url string `json:"login_url"`
+		Uid       int    `json:"uid"`
+		Pgroup    int    `json:"pgroup"`
 	}
 	err = json.NewDecoder(resp.Body).Decode(&useraddResp)
 	if err != nil {
@@ -283,39 +285,66 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to decode response"})
 		return
 	}
-	uid, err := strconv.Atoi(strings.Split(useraddResp.Message, " ")[1])
-	if err != nil {
-		log.Printf("failed to retrieve and atoi uid of added user: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve uid"})
-		return
-	}
-
-	type uvClaim struct {
-		Updated_at string  `json:"updated_at"`
-		Vid        int     `json:"vid"`
-		Uid        int     `json:"uid"`
-		Usage      float32 `json:"usage"`
-		Quota      float32 `json:"quota"`
-	}
-
-	json_data, err := json.Marshal(uvClaim{Vid: 1, Uid: uid})
-	if err != nil {
-		log.Printf("failed to marshal to json: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
-		return
-	}
-	req, err := http.NewRequest(http.MethodPost, apiServiceURL+"/api/v1/admin/user/volume", bytes.NewBuffer(json_data))
-	if err != nil {
-		log.Printf("failed to create a new request: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
-		req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
-		return
-	}
 
 	go func() {
+		type uvClaim struct {
+			Updated_at string  `json:"updated_at"`
+			Vid        int     `json:"vid"`
+			Uid        int     `json:"uid"`
+			Usage      float32 `json:"usage"`
+			Quota      float32 `json:"quota"`
+		}
+
+		json_data, err := json.Marshal(uvClaim{Vid: 1, Uid: useraddResp.Uid})
+		if err != nil {
+			log.Printf("failed to marshal to json: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
+			return
+		}
+		req, err := http.NewRequest(http.MethodPost, apiServiceURL+"/api/v1/admin/user/volume", bytes.NewBuffer(json_data))
+		if err != nil {
+			log.Printf("failed to create a new request: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
+			req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
+			return
+		}
+		req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
+
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			log.Printf("failed to send user volume claim request: %v", err)
+		}
+		body, err := io.ReadAll(resp.Body)
+		log.Printf("uv req body: %+v", string(body))
+	}()
+
+	go func() {
+		type gvClaim struct {
+			Updated_at string  `json:"updated_at"`
+			Vid        int     `json:"vid"`
+			Gid        int     `json:"gid"`
+			Usage      float32 `json:"usage"`
+			Quota      float32 `json:"quota"`
+		}
+		// Send A Volume Claim for this user
+		json_data, err := json.Marshal(gvClaim{Vid: 1, Gid: useraddResp.Pgroup})
+		if err != nil {
+			log.Printf("failed to marshal to json: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set gv"})
+			return
+		}
+		req, err := http.NewRequest(http.MethodPost, apiServiceURL+"/api/v1/admin/group/volume", bytes.NewBuffer(json_data))
+		if err != nil {
+			log.Printf("failed to create a new request: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set gv"})
+			return
+		}
+		req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Printf("failed to send user group volume claim request: %v", err)
+			return
 		}
 		body, err := io.ReadAll(resp.Body)
 		log.Printf("body: %+v", string(body))
@@ -372,6 +401,8 @@ func (srv *HTTPService) handleUserdel(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
 		return
 	}
+
+	// On success we should delete the user/group volume as well...
 
 	// Render the HTML template
 	c.String(response.StatusCode, "%v", resp.Message)
@@ -1405,6 +1436,9 @@ func (srv *HTTPService) handleLogin(c *gin.Context) {
 }
 
 func (srv *HTTPService) handleRegister(c *gin.Context) {
+	/*
+		Register automatically creates a usergroup after registering the user.
+	*/
 	var reg RegisterRequest
 
 	if err := c.ShouldBind(&reg); err != nil {
@@ -1461,48 +1495,75 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 	var authResponse struct {
 		Login_url string `json:"login_url"`
 		Message   string `json:"message"`
+		Uid       int    `json:"uid"`
+		Pgroup    int    `json:"pgroup"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&authResponse); err != nil {
 		log.Printf("Error decoding auth service response: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "serious"})
 		return
 	}
-	uid, err := strconv.Atoi(strings.Split(authResponse.Message, " ")[1])
-	if err != nil {
-		log.Printf("failed to retrieve and atoi uid of added user: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve uid"})
-		return
-	}
-
-	type uvClaim struct {
-		Updated_at string  `json:"updated_at"`
-		Vid        int     `json:"vid"`
-		Uid        int     `json:"uid"`
-		Usage      float32 `json:"usage"`
-		Quota      float32 `json:"quota"`
-	}
-
-	// Send A Volume Claim for this user
-	json_data, err := json.Marshal(uvClaim{Vid: 1, Uid: uid})
-	if err != nil {
-		log.Printf("failed to marshal to json: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
-		return
-	}
-	req, err := http.NewRequest(http.MethodPost, apiServiceURL+"/api/v1/admin/user/volume", bytes.NewBuffer(json_data))
-	if err != nil {
-		log.Printf("failed to create a new request: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
+	go func() {
+		type gvClaim struct {
+			Updated_at string  `json:"updated_at"`
+			Vid        int     `json:"vid"`
+			Gid        int     `json:"gid"`
+			Usage      float32 `json:"usage"`
+			Quota      float32 `json:"quota"`
+		}
+		json_data, err := json.Marshal(gvClaim{Vid: 1, Gid: authResponse.Pgroup})
+		if err != nil {
+			log.Printf("failed to marshal to json: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
+			return
+		}
+		req, err := http.NewRequest(http.MethodPost, apiServiceURL+"/api/v1/admin/group/volume", bytes.NewBuffer(json_data))
+		if err != nil {
+			log.Printf("failed to create a new request: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set gv"})
+			req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
+			return
+		}
 		req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
-		return
-	}
 
-	req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Printf("failed to send user group volume claim request: %v", err)
+			return
+		}
+		body, err := io.ReadAll(resp.Body)
+		log.Printf("body: %+v", string(body))
+
+	}()
 
 	go func() {
+		type uvClaim struct {
+			Updated_at string  `json:"updated_at"`
+			Vid        int     `json:"vid"`
+			Uid        int     `json:"uid"`
+			Usage      float32 `json:"usage"`
+			Quota      float32 `json:"quota"`
+		}
+		// Send A Volume Claim for this user
+		json_data, err := json.Marshal(uvClaim{Vid: 1, Uid: authResponse.Uid})
+		if err != nil {
+			log.Printf("failed to marshal to json: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
+			return
+		}
+		req, err := http.NewRequest(http.MethodPost, apiServiceURL+"/api/v1/admin/user/volume", bytes.NewBuffer(json_data))
+		if err != nil {
+			log.Printf("failed to create a new request: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
+			req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
+			return
+		}
+		req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
+
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			log.Printf("failed to send user volume claim request: %v", err)
+			return
 		}
 		body, err := io.ReadAll(resp.Body)
 		log.Printf("body: %+v", string(body))
