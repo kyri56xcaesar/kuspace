@@ -2,18 +2,20 @@ package userspace
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
 	ut "kyri56xcaesar/myThesis/internal/utils"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 /* Structure containing all needed aspects of this service */
@@ -47,6 +49,18 @@ func NewUService(conf string) UService {
 
 	// datbase
 	srv.dbh.Init(cfg.DBPath, cfg.Volumes, cfg.VCapacity)
+
+	// we should init sync (if there are) existing users (from a different service)
+	go func() {
+		err := syncUsers(&srv)
+		if strings.Contains(err.Error(), "already exists") {
+			log.Printf("users are in sync (already).")
+		} else if err != nil {
+			log.Printf("syncUsers failed: %v", err)
+		} else {
+			log.Println("users synced in userspace (uservolumes,groupvolumes claims).")
+		}
+	}()
 
 	// also ensure local pv path
 	_, err := os.Stat(cfg.Volumes)
@@ -153,41 +167,93 @@ func (srv *UService) Serve() {
 	log.Println("Server exiting")
 }
 
-/*
-	take this function to forge a jwt token for minioth
+type User struct {
+	Username string   `json:"username"`
+	Info     string   `json:"info"`
+	Home     string   `json:"home"`
+	Shell    string   `json:"shell"`
+	Password Password `json:"password"`
+	Groups   []Group  `json:"groups"`
+	Uid      int      `json:"uid"`
+	Pgroup   int      `json:"pgroup"`
+}
 
-This service wants to have admin access to minioth
-*/
-func (u *UService) generateAccessJWT(userID, username, groups, gids string) (string, error) {
-	type CustomClaims struct {
-		UserID   string `json:"user_id"`
-		Username string `json:"username"`
-		Groups   string `json:"groups"`
-		GroupIDS string `json:"group_ids"`
-		jwt.RegisteredClaims
-	}
-	// Set the claims for the token
-	claims := CustomClaims{
-		UserID:   userID,
-		Username: username,
-		Groups:   groups,
-		GroupIDS: gids,
-		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    "minioth",
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 10)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Subject:   userID,
-		},
-	}
+type Password struct {
+	Hashpass           string `json:"hashpass"`
+	LastPasswordChange string `json:"lastPasswordChange"`
+	MinimumPasswordAge string `json:"minimumPasswordAge"`
+	MaximumPasswordAge string `json:"maxiumPasswordAge"`
+	WarningPeriod      string `json:"warningPeriod"`
+	InactivityPeriod   string `json:"inactivityPeriod"`
+	ExpirationDate     string `json:"expirationDate"`
+}
 
-	// Create the token using the HS256 signing method
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+type Group struct {
+	Groupname string `json:"groupname"`
+	Users     []User `json:"users"`
+	Gid       int    `json:"gid"`
+}
 
-	// Sign the token using the secret key
-	tokenString, err := token.SignedString(u.config.JWTSecretKey)
+func syncUsers(srv *UService) error {
+	req, err := http.NewRequest(http.MethodGet, "http://"+srv.config.AUTH_ADDRESS+":"+srv.config.AUTH_PORT+"/admin/groups", nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to sign token: %w", err)
+		log.Printf("failed to create a request: %v", err)
+		return err
+	}
+	req.Header.Add("X-Service-Secret", string(srv.config.ServiceSecret))
+	var reqR struct {
+		Content []Group `json:"content"`
 	}
 
-	return tokenString, nil
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Printf("failed to do request: %v", err)
+		return err
+	}
+	defer resp.Body.Close()
+
+	if err := json.NewDecoder(resp.Body).Decode(&reqR); err != nil {
+		log.Printf("failed to decode response body: %v", err)
+		return err
+	}
+	if len(reqR.Content) == 0 {
+		log.Printf("request returned empty slice of users, false condition")
+		return fmt.Errorf("failed to retrieve actual users")
+	}
+
+	capacity, err := strconv.ParseFloat(srv.config.VCapacity, 64)
+	if err != nil {
+		log.Printf("failed to parse env var VCapacity: %v", err)
+		return err
+	}
+	// we retrieved the users, lets add the users volume claims and the corresponding primary group claims
+	for _, group := range reqR.Content {
+		if group.Groupname == "admin" || group.Groupname == "user" || group.Groupname == "mod" {
+			continue
+		}
+
+		err := srv.dbh.InsertGroupVolume(GroupVolume{
+			Vid:   1,
+			Gid:   group.Gid,
+			Quota: capacity,
+		})
+		if err != nil {
+			log.Printf("failed to insert gv: %v", err)
+			return err
+		}
+		for _, user := range group.Users {
+			if user.Username == group.Groupname {
+				err := srv.dbh.InsertUserVolume(UserVolume{
+					Vid:   1,
+					Uid:   user.Uid,
+					Quota: capacity,
+				})
+				if err != nil {
+					log.Printf("failed to insert uv: %v", err)
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }

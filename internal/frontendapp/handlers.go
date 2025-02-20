@@ -1533,7 +1533,6 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 		}
 		body, err := io.ReadAll(resp.Body)
 		log.Printf("body: %+v", string(body))
-
 	}()
 
 	go func() {

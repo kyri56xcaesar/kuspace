@@ -219,11 +219,13 @@ func (m *DBHandler) InsertUserVolume(uv UserVolume) error {
 	if err != nil {
 		return fmt.Errorf("failed to get database connection: %v", err)
 	}
-
 	// check for uniquness
 	var exists bool
 	_ = db.QueryRow(`SELECT 1 FROM userVolume WHERE vid = ? AND uid = ? LIMIT 1;`, uv.Vid, uv.Uid).Scan(&exists)
 	if exists {
+		if err == nil {
+			return fmt.Errorf("already exists!")
+		}
 		log.Printf("error checking for uniqunes or not unique: %v", err)
 		return fmt.Errorf("error checking for uniqueness or not unique pair: %v", err)
 	}
@@ -627,6 +629,9 @@ func (m *DBHandler) InsertGroupVolume(gv GroupVolume) error {
 	var exists bool
 	err = db.QueryRow(`SELECT 1 FROM groupVolume WHERE vid = ? AND gid = ? LIMIT 1;`, gv.Vid, gv.Gid).Scan(&exists)
 	if exists {
+		if err == nil {
+			return fmt.Errorf("already exists!")
+		}
 		log.Printf("error checking for uniqunes or not unique: %v", err)
 		return fmt.Errorf("error checking for uniqueness or not unique pair: %v", err)
 	}

@@ -333,3 +333,5 @@ func toSnakeCase(input string) string {
 
 	return strings.ToLower(string(output))
 }
+
+/* Repetition of code from minioth... */

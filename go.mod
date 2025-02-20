@@ -16,9 +16,8 @@ require (
 	sigs.k8s.io/controller-runtime v0.19.3
 )
 
-replace github.com/kyri56xcaesar/minioth => github.com/kyri56xcaesar/minioth v1.0.2
-
-//replace github.com/kyri56xcaesar/minioth v1.0.0 => ../minioth
+//replace github.com/kyri56xcaesar/minioth => github.com/kyri56xcaesar/minioth v1.0.2
+replace github.com/kyri56xcaesar/minioth v1.0.2 => ../minioth
 
 require (
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
