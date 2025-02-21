@@ -29,6 +29,11 @@
     hx-swap="none"
   >
   </div>
+
+  <div id="gshell-spawner">
+    <div class="gshell-container" id="gshell-container"></div>
+  </div>
+  
   <div id="sidebar" class="sidebar">
     <button id="toggle-sidebar" class="sidebar-toggle">☰</button>
       <ul class="menu collapsing">
@@ -81,6 +86,15 @@
             <a href="#" onclick="showSection('profile')">Profile</a>
           </li>
           -->
+          <li>
+            <a 
+              id="fetch-shell"
+              href="#"
+              hx-get="/api/v1/gshell"
+              hx-target="#gshell-spawner"
+              hx-swap="innerHTML"
+              hx-trigger="click"
+            > <i class="fa-solid fa-terminal"></i> </a>
         </ul>
       </div>
       <button  

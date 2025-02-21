@@ -174,13 +174,34 @@
     </div>
   </div>
 </div>
-
 {{ end }}
 
 {{ define "resource-preview.html" }}
-
 <div class="resource-preview-container">
   <pre class="resource-preview-content">{{ . }}</pre>
 </div>
+{{ end }}
 
+{{ define "gshell-display.html"}}
+<div class="terminal">
+  <!-- Header (fake traffic lights) -->
+  <div class="terminal-header">
+    <div class="draggable-bar"></div>
+    <div class="traffic-lights">
+      <i class="minimize fa fa-window-minimize" aria-hidden="true"></i>
+      <i class="pin fas fa-expand"></i>
+      <i class="close fa fa-close"></i>
+    </div>
+  </div>
+  <!-- Body (where lines and input go) -->
+  <div class="terminal-body" id="terminal-body">
+    <div class="line">Welcome to gShell!</div>
+    <div class="line">Type something and press Enter:</div>
+    <div class="line">
+      <span id="prompt">$</span>
+      <input type="text" id="terminal-input" autocomplete="off" autofocus />
+    </div>
+  </div>
+  <div id="resizer"></div>
+</div>
 {{ end }}

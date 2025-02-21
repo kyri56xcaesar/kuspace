@@ -140,6 +140,15 @@ document.addEventListener('htmx:afterSettle', function(event) {
   }
 })
 
+document.addEventListener('htmx:beforeSwap', function(event) {
+  const triggeringElement = event.detail.elt;
+  const triggeringElementId = triggeringElement.id;
+  if (triggeringElementId === "gshell-spawner") {
+    let newShell = newTerminal();
+    event.detail.target = newShell;
+  }
+});
+
 document.addEventListener('htmx:afterSwap', function (event) {
   const triggeringElement = event.detail.elt;
   const triggeringElementId = triggeringElement.id;
@@ -154,6 +163,10 @@ document.addEventListener('htmx:afterSwap', function (event) {
         verifyResultElement.className = 'false';
       }
     }
+  } else if (triggeringElementId.startsWith('gshell-container')) {
+    // Grab that specific shell and give it the terminal features
+    giveFunctionality(triggeringElement);
+    
   }
   
 });
@@ -451,3 +464,126 @@ document.addEventListener('htmx:confirm', function(evt) {
     });
   }
 });
+
+
+
+// shell related
+let shellCounter = 0;
+
+// Create new DIV, assign unique ID, and append to spawner
+function newTerminal() {
+  shellCounter++;
+  let uniqueId = 'gshell-container-' + shellCounter;
+
+  let newShell = document.createElement('div');
+  newShell.classList.add('gshell-container');
+  newShell.setAttribute('id', uniqueId);
+
+
+  const spawner = document.getElementById('gshell-spawner');
+  spawner.appendChild(newShell);
+
+  return newShell;
+}
+
+
+function giveFunctionality(element) {
+  if (!element) {
+    return;
+  }
+  const terminalBody = element.querySelector('#terminal-body');
+  const terminalInput = element.querySelector('#terminal-input');
+
+  // Listen for the Enter key to process commands
+  terminalInput.addEventListener('keypress', (event) => {
+    if (event.key === 'Enter') {
+      const inputValue = terminalInput.value.trim();
+      // 1. Create a new line to display the entered command
+      const newLine = document.createElement('div');
+      newLine.classList.add('line');
+      newLine.textContent = '$ ' + inputValue;
+      // Insert above the current input line
+      terminalBody.insertBefore(newLine, terminalInput.parentElement.nextSibling);
+      // 2. Clear the input
+      terminalInput.value = '';
+      // 3. You can replace this with actual command logic
+      // For now, just echo back what was typed
+      if (inputValue) {
+        const responseLine = document.createElement('div');
+        responseLine.classList.add('line');
+        responseLine.textContent = 'You typed: ' + inputValue;
+        terminalBody.insertBefore(responseLine, terminalInput.parentElement.nextSibling);
+      }
+    }
+  });
+
+  // ===== DRAGGING =====
+  const terminal = element.querySelector('.terminal');
+  const terminalHeader = element.querySelector('.terminal-header > .draggable-bar');
+
+  let offsetX = 0;
+  let offsetY = 0;
+  let isDragging = false;
+  terminalHeader.addEventListener('mousedown', (e) => {
+    // Calculate the distance between the mouse pointer and the container's top-left corner
+    offsetX = e.clientX - element.offsetLeft;
+    offsetY = e.clientY - element.offsetTop;
+    isDragging = true;
+ 
+    // Add global listeners so dragging works even if the mouse leaves the header
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  });
+ 
+  function onMouseMove(e) {
+    if (!isDragging) return;
+    e.preventDefault();
+    // Move the container so it follows the mouse pointer
+    element.style.left = (e.clientX - offsetX) + 'px';
+    element.style.top  = (e.clientY - offsetY) + 'px';
+  }
+ 
+  function onMouseUp(e) {
+    isDragging = false;
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  }
+ 
+  // ===== RESIZING =====
+  const resizer = document.getElementById('resizer');
+  let isResizing = false;
+ 
+  resizer.addEventListener('mousedown', (e) => {
+    e.preventDefault(); // Prevent text selection
+    isResizing = true;
+    document.addEventListener('mousemove', onResize);
+    document.addEventListener('mouseup', stopResize);
+  });
+ 
+  function onResize(e) {
+    if (!isResizing) return;
+    e.preventDefault();
+    // Adjust width/height based on mouse position
+    terminal.style.width  = (e.clientX - element.offsetLeft) + 'px';
+    terminal.style.height = (e.clientY - element.offsetTop)  + 'px';
+  }
+ 
+  function stopResize(e) {
+    isResizing = false;
+    document.removeEventListener('mousemove', onResize);
+    document.removeEventListener('mouseup', stopResize);
+  }
+
+  element.querySelector(".minimize").addEventListener('click', ()=> {
+    console.log('minimizing');
+  });
+
+  element.querySelector(".pin").addEventListener('click', ()=> {
+    console.log('pinning');
+  });
+
+  element.querySelector(".close").addEventListener('click', ()=> {
+    element.remove();
+  });
+
+}

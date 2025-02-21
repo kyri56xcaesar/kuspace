@@ -160,6 +160,9 @@ func (srv *HTTPService) ServeHTTP() {
 			c.Redirect(300, "/api/v1/login")
 		})
 
+		apiV1.GET("/gshell", func(c *gin.Context) {
+			c.HTML(http.StatusOK, "gshell-display.html", nil)
+		})
 	}
 
 	oauth := apiV1.Group("/auth")

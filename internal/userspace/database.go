@@ -221,7 +221,7 @@ func (m *DBHandler) InsertUserVolume(uv UserVolume) error {
 	}
 	// check for uniquness
 	var exists bool
-	_ = db.QueryRow(`SELECT 1 FROM userVolume WHERE vid = ? AND uid = ? LIMIT 1;`, uv.Vid, uv.Uid).Scan(&exists)
+	err = db.QueryRow(`SELECT 1 FROM userVolume WHERE vid = ? AND uid = ? LIMIT 1;`, uv.Vid, uv.Uid).Scan(&exists)
 	if exists {
 		if err == nil {
 			return fmt.Errorf("already exists!")
