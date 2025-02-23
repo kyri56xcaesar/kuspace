@@ -550,7 +550,7 @@ function giveFunctionality(element) {
   }
  
   // ===== RESIZING =====
-  const resizer = document.getElementById('resizer');
+  const resizer = element.querySelector("#resizer");
   let isResizing = false;
  
   resizer.addEventListener('mousedown', (e) => {
