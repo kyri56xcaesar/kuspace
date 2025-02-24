@@ -159,10 +159,6 @@ func (srv *HTTPService) ServeHTTP() {
 			log.Print("cookies deleted")
 			c.Redirect(300, "/api/v1/login")
 		})
-
-		apiV1.GET("/gshell", func(c *gin.Context) {
-			c.HTML(http.StatusOK, "gshell-display.html", nil)
-		})
 	}
 
 	oauth := apiV1.Group("/auth")
@@ -202,6 +198,14 @@ func (srv *HTTPService) ServeHTTP() {
 
 		verified.GET("/edit-form", AuthMiddleware("user, admin"), srv.editFormHandler)
 		verified.GET("/add-symlink-form", AuthMiddleware("user, admin"), srv.addSymlinkFormHandler)
+
+		verified.GET("/gshell", AuthMiddleware("user, admin"), func(c *gin.Context) {
+			whoami, exists := c.Get("username")
+			if !exists {
+				whoami = "jondoe"
+			}
+			c.HTML(http.StatusOK, "gshell-display.html", gin.H{"whoami": whoami})
+		})
 
 		admin := verified.Group("/admin")
 		/* minioth will verify token no need to worry here.*/

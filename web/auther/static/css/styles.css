@@ -17,6 +17,10 @@ img {
   user-select: none
 }
 
+a, label, ul, ol, h1, h2, h3, h4, h5, h6 {
+  user-select: none;
+}
+
 #index-main {
   height: 100%;
   width: 100%;
@@ -461,7 +465,7 @@ img {
   /* left: 0; */
   z-index: 9999; /* optional but keeps it on top */
 
-  top: 50px;      /* Start somewhat down from top-left */
+  top: 48px;      /* Start somewhat down from top-left */
   left: 50px;
   background-color: #1e1e1e;
   border: 1px solid #555;
@@ -480,15 +484,26 @@ img {
   width: 600px;
   border-radius: 6px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-  overflow: hidden;
 
-  min-width: 400px;
-  min-height: 200px;
+  min-width: 250px;
+  min-height: 225px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+
+  & :is(hr) {
+    width: 100%;
+  }
+
 }
 
 /* Header bar with traffic lights */
 .terminal-header {
-  width: 100%;
+  position: fixed;
+  width: inherit;
+  min-width: inherit;
+  max-width: inherit;
   box-sizing: border-box;
   background-color: #333;
   padding: 6px 10px;
@@ -501,6 +516,65 @@ img {
     height: 20px;
     cursor: move; /* Show move cursor */
   }
+
+  & :is(.main-headers) {
+    display: flex;
+    height: 20px;
+    margin-right: 0 10px 0 0;
+  }
+}
+
+
+/* Terminal body */
+.terminal-body {
+  margin-top: 25px;
+  padding: 10px;
+  min-width: inherit;
+  min-height: 150px;
+  max-height: 300px;
+  overflow-y: scroll;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  width: 100%;
+  flex: 1;               /* fills remaining vertical space within container */
+  box-sizing: border-box;
+}
+
+.terminal-input {
+  padding-left: 10px;
+}
+
+#terminal-input {
+  background: transparent;
+  color: #f8f8f2;
+  border: none;
+  outline: none;
+  font: inherit;
+  width: 80%;
+}
+
+#resizer {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  right: 0;
+  bottom: 0;
+  background: #555;
+  cursor: se-resize;
+}
+
+/* Each line in the terminal */
+.line {
+  margin-bottom: 5px;
+  word-wrap: break-word;
+}
+
+/* Prompt and input field */
+#prompt {
+  margin-right: 8px;
+  color: #0f0;
 }
 
 .traffic-lights {
@@ -537,46 +611,3 @@ img {
   background-color: #27c93f;
 }
 
-/* Terminal body */
-.terminal-body {
-  padding: 10px;
-  min-height: 300px;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  width: 100%;
-  flex: 1;               /* fills remaining vertical space within container */
-  box-sizing: border-box;
-  overflow-y: auto;
-}
-
-#resizer {
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  right: 0;
-  bottom: 0;
-  background: #555;
-  cursor: se-resize;
-}
-
-/* Each line in the terminal */
-.line {
-  margin-bottom: 5px;
-  word-wrap: break-word;
-}
-
-/* Prompt and input field */
-#prompt {
-  margin-right: 8px;
-  color: #0f0;
-}
-
-#terminal-input {
-  background: transparent;
-  color: #f8f8f2;
-  border: none;
-  outline: none;
-  font: inherit;
-  width: 80%;
-}

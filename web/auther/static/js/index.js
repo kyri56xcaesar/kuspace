@@ -145,7 +145,11 @@ document.addEventListener('htmx:beforeSwap', function(event) {
   const triggeringElementId = triggeringElement.id;
   if (triggeringElementId === "gshell-spawner") {
     let newShell = newTerminal();
-    event.detail.target = newShell;
+    if (newShell) {
+      event.detail.target = newShell;
+    } else {
+      event.preventDefault();
+    }
   }
 });
 
@@ -469,9 +473,12 @@ document.addEventListener('htmx:confirm', function(evt) {
 
 // shell related
 let shellCounter = 0;
-
 // Create new DIV, assign unique ID, and append to spawner
 function newTerminal() {
+  if (shellCounter >= 5) {
+    alert('Ok relax buddy, no more terms');
+    return null;
+  }
   shellCounter++;
   let uniqueId = 'gshell-container-' + shellCounter;
 
@@ -493,30 +500,62 @@ function giveFunctionality(element) {
   }
   const terminalBody = element.querySelector('#terminal-body');
   const terminalInput = element.querySelector('#terminal-input');
+  terminalBody.scrollIntoView(false);
+  // websocket 
+  const socket = new WebSocket("ws://localhost:8081/gshell");
+
+  socket.onopen = function () {
+    console.log("Connected to WebSocket server");
+  };
+
+  socket.onmessage = function (event) {
+    appendLine(event.data);
+    setTimeout(() => {
+      terminalBody.scrollTop = terminalBody.scrollHeight;
+    }, 100);
+  };
+
+  socket.onclose = function () {
+    appendLine("Disconnected from gShell.");
+  }
+
+
+
 
   // Listen for the Enter key to process commands
   terminalInput.addEventListener('keypress', (event) => {
     if (event.key === 'Enter') {
-      const inputValue = terminalInput.value.trim();
-      // 1. Create a new line to display the entered command
-      const newLine = document.createElement('div');
-      newLine.classList.add('line');
-      newLine.textContent = '$ ' + inputValue;
-      // Insert above the current input line
-      terminalBody.insertBefore(newLine, terminalInput.parentElement.nextSibling);
-      // 2. Clear the input
-      terminalInput.value = '';
-      // 3. You can replace this with actual command logic
-      // For now, just echo back what was typed
-      if (inputValue) {
-        const responseLine = document.createElement('div');
-        responseLine.classList.add('line');
-        responseLine.textContent = 'You typed: ' + inputValue;
-        terminalBody.insertBefore(responseLine, terminalInput.parentElement.nextSibling);
-      }
+      let command = terminalInput.value;
+      appendLine(`<span style="color: #00ff00;">k></span> ${command}`);
+      socket.send(command);
+      terminalInput.value = "";
+
+      setTimeout(() => {
+        terminalBody.scrollTop = terminalBody.scrollHeight;
+      }, 100);
+
     }
   });
 
+  function prependLine(text) {
+    let line = document.createElement("div");
+    line.classList.add("line");
+    line.innerHTML = text;
+    terminalBody.insertBefore(line, terminalInput.parentNode);
+  }
+
+  function appendLine(text) {
+    let line = document.createElement("div");
+    line.classList.add("line");
+    line.innerHTML = text;
+    terminalBody.appendChild(line);
+  }
+
+  function moveToLast(child, parent) {
+    if (parent && child) {
+      parent.appendChild(child);
+    }
+  }
   // ===== DRAGGING =====
   const terminal = element.querySelector('.terminal');
   const terminalHeader = element.querySelector('.terminal-header > .draggable-bar');
@@ -566,6 +605,8 @@ function giveFunctionality(element) {
     // Adjust width/height based on mouse position
     terminal.style.width  = (e.clientX - element.offsetLeft) + 'px';
     terminal.style.height = (e.clientY - element.offsetTop)  + 'px';
+    terminalBody.style.width = (e.clientX - element.offsetLeft) + 'px';
+    terminalBody.style.height = (e.clientY - element.offsetTop) + 'px';
   }
  
   function stopResize(e) {
@@ -573,7 +614,7 @@ function giveFunctionality(element) {
     document.removeEventListener('mousemove', onResize);
     document.removeEventListener('mouseup', stopResize);
   }
-
+  
   element.querySelector(".minimize").addEventListener('click', ()=> {
     console.log('minimizing');
   });
@@ -583,7 +624,9 @@ function giveFunctionality(element) {
   });
 
   element.querySelector(".close").addEventListener('click', ()=> {
+    socket.close();
     element.remove();
+    shellCounter--;
   });
 
 }

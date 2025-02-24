@@ -6,6 +6,10 @@ TARGET_F_APP=cmd/frontendapp/
 F_APP_OUT=frontendapp
 F_APP_MAIN=main.go
 
+TARGET_WS=cmd/frontendapp/ws/
+WS_OUT=ws_server 
+WS_MAIN=ws_main.go
+
 TARGET_AUTH=cmd/minioth/
 AUTH_OUT=minioth
 AUTH_MAIN=main.go
@@ -18,12 +22,27 @@ SHELL_MAIN=main.go
 mod:
 	go mod tidy
 
+.PHONY: all
+all: build run
 
-.PHONY: run all
-run all: 
+.PHONY: build
+build:
+	go build -o ${TARGET_API}${API_OUT} ${TARGET_API}${API_MAIN}
+	go build -o ${TARGET_F_APP}${F_APP_OUT} ${TARGET_F_APP}${F_APP_MAIN}
+	go build -o ${TARGET_AUTH}${AUTH_OUT} ${TARGET_AUTH}${AUTH_MAIN}
+	go build -o ${TARGET_WS}${WS_OUT} ${TARGET_WS}${WS_MAIN}
+
+.PHONY: run
+run: 
 	./${TARGET_AUTH}${AUTH_OUT} &
 	./${TARGET_F_APP}${F_APP_OUT} & 
 	./${TARGET_API}${API_OUT} &
+	./${TARGET_WS}${WS_OUT} &
+
+.PHONY: stop 
+stop:
+	kill $$(pgrep ${AUTH_OUT}) $$(pgrep ${WS_OUT}) $$(pgrep ${API_OUT}) $$(pgrep ${AUTH_OUT}) || true
+
 
 .PHONY: userspace
 userspace:
@@ -34,6 +53,11 @@ userspace:
 front:
 	go build -o ${TARGET_F_APP}${F_APP_OUT} ${TARGET_F_APP}${F_APP_MAIN}
 	./${TARGET_F_APP}${F_APP_OUT} 
+
+.PHONY: front-ws 
+front-ws:
+	go build -o ${TARGET_WS}${WS_OUT} ${TARGET_WS}${WS_MAIN}
+	./${TARGET_WS}${WS_OUT}
 
 .PHONY: minioth
 minioth:
@@ -47,5 +71,5 @@ shell:
 
 .PHONY: clean
 clean:
-	rm -f ${TARGET_API}${API_OUT} ${TARGET_SHELL}${SHELL_OUT} ${TARGET_AUTH}${AUTH_OUT} ${TARGET_F_APP}${F_APP_OUT}
+	rm -f ${TARGET_API}${API_OUT} ${TARGET_SHELL}${SHELL_OUT} ${TARGET_AUTH}${AUTH_OUT} ${TARGET_F_APP}${F_APP_OUT} ${TARGET_WS}${WS_OUT}
 	

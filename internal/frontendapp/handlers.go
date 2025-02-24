@@ -29,137 +29,17 @@ var (
 	apiServiceURL string
 )
 
-/* all needed structs, propably used by multiple funcs/methods*/
-type LoginRequest struct {
-	Username string `form:"username" json:"username" binding:"required,min=3,max=20"`
-	Password string `form:"password" json:"password" binding:"required,min=4,max=100"`
-}
-
-type RegisterRequest struct {
-	Username       string `form:"username" json:"username" binding:"required,min=3,max=20"`
-	Password       string `form:"password" json:"password" binding:"required,min=4,max=100"`
-	RepeatPassword string `form:"repeat-password" json:"repeat-password" binding:"required,min=4,max=100"`
-	Email          string `form:"email" json:"email"`
-}
-
-type AuthServiceResponse struct {
-	Token   string `json:"token"`
-	Role    string `json:"role"`
-	Message string `json:"message"`
-	Error   string `json:"error"`
-}
-
-type PassClaim struct {
-	Hashpass           string `json:"hashpass"`
-	LastPasswordChange string `json:"lastPasswordChange"`
-	MinPasswordAge     string `json:"minimumPasswordAge"`
-	MaxPasswordAge     string `json:"maximumPasswordAge"`
-	WarningPeriod      string `json:"warningPeriod"`
-	InactivityPeriod   string `json:"inactivityPeriod"`
-	ExpirationDate     string `json:"expirationDate"`
-}
-
-type RegClaim struct {
-	Username string    `json:"username"`
-	Info     string    `json:"info"`
-	Home     string    `json:"home"`
-	Shell    string    `json:"shell"`
-	Password PassClaim `json:"password"`
-	Uid      int       `json:"uid"`
-	Pgroup   int       `json:"pgroup"`
-}
-
-type User struct {
-	Username string   `json:"username"`
-	Info     string   `json:"info"`
-	Home     string   `json:"home"`
-	Shell    string   `json:"shell"`
-	Password Password `json:"password"`
-	Groups   []Group  `json:"groups"`
-	Uid      int      `json:"uid"`
-	Pgroup   int      `json:"pgroup"`
-}
-
-type Password struct {
-	Hashpass           string `json:"hashpass"`
-	LastPasswordChange string `json:"lastPasswordChange"`
-	MinimumPasswordAge string `json:"minimumPasswordAge"`
-	MaximumPasswordAge string `json:"maxiumPasswordAge"`
-	WarningPeriod      string `json:"warningPeriod"`
-	InactivityPeriod   string `json:"inactivityPeriod"`
-	ExpirationDate     string `json:"expirationDate"`
-}
-
-type Group struct {
-	Groupname string `json:"groupname"`
-	Users     []User `json:"users"`
-	Gid       int    `json:"gid"`
-}
-
-type TreeNode struct {
-	Resource *Resource            `json:"resource,omitempty"`
-	Children map[string]*TreeNode `json:"children,omitempty"`
-	Name     string               `json:"name,omitempty"`
-	Type     string               `json:"type"` // "directory" or "file"
-}
-
-type Resource struct {
-	Name        string `json:"name"`
-	Type        string `json:"type"`
-	Created_at  string `json:"created_at"`
-	Updated_at  string `json:"updated_at"`
-	Accessed_at string `json:"accessed_at"`
-	Perms       string `json:"perms"`
-	Rid         int    `json:"rid"`
-	Uid         int    `json:"uid"` // as in user id (owner)
-	Vid         int    `json:"vid"`
-	Gid         int    `json:"gid"` // as in group id
-	Pid         int    `json:"pid"` // as in parent id
-	Size        int    `json:"size"`
-	Links       int    `json:"links"`
-}
-
-type Volume struct {
-	Name     string  `json:"name"`
-	Path     string  `json:"path"`
-	Dynamic  bool    `json:"dynamic"`
-	Capacity float32 `json:"capacity"`
-	Usage    float32 `json:"usage"`
-	Vid      int     `json:"vid"`
-}
-
-type UserVolume struct {
-	Updated_at string  `json:"updated_at"`
-	Vid        int     `json:"vid"`
-	Uid        int     `json:"uid"`
-	Usage      float32 `json:"usage"`
-	Quota      float32 `json:"quota"`
-}
-
-type GroupVolume struct {
-	Updated_at string  `json:"updated_at"`
-	Vid        int     `json:"vid"`
-	Gid        int     `json:"gid"`
-	Usage      float32 `json:"usage"`
-	Quota      float32 `json:"quota"`
-}
-
-type FilePermissions struct {
-	OwnerR bool
-	OwnerW bool
-	OwnerX bool
-	GroupR bool
-	GroupW bool
-	GroupX bool
-	OtherR bool
-	OtherW bool
-	OtherX bool
-}
-
 /*
 *********************************************************************
 *   Users
 * */
+
+/*
+ * function handler (GET requests) that responds with all the existing users
+ *
+ * -> format specified (default rendered html template)
+ * @TODO: allow range request (paging)
+ */
 func (srv *HTTPService) handleFetchUsers(c *gin.Context) {
 	accessToken, err := c.Cookie("access_token")
 	if err != nil {
@@ -215,6 +95,11 @@ func (srv *HTTPService) handleFetchUsers(c *gin.Context) {
 	respondInFormat(c, format, resp.Content, "users_template.html")
 }
 
+/*
+ * a handler on an admin useradd call (similar to register but with less strictness)
+ *
+ *
+ */
 func (srv *HTTPService) handleUseradd(c *gin.Context) {
 	accessToken, err := c.Cookie("access_token")
 	if err != nil {
@@ -222,32 +107,25 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
-	var reg struct {
-		Username string `form:"username" json:"username"`
-		Password string `form:"password" json:"password"`
-		Email    string `form:"email" json:"email"`
-		Home     string `form:"home" json:"home"`
-	}
-
-	if err := c.ShouldBind(&reg); err != nil {
+	var uac UseraddClaim
+	if err := c.ShouldBind(&uac); err != nil {
 		log.Printf("Register binding error: %v", err)
 		// Respond with the appropriate error on the template.
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Register binding"})
 		return
 	}
 
-	data := RegClaim{
-		Username: reg.Username,
-		Info:     reg.Email,
-		Home:     "/home/" + reg.Username,
-		Shell:    "gshell",
-		Password: PassClaim{
-			Hashpass: reg.Password,
-		},
-	}
 	// Forward login request to the auth service
 	resp, err := forwardPostRequest(authServiceURL+authVersion+"/admin/useradd", accessToken, gin.H{
-		"user": data,
+		"user": RegClaim{
+			Username: uac.Username,
+			Info:     uac.Email,
+			Home:     "/home/" + uac.Username,
+			Shell:    "gshell",
+			Password: PassClaim{
+				Hashpass: uac.Password,
+			},
+		},
 	})
 	if err != nil {
 		log.Printf("Error forwarding register request: %v", err)
@@ -273,12 +151,7 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 		return
 	}
 
-	var useraddResp struct {
-		Message   string `json:"message"`
-		Login_url string `json:"login_url"`
-		Uid       int    `json:"uid"`
-		Pgroup    int    `json:"pgroup"`
-	}
+	var useraddResp RegResponse
 	err = json.NewDecoder(resp.Body).Decode(&useraddResp)
 	if err != nil {
 		log.Printf("failed to decode resp json body: %v", err)
@@ -286,16 +159,9 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 		return
 	}
 
+	/* give the user some of the volume pie */
 	go func() {
-		type uvClaim struct {
-			Updated_at string  `json:"updated_at"`
-			Vid        int     `json:"vid"`
-			Uid        int     `json:"uid"`
-			Usage      float32 `json:"usage"`
-			Quota      float32 `json:"quota"`
-		}
-
-		json_data, err := json.Marshal(uvClaim{Vid: 1, Uid: useraddResp.Uid})
+		json_data, err := json.Marshal(UserVolume{Vid: 1, Uid: useraddResp.Uid})
 		if err != nil {
 			log.Printf("failed to marshal to json: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
@@ -310,24 +176,16 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 		}
 		req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
 
-		resp, err := http.DefaultClient.Do(req)
+		_, err = http.DefaultClient.Do(req)
 		if err != nil {
 			log.Printf("failed to send user volume claim request: %v", err)
 		}
-		body, err := io.ReadAll(resp.Body)
-		log.Printf("uv req body: %+v", string(body))
+
 	}()
 
+	/* give the users primary group some of the pie as well*/
 	go func() {
-		type gvClaim struct {
-			Updated_at string  `json:"updated_at"`
-			Vid        int     `json:"vid"`
-			Gid        int     `json:"gid"`
-			Usage      float32 `json:"usage"`
-			Quota      float32 `json:"quota"`
-		}
-		// Send A Volume Claim for this user
-		json_data, err := json.Marshal(gvClaim{Vid: 1, Gid: useraddResp.Pgroup})
+		json_data, err := json.Marshal(GroupVolume{Vid: 1, Gid: useraddResp.Pgroup})
 		if err != nil {
 			log.Printf("failed to marshal to json: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set gv"})
@@ -341,18 +199,22 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 		}
 		req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
 
-		resp, err := http.DefaultClient.Do(req)
+		_, err = http.DefaultClient.Do(req)
 		if err != nil {
 			log.Printf("failed to send user group volume claim request: %v", err)
 			return
 		}
-		body, err := io.ReadAll(resp.Body)
-		log.Printf("body: %+v", string(body))
 	}()
 
 	c.JSON(http.StatusOK, gin.H{"status": "user added"})
 }
 
+/* Forward a user deletion request to the AUTH service
+ *
+ * perform some authoriaztion checks meanwhile...
+ *
+ * return if deletion succeeded or not.
+ */
 func (srv *HTTPService) handleUserdel(c *gin.Context) {
 	accessToken, err := c.Cookie("access_token")
 	if err != nil {
@@ -547,7 +409,6 @@ func (srv *HTTPService) handleFetchGroups(c *gin.Context) {
 func (srv *HTTPService) handleGroupadd(c *gin.Context) {
 	/* Since, this is an admin function, verify early that access token exists
 	* perhaps, unecessary.
-	* JWT is verified at the authentication service anyhow
 	* */
 	accessToken, err := c.Cookie("access_token")
 	if err != nil {
@@ -566,7 +427,7 @@ func (srv *HTTPService) handleGroupadd(c *gin.Context) {
 		return
 	}
 
-	// Forward login request to the auth service
+	/* forward login request to the auth service */
 	resp, err := forwardPostRequest(authServiceURL+authVersion+"/admin/groupadd", accessToken, req)
 	if err != nil {
 		log.Printf("Error forwarding register request: %v", err)
@@ -642,7 +503,6 @@ func (srv *HTTPService) handleGroupdel(c *gin.Context) {
 		return
 	}
 
-	// Render the HTML template
 	c.String(response.StatusCode, "%v", resp.Message)
 }
 
@@ -838,6 +698,11 @@ func (srv *HTTPService) handleResourcePreview(c *gin.Context) {
 	}
 
 	req, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/resource/preview?rid="+rid, c.Request.Body)
+	if err != nil {
+		log.Printf("failed to create a new request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create a http request"})
+		return
+	}
 	for key, values := range c.Request.Header {
 		for _, value := range values {
 			req.Header.Add(key, value)
@@ -1099,6 +964,11 @@ func (srv *HTTPService) handleResourcePerms(c *gin.Context) {
 
 	requestBody := strings.NewReader(formData.Encode())
 	req, err = http.NewRequest(http.MethodPatch, apiServiceURL+endpoint, requestBody)
+	if err != nil {
+		log.Printf("failed to create a new request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create a new request"})
+		return
+	}
 
 	whoami, exists := c.Get("user_id")
 	mygroups, gexists := c.Get("groups")
@@ -1492,26 +1362,15 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 		return
 	}
 	// parse response.
-	var authResponse struct {
-		Login_url string `json:"login_url"`
-		Message   string `json:"message"`
-		Uid       int    `json:"uid"`
-		Pgroup    int    `json:"pgroup"`
-	}
+	var authResponse RegResponse
 	if err := json.NewDecoder(resp.Body).Decode(&authResponse); err != nil {
 		log.Printf("Error decoding auth service response: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "serious"})
 		return
 	}
+	/* give user's primary group some of the pie..*/
 	go func() {
-		type gvClaim struct {
-			Updated_at string  `json:"updated_at"`
-			Vid        int     `json:"vid"`
-			Gid        int     `json:"gid"`
-			Usage      float32 `json:"usage"`
-			Quota      float32 `json:"quota"`
-		}
-		json_data, err := json.Marshal(gvClaim{Vid: 1, Gid: authResponse.Pgroup})
+		json_data, err := json.Marshal(GroupVolume{Vid: 1, Gid: authResponse.Pgroup})
 		if err != nil {
 			log.Printf("failed to marshal to json: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
@@ -1526,25 +1385,16 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 		}
 		req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
 
-		resp, err := http.DefaultClient.Do(req)
+		_, err = http.DefaultClient.Do(req)
 		if err != nil {
 			log.Printf("failed to send user group volume claim request: %v", err)
 			return
 		}
-		body, err := io.ReadAll(resp.Body)
-		log.Printf("body: %+v", string(body))
-	}()
 
+	}()
+	/* let user some of the volume pie*/
 	go func() {
-		type uvClaim struct {
-			Updated_at string  `json:"updated_at"`
-			Vid        int     `json:"vid"`
-			Uid        int     `json:"uid"`
-			Usage      float32 `json:"usage"`
-			Quota      float32 `json:"quota"`
-		}
-		// Send A Volume Claim for this user
-		json_data, err := json.Marshal(uvClaim{Vid: 1, Uid: authResponse.Uid})
+		json_data, err := json.Marshal(UserVolume{Vid: 1, Uid: authResponse.Uid})
 		if err != nil {
 			log.Printf("failed to marshal to json: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
@@ -1559,13 +1409,12 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 		}
 		req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
 
-		resp, err := http.DefaultClient.Do(req)
+		_, err = http.DefaultClient.Do(req)
 		if err != nil {
 			log.Printf("failed to send user volume claim request: %v", err)
 			return
 		}
-		body, err := io.ReadAll(resp.Body)
-		log.Printf("body: %+v", string(body))
+
 	}()
 	// at this point registration should be successful, we can directly login the user
 	// .. somehow

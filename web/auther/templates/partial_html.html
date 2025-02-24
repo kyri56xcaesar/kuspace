@@ -186,6 +186,10 @@
 <div class="terminal">
   <!-- Header (fake traffic lights) -->
   <div class="terminal-header">
+    <div class="main-headers">
+      <i class="fa-solid fa-gear"></i>
+      <h4></h4>
+    </div>
     <div class="draggable-bar"></div>
     <div class="traffic-lights">
       <i class="minimize fa fa-window-minimize" aria-hidden="true"></i>
@@ -196,11 +200,12 @@
   <!-- Body (where lines and input go) -->
   <div class="terminal-body" id="terminal-body">
     <div class="line">Welcome to gShell!</div>
-    <div class="line">Type something and press Enter:</div>
-    <div class="line">
-      <span id="prompt">$</span>
-      <input type="text" id="terminal-input" autocomplete="off" autofocus />
-    </div>
+
+  </div>
+  <div class="line terminal-input">
+    <hr>
+    <span id="prompt">{{ .whoami }}-k></span>
+    <input type="text" id="terminal-input" autocomplete="off" autofocus />
   </div>
   <div id="resizer"></div>
 </div>
