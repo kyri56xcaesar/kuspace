@@ -1,11 +1,56 @@
 package userspace
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
+
+/* A custom HTTP header parser
+*
+* AccessTarget=<filepath> <signature>
+*
+* <filepath>: the name of the file you wish to acccess
+* (if it ends in /, it means its a directory)
+*
+* <signature>:your_user_id:[group_id,groupd_id,...]
+* so the signature plainly is the user ID delimitted by ':'
+* followed by the group ids (delimitted by commas).
+*
+*
+* */
+func BindAccessTarget(http_header string) (AccessClaim, error) {
+	var ac AccessClaim
+	parts := strings.SplitN(http_header, " ", 2)
+	if len(parts) != 2 {
+		return ac, fmt.Errorf("invalid header format")
+	}
+
+	target := parts[0]
+	if !strings.HasSuffix(target, "/") {
+		target += "/"
+	}
+
+	sig := parts[1]
+	p := strings.SplitN(sig, ":", 2)
+	if len(p) != 2 {
+		return ac, fmt.Errorf("invalid signature format")
+	}
+	if p == nil || p[0] == "" || p[1] == "" {
+		return ac, fmt.Errorf("nil parameters")
+	}
+
+	ac = AccessClaim{
+		Uid:    p[0],
+		Gids:   p[1],
+		Target: target,
+	}
+
+	return ac, nil
+}
 
 func serviceAuth(srv *UService) gin.HandlerFunc {
 	return func(c *gin.Context) {

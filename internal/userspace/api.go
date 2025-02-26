@@ -105,6 +105,10 @@ func (srv *UService) Serve() {
 		apiV1.PATCH("/resource/ownership", isOwner(srv), srv.ChownResourceHandler)
 		apiV1.PATCH("/resource/group", isOwner(srv), srv.ChgroupResourceHandler)
 
+		// job related
+		apiV1.POST("/job", srv.HandleJob)
+		apiV1.GET("/job", srv.HandleJob)
+
 	}
 
 	admin := apiV1.Group("/admin")
@@ -127,6 +131,11 @@ func (srv *UService) Serve() {
 		admin.POST("/group/volume", srv.HandleGroupVolumes)
 		admin.PATCH("/group/volume", srv.HandleGroupVolumes)
 		admin.DELETE("/group/volume", srv.HandleGroupVolumes)
+
+		admin.GET("/job", srv.HandleJobAdmin)
+		admin.POST("/job", srv.HandleJobAdmin)
+		admin.DELETE("/job", srv.HandleJobAdmin)
+		admin.PUT("/job", srv.HandleJobAdmin)
 
 	}
 	/* context handler */
@@ -165,33 +174,6 @@ func (srv *UService) Serve() {
 	}
 
 	log.Println("Server exiting")
-}
-
-type User struct {
-	Username string   `json:"username"`
-	Info     string   `json:"info"`
-	Home     string   `json:"home"`
-	Shell    string   `json:"shell"`
-	Password Password `json:"password"`
-	Groups   []Group  `json:"groups"`
-	Uid      int      `json:"uid"`
-	Pgroup   int      `json:"pgroup"`
-}
-
-type Password struct {
-	Hashpass           string `json:"hashpass"`
-	LastPasswordChange string `json:"lastPasswordChange"`
-	MinimumPasswordAge string `json:"minimumPasswordAge"`
-	MaximumPasswordAge string `json:"maxiumPasswordAge"`
-	WarningPeriod      string `json:"warningPeriod"`
-	InactivityPeriod   string `json:"inactivityPeriod"`
-	ExpirationDate     string `json:"expirationDate"`
-}
-
-type Group struct {
-	Groupname string `json:"groupname"`
-	Users     []User `json:"users"`
-	Gid       int    `json:"gid"`
 }
 
 func syncUsers(srv *UService) error {

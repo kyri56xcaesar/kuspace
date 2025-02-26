@@ -35,8 +35,11 @@ build:
 .PHONY: run
 run: 
 	./${TARGET_AUTH}${AUTH_OUT} &
+	sleep 2
 	./${TARGET_F_APP}${F_APP_OUT} & 
+	sleep 2
 	./${TARGET_API}${API_OUT} &
+	sleep 2
 	./${TARGET_WS}${WS_OUT} &
 
 .PHONY: stop 

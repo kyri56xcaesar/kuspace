@@ -82,12 +82,21 @@ func (p *Permissions) fillFromStr(representation string) error {
 	}
 	var err error
 	p.Owner, err = parseTriplet(chunks[0])
-	p.Group, err = parseTriplet(chunks[1])
-	p.Other, err = parseTriplet(chunks[2])
 	if err != nil {
-		log.Printf("failed to parse triplets: %v", err)
+		log.Printf("failed to parse owner triplet: %v", err)
 		return err
 	}
+	p.Group, err = parseTriplet(chunks[1])
+	if err != nil {
+		log.Printf("failed to parse group triplet: %v", err)
+		return err
+	}
+	p.Other, err = parseTriplet(chunks[2])
+	if err != nil {
+		log.Printf("failed to parse other triplet: %v", err)
+		return err
+	}
+
 	return nil
 }
 
@@ -120,16 +129,6 @@ func (pt *PermTriplet) ToString() string {
 	return fmt.Sprintf("%v%v%v", r, w, x)
 }
 
-/* This will represent the physical volumes provides by Kubernetes and supervised by the controller */
-type Volume struct {
-	Name     string  `json:"name"`
-	Path     string  `json:"path"`
-	Vid      int     `json:"vid"`
-	Dynamic  bool    `json:"dynamic"`
-	Capacity float64 `json:"capacity"`
-	Usage    float64 `json:"usage"`
-}
-
 /* representative utility methods of the above structures */
 /* fields and ptrs fields for "resource" struct helper methods*/
 func (r *Resource) Fields() []any {
@@ -146,90 +145,6 @@ func (r *Resource) FieldsNoId() []any {
 
 func (r *Resource) PtrFieldsNoId() []any {
 	return []any{&r.Uid, &r.Vid, &r.Gid, &r.Pid, &r.Size, &r.Links, &r.Perms, &r.Name, &r.Type, &r.Created_at, &r.Updated_at, &r.Accessed_at}
-}
-
-/* fields and ptr fields for "volume" struct helper methods*/
-func (v *Volume) Fields() []any {
-	return []any{v.Vid, v.Name, v.Path, v.Dynamic, v.Capacity, v.Usage}
-}
-
-func (v *Volume) PtrFields() []any {
-	return []any{&v.Vid, &v.Name, &v.Path, &v.Dynamic, &v.Capacity, &v.Usage}
-}
-
-func (v *Volume) FieldsNoId() []any {
-	return []any{v.Name, v.Path, v.Dynamic, v.Capacity, v.Usage}
-}
-
-func (v *Volume) PtrFieldsNoId() []any {
-	return []any{&v.Name, &v.Path, &v.Dynamic, &v.Capacity, &v.Usage}
-}
-
-/* a struct to represent each user volume relationship */
-type UserVolume struct {
-	Updated_at string  `json:"updated_at"`
-	Vid        int     `json:"vid"`
-	Uid        int     `json:"uid"`
-	Usage      float64 `json:"usage"`
-	Quota      float64 `json:"quota"`
-}
-
-func (uv *UserVolume) PtrFields() []any {
-	return []any{&uv.Vid, &uv.Uid, &uv.Usage, &uv.Quota, &uv.Updated_at}
-}
-
-func (uv *UserVolume) Fields() []any {
-	return []any{uv.Vid, uv.Uid, uv.Usage, uv.Quota, uv.Updated_at}
-}
-
-/* a struct to represent a volume claim by a group*/
-type GroupVolume struct {
-	Updated_at string  `json:"updated_at"`
-	Vid        int     `json:"vid"`
-	Gid        int     `json:"gid"`
-	Usage      float64 `json:"usage"`
-	Quota      float64 `json:"quota"`
-}
-
-func (gv *GroupVolume) PtrFields() []any {
-	return []any{&gv.Vid, &gv.Gid, &gv.Usage, &gv.Quota, &gv.Updated_at}
-}
-
-func (gv *GroupVolume) Fields() []any {
-	return []any{gv.Vid, gv.Gid, gv.Usage, gv.Quota, gv.Updated_at}
-}
-
-/* This service will handle requests
-*  according to given uid and his gids
-*  (who the user is and in which groups he belongs to)
-* */
-type AccessClaim struct {
-	Uid  string `json:"user_id"`
-	Gids string `json:"group_ids"`
-
-	Target string `json:"target"`
-	Vid    int    `json:"volume_id"`
-}
-
-func (ac *AccessClaim) filter() AccessClaim {
-	/* can enrich this method */
-	return AccessClaim{
-		Uid:    strings.TrimSpace(ac.Uid),
-		Gids:   strings.TrimSpace(ac.Gids),
-		Target: strings.TrimSpace(ac.Target),
-		Vid:    ac.Vid,
-	}
-}
-
-func (ac *AccessClaim) validate() error {
-	if ac.Uid == "" && ac.Gids == "" {
-		return fmt.Errorf("cannot have empty ids")
-	}
-	if ac.Target == "" {
-		return fmt.Errorf("cannot have empty target")
-	}
-
-	return nil
 }
 
 /* this method belongs to the Resource objects
@@ -321,8 +236,102 @@ func (resource *Resource) IsOwner(ac AccessClaim) bool {
 	return resource.Uid == int_uid
 }
 
+/* This will represent the physical volumes provides by Kubernetes and supervised by the controller */
+type Volume struct {
+	Name     string  `json:"name"`
+	Path     string  `json:"path"`
+	Vid      int     `json:"vid"`
+	Dynamic  bool    `json:"dynamic"`
+	Capacity float64 `json:"capacity"`
+	Usage    float64 `json:"usage"`
+}
+
+/* fields and ptr fields for "volume" struct helper methods*/
+func (v *Volume) Fields() []any {
+	return []any{v.Vid, v.Name, v.Path, v.Dynamic, v.Capacity, v.Usage}
+}
+
+func (v *Volume) PtrFields() []any {
+	return []any{&v.Vid, &v.Name, &v.Path, &v.Dynamic, &v.Capacity, &v.Usage}
+}
+
+func (v *Volume) FieldsNoId() []any {
+	return []any{v.Name, v.Path, v.Dynamic, v.Capacity, v.Usage}
+}
+
+func (v *Volume) PtrFieldsNoId() []any {
+	return []any{&v.Name, &v.Path, &v.Dynamic, &v.Capacity, &v.Usage}
+}
+
+/* a struct to represent each user volume relationship */
+type UserVolume struct {
+	Updated_at string  `json:"updated_at"`
+	Vid        int     `json:"vid"`
+	Uid        int     `json:"uid"`
+	Usage      float64 `json:"usage"`
+	Quota      float64 `json:"quota"`
+}
+
+func (uv *UserVolume) PtrFields() []any {
+	return []any{&uv.Vid, &uv.Uid, &uv.Usage, &uv.Quota, &uv.Updated_at}
+}
+
+func (uv *UserVolume) Fields() []any {
+	return []any{uv.Vid, uv.Uid, uv.Usage, uv.Quota, uv.Updated_at}
+}
+
+/* a struct to represent a volume claim by a group*/
+type GroupVolume struct {
+	Updated_at string  `json:"updated_at"`
+	Vid        int     `json:"vid"`
+	Gid        int     `json:"gid"`
+	Usage      float64 `json:"usage"`
+	Quota      float64 `json:"quota"`
+}
+
+func (gv *GroupVolume) PtrFields() []any {
+	return []any{&gv.Vid, &gv.Gid, &gv.Usage, &gv.Quota, &gv.Updated_at}
+}
+
+func (gv *GroupVolume) Fields() []any {
+	return []any{gv.Vid, gv.Gid, gv.Usage, gv.Quota, gv.Updated_at}
+}
+
+/* This service will handle requests
+*  according to given uid and his gids
+*  (who the user is and in which groups he belongs to)
+* */
+type AccessClaim struct {
+	Uid  string `json:"user_id"`
+	Gids string `json:"group_ids"`
+
+	Target string `json:"target"`
+	Vid    int    `json:"volume_id"`
+}
+
+func (ac *AccessClaim) filter() AccessClaim {
+	/* can enrich this method */
+	return AccessClaim{
+		Uid:    strings.TrimSpace(ac.Uid),
+		Gids:   strings.TrimSpace(ac.Gids),
+		Target: strings.TrimSpace(ac.Target),
+		Vid:    ac.Vid,
+	}
+}
+
+func (ac *AccessClaim) validate() error {
+	if ac.Uid == "" && ac.Gids == "" {
+		return fmt.Errorf("cannot have empty ids")
+	}
+	if ac.Target == "" {
+		return fmt.Errorf("cannot have empty target")
+	}
+
+	return nil
+}
+
 /* generic helpers*/
-func toSnakeCase(input string) string {
+func ToSnakeCase(input string) string {
 	var output []rune
 	for i, r := range input {
 		if i > 0 && r >= 'A' && r <= 'Z' {
@@ -334,4 +343,62 @@ func toSnakeCase(input string) string {
 	return strings.ToLower(string(output))
 }
 
-/* Repetition of code from minioth... */
+type User struct {
+	Username string   `json:"username"`
+	Info     string   `json:"info"`
+	Home     string   `json:"home"`
+	Shell    string   `json:"shell"`
+	Password Password `json:"password"`
+	Groups   []Group  `json:"groups"`
+	Uid      int      `json:"uid"`
+	Pgroup   int      `json:"pgroup"`
+}
+
+type Password struct {
+	Hashpass           string `json:"hashpass"`
+	LastPasswordChange string `json:"lastPasswordChange"`
+	MinimumPasswordAge string `json:"minimumPasswordAge"`
+	MaximumPasswordAge string `json:"maxiumPasswordAge"`
+	WarningPeriod      string `json:"warningPeriod"`
+	InactivityPeriod   string `json:"inactivityPeriod"`
+	ExpirationDate     string `json:"expirationDate"`
+}
+
+type Group struct {
+	Groupname string `json:"groupname"`
+	Users     []User `json:"users"`
+	Gid       int    `json:"gid"`
+}
+
+type Job struct {
+	Jid int `json:"jid"`
+	Uid int `json:"uid"`
+
+	Input  []string `json:"input"`
+	Output string   `json:"output"`
+
+	Logic     string   `json:"logic"`
+	LogicBody string   `json:"logic_body"`
+	Params    []string `json:"params"`
+
+	Status       string `json:"status"`
+	Completed    bool   `json:"completed"`
+	Completed_at string `json:"completed_at"`
+	Created_at   string `json:"created_at"`
+}
+
+func (j *Job) PtrFields() []any {
+	return []any{&j.Jid, &j.Uid, &j.Input, &j.Output, &j.Logic, &j.LogicBody, &j.Params, &j.Status, &j.Completed, &j.Completed_at, &j.Created_at}
+}
+
+func (j *Job) Fields() []any {
+	return []any{j.Jid, j.Uid, j.Input, j.Output, j.Logic, j.LogicBody, j.Params, j.Status, j.Completed, j.Completed_at, j.Created_at}
+}
+
+func (j *Job) PtrFieldsNoId() []any {
+	return []any{&j.Uid, &j.Input, &j.Output, &j.Logic, &j.LogicBody, &j.Params, &j.Status, &j.Completed, &j.Completed_at, &j.Created_at}
+}
+
+func (j *Job) FieldsNoId() []any {
+	return []any{j.Uid, j.Input, j.Output, j.Logic, j.LogicBody, j.Params, j.Status, j.Completed, j.Completed_at, j.Created_at}
+}

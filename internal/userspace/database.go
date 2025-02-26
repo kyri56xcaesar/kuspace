@@ -152,6 +152,10 @@ func (m *DBHandler) Init(database_path, volumes_path, capacity string) {
 	default_db_path = database_path
 	default_v_path = volumes_path
 
+	log.Printf("default capacity: %v", default_capacity)
+	log.Printf("default db path: %v", default_db_path)
+	log.Printf("default v path: %v", default_v_path)
+
 	// insert root user/group volume claims(should be everything...)
 	// or perhaps avoid it? idk
 	err = db.QueryRow("SELECT COUNT(*) > 0 FROM userVolume").Scan(&exists)
@@ -224,7 +228,7 @@ func (m *DBHandler) InsertUserVolume(uv UserVolume) error {
 	err = db.QueryRow(`SELECT 1 FROM userVolume WHERE vid = ? AND uid = ? LIMIT 1;`, uv.Vid, uv.Uid).Scan(&exists)
 	if exists {
 		if err == nil {
-			return fmt.Errorf("already exists!")
+			return fmt.Errorf("already exists")
 		}
 		log.Printf("error checking for uniqunes or not unique: %v", err)
 		return fmt.Errorf("error checking for uniqueness or not unique pair: %v", err)
@@ -630,7 +634,7 @@ func (m *DBHandler) InsertGroupVolume(gv GroupVolume) error {
 	err = db.QueryRow(`SELECT 1 FROM groupVolume WHERE vid = ? AND gid = ? LIMIT 1;`, gv.Vid, gv.Gid).Scan(&exists)
 	if exists {
 		if err == nil {
-			return fmt.Errorf("already exists!")
+			return fmt.Errorf("already exists")
 		}
 		log.Printf("error checking for uniqunes or not unique: %v", err)
 		return fmt.Errorf("error checking for uniqueness or not unique pair: %v", err)
@@ -1189,6 +1193,10 @@ func (m *DBHandler) DeleteVolume(vid int) error {
 		return err
 	}
 	_, err = tx.Exec("DELETE FROM volumes WHERE vid = ?", vid)
+	if err != nil {
+		log.Printf("failed to execute delete query: %v", err)
+		return err
+	}
 
 	err = tx.Commit()
 	if err != nil {
@@ -1884,66 +1892,6 @@ func (m *DBHandler) UpdateResourceGroupById(rid, gid int) error {
 		return err
 	}
 	log.Printf("updated %v rows", rAff)
-
-	return nil
-}
-
-func (m *DBHandler) UpdateResourceById(rid int, r Resource) error {
-	db, err := m.getConn()
-	if err != nil {
-		log.Printf("error getting db connection: %v", err)
-		return err
-	}
-
-	tx, err := db.Begin()
-	if err != nil {
-		log.Printf("error starting transaction: %v", err)
-		return err
-	}
-
-	// we should check which fields are empty and not update those...
-
-	var setClauses []string
-	var params []interface{}
-
-	val := reflect.ValueOf(r)
-	typ := reflect.TypeOf(r)
-
-	for i := 0; i < val.NumField(); i++ {
-		field := val.Field(i)
-		fieldName := typ.Field(i).Name
-
-		if isEmpty(field) {
-			continue
-		}
-
-		columnName := toSnakeCase(fieldName)
-		setClauses = append(setClauses, fmt.Sprintf("%s = ?", columnName))
-		params = append(params, field.Interface())
-	}
-
-	if len(setClauses) == 0 {
-		return fmt.Errorf("no fields to update")
-	}
-
-	params = append(params, rid)
-
-	query := fmt.Sprintf(`
-    UPDATE 
-      resources 
-    SET 
-      %s 
-    WHERE 
-      rid = ?
-  `, strings.Join(setClauses, ", "))
-
-	stmt, err := tx.Prepare(query)
-	if err != nil {
-		log.Printf("error preparing transaction: %v", err)
-		return err
-	}
-
-	stmt.Exec()
 
 	return nil
 }

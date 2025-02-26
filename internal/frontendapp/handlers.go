@@ -15,10 +15,19 @@ import (
 	"sync"
 	"time"
 
+	m "kyri56xcaesar/myThesis/internal/models"
+
 	"github.com/gin-gonic/gin"
 )
 
-/* other api destinationURI
+/*
+	Bunch of handlers for the frontend app
+
+	fetching data from other Apis and rendering them in the given format
+default: rendered html template
+*/
+
+/* other apis addresses
 *
 * init by configuration on startup...
 * */
@@ -66,7 +75,7 @@ func (srv *HTTPService) handleFetchUsers(c *gin.Context) {
 	defer response.Body.Close()
 
 	var resp struct {
-		Content []User `json:"content"`
+		Content []m.User `json:"content"`
 	}
 
 	body, err := io.ReadAll(response.Body)
@@ -107,7 +116,7 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
-	var uac UseraddClaim
+	var uac m.UseraddClaim
 	if err := c.ShouldBind(&uac); err != nil {
 		log.Printf("Register binding error: %v", err)
 		// Respond with the appropriate error on the template.
@@ -117,12 +126,12 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 
 	// Forward login request to the auth service
 	resp, err := forwardPostRequest(authServiceURL+authVersion+"/admin/useradd", accessToken, gin.H{
-		"user": RegClaim{
+		"user": m.User{
 			Username: uac.Username,
 			Info:     uac.Email,
 			Home:     "/home/" + uac.Username,
 			Shell:    "gshell",
-			Password: PassClaim{
+			Password: m.Password{
 				Hashpass: uac.Password,
 			},
 		},
@@ -151,7 +160,7 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 		return
 	}
 
-	var useraddResp RegResponse
+	var useraddResp m.RegResponse
 	err = json.NewDecoder(resp.Body).Decode(&useraddResp)
 	if err != nil {
 		log.Printf("failed to decode resp json body: %v", err)
@@ -161,7 +170,7 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 
 	/* give the user some of the volume pie */
 	go func() {
-		json_data, err := json.Marshal(UserVolume{Vid: 1, Uid: useraddResp.Uid})
+		json_data, err := json.Marshal(m.UserVolume{Vid: 1, Uid: useraddResp.Uid})
 		if err != nil {
 			log.Printf("failed to marshal to json: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
@@ -185,7 +194,7 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 
 	/* give the users primary group some of the pie as well*/
 	go func() {
-		json_data, err := json.Marshal(GroupVolume{Vid: 1, Gid: useraddResp.Pgroup})
+		json_data, err := json.Marshal(m.GroupVolume{Vid: 1, Gid: useraddResp.Pgroup})
 		if err != nil {
 			log.Printf("failed to marshal to json: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set gv"})
@@ -377,7 +386,7 @@ func (srv *HTTPService) handleFetchGroups(c *gin.Context) {
 	defer response.Body.Close()
 
 	var resp struct {
-		Content []Group `json:"content"`
+		Content []m.Group `json:"content"`
 	}
 
 	body, err := io.ReadAll(response.Body)
@@ -578,7 +587,7 @@ func (srv *HTTPService) handleFetchResources(c *gin.Context) {
 
 		c.HTML(http.StatusOK, "tree-resources.html", tree)
 	default:
-		var data []Resource
+		var data []m.Resource
 		err = json.Unmarshal(body, &data)
 		if err != nil {
 			log.Printf("failed to unmarshal response: %v", err)
@@ -1065,19 +1074,19 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	var (
 		userResp struct {
-			Content []User `json:"content"`
+			Content []m.User `json:"content"`
 		}
 		groupResp struct {
-			Content []Group `json:"content"`
+			Content []m.Group `json:"content"`
 		}
 		volumeResp struct {
-			Content []Volume `json:"content"`
+			Content []m.Volume `json:"content"`
 		}
 		userVolumesResp struct {
-			Content []UserVolume `json:"content"`
+			Content []m.UserVolume `json:"content"`
 		}
 		groupVolumesResp struct {
-			Content []GroupVolume `json:"content"`
+			Content []m.GroupVolume `json:"content"`
 		}
 	)
 
@@ -1247,7 +1256,7 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 * */
 func (srv *HTTPService) handleLogin(c *gin.Context) {
 	// only on success redirect
-	var login LoginRequest
+	var login m.LoginRequest
 
 	if err := c.ShouldBind(&login); err != nil {
 		log.Printf("Login binding error: %v", err)
@@ -1309,7 +1318,7 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 	/*
 		Register automatically creates a usergroup after registering the user.
 	*/
-	var reg RegisterRequest
+	var reg m.RegisterRequest
 
 	if err := c.ShouldBind(&reg); err != nil {
 		log.Printf("Register binding error: %v", err)
@@ -1325,12 +1334,12 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 		return
 	}
 
-	data := RegClaim{
+	data := m.User{
 		Username: reg.Username,
 		Info:     reg.Email,
 		Home:     "/home/" + reg.Username,
 		Shell:    "gshell",
-		Password: PassClaim{
+		Password: m.Password{
 			Hashpass: reg.Password,
 		},
 	}
@@ -1362,7 +1371,7 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 		return
 	}
 	// parse response.
-	var authResponse RegResponse
+	var authResponse m.RegResponse
 	if err := json.NewDecoder(resp.Body).Decode(&authResponse); err != nil {
 		log.Printf("Error decoding auth service response: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "serious"})
@@ -1370,7 +1379,7 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 	}
 	/* give user's primary group some of the pie..*/
 	go func() {
-		json_data, err := json.Marshal(GroupVolume{Vid: 1, Gid: authResponse.Pgroup})
+		json_data, err := json.Marshal(m.GroupVolume{Vid: 1, Gid: authResponse.Pgroup})
 		if err != nil {
 			log.Printf("failed to marshal to json: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
@@ -1394,7 +1403,7 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 	}()
 	/* let user some of the volume pie*/
 	go func() {
-		json_data, err := json.Marshal(UserVolume{Vid: 1, Uid: authResponse.Uid})
+		json_data, err := json.Marshal(m.UserVolume{Vid: 1, Uid: authResponse.Uid})
 		if err != nil {
 			log.Printf("failed to marshal to json: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
@@ -1464,7 +1473,7 @@ func (srv *HTTPService) editFormHandler(c *gin.Context) {
 	defer response.Body.Close()
 
 	var usersResp struct {
-		Content []User `json:"content"`
+		Content []m.User `json:"content"`
 	}
 
 	body, err := io.ReadAll(response.Body)
@@ -1498,7 +1507,7 @@ func (srv *HTTPService) editFormHandler(c *gin.Context) {
 	defer response.Body.Close()
 
 	var groupsResp struct {
-		Content []Group `json:"content"`
+		Content []m.Group `json:"content"`
 	}
 
 	body, err = io.ReadAll(response.Body)
@@ -1639,23 +1648,23 @@ func forwardPostRequest(destinationURI string, accessToken string, requestData i
 	return client.Do(req)
 }
 
-func parseTreeNode(name string, data map[string]interface{}) *TreeNode {
+func parseTreeNode(name string, data map[string]interface{}) *m.TreeNode {
 	if isFileNode(data) {
-		var resource Resource
+		var resource m.Resource
 		jsonData, _ := json.Marshal(data)
 		_ = json.Unmarshal(jsonData, &resource)
 
-		return &TreeNode{
+		return &m.TreeNode{
 			Name:     name,
 			Type:     "file",
 			Resource: &resource,
 		}
 	}
 
-	node := &TreeNode{
+	node := &m.TreeNode{
 		Name:     name,
 		Type:     "directory",
-		Children: make(map[string]*TreeNode),
+		Children: make(map[string]*m.TreeNode),
 	}
 
 	for key, value := range data {
@@ -1683,9 +1692,9 @@ func respondInFormat(c *gin.Context, format string, data interface{}, template_n
 }
 
 // parsePermissionsString translates something like "rwxr-xr--" into a FilePermissions struct.
-func parsePermissionsString(permsStr string) FilePermissions {
+func parsePermissionsString(permsStr string) m.FilePermissions {
 	// We assume permsStr has length >= 9 (like "rwxr-xr--").
-	fp := FilePermissions{}
+	fp := m.FilePermissions{}
 	if len(permsStr) < 9 {
 		return fp // or handle error; for safety
 	}
@@ -1705,7 +1714,7 @@ func parsePermissionsString(permsStr string) FilePermissions {
 }
 
 // buildPermissionsString goes the other way around (if you need to reconstruct the string):
-func buildPermissionsString(fp FilePermissions) string {
+func BuildPermissionsString(fp m.FilePermissions) string {
 	// Convert booleans back into 'r', 'w', 'x' or '-'
 	return string([]rune{
 		boolChar(fp.OwnerR, 'r'),
