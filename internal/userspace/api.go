@@ -26,8 +26,11 @@ type UService struct {
 	/* server engine */
 	Engine *gin.Engine
 
-	/* database calls functions  */
+	/* database calls handlers for resources/volumes database */
 	dbh DBHandler
+
+	/* database calls handlers for jobs database*/
+	dbhJobs DBHandler
 
 	/* configuration file (.env) */
 	config ut.EnvConfig
@@ -40,27 +43,18 @@ func NewUService(conf string) UService {
 
 	// service
 	srv := UService{
-		Engine: gin.Default(),
-		config: cfg,
-		dbh: DBHandler{
-			DBName: cfg.DB,
-		},
+		Engine:  gin.Default(),
+		config:  cfg,
+		dbh:     NewDBHandler(cfg.DB_RV, cfg.DB_RV_DRIVER),
+		dbhJobs: NewDBHandler(cfg.DB_JOBS, cfg.DB_JOBS_DRIVER),
 	}
 
 	// datbase
-	srv.dbh.Init(cfg.DBPath, cfg.Volumes, cfg.VCapacity)
+	srv.dbh.Init(initSql, cfg.DB_RV_Path, cfg.DB_RV_MAX_OPEN_CONNS, cfg.DB_RV_MAX_IDLE_CONNS, cfg.DB_RV_MAX_LIFETIME)
+	srv.dbhJobs.Init(initSqlJobs, cfg.DB_JOBS_Path, cfg.DB_JOBS_MAX_OPEN_CONNS, cfg.DB_JOBS_MAX_IDLE_CONNS, cfg.DB_JOBS_MAX_LIFETIME)
 
-	// we should init sync (if there are) existing users (from a different service)
-	go func() {
-		err := syncUsers(&srv)
-		if strings.Contains(err.Error(), "already exists") {
-			log.Printf("users are in sync (already).")
-		} else if err != nil {
-			log.Printf("syncUsers failed: %v", err)
-		} else {
-			log.Println("users synced in userspace (uservolumes,groupvolumes claims).")
-		}
-	}()
+	// some specific init
+	srv.dbh.InitResourceVolumeSpecific(cfg.DB_RV_Path, cfg.Volumes, cfg.VCapacity)
 
 	// also ensure local pv path
 	_, err := os.Stat(cfg.Volumes)
@@ -70,6 +64,18 @@ func NewUService(conf string) UService {
 			panic("crucial")
 		}
 	}
+
+	// we should init sync (if there are) existing users (from a different service)
+	go func() {
+		err := syncUsers(&srv)
+		if err != nil && strings.Contains(err.Error(), "already exists") {
+			log.Printf("users are in sync (already).")
+		} else if err != nil {
+			log.Printf("syncUsers failed: %v", err)
+		} else {
+			log.Println("users synced in userspace (uservolumes,groupvolumes claims).")
+		}
+	}()
 
 	return srv
 }
@@ -166,6 +172,7 @@ func (srv *UService) Serve() {
 
 	/* don't forgt to close the db conn */
 	srv.dbh.Close()
+	srv.dbhJobs.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -214,7 +221,7 @@ func syncUsers(srv *UService) error {
 			continue
 		}
 
-		err := srv.dbh.InsertGroupVolume(GroupVolume{
+		err := srv.dbh.gvdh.InsertGroupVolume(GroupVolume{
 			Vid:   1,
 			Gid:   group.Gid,
 			Quota: capacity,
@@ -225,7 +232,7 @@ func syncUsers(srv *UService) error {
 		}
 		for _, user := range group.Users {
 			if user.Username == group.Groupname {
-				err := srv.dbh.InsertUserVolume(UserVolume{
+				err := srv.dbh.uvdh.InsertUserVolume(UserVolume{
 					Vid:   1,
 					Uid:   user.Uid,
 					Quota: capacity,

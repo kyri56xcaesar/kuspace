@@ -1,5 +1,11 @@
 package utils
 
+import (
+	"reflect"
+	"strconv"
+	"strings"
+)
+
 /*
 * This module will contain functions and methods usefull for the other apps in the entire project
 *
@@ -72,4 +78,52 @@ func ToFloat64(value interface{}) float64 {
 	default:
 		return 0
 	}
+}
+
+// Helper function to determine if a value is empty
+func IsEmpty(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.String:
+		return v.String() == ""
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return v.Int() == 0
+	default:
+		return v.IsZero() // General case for other types
+	}
+}
+
+/* generic helpers*/
+func ToSnakeCase(input string) string {
+	var output []rune
+	for i, r := range input {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			output = append(output, '_')
+		}
+		output = append(output, r)
+	}
+
+	return strings.ToLower(string(output))
+}
+
+func SplitToInt(input, seperator string) ([]int, error) {
+	// Split the input string by comma
+	parts := strings.Split(input, seperator)
+
+	// Trim spaces and convert to int
+	trimAndConvert := func(s string) (int, error) {
+		trimmed := strings.TrimSpace(s)
+		return strconv.Atoi(trimmed)
+	}
+
+	// Apply the trimAndConvert function to each part
+	result := make([]int, len(parts))
+	for i, part := range parts {
+		value, err := trimAndConvert(part)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = value
+	}
+
+	return result, nil
 }

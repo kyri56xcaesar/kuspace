@@ -330,19 +330,6 @@ func (ac *AccessClaim) validate() error {
 	return nil
 }
 
-/* generic helpers*/
-func ToSnakeCase(input string) string {
-	var output []rune
-	for i, r := range input {
-		if i > 0 && r >= 'A' && r <= 'Z' {
-			output = append(output, '_')
-		}
-		output = append(output, r)
-	}
-
-	return strings.ToLower(string(output))
-}
-
 type User struct {
 	Username string   `json:"username"`
 	Info     string   `json:"info"`

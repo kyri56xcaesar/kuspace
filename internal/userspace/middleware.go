@@ -81,7 +81,7 @@ func isOwner(srv *UService) gin.HandlerFunc {
 		}
 
 		// lets grab the resource existing permissions:
-		resource, err := srv.dbh.GetResourceByFilepath(ac.Target)
+		resource, err := srv.dbh.rdh.GetResourceByFilepath(ac.Target)
 		if err != nil {
 			log.Printf("error retrieving resource: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve resouce"})
@@ -118,7 +118,7 @@ func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
 		}
 
 		// lets grab the resource existing permissions:
-		resource, err := srv.dbh.GetResourceByFilepath(ac.Target)
+		resource, err := srv.dbh.rdh.GetResourceByFilepath(ac.Target)
 		if err != nil {
 			log.Printf("error retrieving resource: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve resouce"})
