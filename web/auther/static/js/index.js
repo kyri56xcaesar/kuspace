@@ -216,28 +216,6 @@ document.addEventListener('htmx:afterRequest', function (event) {
 
     }
   
-  } else if (triggeringElement.id === 'load-users-to-cache') {
-    if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
-      const rawResponse = event.detail.xhr.responseText;
-      try {
-        fetchedUsers = JSON.parse(rawResponse); 
-        console.log("Fetched users:", fetchedUsers);
-      } catch (error) {
-        console.error("Could not parse JSON:", error, rawResponse);
-      }
-    }
-  
-  } else if (triggeringElement.id === 'load-groups-to-cache') {
-    if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
-      const rawResponse = event.detail.xhr.responseText;
-      try {
-        fetchedGroups = JSON.parse(rawResponse); 
-        console.log("Fetched groups:", fetchedUsers);
-      } catch (error) {
-        console.error("Could not parse JSON:", error, rawResponse);
-      }
-    }
-  
   } else if (triggeringElement.id === 'reload-btn') {
   
   } else if (triggeringElement.id === 'add-user-form') {
