@@ -1,5 +1,12 @@
 package userspace
 
+/*
+	database call handlers for "resources"
+	"userspace.db"
+
+	@used by the api
+*/
+
 import (
 	"database/sql"
 	"fmt"
@@ -7,35 +14,9 @@ import (
 	"strings"
 )
 
-/* an Interface regarding the "Resource" type handling in the Database */
-type ResourcesDBHandler interface {
-	InsertResource(resource Resource) error
-	InsertResources(resources []Resource) error
-	InsertResourceUniqueName(resource Resource) error
-	InsertResourcesUniqueName(resources []Resource) error
-	GetAllResources() ([]Resource, error)
-	GetResourcesByIds(rids []int) ([]Resource, error)
-	GetResourceByFilepath(filepath string) (Resource, error)
-	GetAllResourcesAt(path string) ([]Resource, error)
-	DeleteResourcesByIds(rids []string) (int64, error)
-	DeleteResourceByName(name string) error
-	UpdateResourceNameById(rid, name string) error
-	UpdateResourcePermsById(rid, perms string) error
-	UpdateResourceOwnerById(rid, uid int) error
-	UpdateResourceGroupById(rid, gid int) error
-}
-
-/*
-	 a reference struct implementing all the methods and also holding a database connection ref.
-		for duckdb
-*/
-type Rh struct {
-	dbh *DBHandler
-}
-
 /* database call handlers regarding the Resource table */
-func (m *Rh) InsertResource(resource Resource) error {
-	db, err := m.dbh.getConn()
+func (dbh *DBHandler) InsertResource(resource Resource) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return err
@@ -55,8 +36,8 @@ func (m *Rh) InsertResource(resource Resource) error {
 	return nil
 }
 
-func (m *Rh) InsertResourceUniqueName(resource Resource) error {
-	db, err := m.dbh.getConn()
+func (dbh *DBHandler) InsertResourceUniqueName(resource Resource) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return err
@@ -92,8 +73,8 @@ func (m *Rh) InsertResourceUniqueName(resource Resource) error {
 	return nil
 }
 
-func (m *Rh) InsertResources(resources []Resource) error {
-	db, err := m.dbh.getConn()
+func (dbh *DBHandler) InsertResources(resources []Resource) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return err
@@ -134,8 +115,8 @@ func (m *Rh) InsertResources(resources []Resource) error {
 	return nil
 }
 
-func (m *Rh) InsertResourcesUniqueName(resources []Resource) error {
-	db, err := m.dbh.getConn()
+func (dbh *DBHandler) InsertResourcesUniqueName(resources []Resource) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return err
@@ -201,8 +182,8 @@ func (m *Rh) InsertResourcesUniqueName(resources []Resource) error {
 	return nil
 }
 
-func (m *Rh) GetAllResourcesAt(path string) ([]Resource, error) {
-	db, err := m.dbh.getConn()
+func (dbh *DBHandler) GetAllResourcesAt(path string) ([]Resource, error) {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("error getting db connection: %v", err)
 		return nil, err
@@ -237,8 +218,8 @@ func (m *Rh) GetAllResourcesAt(path string) ([]Resource, error) {
 	return resources, nil
 }
 
-func (m *Rh) GetAllResources() ([]Resource, error) {
-	db, err := m.dbh.getConn()
+func (dbh *DBHandler) GetAllResources() ([]Resource, error) {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("error getting db connection: %v", err)
 		return nil, err
@@ -269,8 +250,8 @@ func (m *Rh) GetAllResources() ([]Resource, error) {
 	return resources, nil
 }
 
-func (m *Rh) GetResourcesByIds(rids []int) ([]Resource, error) {
-	db, err := m.dbh.getConn()
+func (dbh *DBHandler) GetResourcesByIds(rids []int) ([]Resource, error) {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("error getting db connection: %v", err)
 		return nil, err
@@ -302,10 +283,10 @@ func (m *Rh) GetResourcesByIds(rids []int) ([]Resource, error) {
 	return resources, nil
 }
 
-func (m *Rh) GetResourceByFilepath(filepath string) (Resource, error) {
+func (dbh *DBHandler) GetResourceByFilepath(filepath string) (Resource, error) {
 	var resource Resource
 
-	db, err := m.dbh.getConn()
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("error getting db connection: %v", err)
 		return resource, err
@@ -320,14 +301,14 @@ func (m *Rh) GetResourceByFilepath(filepath string) (Resource, error) {
 	return resource, nil
 }
 
-func (m *Rh) DeleteResourcesByIds(rids []string) (int64, error) {
+func (dbh *DBHandler) DeleteResourcesByIds(rids []string) (int64, error) {
 	// can't have empty arg (might be destructive)
 	if len(rids) == 0 {
 		log.Printf("empty argument, returning...")
 		return 0, fmt.Errorf("must provide input ids")
 	}
 
-	db, err := m.dbh.getConn()
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("error getting db connection: %v", err)
 		return 0, err
@@ -391,8 +372,8 @@ func (m *Rh) DeleteResourcesByIds(rids []string) (int64, error) {
 	return size, nil
 }
 
-func (m *Rh) DeleteResourceByName(name string) error {
-	db, err := m.dbh.getConn()
+func (dbh *DBHandler) DeleteResourceByName(name string) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("error getting db connection: %v", err)
 		return err
@@ -425,8 +406,8 @@ func (m *Rh) DeleteResourceByName(name string) error {
 	return nil
 }
 
-func (m *Rh) UpdateResourceNameById(rid, name string) error {
-	db, err := m.dbh.getConn()
+func (dbh *DBHandler) UpdateResourceNameById(rid, name string) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("error getting db connection: %v", err)
 		return err
@@ -468,8 +449,8 @@ func (m *Rh) UpdateResourceNameById(rid, name string) error {
 	return nil
 }
 
-func (m *Rh) UpdateResourcePermsById(rid, perms string) error {
-	db, err := m.dbh.getConn()
+func (dbh *DBHandler) UpdateResourcePermsById(rid, perms string) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("error getting db connection: %v", err)
 		return err
@@ -511,8 +492,8 @@ func (m *Rh) UpdateResourcePermsById(rid, perms string) error {
 	return nil
 }
 
-func (m *Rh) UpdateResourceOwnerById(rid, uid int) error {
-	db, err := m.dbh.getConn()
+func (dbh *DBHandler) UpdateResourceOwnerById(rid, uid int) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("error getting db connection: %v", err)
 		return err
@@ -554,8 +535,8 @@ func (m *Rh) UpdateResourceOwnerById(rid, uid int) error {
 	return nil
 }
 
-func (m *Rh) UpdateResourceGroupById(rid, gid int) error {
-	db, err := m.dbh.getConn()
+func (dbh *DBHandler) UpdateResourceGroupById(rid, gid int) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("error getting db connection: %v", err)
 		return err

@@ -41,6 +41,7 @@ type EnvConfig struct {
 	DB_RV_MAX_IDLE_CONNS string
 	DB_RV_MAX_LIFETIME   string
 
+	J_DISPATCHER           string
 	DB_JOBS                string
 	DB_JOBS_DRIVER         string
 	DB_JOBS_Path           string
@@ -79,6 +80,7 @@ func LoadConfig(path string) EnvConfig {
 		DB_RV_MAX_OPEN_CONNS:   getEnv("DB_RV_MAX_OPEN_CONNS", "50"),
 		DB_RV_MAX_IDLE_CONNS:   getEnv("DB_RV_MAX_IDLE_CONNS", "10"),
 		DB_RV_MAX_LIFETIME:     getEnv("DB_RV_MAX_LIFETIME", "10"),
+		J_DISPATCHER:           getEnv("J_DISPATCHER", "default"),
 		DB_JOBS:                getEnv("DB_JOBS", "jobs.db"),
 		DB_JOBS_DRIVER:         getEnv("DB_JOBS_DRIVER", "duckdb"),
 		DB_JOBS_Path:           getEnv("DB_JOBS_PATH", "data/db"),

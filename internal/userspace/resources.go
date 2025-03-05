@@ -1,5 +1,10 @@
 package userspace
 
+/*
+	http api handlers for the userspace service
+	"resource" related endpoints
+*/
+
 import (
 	"errors"
 	"io"
@@ -29,7 +34,7 @@ func (srv *UService) ResourcesHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing Access-Target header"})
 		return
 	}
-	resources, err := srv.dbh.rdh.GetAllResourcesAt(ac.Target + "%")
+	resources, err := srv.dbh.GetAllResourcesAt(ac.Target + "%")
 	if err != nil {
 		log.Printf("error retrieving resource: %v", err)
 		if strings.Contains(err.Error(), "scan") {
@@ -99,7 +104,7 @@ func (srv *UService) PostResourcesHandler(c *gin.Context) {
 
 	log.Printf("binded resources: %+v", resources)
 
-	err = srv.dbh.rdh.InsertResources(resources)
+	err = srv.dbh.InsertResources(resources)
 	if err != nil {
 		log.Printf("failed to insert resources: %v", err)
 		c.JSON(422, gin.H{"error": "failed to insert resources"})
@@ -130,7 +135,7 @@ func (srv *UService) RemoveResourceHandler(c *gin.Context) {
 	rids_str := strings.Split(target, ",")
 
 	// needs to return some info bout what is deleted, lets do the size
-	size, err := srv.dbh.rdh.DeleteResourcesByIds(rids_str)
+	size, err := srv.dbh.DeleteResourcesByIds(rids_str)
 	if err != nil {
 		log.Printf("failed to delete resource: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete resource"})
@@ -170,7 +175,7 @@ func (srv *UService) MoveResourcesHandler(c *gin.Context) {
 	}
 
 	// update resource name
-	err := srv.dbh.rdh.UpdateResourceNameById(rid, newName)
+	err := srv.dbh.UpdateResourceNameById(rid, newName)
 	if err != nil {
 		log.Printf("error updating resource name: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
@@ -198,7 +203,7 @@ func (srv *UService) ChmodResourceHandler(c *gin.Context) {
 	}
 
 	// update resource name
-	err := srv.dbh.rdh.UpdateResourcePermsById(rid, newPerms)
+	err := srv.dbh.UpdateResourcePermsById(rid, newPerms)
 	if err != nil {
 		log.Printf("error updating resource perms: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
@@ -237,7 +242,7 @@ func (srv *UService) ChownResourceHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request format"})
 	}
 	// update resource name
-	err = srv.dbh.rdh.UpdateResourceOwnerById(rid_int, newOwner_int)
+	err = srv.dbh.UpdateResourceOwnerById(rid_int, newOwner_int)
 	if err != nil {
 		log.Printf("error updating resource uid: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
@@ -276,7 +281,7 @@ func (srv *UService) ChgroupResourceHandler(c *gin.Context) {
 		log.Printf("failed to atoi ids: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request format"})
 	}
-	err = srv.dbh.rdh.UpdateResourceGroupById(rid_int, newGroup_int)
+	err = srv.dbh.UpdateResourceGroupById(rid_int, newGroup_int)
 	if err != nil {
 		log.Printf("error updating resource group: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
@@ -303,7 +308,7 @@ func (srv *UService) HandleDownload(c *gin.Context) {
 	log.Printf("binded access claim: %+v", ac)
 	log.Printf("trimmed: %v", strings.TrimSuffix(ac.Target, "/"))
 	path := strings.TrimSuffix(ac.Target, "/")
-	_, err = srv.dbh.rdh.GetResourceByFilepath(path)
+	_, err = srv.dbh.GetResourceByFilepath(path)
 	if err != nil {
 		log.Printf("failed to retrieve resource: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to retrieve resource"})
@@ -415,7 +420,7 @@ func (srv *UService) HandleUpload(c *gin.Context) {
 			Size:        int64(fileHeader.Size),
 		}
 
-		err = srv.dbh.rdh.InsertResourceUniqueName(resource)
+		err = srv.dbh.InsertResourceUniqueName(resource)
 		if err != nil {
 			log.Printf("failed to insert resources: %v", err)
 			c.JSON(422, gin.H{"error": "failed to insert resources"})
@@ -438,7 +443,7 @@ func (srv *UService) HandlePreview(c *gin.Context) {
 	log.Printf("binded access claim: %+v", ac)
 	path := strings.TrimSuffix(ac.Target, "/")
 	// get the resource info
-	resource, err := srv.dbh.rdh.GetResourceByFilepath(path)
+	resource, err := srv.dbh.GetResourceByFilepath(path)
 	if err != nil {
 		log.Printf("failed to get the resource: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "resource not found"})

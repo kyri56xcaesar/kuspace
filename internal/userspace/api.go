@@ -20,9 +20,9 @@ import (
 
 /* Structure containing all needed aspects of this service */
 type UService struct {
-	/* operator logic of the service
-	*   -> perhaps this should be attachable <-
-	* */
+	/* configuration file (.env) */
+	config ut.EnvConfig
+
 	/* server engine */
 	Engine *gin.Engine
 
@@ -32,8 +32,8 @@ type UService struct {
 	/* database calls handlers for jobs database*/
 	dbhJobs DBHandler
 
-	/* configuration file (.env) */
-	config ut.EnvConfig
+	/* a job dispatcher: a preparation to runming jobs*/
+	jdp JobDispatcher
 }
 
 /* "constructor" */
@@ -49,6 +49,13 @@ func NewUService(conf string) UService {
 		dbhJobs: NewDBHandler(cfg.DB_JOBS, cfg.DB_JOBS_DRIVER),
 	}
 
+	// dispatcher
+	jdp, err := DispatcherFactory(strings.ToLower(cfg.J_DISPATCHER))
+	if err != nil {
+		panic(err)
+	}
+	srv.jdp = jdp
+
 	// datbase
 	srv.dbh.Init(initSql, cfg.DB_RV_Path, cfg.DB_RV_MAX_OPEN_CONNS, cfg.DB_RV_MAX_IDLE_CONNS, cfg.DB_RV_MAX_LIFETIME)
 	srv.dbhJobs.Init(initSqlJobs, cfg.DB_JOBS_Path, cfg.DB_JOBS_MAX_OPEN_CONNS, cfg.DB_JOBS_MAX_IDLE_CONNS, cfg.DB_JOBS_MAX_LIFETIME)
@@ -57,7 +64,7 @@ func NewUService(conf string) UService {
 	srv.dbh.InitResourceVolumeSpecific(cfg.DB_RV_Path, cfg.Volumes, cfg.VCapacity)
 
 	// also ensure local pv path
-	_, err := os.Stat(cfg.Volumes)
+	_, err = os.Stat(cfg.Volumes)
 	if err != nil {
 		err = os.Mkdir(cfg.Volumes, 0o777)
 		if err != nil {
@@ -221,7 +228,7 @@ func syncUsers(srv *UService) error {
 			continue
 		}
 
-		err := srv.dbh.gvdh.InsertGroupVolume(GroupVolume{
+		err := srv.dbh.InsertGroupVolume(GroupVolume{
 			Vid:   1,
 			Gid:   group.Gid,
 			Quota: capacity,
@@ -232,7 +239,7 @@ func syncUsers(srv *UService) error {
 		}
 		for _, user := range group.Users {
 			if user.Username == group.Groupname {
-				err := srv.dbh.uvdh.InsertUserVolume(UserVolume{
+				err := srv.dbh.InsertUserVolume(UserVolume{
 					Vid:   1,
 					Uid:   user.Uid,
 					Quota: capacity,

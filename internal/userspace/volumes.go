@@ -1,5 +1,10 @@
 package userspace
 
+/*
+	http api handlers for the userspace service
+	"volume" related endpoints
+*/
+
 import (
 	"encoding/json"
 	"fmt"
@@ -28,14 +33,14 @@ func (srv *UService) HandleVolumes(c *gin.Context) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "bad vid"})
 				return
 			}
-			volume, err := srv.dbh.vdh.GetVolumeByVid(vid_int)
+			volume, err := srv.dbh.GetVolumeByVid(vid_int)
 			if err != nil {
 				c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 				return
 			}
 			c.JSON(http.StatusOK, gin.H{"content": volume})
 		} else {
-			volumes, err := srv.dbh.vdh.GetVolumes()
+			volumes, err := srv.dbh.GetVolumes()
 			if err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 				return
@@ -57,7 +62,7 @@ func (srv *UService) HandleVolumes(c *gin.Context) {
 			return
 		}
 
-		err = srv.dbh.vdh.DeleteVolume(vid_int)
+		err = srv.dbh.DeleteVolume(vid_int)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete the volume"})
 			return
@@ -75,7 +80,7 @@ func (srv *UService) HandleVolumes(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "couldn't bind volumes"})
 			return
 		}
-		err = srv.dbh.vdh.InsertVolumes(volumes)
+		err = srv.dbh.InsertVolumes(volumes)
 		if err != nil {
 			log.Printf("failed to insert volumes: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "couldn't insert volumes"})
@@ -117,7 +122,7 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 				userVolume.Quota = float64(capacity)
 			}
 
-			err = srv.dbh.uvdh.InsertUserVolume(userVolume)
+			err = srv.dbh.InsertUserVolume(userVolume)
 			if err != nil {
 				log.Printf("failed to insert user volume: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert uv"})
@@ -127,7 +132,7 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 			return
 		}
 		// binded user
-		err = srv.dbh.uvdh.InsertUserVolumes(userVolumes)
+		err = srv.dbh.InsertUserVolumes(userVolumes)
 		if err != nil {
 			log.Printf("failed to insert user volumes: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert uv"})
@@ -149,7 +154,7 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 
 		if uids == "" && vids == "" {
 			// return all
-			data, err = srv.dbh.uvdh.GetUserVolumes()
+			data, err = srv.dbh.GetUserVolumes()
 			if err != nil {
 				log.Printf("failed to retrieve user volumes: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user volumes"})
@@ -158,7 +163,7 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 			userVolumes = data.([]UserVolume)
 		} else if uids == "" {
 			// return by vids
-			data, err = srv.dbh.uvdh.GetUserVolumesByVolumeIds(strings.Split(strings.TrimSpace(vids), ","))
+			data, err = srv.dbh.GetUserVolumesByVolumeIds(strings.Split(strings.TrimSpace(vids), ","))
 			if err != nil {
 				log.Printf("failed to retrieve user volumes: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user volumes"})
@@ -167,7 +172,7 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 			userVolumes = data.([]UserVolume)
 		} else if vids == "" {
 			// return by uids
-			data, err = srv.dbh.uvdh.GetUserVolumesByUserIds(strings.Split(strings.TrimSpace(uids), ","))
+			data, err = srv.dbh.GetUserVolumesByUserIds(strings.Split(strings.TrimSpace(uids), ","))
 			if err != nil {
 				log.Printf("failed to retrieve user volumes: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user volumes"})
@@ -176,7 +181,7 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 			userVolumes = data.([]UserVolume)
 		} else {
 			// return by both
-			data, err = srv.dbh.uvdh.GetUserVolumesByUidsAndVids(strings.Split(strings.TrimSpace(uids), ","), strings.Split(strings.TrimSpace(vids), ","))
+			data, err = srv.dbh.GetUserVolumesByUidsAndVids(strings.Split(strings.TrimSpace(uids), ","), strings.Split(strings.TrimSpace(vids), ","))
 			if err != nil {
 				log.Printf("failed to retrieve user volumes: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user volumes"})
@@ -222,7 +227,7 @@ func (srv *UService) HandleGroupVolumes(c *gin.Context) {
 				groupVolume.Quota = float64(capacity)
 			}
 
-			err = srv.dbh.gvdh.InsertGroupVolume(groupVolume)
+			err = srv.dbh.InsertGroupVolume(groupVolume)
 			if err != nil {
 				log.Printf("failed to insert group volume: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert gv"})
@@ -233,7 +238,7 @@ func (srv *UService) HandleGroupVolumes(c *gin.Context) {
 		}
 
 		// binded user
-		err = srv.dbh.gvdh.InsertGroupVolumes(groupVolumes)
+		err = srv.dbh.InsertGroupVolumes(groupVolumes)
 		if err != nil {
 			log.Printf("failed to insert group volumes: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert gv"})
@@ -254,7 +259,7 @@ func (srv *UService) HandleGroupVolumes(c *gin.Context) {
 
 		if gids == "" && vids == "" {
 			// return all
-			data, err = srv.dbh.gvdh.GetGroupVolumes()
+			data, err = srv.dbh.GetGroupVolumes()
 			if err != nil {
 				log.Printf("failed to retrieve group volumes: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve group volumes"})
@@ -263,7 +268,7 @@ func (srv *UService) HandleGroupVolumes(c *gin.Context) {
 			groupVolumes = data.([]GroupVolume)
 		} else if gids == "" {
 			// return by vids
-			data, err = srv.dbh.gvdh.GetGroupVolumesByVolumeIds(strings.Split(strings.TrimSpace(vids), ","))
+			data, err = srv.dbh.GetGroupVolumesByVolumeIds(strings.Split(strings.TrimSpace(vids), ","))
 			if err != nil {
 				log.Printf("failed to retrieve group volumes: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve group volumes"})
@@ -272,7 +277,7 @@ func (srv *UService) HandleGroupVolumes(c *gin.Context) {
 			groupVolumes = data.([]GroupVolume)
 		} else if vids == "" {
 			// return by uids
-			data, err = srv.dbh.gvdh.GetGroupVolumesByGroupIds(strings.Split(strings.TrimSpace(gids), ","))
+			data, err = srv.dbh.GetGroupVolumesByGroupIds(strings.Split(strings.TrimSpace(gids), ","))
 			if err != nil {
 				log.Printf("failed to retrieve group volumes: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve group volumes"})
@@ -281,7 +286,7 @@ func (srv *UService) HandleGroupVolumes(c *gin.Context) {
 			groupVolumes = data.([]GroupVolume)
 		} else {
 			// return by both
-			data, err = srv.dbh.gvdh.GetGroupVolumesByVidsAndGids(strings.Split(strings.TrimSpace(vids), ","), strings.Split(strings.TrimSpace(gids), ","))
+			data, err = srv.dbh.GetGroupVolumesByVidsAndGids(strings.Split(strings.TrimSpace(vids), ","), strings.Split(strings.TrimSpace(gids), ","))
 			if err != nil {
 				log.Printf("failed to retrieve group volumes: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retireve group volumes"})
@@ -304,7 +309,7 @@ func (srv *UService) ClaimVolumeSpace(size int64, ac AccessClaim) error {
 		log.Printf("failed to atoi ac.Uid, shouldn't have passed till here tbh...:%v", err)
 		return fmt.Errorf("atoi failure, shouldn't be here: %v", err)
 	}
-	volume, err := srv.dbh.vdh.GetVolumeByVid(ac.Vid)
+	volume, err := srv.dbh.GetVolumeByVid(ac.Vid)
 	if err != nil {
 		log.Printf("could not retrieve volume: %v", err)
 		return fmt.Errorf("could not retrieve volume: %w", err)
@@ -320,7 +325,7 @@ func (srv *UService) ClaimVolumeSpace(size int64, ac AccessClaim) error {
 	}
 
 	// if not dynamic, we should check for per user/group quota
-	uv, err := srv.dbh.uvdh.GetUserVolumeByUid(uid)
+	uv, err := srv.dbh.GetUserVolumeByUid(uid)
 	if err != nil {
 		log.Printf("failed to retrieve user volume: %v", err)
 		return err
@@ -330,7 +335,7 @@ func (srv *UService) ClaimVolumeSpace(size int64, ac AccessClaim) error {
 	if len(gids) == 0 {
 		return fmt.Errorf("empty gids, shouldn't be here: %v", err)
 	}
-	gvs, err := srv.dbh.gvdh.GetGroupVolumesByGroupIds(gids)
+	gvs, err := srv.dbh.GetGroupVolumesByGroupIds(gids)
 	if err != nil {
 		log.Printf("failed to retrieve group volume: %v", err)
 		return err
@@ -351,17 +356,17 @@ func (srv *UService) ClaimVolumeSpace(size int64, ac AccessClaim) error {
 	log.Printf("updated uv: %+v", uv)
 	log.Printf("updated gvs: %+v", gvs_casted)
 
-	err = srv.dbh.vdh.UpdateVolume(volume)
+	err = srv.dbh.UpdateVolume(volume)
 	if err != nil {
 		log.Printf("failed to update volume usages: %v", err)
 		return err
 	}
-	err = srv.dbh.uvdh.UpdateUserVolume(uv)
+	err = srv.dbh.UpdateUserVolume(uv)
 	if err != nil {
 		log.Printf("failed to update user volume usages: %v", err)
 		return err
 	}
-	err = srv.dbh.gvdh.UpdateGroupVolumes(gvs_casted)
+	err = srv.dbh.UpdateGroupVolumes(gvs_casted)
 	if err != nil {
 		log.Printf("failed to update group volume usages: %v", err)
 		return err
@@ -378,7 +383,7 @@ func (srv *UService) ReleaseVolumeSpace(size int64, ac AccessClaim) error {
 		log.Printf("failed to atoi ac.Uid, shouldn't have passed till here tbh...:%v", err)
 		return fmt.Errorf("atoi failure, shouldn't be here: %v", err)
 	}
-	volume, err := srv.dbh.vdh.GetVolumeByVid(ac.Vid)
+	volume, err := srv.dbh.GetVolumeByVid(ac.Vid)
 	if err != nil {
 		log.Printf("could not retrieve volume: %v", err)
 		return fmt.Errorf("could not retrieve volume: %w", err)
@@ -391,7 +396,7 @@ func (srv *UService) ReleaseVolumeSpace(size int64, ac AccessClaim) error {
 		new_usage_inGB = 0
 	}
 
-	uv, err := srv.dbh.uvdh.GetUserVolumeByUid(uid)
+	uv, err := srv.dbh.GetUserVolumeByUid(uid)
 	if err != nil {
 		log.Printf("failed to retrieve user volume: %v", err)
 		return err
@@ -400,7 +405,7 @@ func (srv *UService) ReleaseVolumeSpace(size int64, ac AccessClaim) error {
 	if err != nil {
 		return fmt.Errorf("atoi failure, shouldn't be here: %v", err)
 	}
-	gv, err := srv.dbh.gvdh.GetGroupVolumeByGid(gid)
+	gv, err := srv.dbh.GetGroupVolumeByGid(gid)
 	if err != nil {
 		log.Printf("failed to retrieve group volume: %v", err)
 		return err
@@ -413,17 +418,17 @@ func (srv *UService) ReleaseVolumeSpace(size int64, ac AccessClaim) error {
 	gv.Usage -= size_inGB
 	volume.Usage = new_usage_inGB
 
-	err = srv.dbh.vdh.UpdateVolume(volume)
+	err = srv.dbh.UpdateVolume(volume)
 	if err != nil {
 		log.Printf("failed to update volume usages: %v", err)
 		return err
 	}
-	err = srv.dbh.uvdh.UpdateUserVolume(uv)
+	err = srv.dbh.UpdateUserVolume(uv)
 	if err != nil {
 		log.Printf("failed to update user volume usages: %v", err)
 		return err
 	}
-	err = srv.dbh.gvdh.UpdateGroupVolume(gv)
+	err = srv.dbh.UpdateGroupVolume(gv)
 	if err != nil {
 		log.Printf("failed to update group volume usages: %v", err)
 		return err

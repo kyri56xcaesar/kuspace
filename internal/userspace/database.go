@@ -1,5 +1,9 @@
 package userspace
 
+/*
+	Initialization and general database handling code for the UserspaceAPI
+*/
+
 import (
 	"database/sql"
 	"log"
@@ -86,18 +90,14 @@ var (
 			- GroupVolumes
 */
 
-// well this is somewhat suboptimal, since not all dbhandlers use all subhandlers
+// well this is somewhat suboptimal, since not all db calls can be used from a handler
+// but for now we will keep it as is
 // should be refactored
+// one should choose which database calls he needs for his database connection
 type DBHandler struct {
 	db        *sql.DB
 	db_driver string
 	DBName    string
-
-	rdh  ResourcesDBHandler
-	vdh  VolumesDBHandler
-	uvdh UserVolumeDBHandler
-	gvdh GroupVolumeDBHandler
-	jdh  JobDBHandler
 }
 
 // constructor
@@ -107,24 +107,10 @@ func NewDBHandler(dbname, db_driver string) DBHandler {
 		DBName:    dbname,
 		db_driver: db_driver,
 	}
-
-	dbh.rdh = &Rh{
-		dbh: &dbh,
-	}
-	dbh.vdh = &Vh{
-		dbh: &dbh,
-	}
-	dbh.uvdh = &UVh{
-		dbh: &dbh,
-	}
-	dbh.gvdh = &GVh{
-		dbh: &dbh,
-	}
-
 	return dbh
 }
 
-func (m *DBHandler) getConn() (*sql.DB, error) {
+func (m DBHandler) getConn() (*sql.DB, error) {
 	if m.db == nil {
 		db, err := sql.Open(m.db_driver, USERSPACE_DB_PATH+m.DBName)
 		if err != nil {
@@ -135,14 +121,14 @@ func (m *DBHandler) getConn() (*sql.DB, error) {
 	return m.db, nil
 }
 
-func (m *DBHandler) Close() {
+func (m DBHandler) Close() {
 	if m.db != nil {
 		m.db.Close()
 	}
 }
 
-/* Initialization routines for the userspace database */
-func (m *DBHandler) Init(initSqlArg, database_path, max_open_conns, max_idle_cons, conn_lifetime string) {
+/* Initialization routines for a database */
+func (m DBHandler) Init(initSqlArg, database_path, max_open_conns, max_idle_cons, conn_lifetime string) {
 	log.Printf("Initializing %v database", m.DBName)
 	if err := os.MkdirAll(database_path, 0o740); err != nil {
 		log.Fatalf("failed to create directory path %s, destructive: %v", database_path, err)

@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	m "kyri56xcaesar/myThesis/internal/models"
 	ut "kyri56xcaesar/myThesis/internal/utils"
 
 	"github.com/gin-contrib/cors"
@@ -91,7 +90,7 @@ func (srv *HTTPService) ServeHTTP() {
 			}
 			return nil // Return nil if key does not exist
 		},
-		"findGroupVolume": func(s []m.GroupVolume, gid int) *m.GroupVolume {
+		"findGroupVolume": func(s []GroupVolume, gid int) *GroupVolume {
 			for _, v := range s {
 				if v.Gid == gid {
 					return &v
@@ -99,7 +98,7 @@ func (srv *HTTPService) ServeHTTP() {
 			}
 			return nil
 		},
-		"findUserVolume": func(s []m.UserVolume, uid int) *m.UserVolume {
+		"findUserVolume": func(s []UserVolume, uid int) *UserVolume {
 			for _, v := range s {
 				if v.Uid == uid {
 					return &v

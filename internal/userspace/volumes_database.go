@@ -1,5 +1,12 @@
 package userspace
 
+/*
+	database call handlers for "volumes"
+	"userspace.db"
+
+	@used by the api
+*/
+
 import (
 	"fmt"
 	"log"
@@ -7,27 +14,9 @@ import (
 	"time"
 )
 
-/* this is what a Volume Database handler should implement*/
-type VolumesDBHandler interface {
-	GetVolumes() ([]Volume, error)
-	GetVolumeByVid(vid int) (Volume, error)
-	UpdateVolume(volume Volume) error
-	DeleteVolume(vid int) error
-	InsertVolume(volume Volume) error
-	InsertVolumes(volumes []Volume) error
-	DeleteVolumeByIds(ids []int) error
-}
-
-/*
-a reference struct implementing all the handlers for the volume data type in the db
-*/
-type Vh struct {
-	dbh *DBHandler
-}
-
 /* database call handlers regarding the Volume table */
-func (m *Vh) GetVolumes() ([]Volume, error) {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) GetVolumes() ([]Volume, error) {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return nil, err
@@ -58,8 +47,8 @@ func (m *Vh) GetVolumes() ([]Volume, error) {
 	return volumes, nil
 }
 
-func (m *Vh) GetVolumeByVid(vid int) (Volume, error) {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) GetVolumeByVid(vid int) (Volume, error) {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return Volume{}, err
@@ -73,8 +62,8 @@ func (m *Vh) GetVolumeByVid(vid int) (Volume, error) {
 	return volume, nil
 }
 
-func (m *Vh) UpdateVolume(volume Volume) error {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) UpdateVolume(volume Volume) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return err
@@ -98,8 +87,8 @@ func (m *Vh) UpdateVolume(volume Volume) error {
 	return nil
 }
 
-func (m *Vh) DeleteVolume(vid int) error {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) DeleteVolume(vid int) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return err
@@ -123,8 +112,8 @@ func (m *Vh) DeleteVolume(vid int) error {
 	return nil
 }
 
-func (m *Vh) InsertVolume(volume Volume) error {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) InsertVolume(volume Volume) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return err
@@ -141,8 +130,8 @@ func (m *Vh) InsertVolume(volume Volume) error {
 	return nil
 }
 
-func (m *Vh) InsertVolumes(volumes []Volume) error {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) InsertVolumes(volumes []Volume) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("error getting db connection: %v", err)
 		return err
@@ -185,12 +174,12 @@ func (m *Vh) InsertVolumes(volumes []Volume) error {
 	return nil
 }
 
-func (m *Vh) DeleteVolumeByIds(ids []int) error {
+func (dbh DBHandler) DeleteVolumeByIds(ids []int) error {
 	if ids == nil {
 		return fmt.Errorf("must provide ids")
 	}
 
-	db, err := m.dbh.getConn()
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("error getting database connetion")
 		return err
@@ -219,50 +208,10 @@ func (m *Vh) DeleteVolumeByIds(ids []int) error {
 	return nil
 }
 
-/* User Volume and Group Volume Database related */
-type UserVolumeDBHandler interface {
-	InsertUserVolume(uv UserVolume) error
-	InsertUserVolumes(uvs []UserVolume) error
-	DeleteUserVolumeByUid(uid int) error
-	DeleteUserVolumeByVid(vid int) error
-	UpdateUserVolume(uv UserVolume) error
-	UpdateUserVolumeQuotaByUid(quota float32, uid int) error
-	UpdateUserVolumeUsageByUid(usage float32, uid int) error
-	UpdateUserVolumeQuotaAndUsageByUid(usage, quota float32, uid int) error
-	GetUserVolumes() (interface{}, error)
-	GetUserVolumeByUid(uid int) (UserVolume, error)
-	GetUserVolumesByUserIds(uids []string) (interface{}, error)
-	GetUserVolumesByVolumeIds(vids []string) (interface{}, error)
-	GetUserVolumesByUidsAndVids(uids, vids []string) (interface{}, error)
-}
-
-type GroupVolumeDBHandler interface {
-	InsertGroupVolume(gv GroupVolume) error
-	InsertGroupVolumes(gvs []GroupVolume) error
-	DeleteGroupVolumeByGid(gid int) error
-	DeleteGroupVolumeByVid(vid int) error
-	UpdateGroupVolume(gv GroupVolume) error
-	UpdateGroupVolumes(gvs []GroupVolume) error
-	UpdateGroupVolumesUsageByGids(gids []string) error
-	GetGroupVolumes() (interface{}, error)
-	GetGroupVolumeByGid(gid int) (GroupVolume, error)
-	GetGroupVolumesByGroupIds(gids []string) (interface{}, error)
-	GetGroupVolumesByVolumeIds(vids []string) (interface{}, error)
-	GetGroupVolumesByVidsAndGids(gids, vids []string) (interface{}, error)
-}
-
-type UVh struct {
-	dbh *DBHandler
-}
-
-type GVh struct {
-	dbh *DBHandler
-}
-
 /* database call handlers regarding the UserVolume table */
 /* UNIQUE (vid, uid) pair*/
-func (m *UVh) InsertUserVolume(uv UserVolume) error {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) InsertUserVolume(uv UserVolume) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		return fmt.Errorf("failed to get database connection: %v", err)
 	}
@@ -291,8 +240,8 @@ func (m *UVh) InsertUserVolume(uv UserVolume) error {
 	return nil
 }
 
-func (m *UVh) InsertUserVolumes(uvs []UserVolume) error {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) InsertUserVolumes(uvs []UserVolume) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("error getting db connection: %v", err)
 		return err
@@ -337,8 +286,8 @@ func (m *UVh) InsertUserVolumes(uvs []UserVolume) error {
 	return nil
 }
 
-func (m *UVh) DeleteUserVolumeByUid(uid int) error {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) DeleteUserVolumeByUid(uid int) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		return fmt.Errorf("failed to get database connection: %v", err)
 	}
@@ -353,8 +302,8 @@ func (m *UVh) DeleteUserVolumeByUid(uid int) error {
 	return nil
 }
 
-func (m *UVh) DeleteUserVolumeByVid(vid int) error {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) DeleteUserVolumeByVid(vid int) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		return fmt.Errorf("failed to get database connection: %v", err)
 	}
@@ -369,9 +318,9 @@ func (m *UVh) DeleteUserVolumeByVid(vid int) error {
 	return nil
 }
 
-func (m *UVh) UpdateUserVolume(uv UserVolume) error {
+func (dbh DBHandler) UpdateUserVolume(uv UserVolume) error {
 
-	db, err := m.dbh.getConn()
+	db, err := dbh.getConn()
 	if err != nil {
 		return fmt.Errorf("failed to get database connection: %v", err)
 	}
@@ -392,8 +341,8 @@ func (m *UVh) UpdateUserVolume(uv UserVolume) error {
 	return nil
 }
 
-func (m *UVh) UpdateUserVolumeQuotaByUid(quota float32, uid int) error {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) UpdateUserVolumeQuotaByUid(quota float32, uid int) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to retrieve database connection: %v", err)
 		return err
@@ -424,8 +373,8 @@ func (m *UVh) UpdateUserVolumeQuotaByUid(quota float32, uid int) error {
 	return nil
 }
 
-func (m *UVh) UpdateUserVolumeUsageByUid(usage float32, uid int) error {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) UpdateUserVolumeUsageByUid(usage float32, uid int) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to retrieve database connection: %v", err)
 		return err
@@ -456,8 +405,8 @@ func (m *UVh) UpdateUserVolumeUsageByUid(usage float32, uid int) error {
 	return nil
 }
 
-func (m *UVh) UpdateUserVolumeQuotaAndUsageByUid(usage, quota float32, uid int) error {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) UpdateUserVolumeQuotaAndUsageByUid(usage, quota float32, uid int) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to retrieve database connection: %v", err)
 		return err
@@ -488,8 +437,8 @@ func (m *UVh) UpdateUserVolumeQuotaAndUsageByUid(usage, quota float32, uid int) 
 	return nil
 }
 
-func (m *UVh) GetUserVolumes() (interface{}, error) {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) GetUserVolumes() (interface{}, error) {
+	db, err := dbh.getConn()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get database connection: %v", err)
 	}
@@ -519,8 +468,8 @@ func (m *UVh) GetUserVolumes() (interface{}, error) {
 	return userVolumes, nil
 }
 
-func (m *UVh) GetUserVolumeByUid(uid int) (UserVolume, error) {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) GetUserVolumeByUid(uid int) (UserVolume, error) {
+	db, err := dbh.getConn()
 	if err != nil {
 		return UserVolume{}, fmt.Errorf("failed to get database connection: %v", err)
 	}
@@ -535,8 +484,8 @@ func (m *UVh) GetUserVolumeByUid(uid int) (UserVolume, error) {
 	return userVolume, nil
 }
 
-func (m *UVh) GetUserVolumesByUserIds(uids []string) (interface{}, error) {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) GetUserVolumesByUserIds(uids []string) (interface{}, error) {
+	db, err := dbh.getConn()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get database connection: %v", err)
 	}
@@ -577,8 +526,8 @@ func (m *UVh) GetUserVolumesByUserIds(uids []string) (interface{}, error) {
 	return userVolumes, nil
 }
 
-func (m *UVh) GetUserVolumesByVolumeIds(vids []string) (interface{}, error) {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) GetUserVolumesByVolumeIds(vids []string) (interface{}, error) {
+	db, err := dbh.getConn()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get database connection: %v", err)
 	}
@@ -619,8 +568,8 @@ func (m *UVh) GetUserVolumesByVolumeIds(vids []string) (interface{}, error) {
 	return userVolumes, nil
 }
 
-func (m *UVh) GetUserVolumesByUidsAndVids(uids, vids []string) (interface{}, error) {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) GetUserVolumesByUidsAndVids(uids, vids []string) (interface{}, error) {
+	db, err := dbh.getConn()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get database connection: %v", err)
 	}
@@ -668,8 +617,8 @@ func (m *UVh) GetUserVolumesByUidsAndVids(uids, vids []string) (interface{}, err
 /* database call handlers regarding the GroupVolume tabke*/
 
 /* UNIQUE pair (gid, vid) SHOULD BE (we checking)*/
-func (m *GVh) InsertGroupVolume(gv GroupVolume) error {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) InsertGroupVolume(gv GroupVolume) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		return fmt.Errorf("failed to get database connection: %v", err)
 	}
@@ -700,8 +649,8 @@ func (m *GVh) InsertGroupVolume(gv GroupVolume) error {
 	return nil
 }
 
-func (m *GVh) InsertGroupVolumes(gvs []GroupVolume) error {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) InsertGroupVolumes(gvs []GroupVolume) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("error getting db connection: %v", err)
 		return err
@@ -746,8 +695,8 @@ func (m *GVh) InsertGroupVolumes(gvs []GroupVolume) error {
 	return nil
 }
 
-func (m *GVh) DeleteGroupVolumeByGid(gid int) error {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) DeleteGroupVolumeByGid(gid int) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		return fmt.Errorf("failed to get database connection: %v", err)
 	}
@@ -762,8 +711,8 @@ func (m *GVh) DeleteGroupVolumeByGid(gid int) error {
 	return nil
 }
 
-func (m *GVh) DeleteGroupVolumeByVid(vid int) error {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) DeleteGroupVolumeByVid(vid int) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		return fmt.Errorf("failed to get database connection: %v", err)
 	}
@@ -778,9 +727,9 @@ func (m *GVh) DeleteGroupVolumeByVid(vid int) error {
 	return nil
 }
 
-func (m *GVh) UpdateGroupVolume(gv GroupVolume) error {
+func (dbh DBHandler) UpdateGroupVolume(gv GroupVolume) error {
 
-	db, err := m.dbh.getConn()
+	db, err := dbh.getConn()
 	if err != nil {
 		return fmt.Errorf("failed to get database connection: %v", err)
 	}
@@ -800,7 +749,7 @@ func (m *GVh) UpdateGroupVolume(gv GroupVolume) error {
 	return nil
 }
 
-func (m *GVh) UpdateGroupVolumes(gvs []GroupVolume) error {
+func (dbh DBHandler) UpdateGroupVolumes(gvs []GroupVolume) error {
 	if len(gvs) == 0 {
 		return nil // No updates needed
 	}
@@ -813,7 +762,7 @@ func (m *GVh) UpdateGroupVolumes(gvs []GroupVolume) error {
 		WHERE vid = ? AND gid = ?
 	`
 
-	db, err := m.dbh.getConn()
+	db, err := dbh.getConn()
 	if err != nil {
 		return fmt.Errorf("failed to get database connection: %v", err)
 	}
@@ -851,14 +800,14 @@ func (m *GVh) UpdateGroupVolumes(gvs []GroupVolume) error {
 	return nil
 }
 
-func (m *GVh) UpdateGroupVolumesUsageByGids(gids []string) error {
+func (dbh DBHandler) UpdateGroupVolumesUsageByGids(gids []string) error {
 	query := `
     UPDATE groupVolume 
     SET usage = ? 
     WHERE gid IN (?
     ` + strings.Repeat(", ?", len(gids)-1) + `)`
 
-	db, err := m.dbh.getConn()
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to retrieve the database connection: %v", err)
 		return err
@@ -883,8 +832,8 @@ func (m *GVh) UpdateGroupVolumesUsageByGids(gids []string) error {
 	return nil
 }
 
-func (m *GVh) UpdateGroupVolumeQuotaByGid(quota float32, gid int) error {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) UpdateGroupVolumeQuotaByGid(quota float32, gid int) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to retrieve database connection: %v", err)
 		return err
@@ -915,8 +864,8 @@ func (m *GVh) UpdateGroupVolumeQuotaByGid(quota float32, gid int) error {
 	return nil
 }
 
-func (m *GVh) UpdateGroupVolumeUsageByGid(usage float32, gid int) error {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) UpdateGroupVolumeUsageByGid(usage float32, gid int) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to retrieve database connection: %v", err)
 		return err
@@ -947,8 +896,8 @@ func (m *GVh) UpdateGroupVolumeUsageByGid(usage float32, gid int) error {
 	return nil
 }
 
-func (m *GVh) UpdateGroupVolumeQuotaAndUsageByUid(usage, quota float32, gid int) error {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) UpdateGroupVolumeQuotaAndUsageByUid(usage, quota float32, gid int) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to retrieve database connection: %v", err)
 		return err
@@ -979,8 +928,8 @@ func (m *GVh) UpdateGroupVolumeQuotaAndUsageByUid(usage, quota float32, gid int)
 	return nil
 }
 
-func (m *GVh) GetGroupVolumes() (interface{}, error) {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) GetGroupVolumes() (interface{}, error) {
+	db, err := dbh.getConn()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get database connection: %v", err)
 	}
@@ -1010,8 +959,8 @@ func (m *GVh) GetGroupVolumes() (interface{}, error) {
 	return groupVolumes, nil
 }
 
-func (m *GVh) GetGroupVolumeByGid(gid int) (GroupVolume, error) {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) GetGroupVolumeByGid(gid int) (GroupVolume, error) {
+	db, err := dbh.getConn()
 	if err != nil {
 		return GroupVolume{}, fmt.Errorf("failed to get database connection: %v", err)
 	}
@@ -1026,8 +975,8 @@ func (m *GVh) GetGroupVolumeByGid(gid int) (GroupVolume, error) {
 	return groupVolume, nil
 }
 
-func (m *GVh) GetGroupVolumesByGroupIds(gids []string) (interface{}, error) {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) GetGroupVolumesByGroupIds(gids []string) (interface{}, error) {
+	db, err := dbh.getConn()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get database connection: %v", err)
 	}
@@ -1067,8 +1016,8 @@ func (m *GVh) GetGroupVolumesByGroupIds(gids []string) (interface{}, error) {
 	return groupVolumes, nil
 }
 
-func (m *GVh) GetGroupVolumesByVolumeIds(vids []string) (interface{}, error) {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) GetGroupVolumesByVolumeIds(vids []string) (interface{}, error) {
+	db, err := dbh.getConn()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get database connection: %v", err)
 	}
@@ -1108,8 +1057,8 @@ func (m *GVh) GetGroupVolumesByVolumeIds(vids []string) (interface{}, error) {
 	return groupVolumes, nil
 }
 
-func (m *GVh) GetGroupVolumesByVidsAndGids(vids, gids []string) (interface{}, error) {
-	db, err := m.dbh.getConn()
+func (dbh DBHandler) GetGroupVolumesByVidsAndGids(vids, gids []string) (interface{}, error) {
+	db, err := dbh.getConn()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get database connection: %v", err)
 	}

@@ -1,5 +1,14 @@
 package userspace
 
+/*
+	http api handlers for the userspace service
+	"job" related endpoints
+
+	@connected to:
+	-> database calls - DatabaseHandler
+	-> publishing/subscribing "jobs" to execution - Broker
+*/
+
 import (
 	"encoding/json"
 	"io"
@@ -11,11 +20,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-/* HTTP Gin handlers related to Jobs, used by the api to handle endpoints*/
-
 // Api call Handlers
 func (srv *UService) HandleJob(c *gin.Context) {
 	switch c.Request.Method {
+	// "getting" jobs should be treated as "subscribing"
 	case http.MethodGet:
 		uids, _ := c.GetQuery("uids")
 		if uids != "" {
@@ -26,7 +34,7 @@ func (srv *UService) HandleJob(c *gin.Context) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "failed to atoi uids"})
 				return
 			}
-			jobs, err := srv.dbhJobs.jdh.GetJobsByUids(uids_int)
+			jobs, err := srv.dbhJobs.GetJobsByUids(uids_int)
 			if err != nil {
 				log.Printf("failed to retrieve jobs by uid: %v, %v", uids_int, err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve jobs by uid"})
@@ -39,7 +47,7 @@ func (srv *UService) HandleJob(c *gin.Context) {
 		jid, _ := c.GetQuery("jids")
 		if jid == "" || jid == "*" {
 			// return all jobs from database
-			jobs, err := srv.dbhJobs.jdh.GetAllJobs()
+			jobs, err := srv.dbhJobs.GetAllJobs()
 			if err != nil {
 				log.Printf("failed to retrieve the jobs: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the jobs"})
@@ -54,7 +62,7 @@ func (srv *UService) HandleJob(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to atoi jid"})
 			return
 		}
-		job, err := srv.dbhJobs.jdh.GetJobById(jid_int)
+		job, err := srv.dbhJobs.GetJobById(jid_int)
 		if err != nil {
 			log.Printf("failed to retrieve the job: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the job"})
@@ -81,9 +89,11 @@ func (srv *UService) HandleJob(c *gin.Context) {
 			// handle multiple jobs
 			// check for jobs valitidy.
 
-			// "publish" jobs
-
 			// save jobs (insert in DB)
+			srv.dbhJobs.InsertJobs(jobs)
+
+			// "publish" jobs
+			srv.jdp.PublishJobs(jobs)
 
 			// respond with status
 			return
@@ -92,9 +102,10 @@ func (srv *UService) HandleJob(c *gin.Context) {
 		// handle single job
 		// check for job validity.
 
-		// "publish" job
-
 		// save job (insert in DB)
+		srv.dbhJobs.InsertJob(job)
+		// "publish" job
+		srv.jdp.PublishJob(job)
 
 		// respond with status
 
@@ -117,7 +128,7 @@ func (srv *UService) HandleJobAdmin(c *gin.Context) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "failed to atoi uids"})
 				return
 			}
-			jobs, err := srv.dbhJobs.jdh.GetJobsByUids(uids_int)
+			jobs, err := srv.dbhJobs.GetJobsByUids(uids_int)
 			if err != nil {
 				log.Printf("failed to retrieve jobs by uid: %v, %v", uids_int, err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve jobs by uid"})
@@ -130,7 +141,7 @@ func (srv *UService) HandleJobAdmin(c *gin.Context) {
 		jid, _ := c.GetQuery("jids")
 		if jid == "" || jid == "*" {
 			// return all jobs from database
-			jobs, err := srv.dbhJobs.jdh.GetAllJobs()
+			jobs, err := srv.dbhJobs.GetAllJobs()
 			if err != nil {
 				log.Printf("failed to retrieve the jobs: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the jobs"})
@@ -145,7 +156,7 @@ func (srv *UService) HandleJobAdmin(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to atoi jid"})
 			return
 		}
-		job, err := srv.dbhJobs.jdh.GetJobById(jid_int)
+		job, err := srv.dbhJobs.GetJobById(jid_int)
 		if err != nil {
 			log.Printf("failed to retrieve the job: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the job"})

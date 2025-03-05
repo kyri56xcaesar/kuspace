@@ -100,7 +100,7 @@ func (p *Permissions) fillFromStr(representation string) error {
 	return nil
 }
 
-func (p *Permissions) toString() string {
+func (p *Permissions) ToString() string {
 	return fmt.Sprintf("%s%s%s", p.Owner.ToString(), p.Group.ToString(), p.Other.ToString())
 }
 
@@ -309,7 +309,7 @@ type AccessClaim struct {
 	Vid    int    `json:"volume_id"`
 }
 
-func (ac *AccessClaim) filter() AccessClaim {
+func (ac *AccessClaim) Filter() AccessClaim {
 	/* can enrich this method */
 	return AccessClaim{
 		Uid:    strings.TrimSpace(ac.Uid),
@@ -319,7 +319,7 @@ func (ac *AccessClaim) filter() AccessClaim {
 	}
 }
 
-func (ac *AccessClaim) validate() error {
+func (ac *AccessClaim) Validate() error {
 	if ac.Uid == "" && ac.Gids == "" {
 		return fmt.Errorf("cannot have empty ids")
 	}

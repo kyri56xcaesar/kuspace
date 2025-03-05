@@ -1,30 +1,19 @@
 package userspace
 
+/*
+	database call handlers for "jobs"
+	"jobs.db"
+
+	@used by the api
+*/
+
 import (
 	"log"
 	"time"
 )
 
-type JobDBHandler interface {
-	InsertJob(Job) error
-	InsertJobs([]Job) error
-	RemoveJob(int) error
-	RemoveJobs([]int) error
-	GetJobById(int) (Job, error)
-	GetJobsByUid(int) ([]Job, error)
-	GetJobsByUids([]int) ([]Job, error)
-	GetAllJobs() ([]Job, error)
-	UpdateJob(Job) error
-	MarkStatus(int, string) error
-	PatchStatus(int, string) error
-}
-
-type Jdh struct {
-	dbh *DBHandler
-}
-
-func (j *Jdh) InsertJob(jb Job) error {
-	db, err := j.dbh.getConn()
+func (dbh *DBHandler) InsertJob(jb Job) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return err
@@ -48,8 +37,8 @@ func (j *Jdh) InsertJob(jb Job) error {
 	return nil
 }
 
-func (j *Jdh) InsertJobs(jbs []Job) error {
-	db, err := j.dbh.getConn()
+func (dbh *DBHandler) InsertJobs(jbs []Job) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return err
@@ -93,8 +82,8 @@ func (j *Jdh) InsertJobs(jbs []Job) error {
 	return nil
 }
 
-func (j *Jdh) RemoveJob(jid int) error {
-	db, err := j.dbh.getConn()
+func (dbh *DBHandler) RemoveJob(jid int) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to retrieve db connection: %v", err)
 		return err
@@ -113,8 +102,8 @@ func (j *Jdh) RemoveJob(jid int) error {
 	return nil
 }
 
-func (j *Jdh) RemoveJobs(jids []int) error {
-	db, err := j.dbh.getConn()
+func (dbh *DBHandler) RemoveJobs(jids []int) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return err
@@ -152,9 +141,9 @@ func (j *Jdh) RemoveJobs(jids []int) error {
 	return nil
 }
 
-func (j *Jdh) GetJobById(jid int) (Job, error) {
+func (dbh *DBHandler) GetJobById(jid int) (Job, error) {
 	var job Job
-	db, err := j.dbh.getConn()
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return job, err
@@ -175,9 +164,9 @@ func (j *Jdh) GetJobById(jid int) (Job, error) {
 	return job, nil
 }
 
-func (j *Jdh) GetJobsByUid(uid int) ([]Job, error) {
+func (dbh *DBHandler) GetJobsByUid(uid int) ([]Job, error) {
 	var jobs []Job
-	db, err := j.dbh.getConn()
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return nil, err
@@ -208,9 +197,9 @@ func (j *Jdh) GetJobsByUid(uid int) ([]Job, error) {
 	return jobs, nil
 }
 
-func (j *Jdh) GetJobsByUids(uids []int) ([]Job, error) {
+func (dbh *DBHandler) GetJobsByUids(uids []int) ([]Job, error) {
 	var jobs []Job
-	db, err := j.dbh.getConn()
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return nil, err
@@ -241,9 +230,9 @@ func (j *Jdh) GetJobsByUids(uids []int) ([]Job, error) {
 	return jobs, nil
 }
 
-func (j *Jdh) GetAllJobs() ([]Job, error) {
+func (dbh *DBHandler) GetAllJobs() ([]Job, error) {
 	var jobs []Job
-	db, err := j.dbh.getConn()
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return nil, err
@@ -273,8 +262,8 @@ func (j *Jdh) GetAllJobs() ([]Job, error) {
 	return jobs, nil
 }
 
-func (j *Jdh) UpdateJob(jb Job) error {
-	db, err := j.dbh.getConn()
+func (dbh *DBHandler) UpdateJob(jb Job) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return err
@@ -297,8 +286,8 @@ func (j *Jdh) UpdateJob(jb Job) error {
 	return nil
 }
 
-func (j *Jdh) PatchStatus(jid int, status string) error {
-	db, err := j.dbh.getConn()
+func (dbh *DBHandler) PatchStatus(jid int, status string) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return err
@@ -321,8 +310,8 @@ func (j *Jdh) PatchStatus(jid int, status string) error {
 	return nil
 }
 
-func (j *Jdh) MarkStatus(jid int, status string) error {
-	db, err := j.dbh.getConn()
+func (dbh *DBHandler) MarkStatus(jid int, status string) error {
+	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return err
