@@ -1,5 +1,9 @@
 package userspace
 
+import(
+	"sync"
+)
+
 type JDispatcher struct {
 	Scheduler JobScheduler
 }
@@ -14,16 +18,33 @@ a Job scheduler is the default implementation for publishing/dispatching Jobs
   - ScheduleJob(Job) error
   - CancelJob(Job) error
 */
-type JobScheduler struct{}
+type JobScheduler struct{
+	mu *sync.Mutex
+	jobs map[int]*Job 
+	jobQueue chan Job
+}
 
-func (j JobScheduler) ScheduleJob(jb Job) error {
+func NewJobScheduler(queueSize int) *JobScheduler {
+	return  &JobScheduler{
+		jobs: make(map[int]*Job)
+		jobQueue: make(chan Job, queueSize)
+	}
+}
+
+func (js *JobScheduler) ScheduleJob(jb Job) error {
+	js.mu.Lock()
+	defer js.mu.Unlock()
+
 	return nil
 }
 
-func (j JobScheduler) CancelJob(jid int) error {
+func (js *JobScheduler) CancelJob(jid int) error {
 	return nil
 }
 
+
+
+/* dispatching jobs interface methods */
 func (j JDispatcher) PublishJob(jb Job) error {
 	return j.Scheduler.ScheduleJob(jb)
 }

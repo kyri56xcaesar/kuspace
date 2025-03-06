@@ -32,7 +32,7 @@ type JobDispatcher interface {
 func DispatcherFactory(dispatcherType string) (JobDispatcher, error) {
 	switch dispatcherType {
 	case "scheduler", "default", "local":
-		return JDispatcher{Scheduler: JobScheduler{}}, nil
+		return JDispatcher{Scheduler: NewJobScheduler(100)}, nil
 	case "kafka":
 		return nil, fmt.Errorf("kafka dispatcher not implemented")
 	case "rabbitmq":
