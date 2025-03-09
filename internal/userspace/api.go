@@ -55,6 +55,7 @@ func NewUService(conf string) UService {
 		panic(err)
 	}
 	srv.jdp = jdp
+	jdp.Start()
 
 	// datbase
 	srv.dbh.Init(initSql, cfg.DB_RV_Path, cfg.DB_RV_MAX_OPEN_CONNS, cfg.DB_RV_MAX_IDLE_CONNS, cfg.DB_RV_MAX_LIFETIME)
@@ -84,6 +85,7 @@ func NewUService(conf string) UService {
 		}
 	}()
 
+	log.Printf("server at: %+v", srv)
 	return srv
 }
 

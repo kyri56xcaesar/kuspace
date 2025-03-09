@@ -364,6 +364,10 @@ type Job struct {
 	Input  []string `json:"input"`
 	Output string   `json:"output"`
 
+	// perhaps unecessary
+	InputFormat  string `json:"input_format"`
+	OutputFormat string `json:"output_format"`
+
 	Logic     string   `json:"logic"`
 	LogicBody string   `json:"logic_body"`
 	Params    []string `json:"params"`

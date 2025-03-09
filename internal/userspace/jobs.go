@@ -103,9 +103,21 @@ func (srv *UService) HandleJob(c *gin.Context) {
 		// check for job validity.
 
 		// save job (insert in DB)
-		srv.dbhJobs.InsertJob(job)
+		// jid, err := srv.dbhJobs.InsertJob(job)
+		// if err != nil {
+		// 	log.Printf("failed to insert the job in the db: %+v", err)
+		// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert into db"})
+		// 	return
+		// }
+		// job.Jid = int(jid)
+		// log.Printf("inserted job in db: %+v", job)
 		// "publish" job
-		srv.jdp.PublishJob(job)
+		err = srv.jdp.PublishJob(job)
+		if err != nil {
+			log.Printf("failed to publish the job: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to publish job"})
+			return
+		}
 
 		// respond with status
 

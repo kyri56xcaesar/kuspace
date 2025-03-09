@@ -1,6 +1,8 @@
 package userspace
 
-import "fmt"
+import (
+	"fmt"
+)
 
 /*
 	Dispatcher for jobs
@@ -22,6 +24,7 @@ import "fmt"
 the default one is is JDispatcher which works as a scheduler
 */
 type JobDispatcher interface {
+	Start()
 	PublishJob(Job) error
 	PublishJobs([]Job) error
 	RemoveJob(int) error
@@ -32,7 +35,7 @@ type JobDispatcher interface {
 func DispatcherFactory(dispatcherType string) (JobDispatcher, error) {
 	switch dispatcherType {
 	case "scheduler", "default", "local":
-		return JDispatcher{Scheduler: NewJobScheduler(100)}, nil
+		return JDispatcher{Manager: NewJobManager(100, 10)}, nil
 	case "kafka":
 		return nil, fmt.Errorf("kafka dispatcher not implemented")
 	case "rabbitmq":

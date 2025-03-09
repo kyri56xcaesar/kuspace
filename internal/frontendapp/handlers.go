@@ -1535,7 +1535,7 @@ func (srv *HTTPService) editFormHandler(c *gin.Context) {
 		return
 	}
 
-	c.HTML(200, "edit-forhtml", gin.H{
+	c.HTML(200, "edit-form.html", gin.H{
 		"resourcename": resourcename,
 		"rid":          rid,
 		"owner":        owner_int,

@@ -62,8 +62,11 @@ const (
 			jid INTEGER PRIMARY KEY,
 			uid INTEGER,
 			input TEXT,
+			input_format TEXT,
 			output TEXT,
+			output_format TEXT,
 			logic TEXT,
+			logic_body TEXT,
 			status TEXT,
 			completed BOOLEAN,
 			created_at DATETIME,
@@ -110,7 +113,8 @@ func NewDBHandler(dbname, db_driver string) DBHandler {
 	return dbh
 }
 
-func (m DBHandler) getConn() (*sql.DB, error) {
+/* must be a pointer since there is no specific connection variable and is depending on the Handler struct*/
+func (m *DBHandler) getConn() (*sql.DB, error) {
 	if m.db == nil {
 		db, err := sql.Open(m.db_driver, USERSPACE_DB_PATH+m.DBName)
 		if err != nil {
@@ -121,14 +125,16 @@ func (m DBHandler) getConn() (*sql.DB, error) {
 	return m.db, nil
 }
 
-func (m DBHandler) Close() {
+/* must be a pointer since there is no specific connection variable and is depending on the Handler struct*/
+func (m *DBHandler) Close() {
 	if m.db != nil {
 		m.db.Close()
 	}
 }
 
 /* Initialization routines for a database */
-func (m DBHandler) Init(initSqlArg, database_path, max_open_conns, max_idle_cons, conn_lifetime string) {
+/* must be a pointer since there is no specific connection variable and is depending on the Handler struct*/
+func (m *DBHandler) Init(initSqlArg, database_path, max_open_conns, max_idle_cons, conn_lifetime string) {
 	log.Printf("Initializing %v database", m.DBName)
 	if err := os.MkdirAll(database_path, 0o740); err != nil {
 		log.Fatalf("failed to create directory path %s, destructive: %v", database_path, err)

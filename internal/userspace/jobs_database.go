@@ -9,32 +9,39 @@ package userspace
 
 import (
 	"log"
+	"strings"
 	"time"
 )
 
-func (dbh *DBHandler) InsertJob(jb Job) error {
+func (dbh *DBHandler) InsertJob(jb Job) (int64, error) {
 	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
-		return err
+		return -1, err
 	}
 
 	currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 	query := `
 		INSERT INTO 
-			jobs (jid, uid, input, output, logic, status, completed, created_at)
+			jobs (jid, uid, input, input_format, output, output_format, logic, logic_body, status, completed, created_at)
 		VALUES
-			(nextval('seq_jobid'), ?, ?, ?, ?, ?, ?, ?)
+			(nextval('seq_jobid'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
-	_, err = db.Exec(query, jb.Uid, jb.Input, jb.Output, jb.Status, currentTime)
+	res, err := db.Exec(query, jb.Uid, strings.Join(jb.Input, ","), jb.InputFormat, jb.Output, jb.OutputFormat, jb.Logic, jb.LogicBody, jb.Status, jb.Completed, currentTime)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
-		return err
+		return -1, err
+	}
+
+	jid, err := res.LastInsertId()
+	if err != nil {
+		log.Printf("failed to retrieve the last inserted id: %v", err)
+		return -1, err
 	}
 
 	// perhaps we require the id, but letgo for now
-	return nil
+	return jid, nil
 }
 
 func (dbh *DBHandler) InsertJobs(jbs []Job) error {
