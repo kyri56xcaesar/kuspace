@@ -368,9 +368,10 @@ type Job struct {
 	InputFormat  string `json:"input_format"`
 	OutputFormat string `json:"output_format"`
 
-	Logic     string   `json:"logic"`
-	LogicBody string   `json:"logic_body"`
-	Params    []string `json:"params"`
+	Logic        string   `json:"logic"`
+	LogicBody    string   `json:"logic_body"`
+	LogicHeaders string   `json:"logic_headers,omitempty"`
+	Params       []string `json:"params"`
 
 	Status       string `json:"status"`
 	Completed    bool   `json:"completed"`

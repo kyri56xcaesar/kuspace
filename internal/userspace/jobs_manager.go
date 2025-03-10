@@ -3,8 +3,6 @@ package userspace
 import (
 	"fmt"
 	"log"
-	"os"
-	"os/exec"
 	"sync"
 	"time"
 )
@@ -44,6 +42,10 @@ func (j JDispatcher) RemoveJobs(jids []int) error {
 			return err
 		}
 	}
+	return nil
+}
+
+func (j JDispatcher) Subscribe(job Job) error {
 	return nil
 }
 
@@ -126,38 +128,16 @@ func (jm *JobManager) executeJob(job Job) {
 	jm.jobs[job.Jid] = &job
 	jm.mu.Unlock()
 
-	// Save user logic to a script file
-	scriptFile := fmt.Sprintf("tmp/job-%d.py", job.Jid)
-	err := os.WriteFile(scriptFile, []byte(job.LogicBody), 0644)
+	// we should examine input "resources"
+
+	// language and version
+	cmd, err := performExecution(job, true)
 	if err != nil {
-		log.Printf("Failed to write script: %s\n", err)
-		jm.updateJobStatus(job.Jid, "failed")
+		log.Printf("failed to prepare or perform job: %v", err)
 		return
 	}
 
-	// Execute job inside a Docker container, passing input/output format
-	// cmd := exec.Command("docker", "run", "--rm",
-	// 	"-v", fmt.Sprintf("%s:/app/script.py", scriptFile),
-	// 	"-v", fmt.Sprintf("%s:/app/input", job.Input),
-	// 	"-v", fmt.Sprintf("%s:/app/output", job.Output),
-	// 	"python:3.9", "python", "-c", fmt.Sprintf(`
-	// 	import sys
-	// 	from format_handler import load_input, save_output
-	// 	from script import run
-
-	// 	input_format = "%s"
-	// 	output_format = "%s"
-
-	// 	# Load input data based on format
-	// 	data = load_input("/app/input", input_format)
-
-	// 	# Execute the user's function
-	// 	result = run(data)
-
-	// 	# Save output based on format
-	// 	save_output(result, "/app/output", output_format)
-	// 	`, job.InputFormat, job.OutputFormat))
-	cmd := exec.Command("docker", "run", "--rm", "python:3.9", "python", "-c", "print('hello from inside')")
+	// output should be streamed back ...
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -184,3 +164,26 @@ func (js *JobManager) updateJobStatus(jid int, status string) {
 		js.jobs[jid] = job
 	}
 }
+
+// Execute job inside a Docker container, passing input/output format
+// cmd := exec.Command("docker", "run", "--rm",
+// 	"-v", fmt.Sprintf("%s:/app/script.py", scriptFile),
+// 	"-v", fmt.Sprintf("%s:/app/input", job.Input),
+// 	"-v", fmt.Sprintf("%s:/app/output", job.Output),
+// 	"python:3.9", "python", "-c", fmt.Sprintf(`
+// 	import sys
+// 	from format_handler import load_input, save_output
+// 	from script import run
+
+// 	input_format = "%s"
+// 	output_format = "%s"
+
+// 	# Load input data based on format
+// 	data = load_input("/app/input", input_format)
+
+// 	# Execute the user's function
+// 	result = run(data)
+
+// 	# Save output based on format
+// 	save_output(result, "/app/output", output_format)
+// 	`, job.InputFormat, job.OutputFormat))

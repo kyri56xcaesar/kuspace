@@ -29,6 +29,7 @@ type JobDispatcher interface {
 	PublishJobs([]Job) error
 	RemoveJob(int) error
 	RemoveJobs([]int) error
+	Subscribe(Job) error
 }
 
 /* a factory contstructor for JobDispatchers: @used by the API*/
