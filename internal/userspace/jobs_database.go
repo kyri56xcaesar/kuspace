@@ -23,12 +23,12 @@ func (dbh *DBHandler) InsertJob(jb Job) (int64, error) {
 	currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 	query := `
 		INSERT INTO 
-			jobs (jid, uid, input, input_format, output, output_format, logic, logic_body, status, completed, created_at)
+			jobs (jid, uid, input, input_format, output, output_format, logic, logic_body, logic_headers, parameters, status, completed, created_at, completed_at)
 		VALUES
-			(nextval('seq_jobid'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			(nextval('seq_jobid'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
-	res, err := db.Exec(query, jb.Uid, strings.Join(jb.Input, ","), jb.InputFormat, jb.Output, jb.OutputFormat, jb.Logic, jb.LogicBody, jb.Status, jb.Completed, currentTime)
+	res, err := db.Exec(query, jb.Uid, strings.Join(jb.Input, ","), jb.InputFormat, jb.Output, jb.OutputFormat, jb.Logic, jb.LogicBody, jb.LogicHeaders, strings.Join(jb.Params, ","), jb.Status, jb.Completed, currentTime, jb.Completed_at)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
 		return -1, err
@@ -39,6 +39,8 @@ func (dbh *DBHandler) InsertJob(jb Job) (int64, error) {
 		log.Printf("failed to retrieve the last inserted id: %v", err)
 		return -1, err
 	}
+
+	log.Printf("last inserted id: %v", jid)
 
 	// perhaps we require the id, but letgo for now
 	return jid, nil
@@ -52,9 +54,9 @@ func (dbh *DBHandler) InsertJobs(jbs []Job) error {
 	}
 	query := `
 		INSERT INTO 
-			jobs (jid, uid, input, output, logic, status, completed, created_at)
+			jobs (jid, uid, input, input_format, output, output_format, logic, logic_body, logic_headers, parameters, status, completed, created_at, completed_at)
 		VALUES
-			(nextval('seq_jobid'), ?, ?, ?, ?, ?, ?, ?)
+			(nextval('seq_jobid'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	tx, err := db.Begin()
@@ -72,7 +74,7 @@ func (dbh *DBHandler) InsertJobs(jbs []Job) error {
 
 	for _, jb := range jbs {
 		currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
-		_, err := stmt.Exec(jb.Uid, jb.Input, jb.Output, jb.Logic, jb.Status, jb.Completed, currentTime)
+		_, err := db.Exec(query, jb.Uid, strings.Join(jb.Input, ","), jb.InputFormat, jb.Output, jb.OutputFormat, jb.Logic, jb.LogicBody, jb.LogicHeaders, strings.Join(jb.Params, ","), jb.Status, jb.Completed, currentTime, jb.Completed_at)
 		if err != nil {
 			tx.Rollback()
 			log.Printf("failed to execute statement: %v", err)
@@ -157,13 +159,15 @@ func (dbh *DBHandler) GetJobById(jid int) (Job, error) {
 	}
 	query := `
 		SELECT
-			jid, uid, input, output, logic, status, completed, created_at
+			*
 		FROM
 			jobs
 		WHERE
 			jid = ?
 	`
-	err = db.QueryRow(query, jid).Scan(job.PtrFields()...)
+	var input, params string
+
+	err = db.QueryRow(query, jid).Scan(&job.Jid, &job.Uid, &input, &job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status, &job.Completed, &job.Created_at, &job.Completed_at)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
 		return job, err
@@ -180,7 +184,7 @@ func (dbh *DBHandler) GetJobsByUid(uid int) ([]Job, error) {
 	}
 	query := `
 		SELECT
-			jid, uid, input, output, logic, status, completed, created_at
+			*
 		FROM
 			jobs
 		WHERE
@@ -194,7 +198,9 @@ func (dbh *DBHandler) GetJobsByUid(uid int) ([]Job, error) {
 
 	for rows.Next() {
 		var job Job
-		err = rows.Scan(job.PtrFields()...)
+		var input, params string
+
+		err = rows.Scan(&job.Jid, &job.Uid, &input, &job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status, &job.Completed, &job.Created_at, &job.Completed_at)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
 			return nil, err
@@ -213,7 +219,7 @@ func (dbh *DBHandler) GetJobsByUids(uids []int) ([]Job, error) {
 	}
 	query := `
 		SELECT
-			jid, uid, input, output, logic, status, completed, created_at
+			*
 		FROM
 			jobs
 		WHERE
@@ -227,7 +233,9 @@ func (dbh *DBHandler) GetJobsByUids(uids []int) ([]Job, error) {
 
 	for rows.Next() {
 		var job Job
-		err = rows.Scan(job.PtrFields()...)
+		var input, params string
+
+		err = rows.Scan(&job.Jid, &job.Uid, &input, &job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status, &job.Completed, &job.Created_at, &job.Completed_at)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
 			return nil, err
@@ -237,21 +245,41 @@ func (dbh *DBHandler) GetJobsByUids(uids []int) ([]Job, error) {
 	return jobs, nil
 }
 
-func (dbh *DBHandler) GetAllJobs() ([]Job, error) {
+func (dbh *DBHandler) GetAllJobs(limit, offset string) ([]Job, error) {
 	var jobs []Job
 	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return nil, err
 	}
-	query := `
+	var query string
+
+	if limit == "" {
+		query = `
 		SELECT
 			*
 		FROM
 			jobs
-
 	`
-	rows, err := db.Query(query)
+	} else if offset == "" {
+		query = `
+		SELECT
+			*
+		FROM
+			jobs
+		LIMIT ?;
+			`
+	} else {
+		query = `
+		SELECT
+			*
+		FROM
+			jobs
+		LIMIT ? OFFSET ?;
+	`
+	}
+
+	rows, err := db.Query(query, limit, offset)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
 		return nil, err
@@ -259,7 +287,8 @@ func (dbh *DBHandler) GetAllJobs() ([]Job, error) {
 
 	for rows.Next() {
 		var job Job
-		err = rows.Scan(job.PtrFields()...)
+		var input, params string
+		err = rows.Scan(&job.Jid, &job.Uid, &input, &job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status, &job.Completed, &job.Created_at, &job.Completed_at)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
 			return nil, err

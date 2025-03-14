@@ -592,7 +592,10 @@ func (srv *HTTPService) handleFetchResources(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
 			return
 		}
-		c.HTML(http.StatusOK, "list-resources.html", data)
+
+		format := c.Request.URL.Query().Get("format")
+		respondInFormat(c, format, data, "list-resources.html")
+
 	}
 }
 
@@ -1246,6 +1249,104 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 
 	// Render the HTML template
 	respondInFormat(c, format, combinedData, "volumes_template.html")
+}
+
+/*
+*********************************************************************
+*   Jobs
+* */
+const customTimeLayout = "2006-01-02 15:04:05-07:00" // Match your format
+func (srv *HTTPService) jobsHandler(c *gin.Context) {
+	switch c.Request.Method {
+	case http.MethodGet:
+		jobReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/job", nil)
+		if err != nil {
+			log.Printf("failed to create request: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			return
+		}
+		jobReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+
+		client := &http.Client{Timeout: 10 * time.Second}
+		response, err := client.Do(jobReq)
+		if err != nil {
+			log.Printf("failed to make request: %v", err)
+			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch jobs"})
+			return
+		}
+		defer response.Body.Close()
+
+		var jobResp struct {
+			Content []Job `json:"content"`
+		}
+
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			log.Printf("failed to read response body: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
+			return
+		}
+
+		log.Printf("resp body: %+v", string(body))
+
+		err = json.Unmarshal(body, &jobResp)
+		if err != nil {
+			log.Printf("failed to unmarshal response: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
+			return
+		}
+
+		// sort users on uid
+		sort.Slice(jobResp.Content, func(i, j int) bool {
+			t1, err1 := time.Parse(customTimeLayout, jobResp.Content[i].Created_at)
+			t2, err2 := time.Parse(customTimeLayout, jobResp.Content[j].Created_at)
+
+			// Handle parsing errors gracefully (e.g., keep original order)
+			if err1 != nil || err2 != nil {
+				return false
+			}
+
+			return t1.Before(t2)
+		})
+
+		// answer according to format
+		format := c.Request.URL.Query().Get("format")
+
+		// Render the HTML template
+		respondInFormat(c, format, jobResp.Content, "jobs_list_template.html")
+	case http.MethodPost:
+		jobReq, err := http.NewRequest(http.MethodPost, apiServiceURL+"/api/v1/job", c.Request.Body)
+		if err != nil {
+			log.Printf("failed to create request: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			return
+		}
+		jobReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+
+		client := &http.Client{Timeout: 10 * time.Second}
+		response, err := client.Do(jobReq)
+		if err != nil {
+			log.Printf("failed to make request: %v", err)
+			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch jobs"})
+			return
+		}
+		defer response.Body.Close()
+		c.Status(response.StatusCode)
+		for key, values := range response.Header {
+			for _, value := range values {
+				c.Header(key, value)
+			}
+		}
+		_, err = io.Copy(c.Writer, response.Body)
+		if err != nil {
+			log.Printf("failed to write response: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write response"})
+		}
+	default:
+		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "method not supported"})
+
+	}
+
 }
 
 /*

@@ -1,22 +1,33 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>kuSpace Admin Panel</title>
-    <link rel="icon" href="../assets/logos/cropped.png">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <meta charset="UTF-8">
+  <title>kuSpace Admin Panel</title>
+  <!-- my styles , will be deduced to css.min-->
+  <link rel="icon" href="../assets/logos/cropped.png">
+  <link href="../css/styles.css" rel="stylesheet">
+  <link href="../css/admin-panel.css" rel="stylesheet">
+  <link href="../css/dashboard.css" rel="stylesheet">
+  <!-- general use js -->
+  <script src="../js/index.js"></script>
+  <script src="../js/gshell.js"></script>
+  <!-- font awesome icons (free)-->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <!-- htmx-->
+  <script src="https://unpkg.com/htmx.org"></script>
 
-    <link href="../css/styles.css" rel="stylesheet">
-    <link href="../css/admin-panel.css" rel="stylesheet">
-    <link href="../css/dashboard.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script src="../js/index.js"></script>
-    <script src="https://unpkg.com/htmx.org"></script>
+  <!-- Code Mirror -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/go/go.min.js"></script>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/clike/clike.min.js"></script>
 </head>
 <body class="darkened">
   <!-- Sidebar -->
-
   <div id="gshell-spawner">
     <div class="gshell-container" id="gshell-container"></div>
   </div>
@@ -130,7 +141,6 @@
         >  
         </div>
       </section>
-        
       <!-- users -->
       <section id="users" class="content-section hidden">
         <h2>Manage Users </h2>
@@ -309,7 +319,6 @@
           </div>
         </div>
       </section>
-
       <!-- groups -->
       <section id="groups" class="content-section hidden">
         <h2>Manage Groups </h2>
@@ -358,23 +367,111 @@
           </form>
         </div>
       </section>
-
       <section id="jobs" class="content-section hidden">
         <h2>Manage Jobs</h2>
         <p>Monitor, view, and manage jobs.</p>
         <hr>
-        <form id="search-jobs-form">
-          <label>Job Name: <input type="text" name="job_name"></label>
-          <label>Resource ID: <input type="text" name="resource_id"></label>
-          <button type="submit"> Search Job</button>
-        </form>
-        <button>Load history</button>
+        <div style="padding: 1rem;">
+          <div id="existing-jobs-container">
+            <div>
+              <div>  
+                <label>
+                  Search by 
+                  <select class="custom-select-minimal" id="job-search-by-select"> 
+                    <option value="jid" selected>job id</option>
+                    <option value="uid">user id</option>
+                    <option value="date">date</option>
+                  </select>
+                </label>
+                <input type="text" name="job_search" id="job-search">
+              </div>
+              <button
+                id="fetch-jobs-button"
+                hx-trigger="click"
+                hx-target="#fetch-jobs-div"
+                hx-swap="innerHTML"
+                hx-get="/api/v1/verified/jobs"
+              >Reload history</button>
+            </div>
+            <div 
+              id="fetch-jobs-div"
+              hx-trigger="load"
+              hx-target="this"
+              hx-swap="innerHTML"
+              hx-get="/api/v1/verified/jobs"
+            ></div>
+          </div>
+          <hr>
+
+          <div id="new-job-container">
+            <div 
+              id="j-editor-container"
+              class="job-section-wrapper"
+            >
+              <div id="j-editor-header-0">
+                <i class="fa-solid fa-code" style="color: green;"></i>
+                <span></span>
+              </div>
+              <div id="j-editor-header">
+                <div class="custom-select-wrapper">
+                  <select id="language-selector" class="custom-select">
+                    <option selected value="python">Python</option>
+                    <option value="javascript">JavaScript</option>
+                    <option value="go">Go</option>
+                    <option value="java">Java</option>
+                    <option value="c">C</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="code-file-upload" class="custom-file-label"><i class="fa-solid fa-arrow-up"></i></label>
+                  <input type="file" id="code-file-upload" style="display: none;"/>
+                </div>
+              </div>
+              <div id="j-editor-body">
+                <textarea id="code-editor"></textarea>
+              
+              </div>
+            </div>
+            <div id="job-io-setup">
+              <div>
+                <button id="select-j-input-button">Input<i class="fa-solid fa-file-import"></i></button>
+                <div>
+                  <label for="select-output-destination">Output path:</label>
+                  <input type="text" value="output.out" id="select-output-destination" autocomplete="off">
+                </div>
+                <div id="resource-select-modal-container"></div>
+              </div>
+              <!-- display -->
+              <div>
+                <span class="input-box">input.in</span>
+                <span>λ</i></span>
+                <span class="script-box"> script </span>
+                <span class="arrow-box">➡</span>
+                <span class="output-box">output.out</span>
+              </div>
+
+              <div id="submit-job-wrapper">
+                <div class="submit-cancel">
+                  <!-- From Uiverse.io by Ashon-G --> 
+                  <div aria-live="assertive" role="alert" class="j-loader hidden"></div>
+
+                  <input type="checkbox" value="None" name="check" 
+                    id="submit-job-button" checked
+                  >
+                  <label for="submit-job-button" tabindex=1></label>
+                </div>
+              </div>
+            </div>
+            <div id="job-feedback" class="hidden">
+            </div>
+          </div>
+        </div>
+
       </section>
-        
       <!-- resources -->    
       <section id="resources" class="content-section hidden">      
         <h2>Manage Resources</h2>
-        <p>View and manage existing resources.</p>
+        <p>View and manage existing file resources.</p>
         <hr>
         <div>
         </div>
@@ -404,7 +501,7 @@
                         </form>
                       </div>
                   </div>
-                  <label>Resource ID: <input type="text" name="resource_id"></label>
+                  <!--<label>Resource ID: <input type="text" name="resource_id"></label>-->
                 
               </div>
               <div id="resources-main">
@@ -431,7 +528,7 @@
                     hx-trigger="submit"
                     hx-indicator="#progress-container"
                     enctype="multipart/form-data"
-                    hx-on::before-request="showProgressBar(document.getElementById('progress-container'))" 
+                    hx-on::before-request="show(document.getElementById('progress-container'))" 
                   >
                     <label for="file" class="fupload-footer"> 
                       <svg fill="#000000" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
@@ -501,6 +598,22 @@
   <script src="../js/admin-panel.js"></script>
 
 </body>
+<!--
+<div id="load-users-to-cache"
+hx-get="/api/v1/verified/admin/fetch-users?format=json"
+hx-trigger="load"
+hx-swap="none"
+></div>
+<div id="load-groups-to-cache"
+  hx-get="/api/v1/verified/admin/fetch-groups?format=json"
+  hx-trigger="load"
+  hx-swap="none"
+></div>
+<div id="load-resources-to-cache"
+  hx-get="/api/v1/verified/admin/fetch-resources?format=json"
+  hx-trigger="load"
+  hx-swap="none"
+></div>
+-->
 </html>
-
 

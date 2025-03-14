@@ -424,3 +424,25 @@ type FilePermissions struct {
 	OtherW bool
 	OtherX bool
 }
+
+type Job struct {
+	Jid int `json:"jid,omitempty"`
+	Uid int `json:"uid"`
+
+	Input  []string `json:"input"`
+	Output string   `json:"output"`
+
+	// perhaps unecessary
+	InputFormat  string `json:"input_format,omitempty"`
+	OutputFormat string `json:"output_format,omitempty"`
+
+	Logic        string   `json:"logic"`
+	LogicBody    string   `json:"logic_body"`
+	LogicHeaders string   `json:"logic_headers,omitempty"`
+	Params       []string `json:"params,omitempty"`
+
+	Status       string `json:"status,omitempty"`
+	Completed    bool   `json:"completed,omitempty"`
+	Completed_at string `json:"completed_at,omitempty"`
+	Created_at   string `json:"created_at,omitempty"`
+}

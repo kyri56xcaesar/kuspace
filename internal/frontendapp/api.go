@@ -207,6 +207,9 @@ func (srv *HTTPService) ServeHTTP() {
 			c.HTML(http.StatusOK, "gshell-display.html", gin.H{"whoami": whoami})
 		})
 
+		verified.GET("/jobs", AuthMiddleware("user, admin"), srv.jobsHandler)
+		verified.POST("/jobs", AuthMiddleware("user, admin"), srv.jobsHandler)
+
 		admin := verified.Group("/admin")
 		/* minioth will verify token no need to worry here.*/
 		{
@@ -214,6 +217,7 @@ func (srv *HTTPService) ServeHTTP() {
 			admin.GET("/fetch-resources", srv.handleFetchResources)
 			admin.GET("/fetch-users", srv.handleFetchUsers)
 			admin.GET("/fetch-volumes", srv.handleFetchVolumes)
+			admin.GET("/fetch-jobs", srv.jobsHandler)
 
 			admin.POST("/useradd", srv.handleUseradd)
 			admin.DELETE("/userdel", srv.handleUserdel)

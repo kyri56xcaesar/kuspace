@@ -25,6 +25,8 @@ func (srv *UService) HandleJob(c *gin.Context) {
 	switch c.Request.Method {
 	// "getting" jobs should be treated as "subscribing"
 	case http.MethodGet:
+		limit, _ := c.GetQuery("limit")
+		offset, _ := c.GetQuery("offset")
 		uids, _ := c.GetQuery("uids")
 		if uids != "" {
 			// return all jobs from database by uids
@@ -47,7 +49,7 @@ func (srv *UService) HandleJob(c *gin.Context) {
 		jid, _ := c.GetQuery("jids")
 		if jid == "" || jid == "*" {
 			// return all jobs from database
-			jobs, err := srv.dbhJobs.GetAllJobs()
+			jobs, err := srv.dbhJobs.GetAllJobs(limit, offset)
 			if err != nil {
 				log.Printf("failed to retrieve the jobs: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the jobs"})
@@ -98,19 +100,19 @@ func (srv *UService) HandleJob(c *gin.Context) {
 			// respond with status
 			return
 		}
-		log.Printf("job: %v", job)
+		// log.Printf("job: %v", job)
 		// handle single job
 		// check for job validity.
 
 		// save job (insert in DB)
-		// jid, err := srv.dbhJobs.InsertJob(job)
-		// if err != nil {
-		// 	log.Printf("failed to insert the job in the db: %+v", err)
-		// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert into db"})
-		// 	return
-		// }
-		// job.Jid = int(jid)
-		// log.Printf("inserted job in db: %+v", job)
+		jid, err := srv.dbhJobs.InsertJob(job)
+		if err != nil {
+			log.Printf("failed to insert the job in the db: %+v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert into db"})
+			return
+		}
+		job.Jid = int(jid)
+		log.Printf("inserted job in db: %+v", job)
 		// "publish" job
 		err = srv.jdp.PublishJob(job)
 		if err != nil {
@@ -120,6 +122,10 @@ func (srv *UService) HandleJob(c *gin.Context) {
 		}
 
 		// respond with status
+		c.JSON(http.StatusOK, gin.H{
+			"status": "job published",
+			"jid":    jid,
+		})
 
 	default:
 		c.JSON(http.StatusMethodNotAllowed, gin.H{
@@ -149,11 +155,12 @@ func (srv *UService) HandleJobAdmin(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"content": jobs})
 			return
 		}
-
+		limit, _ := c.GetQuery("limit")
+		offset, _ := c.GetQuery("offset")
 		jid, _ := c.GetQuery("jids")
 		if jid == "" || jid == "*" {
 			// return all jobs from database
-			jobs, err := srv.dbhJobs.GetAllJobs()
+			jobs, err := srv.dbhJobs.GetAllJobs(limit, offset)
 			if err != nil {
 				log.Printf("failed to retrieve the jobs: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the jobs"})

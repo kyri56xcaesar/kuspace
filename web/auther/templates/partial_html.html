@@ -1,5 +1,5 @@
 {{ define "edit-form.html"}} 
-<div class="close-btn-div"><button onclick="closeModal('edit-modal')" class="button-close"></button></div>
+<div class="close-btn-div"><button onclick="hide(document.getElementById('edit-modal'))" class="button-close"></button></div>
 	<div
     id="edit-resource-form"
   >   
@@ -209,4 +209,9 @@
   </div>
   <div id="resizer"></div>
 </div>
+{{ end }}
+
+
+{{ define "jobs_list_template.html" }}
+
 {{ end }}

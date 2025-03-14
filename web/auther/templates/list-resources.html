@@ -83,7 +83,7 @@ tableRows.forEach((row) => {
                 hx-swap="innerHTML"
                 hx-trigger="click"
                 hx-target="#edit-modal"
-                hx-on::after-request="showModal('edit-modal')"
+                hx-on::after-request="show(document.getElementById('edit-modal'))"
                 >
                 Edit
               </button>
@@ -94,7 +94,7 @@ tableRows.forEach((row) => {
                 hx-swap="none"
                 hx-confirm="Are you sure you want to delete resource ${resource.name}?"
 
-                hx-on::before-request="showProgressBar(document.querySelector('.r-loader'))"
+                hx-on::before-request="show(document.querySelector('.r-loader'))"
               >
                 Delete
               </button>

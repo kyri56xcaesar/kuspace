@@ -67,6 +67,8 @@ const (
 			output_format TEXT,
 			logic TEXT,
 			logic_body TEXT,
+			logic_headers TEXT,
+			parameters TEXT,
 			status TEXT,
 			completed BOOLEAN,
 			created_at DATETIME,
