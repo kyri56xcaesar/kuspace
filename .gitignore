@@ -10,6 +10,8 @@
 *.vscode
 *.idea
 configs/*.env
+tmp/*
+data/volumes/*
 
 # binaries
 cmd/minioth/minioth

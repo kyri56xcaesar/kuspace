@@ -15,16 +15,12 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <!-- htmx-->
-  <script src="https://unpkg.com/htmx.org"></script>
+  <script src="../js/htmx.min.js"></script>
 
   <!-- Code Mirror -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/go/go.min.js"></script>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/clike/clike.min.js"></script>
+  
 </head>
 <body class="darkened">
   <!-- Sidebar -->
@@ -101,7 +97,7 @@
         hx-delete="/api/v1/logout?access_token&refresh_token" 
         hx-swap="none" 
         hx-trigger="click" 
-        href="/api/v1/login">
+        >
         <i class="fa fa-power-off"></i>
       </button>
   </div>
@@ -445,7 +441,7 @@
               <div>
                 <span class="input-box">input.in</span>
                 <span>λ</i></span>
-                <span class="script-box"> script </span>
+                <span class="script-box"> <i class="fa-solid fa-code" style="color: orange;"></i> </span>
                 <span class="arrow-box">➡</span>
                 <span class="output-box">output.out</span>
               </div>

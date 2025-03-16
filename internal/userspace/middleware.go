@@ -52,6 +52,11 @@ func BindAccessTarget(http_header string) (AccessClaim, error) {
 	return ac, nil
 }
 
+/*
+	Middleware that will check for the X-Service-Secret http(custom) header, which is meant to provide
+
+authentication to service-to-service comms.
+*/
 func serviceAuth(srv *UService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if s_secret_claim := c.GetHeader("X-Service-Secret"); s_secret_claim != "" {

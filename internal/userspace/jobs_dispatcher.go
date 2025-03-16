@@ -33,10 +33,10 @@ type JobDispatcher interface {
 }
 
 /* a factory contstructor for JobDispatchers: @used by the API*/
-func DispatcherFactory(dispatcherType string) (JobDispatcher, error) {
+func DispatcherFactory(dispatcherType string, srv *UService) (JobDispatcher, error) {
 	switch dispatcherType {
 	case "scheduler", "default", "local":
-		return JDispatcher{Manager: NewJobManager(100, 10)}, nil
+		return JDispatcher{Manager: NewJobManager(100, 10, srv)}, nil
 	case "kafka":
 		return nil, fmt.Errorf("kafka dispatcher not implemented")
 	case "rabbitmq":

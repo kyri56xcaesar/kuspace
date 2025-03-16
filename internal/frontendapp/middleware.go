@@ -99,7 +99,8 @@ func AuthMiddleware(group string) gin.HandlerFunc {
 		accessToken, err := c.Cookie("access_token")
 		if err != nil {
 			log.Printf("missing access token: %v", err)
-			c.Redirect(http.StatusSeeOther, "/api/v1/login")
+			c.HTML(401, "admin-panel.html", gin.H{"error": "token has expired, login again"})
+			c.Abort()
 			return
 		}
 		//  Decode and verify the token (e.g., JWT validation)

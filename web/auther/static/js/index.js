@@ -2,6 +2,9 @@
 cachedUsers = [];
 cachedGroups = [];
 cachedResources = [];
+const IP = "46.177.162.66";
+const PORT ="8080"
+
 
 let domReady = (cb) => {
   document.readyState === 'interactive' || document.readyState === 'complete'
@@ -26,6 +29,14 @@ domReady(() => {
       }
     });
   });
+
+  const logout_btn = document.getElementById("logout-a");
+  if (logout_btn) {
+    logout_btn.addEventListener("click", () => {
+      console.log("logging out");
+      // window.location.href = "http://"+IP+":"+PORT+"/api/v1/login";
+    });
+  }
 
   // dark mode memory
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -165,6 +176,16 @@ document.addEventListener('htmx:afterSettle', function(event) {
 document.addEventListener('htmx:beforeSwap', function(event) {
   const triggeringElement = event.detail.elt;
   const triggeringElementId = triggeringElement.id;
+
+  if (event.detail.xhr.status === 401) {
+    // Prevent HTMX from replacing content
+    event.detail.shouldSwap = false;
+    
+    // alert('Your session has expired. Redirecting to login...');
+    window.location.href = "http://"+IP+":"+PORT+"/api/v1/login";
+    event.preventDefault();
+  }
+  
   if (triggeringElementId === "gshell-spawner") {
     let newShell = newTerminal();
     if (newShell) {
@@ -210,11 +231,10 @@ document.addEventListener('htmx:beforeRequest', function(event) {
 document.addEventListener('htmx:afterRequest', function (event) {
   const triggeringElement = event.detail.elt;
 
-  //console.log(triggeringElement.id);
-
   if (event.detail.xhr.status == 401 || event.detail.xhr.status == 303) {
-    window.location.href = "/api/v1/login";
-    location.reload(); 
+    event.preventDefault();
+    
+    window.location.href = "http://"+IP+":"+PORT+"/api/v1/login";
 
     return;
   }
@@ -288,7 +308,7 @@ document.addEventListener('htmx:afterRequest', function (event) {
   
   } else if (triggeringElement.id.startsWith("logout")) {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 400) {
-      window.location.href="/api/v1/login";
+      window.location.href = "http://"+IP+":"+PORT+"/api/v1/login";
     }
   // hasher related
  
@@ -497,6 +517,13 @@ document.addEventListener('htmx:confirm', function(evt) {
       }
     });
   }
+});
+
+document.addEventListener('htmx:responseError', function(event) {
+  if (event.detail.xhr.status === 401) {
+      // alert('Your session has expired. Redirecting to login...');
+      window.location.href = "http://"+IP+":"+PORT+"/api/v1/login";
+    }
 });
 
 

@@ -50,7 +50,7 @@ func NewUService(conf string) UService {
 	}
 
 	// dispatcher
-	jdp, err := DispatcherFactory(strings.ToLower(cfg.J_DISPATCHER))
+	jdp, err := DispatcherFactory(strings.ToLower(cfg.J_DISPATCHER), &srv)
 	if err != nil {
 		panic(err)
 	}

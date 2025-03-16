@@ -61,15 +61,15 @@
                 name="group-{{$gid}}"
                 min="0"
                 max="{{$v.Capacity}}"
-                step="{{div $v.Capacity 1000}}"
+                step="{{div $v.Capacity 100}}"
                 value="{{if $gvol}}{{$gvol.Quota}}{{else}}0{{end}}"
                 class="quota-range"
-              >   
+                oninput="document.getElementById('group-usage-{{$gid}}').innerText = this.value + ' GB';"              >   
               <div class="usage-bar" 
                 style="width: {{if $gvol}}{{printf "%.2f" (mul (div $gvol.Usage $v.Capacity) 100)}}%{{else}}0%{{end}}">
               </div>
             </div>
-            <span id="group-usage-{{$gid}}">{{if $gvol}}{{printf "%.2f" $gvol.Quota}}{{else}}0{{end}} GB</span>
+            <span id="group-usage-{{$gid}}">{{if $gvol}}{{printf "%.2f" $gvol.Quota}}{{else}}0.00{{end}} GB</span>
 
           </div>
           {{end}}

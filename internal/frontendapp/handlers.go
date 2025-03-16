@@ -1287,7 +1287,7 @@ func (srv *HTTPService) jobsHandler(c *gin.Context) {
 			return
 		}
 
-		log.Printf("resp body: %+v", string(body))
+		// log.Printf("resp body: %+v", string(body))
 
 		err = json.Unmarshal(body, &jobResp)
 		if err != nil {

@@ -33,6 +33,7 @@ func (dbh *DBHandler) InsertResource(resource Resource) error {
 		return err
 	}
 
+	log.Printf("inserting resource...: %+v", resource)
 	return nil
 }
 

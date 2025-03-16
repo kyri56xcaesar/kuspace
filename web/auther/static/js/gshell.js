@@ -1,4 +1,5 @@
 
+
 // shell related
 let shellCounter = 0;
 // Create new DIV, assign unique ID, and append to spawner
@@ -30,7 +31,7 @@ function giveFunctionality(element) {
   const terminalInput = element.querySelector('#terminal-input');
   terminalBody.scrollIntoView(false);
   // websocket 
-  const socket = new WebSocket("ws://localhost:8081/gshell");
+  const socket = new WebSocket("ws://"+IP+":8081/gshell");
 
   socket.onopen = function () {
     console.log("Connected to WebSocket server");

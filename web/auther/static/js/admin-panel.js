@@ -212,11 +212,6 @@ function resetFileBoxDisplay(classMatch) {
   updateFileNameDisplay([]);
 }
 
-// takes the given slider and sets the adjacent display label to the slider value 
-// it represents gigabytes
-function updateQuotaDisplay(slider, displayId) {
-  document.getElementById(displayId).innerText = slider.value + " GB";
-}
 // enable dynamic quota checkbox functionality
 function toggleDynamicQuota(checkbox) {
   const ranges = document.querySelectorAll('.quota-range');
@@ -674,8 +669,11 @@ document.addEventListener("DOMContentLoaded", () => {
       }).catch(error => {
         console.error('Error fetching resources:', error);
       });
-      jloader.classList.add('hidden');
-      submitJobBtn.checked = true;
+
+      setTimeout(() => {
+        jloader.classList.add('hidden');
+        submitJobBtn.checked = true;
+      }, 2000);
 
     }
   });

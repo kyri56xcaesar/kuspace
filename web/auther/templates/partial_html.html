@@ -214,4 +214,38 @@
 
 {{ define "jobs_list_template.html" }}
 
+  <ul>
+  {{ range . }}
+    <li>
+      <div class="job-display-entry darkened">
+        <div>
+          <span> #JobId: {{ .Jid }}</span>
+          <span> by {{ .Uid }} </span>
+        </div>
+        <div>
+          <div>
+            <span> Status: {{ .Status }} </span>
+            <span> Duration: </span>
+          </div>
+          <div>
+            <span> Input: {{ .Input }} </span>
+            <span> Output: {{ .Output }} </span>
+            <span> Description: </span>
+          </div>
+          <div>
+            <span> Created_at: {{ .Created_at }} </span>
+            <span> Completed_at: {{ .Completed_at }} </span>
+            <span> Completed: {{ .Completed }} </span>
+
+          </div>
+        </div>
+      </div>
+    </li>
+  {{ end }}
+  </ul>
+{{ end }}
+
+
+{{ define "empty_template" }}
+
 {{ end }}

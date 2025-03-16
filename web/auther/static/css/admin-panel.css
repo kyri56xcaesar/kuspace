@@ -1661,6 +1661,54 @@ tr {
     justify-content: space-between;
 
   }
+
+  & :is(#fetch-jobs-div) {
+    overflow-y: scroll;
+    max-height: 150vh;
+    margin-top: 50px;
+    margin-bottom: 80px;
+
+    border-top: 1px solid cadetblue;
+    border-bottom: 1px solid cadetblue;
+  }
+  & ul {
+    list-style: none;
+    padding-left: 2px;
+  }
+}
+
+.job-display-entry {
+  display: flex;
+  gap: 30px;
+  align-content: center;
+  justify-content: space-between;
+  height: 8vh;
+
+  border: 1px solid black;
+  padding: 5px;
+  margin: 5px;
+  margin-bottom: 10px;
+  margin-right: 20px;
+  background-color: aliceblue;
+
+  
+
+  & > div  {
+    display: flex;
+    gap: 10px;
+    & > div {
+      display: flex;
+      flex-direction: column;
+    }
+  }
+
+  & > div:nth-child(1) {
+    flex-direction: column;
+  }
+}
+
+.job-display-entry.dark-mode {
+  background-color: rgb(46, 42, 42) !important;
 }
 
 #job-io-setup {

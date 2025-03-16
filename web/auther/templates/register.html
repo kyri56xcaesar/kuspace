@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
             regRef = document.createElement("button");
             regRef.appendChild(document.createTextNode("Is it you?"));
             regRef.addEventListener("click", function(event){
-              window.location.href = "/api/v1/login";
+              window.location.href = "http://"+IP+":"+PORT+"/api/v1/login";
               return;
             });
             errorDiv.appendChild(regRef);

@@ -1,8 +1,8 @@
 package userspace
 
 import (
-	"fmt"
 	"log"
+	"os"
 	"sync"
 	"time"
 )
@@ -17,7 +17,7 @@ func (j JDispatcher) Start() {
 
 /* dispatching Jobs interface methods */
 func (j JDispatcher) PublishJob(jb Job) error {
-	log.Printf("publishing job... :%v", jb)
+	// log.Printf("publishing job... :%v", jb)
 	return j.Manager.ScheduleJob(jb)
 }
 
@@ -61,18 +61,20 @@ as well as scheduling and cancelling Jobs. It is a simple in-memory implementati
   - CancelJob(Job) error
 */
 type JobManager struct {
-	mu         *sync.Mutex
-	jobs       map[int]*Job
+	mu *sync.Mutex
+	// jobs       map[int]*Job
 	jobQueue   chan Job
 	workerPool chan struct{}
+	srv        *UService
 }
 
-func NewJobManager(queueSize, maxWorkers int) JobManager {
+func NewJobManager(queueSize, maxWorkers int, srv *UService) JobManager {
 	return JobManager{
-		mu:         &sync.Mutex{},
-		jobs:       make(map[int]*Job),
+		mu: &sync.Mutex{},
+		// jobs:       make(map[int]*Job),
 		jobQueue:   make(chan Job, queueSize),
 		workerPool: make(chan struct{}, maxWorkers),
+		srv:        srv,
 	}
 }
 
@@ -92,16 +94,16 @@ func (jm *JobManager) ScheduleJob(jb Job) error {
 
 	jm.mu.Lock()
 	defer jm.mu.Unlock()
-	if _, exists := jm.jobs[jb.Jid]; exists {
-		return fmt.Errorf("job %d already exists", jb.Jid)
-	}
+	// if _, exists := jm.jobs[jb.Jid]; exists {
+	// 	return fmt.Errorf("job %d already exists", jb.Jid)
+	// }
 
 	jb.Status = "queued"
 	jb.Created_at = time.Now().Format(time.RFC3339)
-	jm.jobs[jb.Jid] = &jb
+	// jm.jobs[jb.Jid] = &jb
 	jm.jobQueue <- jb
 
-	log.Printf("Job %d submitted\n", jb.Jid)
+	// log.Printf("Job %d submitted\n", jb.Jid)
 	return nil
 }
 
@@ -110,22 +112,22 @@ func (js *JobManager) CancelJob(jid int) error {
 	js.mu.Lock()
 	defer js.mu.Unlock()
 
-	if _, exists := js.jobs[jid]; !exists {
-		return fmt.Errorf("job %d not found", jid)
-	}
+	// if _, exists := js.jobs[jid]; !exists {
+	// 	return fmt.Errorf("job %d not found", jid)
+	// }
 
-	delete(js.jobs, jid)
-	log.Printf("Job %d cancelled\n", jid)
+	// delete(js.jobs, jid)
+	// log.Printf("Job %d cancelled\n", jid)
 	return nil
 }
 
 func (jm *JobManager) executeJob(job Job) {
-	log.Printf("executing job: %+v", job)
+	// log.Printf("executing job: %+v", job)
 	defer func() { <-jm.workerPool }() // Release worker slot
 
 	jm.mu.Lock()
 	job.Status = "running"
-	jm.jobs[job.Jid] = &job
+	// jm.jobs[job.Jid] = &job
 	jm.mu.Unlock()
 
 	// we should examine input "resources"
@@ -148,42 +150,57 @@ func (jm *JobManager) executeJob(job Job) {
 
 	log.Printf("Job %d completed: %s\n", job.Jid, string(output))
 	jm.updateJobStatus(job.Jid, "completed")
+
+	// insert the output resource
+	jm.syncOutputResource(job)
+
 }
 
-func (js *JobManager) updateJobStatus(jid int, status string) {
+func (jm *JobManager) updateJobStatus(jid int, status string) {
 	log.Printf("updating %v job status: %v", jid, status)
-	js.mu.Lock()
-	defer js.mu.Unlock()
+	// jm.mu.Lock()
+	// defer jm.mu.Unlock()
 
-	if job, exists := js.jobs[jid]; exists {
-		job.Status = status
-		if status == "completed" {
-			job.Completed = true
-			job.Completed_at = time.Now().Format(time.RFC3339)
-		}
-		js.jobs[jid] = job
+	// if job, exists := jm.jobs[jid]; exists {
+	// 	job.Status = status
+	// 	if status == "completed" {
+	// 		job.Completed = true
+	// 		job.Completed_at = time.Now().Format(time.RFC3339)
+	// 	}
+	// 	jm.jobs[jid] = job
+	// }
+	err := jm.srv.dbhJobs.MarkStatus(jid, status)
+	if err != nil {
+		log.Printf("failed to update job %d status (%s): %v", jid, status, err)
+	}
+
+}
+
+func (jm *JobManager) syncOutputResource(job Job) {
+	fInfo, err := os.Stat(default_v_path + "/output/" + job.Output)
+	if err != nil {
+		log.Printf("failed to find/stat the output file: %v", err)
+		return
+	}
+
+	current_time := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
+	resource := Resource{
+		Name:        "/output/" + job.Output,
+		Type:        "file",
+		Created_at:  current_time,
+		Updated_at:  current_time,
+		Accessed_at: current_time,
+		Perms:       "rw-r--r--",
+		Rid:         0,
+		Uid:         job.Uid,
+		Vid:         0,
+		Gid:         job.Uid,
+		Size:        fInfo.Size(),
+		Links:       0,
+	}
+
+	err = jm.srv.dbh.InsertResource(resource)
+	if err != nil {
+		log.Printf("failed to insert the resource")
 	}
 }
-
-// Execute job inside a Docker container, passing input/output format
-// cmd := exec.Command("docker", "run", "--rm",
-// 	"-v", fmt.Sprintf("%s:/app/script.py", scriptFile),
-// 	"-v", fmt.Sprintf("%s:/app/input", job.Input),
-// 	"-v", fmt.Sprintf("%s:/app/output", job.Output),
-// 	"python:3.9", "python", "-c", fmt.Sprintf(`
-// 	import sys
-// 	from format_handler import load_input, save_output
-// 	from script import run
-
-// 	input_format = "%s"
-// 	output_format = "%s"
-
-// 	# Load input data based on format
-// 	data = load_input("/app/input", input_format)
-
-// 	# Execute the user's function
-// 	result = run(data)
-
-// 	# Save output based on format
-// 	save_output(result, "/app/output", output_format)
-// 	`, job.InputFormat, job.OutputFormat))

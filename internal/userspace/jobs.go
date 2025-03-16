@@ -87,7 +87,6 @@ func (srv *UService) HandleJob(c *gin.Context) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "failed to bind job(s)"})
 				return
 			}
-			log.Printf("jobs: %v", jobs)
 			// handle multiple jobs
 			// check for jobs valitidy.
 
@@ -112,7 +111,7 @@ func (srv *UService) HandleJob(c *gin.Context) {
 			return
 		}
 		job.Jid = int(jid)
-		log.Printf("inserted job in db: %+v", job)
+		log.Printf("jid acquired: %d", jid)
 		// "publish" job
 		err = srv.jdp.PublishJob(job)
 		if err != nil {
