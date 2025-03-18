@@ -415,17 +415,93 @@ document.addEventListener("DOMContentLoaded", () => {
   
   // Job history functionalities
   // set to what we want to search by
+  searchBy = "created_at";
   const jobSearchSelector = document.getElementById("job-search-by-select");
+  jobSearchSelector.value = searchBy;
+  jobSearchSelector.addEventListener("input", (event) => {
+    searchBy = jobSearchSelector.value;
+  });
 
   // actual search by
   const jobSearch = document.getElementById("job-search");
+  jobSearch.value = "";
   jobSearch.addEventListener("input", function() {
     // we need to search from the currently paged jobs according to the search selector
     // @TODO
+    searchValue = jobSearch.value;
+    // console.log("searching by " + searchBy + " at " + searchValue);
+    if (cacheJobResultsLi.length == 0) {// empty cache, must fetch 
+      
+    }
+
+    // do search and display
+    switch (searchBy) {
+      case "jid":
+        cacheJobResultsLi.forEach((li) => {
+          const jidSpan = li.querySelector(".jid");
+
+          if (!jidSpan.innerText.includes(searchValue)) {
+            li.classList.add("hidden");
+          } else {
+            li.classList.remove("hidden");
+          }
+        });
+        break;
+      case "uid":
+        cacheJobResultsLi.forEach((li) => {
+          if (!li.querySelector(".uid").innerText.includes(searchValue)) {
+            li.classList.add("hidden");
+          } else {
+            li.classList.remove("hidden");
+          }
+        });
+        break;
+      case "created_at":
+        cacheJobResultsLi.forEach((li) => {
+          if (!li.querySelector(".created_at").innerText.includes(searchValue)) {
+            li.classList.add("hidden");
+          } else {
+            li.classList.remove("hidden");
+          }
+        });
+        break;
+      case "completed_at":
+        cacheJobResultsLi.forEach((li) => {
+          if (!li.querySelector(".completed_at").innerText.includes(searchValue)) {
+            li.classList.add("hidden");
+          } else {
+            li.classList.remove("hidden");
+          }
+        });
+        break;
+      case "status":
+        cacheJobResultsLi.forEach((li) => {
+          if (!li.querySelector(".status").innerText.includes(searchValue)) {
+            li.classList.add("hidden");
+          } else {
+            li.classList.remove("hidden");
+          }
+        });
+        break;    
+      case "output":
+        cacheJobResultsLi.forEach((li) => {
+          if (!li.querySelector(".output").innerText.includes(searchValue)) {
+            li.classList.add("hidden");
+          } else {
+            li.classList.remove("hidden");
+          }
+        });
+        break;
+      default:
+         break;
+    }
   });
 
   // "JOB" preperation setup
   document.getElementById("language-selector").value = "python"; 
+
+  // reset text area 
+  document.querySelector("#j-description").value = "";
 
   // html/css/js mini "code editor"
   // Load CodeMirror
@@ -630,7 +706,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const output = document.querySelector(".output-box").textContent;
       const code = editor.getValue();
       const logic = editor.getOption("mode");
-
+      const description = document.querySelector("#j-description").value;
 
       // verify logic integrity
       // gather data
@@ -640,6 +716,7 @@ document.addEventListener("DOMContentLoaded", () => {
         "output":output,
         "logic":logic,
         "logic_body":code,
+        "description":description,
       }
 
       console.log(job);
@@ -677,6 +754,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     }
   });
+
+  // job i/o bar minimizer 
+  document.getElementById("job-io-minimizer").addEventListener("click", (event) => {
+    const ioSetupDiv = document.getElementById("job-io-setup");
+    ioSetupDiv.querySelectorAll(".minimizable").forEach((div) => {
+      div.classList.toggle("hidden");
+      ioSetupDiv.classList.toggle("minimized");
+    })
+  });
+
 
   /**************************************************************************/
   /**************************************************************************/

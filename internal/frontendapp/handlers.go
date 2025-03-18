@@ -1296,18 +1296,53 @@ func (srv *HTTPService) jobsHandler(c *gin.Context) {
 			return
 		}
 
-		// sort users on uid
-		sort.Slice(jobResp.Content, func(i, j int) bool {
-			t1, err1 := time.Parse(customTimeLayout, jobResp.Content[i].Created_at)
-			t2, err2 := time.Parse(customTimeLayout, jobResp.Content[j].Created_at)
+		// sort on given argument
+		sortBy := c.Request.URL.Query().Get("sort")
 
-			// Handle parsing errors gracefully (e.g., keep original order)
-			if err1 != nil || err2 != nil {
-				return false
-			}
+		switch sortBy {
+		case "output":
+			sort.Slice(jobResp.Content, func(i, j int) bool {
+				return jobResp.Content[i].Output > jobResp.Content[j].Output
+			})
+		case "uid":
+			sort.Slice(jobResp.Content, func(i, j int) bool {
+				return jobResp.Content[i].Uid > jobResp.Content[j].Uid
+			})
+		case "jid":
+			sort.Slice(jobResp.Content, func(i, j int) bool {
+				return jobResp.Content[i].Jid > jobResp.Content[j].Jid
+			})
+		case "status":
+			sort.Slice(jobResp.Content, func(i, j int) bool {
+				return compareStatus(jobResp.Content[i].Status, jobResp.Content[j].Status)
+			})
+		case "created_at", "time":
+			// sort users on time
+			sort.Slice(jobResp.Content, func(i, j int) bool {
+				t1, err1 := time.Parse(customTimeLayout, jobResp.Content[i].Created_at)
+				t2, err2 := time.Parse(customTimeLayout, jobResp.Content[j].Created_at)
 
-			return t1.Before(t2)
-		})
+				// Handle parsing errors gracefully (e.g., keep original order)
+				if err1 != nil || err2 != nil {
+					return false
+				}
+
+				return t1.After(t2)
+			})
+		default:
+			// sort users on time
+			sort.Slice(jobResp.Content, func(i, j int) bool {
+				t1, err1 := time.Parse(customTimeLayout, jobResp.Content[i].Created_at)
+				t2, err2 := time.Parse(customTimeLayout, jobResp.Content[j].Created_at)
+
+				// Handle parsing errors gracefully (e.g., keep original order)
+				if err1 != nil || err2 != nil {
+					return false
+				}
+
+				return t1.After(t2)
+			})
+		}
 
 		// answer according to format
 		format := c.Request.URL.Query().Get("format")
@@ -1833,4 +1868,12 @@ func boolChar(b bool, c rune) rune {
 		return c
 	}
 	return '-'
+}
+
+func compareStatus(status1, status2 string) bool {
+	if status1 == "completed" || status1 == "pending" && (status2 == "pending" || status2 == "failed") || (status1 == "failed" && status2 == "") {
+		return true
+	} else {
+		return false
+	}
 }

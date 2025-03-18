@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	ut "kyri56xcaesar/myThesis/internal/utils"
 )
 
 var (
@@ -85,19 +87,20 @@ func main() {
 `
 )
 
-func performExecution(job Job, verbose bool) (*exec.Cmd, error) {
+func performExecution(job Job, verbose bool) (*exec.Cmd, time.Duration, error) {
 	// ctx := context.Background()
 	command, err := formatJobCommand(job, true)
 	if err != nil {
 		log.Printf("failed to format command: %v", err)
-		return nil, err
+		return nil, 0, err
 	}
 	if verbose {
 		log.Printf("command: %s", command)
 	}
+	start := time.Now()
 	cmd := exec.Command("docker", command...)
 
-	return cmd, nil
+	return cmd, time.Since(start), nil
 }
 
 func formatJobCommand(job Job, fileSave bool) ([]string, error) {
@@ -115,7 +118,14 @@ func formatJobCommand(job Job, fileSave bool) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve working directory")
 	}
-	inp := strings.Split(job.Input[0], "/")
+	// how should we handle multiple input files? 1] lets combine (append) them to a single file for now...
+	err = ut.MergeFiles(default_v_path+"/input", default_v_path+"/", job.Input)
+	if err != nil {
+		log.Printf("failed to merge input files: %v", err)
+		return nil, err
+	}
+
+	inp := "input"
 	out := strings.Split(job.Output, "/")
 	parts := strings.Split(job.Logic, ":")
 	language := parts[0]
@@ -129,13 +139,13 @@ func formatJobCommand(job Job, fileSave bool) ([]string, error) {
 	switch language {
 	case "python":
 		if fileSave {
-			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.py", job.Jid), []byte(fmt.Sprintf(python_io_skeleton_code, job.LogicBody, "/input/"+inp[len(inp)-1], "/output/"+out[len(out)-1])), 0644)
+			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.py", job.Jid), []byte(fmt.Sprintf(python_io_skeleton_code, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0644)
 			if err != nil {
 				log.Printf("failed to write file: %v", err)
 				return nil, fmt.Errorf("failed to write tmp file script: %v", err)
 			}
 			command = append(command, []string{
-				"-v", cwd + "/" + default_v_path + "/" + inp[len(inp)-1] + ":/input/" + inp[len(inp)-1], //input
+				"-v", cwd + "/" + default_v_path + "/" + inp + ":/input/" + inp, //input
 				"-v", cwd + "/" + default_v_path + "/output:/output", //output,
 				"-v", cwd + fmt.Sprintf("/tmp/job-%d.py", job.Jid) + ":/script.py", //script to run
 				language + ":" + version, //image
@@ -148,13 +158,13 @@ func formatJobCommand(job Job, fileSave bool) ([]string, error) {
 
 	case "node", "javascript":
 		if fileSave {
-			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.js", job.Jid), []byte(fmt.Sprintf(node_io_skeleton_code, job.LogicBody, "/input/"+inp[len(inp)-1], "/output/"+out[len(out)-1])), 0644)
+			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.js", job.Jid), []byte(fmt.Sprintf(node_io_skeleton_code, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0644)
 			if err != nil {
 				log.Printf("failed to write file: %v", err)
 				return nil, fmt.Errorf("failed to write tmp file script: %v", err)
 			}
 			command = append(command, []string{
-				"-v", cwd + "/" + default_v_path + "/" + inp[len(inp)-1] + ":/input/" + inp[len(inp)-1], //input
+				"-v", cwd + "/" + default_v_path + "/" + inp + ":/input/" + inp, //input
 				"-v", cwd + "/" + default_v_path + "/output:/output", //output,
 				"-v", cwd + fmt.Sprintf("/tmp/job-%d.js", job.Jid) + ":/script.js", //script to run
 				language + ":" + version, //image
@@ -165,13 +175,13 @@ func formatJobCommand(job Job, fileSave bool) ([]string, error) {
 		}
 	case "go", "golang":
 		if fileSave {
-			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.go", job.Jid), []byte(fmt.Sprintf(go_io_skeleton_code, job.LogicBody, "/input/"+inp[len(inp)-1], "/output/"+out[len(out)-1])), 0644)
+			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.go", job.Jid), []byte(fmt.Sprintf(go_io_skeleton_code, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0644)
 			if err != nil {
 				log.Printf("failed to write file: %v", err)
 				return nil, fmt.Errorf("failed to write tmp file script: %v", err)
 			}
 			command = append(command, []string{
-				"-v", cwd + "/" + default_v_path + "/" + inp[len(inp)-1] + ":/input/" + inp[len(inp)-1], //input
+				"-v", cwd + "/" + default_v_path + "/" + inp + ":/input/" + inp, //input
 				"-v", cwd + "/" + default_v_path + "/output:/output", //output,
 				"-v", cwd + fmt.Sprintf("/tmp/job-%d.go", job.Jid) + ":/script.go", //script to run
 				language + ":" + version, //image
@@ -182,13 +192,13 @@ func formatJobCommand(job Job, fileSave bool) ([]string, error) {
 		}
 	case "openjdk": //java
 		if fileSave {
-			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.java", job.Jid), []byte(fmt.Sprintf(java_io_skeleton_code, job.LogicHeaders, job.LogicBody, "/input/"+inp[len(inp)-1], "/output/"+out[len(out)-1])), 0644)
+			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.java", job.Jid), []byte(fmt.Sprintf(java_io_skeleton_code, job.LogicHeaders, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0644)
 			if err != nil {
 				log.Printf("failed to write file: %v", err)
 				return nil, fmt.Errorf("failed to write tmp file script: %v", err)
 			}
 			command = append(command, []string{
-				"-v", cwd + "/" + default_v_path + "/" + inp[len(inp)-1] + ":/input/" + inp[len(inp)-1], //input
+				"-v", cwd + "/" + default_v_path + "/" + inp + ":/input/" + inp, //input
 				"-v", cwd + "/" + default_v_path + "/output:/output", //output,
 				"-v", cwd + fmt.Sprintf("/tmp/job-%d.java", job.Jid) + ":/Main.java", //script to run
 				language + ":" + version,      //image
@@ -200,13 +210,13 @@ func formatJobCommand(job Job, fileSave bool) ([]string, error) {
 		}
 	case "c", "gcc":
 		if fileSave {
-			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.c", job.Jid), []byte(fmt.Sprintf(c_io_skeleton_code, job.LogicHeaders, job.LogicBody, "/input/"+inp[len(inp)-1], "/output/"+out[len(out)-1])), 0644)
+			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.c", job.Jid), []byte(fmt.Sprintf(c_io_skeleton_code, job.LogicHeaders, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0644)
 			if err != nil {
 				log.Printf("failed to write file: %v", err)
 				return nil, fmt.Errorf("failed to write tmp file script: %v", err)
 			}
 			command = append(command, []string{
-				"-v", cwd + "/" + default_v_path + "/" + inp[len(inp)-1] + ":/input/" + inp[len(inp)-1], //input
+				"-v", cwd + "/" + default_v_path + "/" + inp + ":/input/" + inp, //input
 				"-v", cwd + "/" + default_v_path + "/output:/output", //output,
 				"-v", cwd + fmt.Sprintf("/tmp/job-%d.c", job.Jid) + ":/program.c", //script to run
 				language + ":" + version,                             //image

@@ -61,6 +61,8 @@ const (
 		CREATE TABLE IF NOT EXISTS jobs (
 			jid INTEGER PRIMARY KEY,
 			uid INTEGER,
+			description TEXT,
+			duration FLOAT,
 			input TEXT,
 			input_format TEXT,
 			output TEXT,

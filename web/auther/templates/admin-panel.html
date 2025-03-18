@@ -373,10 +373,22 @@
               <div>  
                 <label>
                   Search by 
-                  <select class="custom-select-minimal" id="job-search-by-select"> 
+                  <select 
+                    class="custom-select-minimal" 
+                    id="job-search-by-select"
+                    id="fetch-jobs-div"
+                    hx-trigger="change"
+                    hx-target="#fetch-jobs-div"
+                    hx-swap="innerHTML"
+                    hx-get="/api/v1/verified/jobs"
+                    hx-vals='js:{sort: document.getElementById("job-search-by-select").value}' 
+                  > 
                     <option value="jid" selected>job id</option>
                     <option value="uid">user id</option>
-                    <option value="date">date</option>
+                    <option value="status">status</option>
+                    <option value="created_at">created at</option>
+                    <option value="completed_at">completed at</option>
+                    <option value="output">output</option>
                   </select>
                 </label>
                 <input type="text" name="job_search" id="job-search">
@@ -387,6 +399,7 @@
                 hx-target="#fetch-jobs-div"
                 hx-swap="innerHTML"
                 hx-get="/api/v1/verified/jobs"
+                hx-vals='js:{sort: document.getElementById("job-search-by-select").value}' 
               >Reload history</button>
             </div>
             <div 
@@ -429,16 +442,21 @@
               </div>
             </div>
             <div id="job-io-setup">
-              <div>
+              <div class="minimizable fade-out">
                 <button id="select-j-input-button">Input<i class="fa-solid fa-file-import"></i></button>
                 <div>
-                  <label for="select-output-destination">Output path:</label>
+                  <label for="select-output-destination">Output name:</label>
                   <input type="text" value="output.out" id="select-output-destination" autocomplete="off">
+                </div>
+                <div>
+                  <label for="j-description">Description: </label>
+                  <textarea id="j-description" placeholder="Description" maxlength="100">
+                  </textarea>
                 </div>
                 <div id="resource-select-modal-container"></div>
               </div>
               <!-- display -->
-              <div>
+              <div class="minimizable fade-out">
                 <span class="input-box">input.in</span>
                 <span>λ</i></span>
                 <span class="script-box"> <i class="fa-solid fa-code" style="color: orange;"></i> </span>
@@ -446,7 +464,7 @@
                 <span class="output-box">output.out</span>
               </div>
 
-              <div id="submit-job-wrapper">
+              <div class="mininizable fade-out" id="submit-job-wrapper">
                 <div class="submit-cancel">
                   <!-- From Uiverse.io by Ashon-G --> 
                   <div aria-live="assertive" role="alert" class="j-loader hidden"></div>
@@ -457,6 +475,12 @@
                   <label for="submit-job-button" tabindex=1></label>
                 </div>
               </div>
+
+              <div class="minimizer" id="job-io-minimizer">
+                <svg class="arrow-icon" width="20" height="20" viewBox="0 0 20 20">
+                  <polygon points="2,5 18,5 10,16" fill="black"/>
+                </svg>
+              </button>              </div>
             </div>
             <div id="job-feedback" class="hidden">
             </div>

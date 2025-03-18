@@ -147,8 +147,6 @@ func (srv *UService) Serve() {
 		admin.PATCH("/group/volume", srv.HandleGroupVolumes)
 		admin.DELETE("/group/volume", srv.HandleGroupVolumes)
 
-		admin.GET("/job", srv.HandleJobAdmin)
-		admin.POST("/job", srv.HandleJobAdmin)
 		admin.DELETE("/job", srv.HandleJobAdmin)
 		admin.PUT("/job", srv.HandleJobAdmin)
 

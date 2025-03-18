@@ -133,43 +133,36 @@ func (jm *JobManager) executeJob(job Job) {
 	// we should examine input "resources"
 
 	// language and version
-	cmd, err := performExecution(job, true)
+
+	cmd, duration, err := performExecution(job, true)
 	if err != nil {
 		log.Printf("failed to prepare or perform job: %v", err)
 		return
 	}
+	job.Duration = duration.Abs().Seconds()
 
 	// output should be streamed back ...
-
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("Job %d failed: %s\n", job.Jid, err)
-		jm.updateJobStatus(job.Jid, "failed")
+		jm.updateJobStatus(job.Jid, "failed", 0)
 		return
 	}
 
 	log.Printf("Job %d completed: %s\n", job.Jid, string(output))
-	jm.updateJobStatus(job.Jid, "completed")
+	jm.updateJobStatus(job.Jid, "completed", duration)
 
 	// insert the output resource
-	jm.syncOutputResource(job)
+	go jm.syncOutputResource(job)
+
+	// should cleanup the tmps, etc..
 
 }
 
-func (jm *JobManager) updateJobStatus(jid int, status string) {
+func (jm *JobManager) updateJobStatus(jid int, status string, duration time.Duration) {
 	log.Printf("updating %v job status: %v", jid, status)
-	// jm.mu.Lock()
-	// defer jm.mu.Unlock()
 
-	// if job, exists := jm.jobs[jid]; exists {
-	// 	job.Status = status
-	// 	if status == "completed" {
-	// 		job.Completed = true
-	// 		job.Completed_at = time.Now().Format(time.RFC3339)
-	// 	}
-	// 	jm.jobs[jid] = job
-	// }
-	err := jm.srv.dbhJobs.MarkStatus(jid, status)
+	err := jm.srv.dbhJobs.MarkStatus(jid, status, duration)
 	if err != nil {
 		log.Printf("failed to update job %d status (%s): %v", jid, status, err)
 	}

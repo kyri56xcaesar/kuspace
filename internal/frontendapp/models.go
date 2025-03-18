@@ -429,6 +429,9 @@ type Job struct {
 	Jid int `json:"jid,omitempty"`
 	Uid int `json:"uid"`
 
+	Description string  `json:"description,omitempty"`
+	Duration    float64 `json:"duration,omitempty"`
+
 	Input  []string `json:"input"`
 	Output string   `json:"output"`
 

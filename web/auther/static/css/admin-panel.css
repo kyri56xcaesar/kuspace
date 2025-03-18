@@ -1679,32 +1679,82 @@ tr {
 
 .job-display-entry {
   display: flex;
-  gap: 30px;
-  align-content: center;
-  justify-content: space-between;
-  height: 8vh;
-
-  border: 1px solid black;
-  padding: 5px;
-  margin: 5px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
   margin-bottom: 10px;
-  margin-right: 20px;
-  background-color: aliceblue;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background-color: #f8f9fa; /* Light grey background */
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1); /* Soft shadow */
+
+  overflow: hidden;
+  transition: 1s all ease;
 
   
-
-  & > div  {
+  & div {
     display: flex;
-    gap: 10px;
-    & > div {
-      display: flex;
-      flex-direction: column;
-    }
+    justify-content: space-between;
+    align-items: center;
+
+    transition: 1s all ease;
+  }
+
+
+  & > div:nth-child(1)  {
+    font-weight: bold;
+    font-size: 16px;
+    align-items: start;
   }
 
   & > div:nth-child(1) {
     flex-direction: column;
   }
+
+  & > div:nth-child(2) {
+    border-top: 1px solid black;
+  }
+
+  & :is(.jid) {
+    font-weight: bold;
+    color: #007bff; /* Blue */
+  }
+  & :is(.uid) {
+    color: #6c757d; /* Grey */
+  }
+  & :is(.status.success) {
+    font-weight: bold;
+    color: #28a745; /* Green for completed */
+  }
+
+  & :is(.status.pending) {
+    font-weight: bold;
+    color: gold; /* Green for completed */
+  }
+
+  & :is(.status.fail) {
+    font-weight: bold;
+    color: red; /* Green for completed */
+  }
+  & :is(.duration) {
+    font-style: italic;
+    color: #6c757d;
+  }
+}
+.input, .output, .description {
+  font-size: 14px;
+  color: #495057;
+}
+
+.created_at, .completed_at, .completed {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.job-display-entry div div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .job-display-entry.dark-mode {
@@ -1713,7 +1763,7 @@ tr {
 
 #job-io-setup {
   min-height: 10vh;
-  max-height: 10vh;
+  max-height: 20vh;
 
   border: 2px solid cadetblue;
   border-top: unset;
@@ -1724,6 +1774,9 @@ tr {
   flex-direction: row;
   justify-content: space-between;
   gap: 10px;
+
+  overflow: hidden;
+  transition: 1s all ease;
 
   padding: 1rem;
 
@@ -1736,14 +1789,31 @@ tr {
     flex-direction: column;
     gap: 5px;
 
+    max-width: 40vh;
+
+    padding: 2px;
+    border: 1px solid cadetblue;
+
+    & label {
+      color: white !important;
+    }
+
+    & textarea {
+      resize: none;
+      width: 100%;
+      padding: 5px;
+      box-sizing: border-box;
+      border: 2px solid #ccc;
+      margin-top: 10px;
+    }
+
     & > div:nth-child(2) {
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 8px;
       font-family: Arial, sans-serif;
-      & > label {
-        font-size: 12px;
-      }
+
   
       & > input {
         width: 70px; /* Adjust to make it smaller */
@@ -1823,11 +1893,42 @@ tr {
 
   }
 
-
   & > div:nth-child(3) {
-    margin-right: 25px;
-    margin-top: 0px;
+    margin: auto 0;
   }
+
+  & :is(#job-io-minimizer)  {
+    padding: 8px 12px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+
+    margin: 0;
+
+    position: relative;
+    top: -10px;
+    right: -10px;
+
+    width: 20px;
+    height: 20px;
+
+    & polygon {
+      fill: cadetblue;
+    }
+
+    & :hover {
+      & polygon {
+        fill: lightblue;
+      }
+    }
+  }
+
+  
+}
+
+#job-io-setup.minimized {
+  max-width: 10vh;
 }
 
 
@@ -2142,3 +2243,12 @@ tr {
   }
 }
 
+.fade-out {
+  opacity: 1;
+  transition: opacity 0.5s ease-out;
+}
+
+.fade-out.hidden {
+  opacity: 0;
+  pointer-events: none; /* Prevent interaction after fade-out */
+}

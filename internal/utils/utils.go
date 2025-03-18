@@ -1,6 +1,9 @@
 package utils
 
 import (
+	"fmt"
+	"io"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -126,4 +129,35 @@ func SplitToInt(input, seperator string) ([]int, error) {
 	}
 
 	return result, nil
+}
+
+func MergeFiles(outputFile string, inputLocation string, inputFiles []string) error {
+	out, err := os.Create(outputFile)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	for _, inpPath := range inputFiles {
+		fmt.Println("Processing:", inpPath)
+
+		inpFile, err := os.Open(inputLocation + inpPath)
+		if err != nil {
+			fmt.Println("Error opening file:", inpPath, err)
+			continue
+		}
+		defer inpFile.Close()
+
+		_, err = io.Copy(out, inpFile) // Append content
+		if err != nil {
+			fmt.Println("Error writing file:", err)
+			return err
+		}
+
+		// Optionally add a separator (newline)
+		out.WriteString("\n")
+	}
+
+	fmt.Println("Merged files into:", outputFile)
+	return nil
 }

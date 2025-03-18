@@ -55,6 +55,7 @@ func (srv *UService) HandleJob(c *gin.Context) {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the jobs"})
 				return
 			}
+			// log.Printf("jobs retrieved from db: %+v", jobs)
 			c.JSON(http.StatusOK, gin.H{"content": jobs})
 			return
 		}

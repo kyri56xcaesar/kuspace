@@ -217,25 +217,27 @@
   <ul>
   {{ range . }}
     <li>
-      <div class="job-display-entry darkened">
+      <div class="job-display-entry darkened fade-out">
         <div>
-          <span> #JobId: {{ .Jid }}</span>
-          <span> by {{ .Uid }} </span>
+          <span class="jid"> #JobId: {{ .Jid }}</span>
+          <span class="uid"> by {{ .Uid }} </span>
         </div>
         <div>
           <div>
-            <span> Status: {{ .Status }} </span>
-            <span> Duration: </span>
+            <span class="status {{ if eq .Status "completed" }}success{{ else if eq .Status "pending" }}pending{{ else if eq .Status "failed" }}fail{{ end }}">
+              Status: {{ .Status }}
+            </span>            
+            <span class="duration"> Duration: {{ .Duration }} </span>
           </div>
           <div>
-            <span> Input: {{ .Input }} </span>
-            <span> Output: {{ .Output }} </span>
-            <span> Description: </span>
+            <span class="input"> Input: {{ .Input }} </span>
+            <span class="output"> Output: {{ .Output }} </span>
+            <span> Description: {{ .Description }} </span>
           </div>
           <div>
-            <span> Created_at: {{ .Created_at }} </span>
-            <span> Completed_at: {{ .Completed_at }} </span>
-            <span> Completed: {{ .Completed }} </span>
+            <span class="created_at"> Created_at: {{ .Created_at }} </span>
+            <span class="completed_at"> Completed_at: {{ .Completed_at }} </span>
+            <span class="completed"> Completed: {{ .Completed }} </span>
 
           </div>
         </div>

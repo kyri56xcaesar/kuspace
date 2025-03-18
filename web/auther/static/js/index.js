@@ -2,7 +2,7 @@
 cachedUsers = [];
 cachedGroups = [];
 cachedResources = [];
-const IP = "46.177.162.66";
+const IP = "localhost";
 const PORT ="8080"
 
 
@@ -212,8 +212,10 @@ document.addEventListener('htmx:afterSwap', function (event) {
     }
   } else if (triggeringElementId.startsWith('gshell-container')) {
     // Grab that specific shell and give it the terminal features
-    giveFunctionality(triggeringElement);
-    
+    giveFunctionality(triggeringElement); 
+  } else if (triggeringElementId === "fetch-jobs-div" || triggeringElementId === "job-search-by-select") {
+    cacheJobResultsLi = document.getElementById("fetch-jobs-div").querySelectorAll("li");
+    // console.log(cacheJobResultsLi);
   }
   
 });
@@ -258,7 +260,7 @@ document.addEventListener('htmx:afterRequest', function (event) {
 
     }
   
-  } else if (triggeringElement.id === 'reload-btn') {
+  }  else if (triggeringElement.id === 'reload-btn') {
   
   } else if (triggeringElement.id === 'add-user-form') {
     // new user creation (from admin)
