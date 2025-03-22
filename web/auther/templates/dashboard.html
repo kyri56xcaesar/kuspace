@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>kuSpace Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="icon" href="../assets/logos/cropped.png">
     <link href="../css/styles.css" rel="stylesheet">
     <link href="../css/dashboard.css" rel="stylesheet">
@@ -12,7 +13,7 @@
 </head>
 <body>
     <div class="main-content-wrapper">
-      <header class="dashboard-header">
+      <div class="dashboard-header">
         <div id="dashboard-title-div" class="collapsible info">
           <h1 class="target" id="dashboard-h1-title">{{ .message }} {{ .username }}!</h1>
           <button class="toggle-button-collapse collapsible">
@@ -24,12 +25,15 @@
         </div>
         <div class="profile-menu">
           <button class="profile-button">
-            <div class="profile-icon">P</div>
+            <div class="profile-icon"><i class="fa-solid fa-user"></i></div>
             <span>&#x25BC;</span>
           </button>
           <div class="dropdown">
             <div class="dropdown-content">
               <a href="#">Profile</a>
+              <hr>
+              <a href="#">Settings</a>
+              <a href="#">Help</a>
               <hr>
               <a
                 id="logout"
@@ -42,7 +46,7 @@
           </div>
 
         </div>
-      </header> 
+      </div> 
       <main id="main-content">
         <div class="responsive-wrapper">
           <div class="section-header">
@@ -54,7 +58,7 @@
                 <input type="text" placeholder="Search">
                 <button type="submit">
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                    <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z"/>
+                    <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z">
                   </svg>
                 </button>
               </div>
@@ -62,8 +66,7 @@
             <div class="section-options">
               <a href="#" onclick="showSubSection('dashboard-home')">Home</a>
               <a href="#" onclick="showSubSection('dashboard-myjobs')">My Jobs</a>
-              <a href="#" onclick="showSubSection('dashboard-status')">Status</a>
-              <a href="#" onclick="showSubSection('dashboard-settings')">Settings</a>
+              <a href="#" onclick="showSubSection('dashboard-status')">Plugins</a>
             </div>
           </div>
         </div>

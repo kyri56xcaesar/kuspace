@@ -13,7 +13,6 @@
   <script src="../js/gshell.js"></script>
   <!-- font awesome icons (free)-->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <!-- htmx-->
   <script src="../js/htmx.min.js"></script>
 
@@ -130,7 +129,7 @@
         <p>This is the dashboard where you can use the system as a user.</p>
         <div class="dashboard-container"
           id="root-dashboard-loader"
-          hx-get="/api/v1/verified/dashboard"
+          hx-get="/api/v1/verified/admin/dashboard"
           hx-swap="innerHTML"
           hx-target="this"
           hx-trigger="load"
@@ -254,7 +253,7 @@
                     </span>
                     <button 
                       id="copy-btn" 
-                      onclick="copyToClipboard('#generated-hash')"
+                      onclick="copyToClipboard('#generated-hash', 'copy-btn')"
                       type="button"
                       class="copy-btn"
                     >Copy</button>
@@ -438,18 +437,16 @@
               </div>
               <div id="j-editor-body">
                 <textarea id="code-editor"></textarea>
-              
               </div>
             </div>
             <div id="job-io-setup">
               <div class="minimizable fade-out">
                 <button id="select-j-input-button">Input<i class="fa-solid fa-file-import"></i></button>
                 <div>
-                  <label for="select-output-destination">Output name:</label>
+                  <label for="select-output-destination">Output:</label>
                   <input type="text" value="output.out" id="select-output-destination" autocomplete="off">
                 </div>
                 <div>
-                  <label for="j-description">Description: </label>
                   <textarea id="j-description" placeholder="Description" maxlength="100">
                   </textarea>
                 </div>
@@ -480,9 +477,19 @@
                 <svg class="arrow-icon" width="20" height="20" viewBox="0 0 20 20">
                   <polygon points="2,5 18,5 10,16" fill="black"/>
                 </svg>
-              </button>              </div>
+              </div>
             </div>
-            <div id="job-feedback" class="hidden">
+            <div id="job-feedback" class="hidden minimizable">
+              <div class="minimizer" id="job-feedback-minimizer">
+                <svg class="arrow-icon" width="20" height="20" viewBox="0 0 20 20">
+                  <polygon points="2,5 18,5 10,16" fill="black"/>
+                </svg>
+              </div>
+              <div id="feedback-messages">
+                <div id="j-feedback-copy" class="minimizable">
+                  <button id="j-feedback-copy-btn" onclick="copyToClipboard('#feedback-messages', 'j-feedback-copy-btn')" type="button" class="copy-btn">📋</button>
+                <div>
+              </div>
             </div>
           </div>
         </div>

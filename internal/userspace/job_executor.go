@@ -87,7 +87,7 @@ func main() {
 `
 )
 
-func performExecution(job Job, verbose bool) (*exec.Cmd, time.Duration, error) {
+func prepareExecution(job Job, verbose bool) (*exec.Cmd, time.Duration, error) {
 	// ctx := context.Background()
 	command, err := formatJobCommand(job, true)
 	if err != nil {

@@ -1762,6 +1762,7 @@ tr {
 }
 
 #job-io-setup {
+  position: relative;
   min-height: 10vh;
   max-height: 20vh;
 
@@ -1906,9 +1907,9 @@ tr {
 
     margin: 0;
 
-    position: relative;
-    top: -10px;
-    right: -10px;
+    position: absolute;
+    top: 8px;
+    right: 8px;
 
     width: 20px;
     height: 20px;
@@ -1929,6 +1930,7 @@ tr {
 
 #job-io-setup.minimized {
   max-width: 10vh;
+  min-height: 10vh;
 }
 
 
@@ -1960,13 +1962,79 @@ tr {
 
 #job-feedback {
 
-  min-height: 15vh;
+  position: relative;
+  color: whitesmoke;
+
+  min-height: 25vh;
+  max-height: 25vh;
+
+  padding: 1rem;
 
   border: 2px solid cadetblue;
   border-radius: 5px;
   background-color: #0e141a;
   border-top: unset;
 
+  overflow-y: auto;
+  scroll-behavior: smooth;
+
+  
+  #feedback-messages {
+    position: relative;
+    overflow-y: auto;
+  }
+
+  & p {
+    margin: 0;
+    animation: dropFadeIn 1.4s ease-out;
+
+    word-break: nobreak;
+    overflow-x: hidden;
+  }
+
+  #job-feedback-minimizer {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+  
+    padding: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  
+    width: 24px;
+    height: 24px;
+    background-color: transparent;
+
+    z-index: 5;
+  
+    & polygon {
+      fill: cadetblue;
+    }
+  
+    &:hover polygon {
+      fill: lightblue;
+    }
+  }
+
+  #j-feedback-copy-btn {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    cursor: pointer;
+    z-index: 2; /* Optional: keep it above scroll content */
+  }
+  
+}
+
+#job-feedback.minimized {
+  max-height: 10vh;
+  min-height: 10vh;
+}
+
+.blue {
+  color: #4b4bb7;
 }
 
 .submit-cancel {
@@ -2240,6 +2308,17 @@ tr {
 @keyframes reverseSpin {
   to {
     transform: rotate(360deg) translateY(var(--y));
+  }
+}
+
+@keyframes dropFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

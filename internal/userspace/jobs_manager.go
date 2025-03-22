@@ -1,11 +1,21 @@
 package userspace
 
 import (
+	"bufio"
+	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
+
+var jobs_socket_address string = "localhost:8082"
 
 type JDispatcher struct {
 	Manager JobManager
@@ -127,14 +137,12 @@ func (jm *JobManager) executeJob(job Job) {
 
 	jm.mu.Lock()
 	job.Status = "running"
-	// jm.jobs[job.Jid] = &job
 	jm.mu.Unlock()
 
 	// we should examine input "resources"
 
 	// language and version
-
-	cmd, duration, err := performExecution(job, true)
+	cmd, duration, err := prepareExecution(job, true)
 	if err != nil {
 		log.Printf("failed to prepare or perform job: %v", err)
 		return
@@ -142,15 +150,39 @@ func (jm *JobManager) executeJob(job Job) {
 	job.Duration = duration.Abs().Seconds()
 
 	// output should be streamed back ...
-	output, err := cmd.CombinedOutput()
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Printf("error creating stdout pipe: %v", err)
+		return
+	}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		log.Printf("error creating stderr pipe: %v", err)
+		return
+	}
+
+	// Start the command
+	log.Printf("starting job execution")
+	if err := cmd.Start(); err != nil {
+		log.Printf("error starting command: %v", err)
+		jm.updateJobStatus(job.Jid, "failed", 0)
+		return
+	}
+	log.Printf("streaming to socket")
+	go streamToSocketWS(job.Jid, stdout)
+	go streamToSocketWS(job.Jid, stderr)
+
+	log.Printf("waiting...")
+	err = cmd.Wait()
 	if err != nil {
 		log.Printf("Job %d failed: %s\n", job.Jid, err)
 		jm.updateJobStatus(job.Jid, "failed", 0)
 		return
 	}
 
-	log.Printf("Job %d completed: %s\n", job.Jid, string(output))
-	jm.updateJobStatus(job.Jid, "completed", duration)
+	log.Printf("Job %d completed successfully\n", job.Jid)
+	// jm.updateJobStatus(job.Jid, "completed", duration)
 
 	// insert the output resource
 	go jm.syncOutputResource(job)
@@ -195,5 +227,49 @@ func (jm *JobManager) syncOutputResource(job Job) {
 	err = jm.srv.dbh.InsertResource(resource)
 	if err != nil {
 		log.Printf("failed to insert the resource")
+	}
+}
+
+func streamToSocketWS(jobID int, pipe io.Reader) {
+	jobIDStr := strconv.Itoa(jobID)
+	wsURL := fmt.Sprintf("ws://"+jobs_socket_address+"/job-stream?jid=%s&role=Producer", jobIDStr)
+	log.Printf("ws_url: %s", wsURL)
+
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		log.Printf("failed to connect to WS server: %v", err)
+		return
+	}
+	defer conn.Close()
+
+	scanner := bufio.NewScanner(pipe)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if err := conn.WriteMessage(websocket.TextMessage, []byte(line)); err != nil {
+			log.Printf("write failed: %v", err)
+			return
+		}
+	}
+}
+
+func streamToSocket(jobID int, pipe io.Reader) {
+	jobIDStr := strconv.Itoa(jobID)
+	scanner := bufio.NewScanner(pipe)
+
+	log.Printf("streamToSocket function called")
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		log.Printf("line about to be streamed: %s", line)
+
+		_, err := http.Post(
+			fmt.Sprintf("http://"+jobs_socket_address+"/job-stream?jid=%s&role=Producer", jobIDStr),
+			"text/plain",
+			strings.NewReader(line),
+		)
+		if err != nil {
+			log.Printf("failed to send log line to socket server: %v", err)
+		}
 	}
 }

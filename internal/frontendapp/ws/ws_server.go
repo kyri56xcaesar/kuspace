@@ -97,7 +97,7 @@ func (s *WebSocketServer) Start() {
 	}
 }
 
-func handleWebSocket(c *gin.Context) {
+func handleGShellWs(c *gin.Context) {
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		fmt.Println("Failed to upgrade:", err)
@@ -141,7 +141,7 @@ func writeMessages(client *Client) {
 
 func Serve() error {
 	r := gin.Default()
-	r.GET("/gshell", handleWebSocket)
+	r.GET("/gshell", handleGShellWs)
 
 	go Server.Start()
 

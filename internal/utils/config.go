@@ -23,8 +23,9 @@ type EnvConfig struct {
 	CertFile   string
 	KeyFile    string
 
-	API_PORT    string
-	API_ADDRESS string
+	API_PORT             string
+	API_ADDRESS          string
+	API_J_SOCKET_ADDRESS string
 
 	FRONT_PORT    string
 	FRONT_ADDRESS string
@@ -91,6 +92,7 @@ func LoadConfig(path string) EnvConfig {
 		VCapacity:              getEnv("V_CAPACITY", "20"),
 		API_PORT:               getEnv("API_PORT", "8079"),
 		API_ADDRESS:            getEnv("API_ADDRESS", "localhost"),
+		API_J_SOCKET_ADDRESS:   getEnv("API_J_SOCKET_ADDRESS", "localhost:8082"),
 		FRONT_PORT:             getEnv("FRONT_PORT", "8080"),
 		FRONT_ADDRESS:          getEnv("FRONT_ADDRESS", "localhost"),
 		AUTH_PORT:              getEnv("AUTH_PORT", "9090"),
@@ -180,4 +182,23 @@ func (cfg *EnvConfig) ToString() string {
 
 func (cfg *EnvConfig) Addr(port string) string {
 	return cfg.IP + ":" + port
+}
+
+type WSConfig struct {
+	WS_PORT    string
+	WS_ADDRESS string
+	LOGS_PATH  string
+}
+
+func LoadWsConfig(path string) WSConfig {
+	if err := godotenv.Load(path); err != nil {
+		log.Printf("Could not load %s config file. Using default variables", path)
+	}
+
+	return WSConfig{
+		WS_PORT:    getEnv("WS_PORT", "8082"),
+		WS_ADDRESS: getEnv("WS_ADDRESS", "localhost"),
+		LOGS_PATH:  getEnv("LOGS_PATH", "data/logs/jobs/job.log"),
+	}
+
 }

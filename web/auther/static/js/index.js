@@ -123,12 +123,12 @@ function hide(container) {
 }
 
 
-function copyToClipboard(selector) {
+function copyToClipboard(selector, copyBtnId) {
   const element = document.querySelector(selector);
   if (element) {
     const text = element.textContent.trim(); // Trim any extra spaces
     navigator.clipboard.writeText(text).then(() => {
-      const copyBtn = document.getElementById("copy-btn");
+      const copyBtn = document.getElementById(copyBtnId);
       if (copyBtn) {
         copyBtn.textContent = "✔️"; // Show a checkmark temporarily
         setTimeout(() => {
@@ -438,21 +438,16 @@ document.addEventListener('htmx:afterRequest', function (event) {
       }
   } else if (triggeringElement.id === 'root-dashboard-loader') {
       if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
-        const profmenu = document.querySelector(".profile-menu");
-        profmenu.remove();
-        const toggleButton = document.querySelectorAll("#root-dashboard-loader .toggle-button-collapse");
-        toggleButton.forEach(toggleButton => {
-          toggleButton.addEventListener("click", () => {
-            toggleButton.classList.toggle("collapsed");
-            // get the closest h1 or p or span...
-            target = toggleButton.closest(".info").querySelector(".target");
-            target.classList.toggle("collapsed");  
-            if (toggleButton.classList.contains("collapsed")) {
-              toggleButton.style.transform = `translateX(-${target.offsetWidth}px)`;
-            } else {
-              toggleButton.style.transform = `translateX(0)`;
-            }
-          });
+        const profileMenu = document.querySelector(".profile-menu");
+        const profileButton = document.querySelector(".profile-button");
+        profileButton.addEventListener("click", () => {
+            console.log("test");
+            profileMenu.classList.toggle("open");
+        });
+        document.addEventListener("click", (event) => {
+          if (!profileMenu.contains(event.target)) {
+            profileMenu.classList.remove("open");
+          }
         });
       }
   } else if (triggeringElement.id === 'permissionsInput' || triggeringElement.id === 'resource-path-select' || triggeringElement.id === 'resource-owner-select' || triggeringElement.id === 'resource-group-select') {

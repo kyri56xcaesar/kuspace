@@ -54,6 +54,7 @@ func NewUService(conf string) UService {
 	if err != nil {
 		panic(err)
 	}
+	jobs_socket_address = cfg.API_J_SOCKET_ADDRESS
 	srv.jdp = jdp
 	jdp.Start()
 

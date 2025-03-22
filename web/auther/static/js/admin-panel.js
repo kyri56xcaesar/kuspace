@@ -41,8 +41,7 @@ function run(data) {
 `,
   "python":
 `
-def run(data):
-    return data
+def run(data):\n\treturn data
 
 
 
@@ -510,7 +509,14 @@ document.addEventListener("DOMContentLoaded", () => {
     lineNumbers: true,
     theme: "monokai",  // Choose a theme
     matchBrackets: true,
-    autoCloseBrackets: true
+    autoCloseBrackets: true,
+    // indentUnit: 0,            // size of a single indent
+    smartIndent: false,       // disables smart indent on newlines
+    // indentWithTabs: false,    // do not use tabs for indentation
+    // extraKeys: {
+    //   Tab: false              // disable tab behavior
+    // }
+
   });
 
   // Language selection logic
@@ -533,14 +539,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     const mode = modeMap[ext] || "python"; 
-    console.log('mode: ' + mode);
+    // console.log('mode: ' + mode);
     document.getElementById("language-selector").value = extMap[ext];
 
     const reader = new FileReader();
     editor.setOption("mode", mode);    
 
     reader.onload = function(e) {
-      console.log('called here');
       editor.setValue(e.target.result);
     };
     reader.readAsText(file);
@@ -702,9 +707,12 @@ document.addEventListener("DOMContentLoaded", () => {
       jloader.style.animation="spin var(--speed) infinite linear";
       jloader.classList.remove("hidden");
       
+
+      // send job request
+      // job data 
       const input = document.querySelector(".input-box").textContent.split('\n').map((file) => file.replace(/^\/+/, ''));
       const output = document.querySelector(".output-box").textContent;
-      const code = editor.getValue();
+      const code = normalizeIndentation(editor.getValue());
       const logic = editor.getOption("mode");
       const description = document.querySelector("#j-description").value;
 
@@ -718,8 +726,6 @@ document.addEventListener("DOMContentLoaded", () => {
         "logic_body":code,
         "description":description,
       }
-
-      console.log(job);
 
       // send the request and await response 
       const response = new Promise((resolve, reject) => {
@@ -742,7 +748,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // handle response, display, spinner, output, (maybe trigger a ws on success to get realtime data about the job)
       response.then(resp => {
-        console.log(resp);
+        // console.log(resp);
+        // we get the job id here, and we can open a feedback panel for this job here..
+        // open feedback panel
+        if (resp.status == "error") {
+          return;
+        } else {
+          const jobFeedbackPanel = document.querySelector('#job-feedback');
+          jobFeedbackPanel.classList.remove('hidden');
+          createFeedbackPanel(resp.jid);
+
+        }
+
+
+
       }).catch(error => {
         console.error('Error fetching resources:', error);
       });
@@ -758,9 +777,22 @@ document.addEventListener("DOMContentLoaded", () => {
   // job i/o bar minimizer 
   document.getElementById("job-io-minimizer").addEventListener("click", (event) => {
     const ioSetupDiv = document.getElementById("job-io-setup");
+    // ioSetupDiv.classList.toggle("minimized");
+
     ioSetupDiv.querySelectorAll(".minimizable").forEach((div) => {
       div.classList.toggle("hidden");
-      ioSetupDiv.classList.toggle("minimized");
+      div.classList.toggle("minimized");
+    })
+  });
+
+  // job feedback bar minimizer 
+  document.getElementById("job-feedback-minimizer").addEventListener("click", (event) => {
+    const feedbackDiv = document.getElementById("job-feedback");
+    feedbackDiv.classList.toggle("minimized");
+
+    feedbackDiv.querySelectorAll(".minimizable").forEach((div) => {
+      div.classList.toggle("hidden");
+      div.classList.toggle("minimized");
     })
   });
 
@@ -771,3 +803,40 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
+function createFeedbackPanel(jid) {
+
+  // create the display element, what should it be?
+  const feedbackMessagesDiv = document.getElementById("feedback-messages");
+  feedbackMessagesDiv.classList.add("minimizable");
+  
+  const socket = new WebSocket('ws://'+IP+':8082/job-stream?jid='+jid+'&role=Consumer');
+
+  const prefix = "job-"+jid+":\t";
+  socket.onmessage = (event) => {
+    const message = document.createElement("p");
+    const prefixSpan = document.createElement("span");
+    prefixSpan.textContent = prefix;
+    prefixSpan.classList.add("blue");
+
+    const messageSpan = document.createElement("span");
+    messageSpan.textContent = event.data;
+
+    message.appendChild(prefixSpan);
+    message.appendChild(messageSpan);
+    feedbackMessagesDiv.appendChild(message);
+    feedbackMessagesDiv.scrollTop = feedbackMessagesDiv.scrollHeight;
+  };
+  socket.onopen = function () {
+      console.log("Connected to Jobs Websocket server");
+  };
+  socket.onclose = (event) => {
+      console.log("Disconnected from Jobs Websocket server");
+  }
+}
+
+function normalizeIndentation(code) {
+  return code
+    .split("\n")
+    .map(line => line.replace(/^\t+/, match => ' '.repeat(match.length * 4))) // convert tabs to spaces
+    .join("\n");
+}

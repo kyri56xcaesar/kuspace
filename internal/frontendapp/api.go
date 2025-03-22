@@ -214,6 +214,14 @@ func (srv *HTTPService) ServeHTTP() {
 		/* minioth will verify token no need to worry here.*/
 		{
 			admin.Use(AuthMiddleware("admin"))
+			admin.GET("/dashboard", func(c *gin.Context) {
+				username, _ := c.Get("username")
+				c.HTML(http.StatusOK, "admin-dashboard", gin.H{
+					"username": username,
+					"message":  "Welcome to your dashboard, ",
+				})
+			})
+
 			admin.GET("/fetch-resources", srv.handleFetchResources)
 			admin.GET("/fetch-users", srv.handleFetchUsers)
 			admin.GET("/fetch-volumes", srv.handleFetchVolumes)
