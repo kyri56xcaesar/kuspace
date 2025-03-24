@@ -179,13 +179,7 @@ func (srv *HTTPService) ServeHTTP() {
 				"message":  "Welcome to the Admin Panel ",
 			})
 		})
-		verified.GET("/dashboard", AuthMiddleware("user, admin"), func(c *gin.Context) {
-			username, _ := c.Get("username")
-			c.HTML(http.StatusOK, "dashboard.html", gin.H{
-				"username": username,
-				"message":  "Welcome to your dashboard, ",
-			})
-		})
+		verified.GET("/dashboard", AuthMiddleware("user, admin"), srv.handleDashboard)
 
 		// actions for logged in users
 		verified.POST("/upload", AuthMiddleware("user, admin"), srv.handleResourceUpload)

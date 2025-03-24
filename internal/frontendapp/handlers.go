@@ -1758,6 +1758,264 @@ func (srv *HTTPService) addSymlinkFormHandler(c *gin.Context) {
 	c.HTML(200, "add-symlink-forhtml", nil)
 }
 
+func (srv *HTTPService) handleDashboard(c *gin.Context) {
+	uid, _ := c.Get("user_id")
+	username, _ := c.Get("username")
+	gids, _ := c.Get("group_ids")
+	group_names, _ := c.Get("groups")
+	accessToken, err := c.Cookie("access_token")
+	if err != nil {
+		log.Printf("missing access_token cookie: %v", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	// we need to fetch bunch of data here
+	// 0) fetch user info
+	uReq, err := http.NewRequest(http.MethodGet, authServiceURL+"/admin/users?uid="+fmt.Sprintf("%v", uid), nil)
+	if err != nil {
+		log.Printf("failed to create request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+	uReq.Header.Set("Authorization", "Bearer "+accessToken)
+	uReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	// 1) fetch user volumes
+	uvReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/user/volume?uids="+fmt.Sprintf("%v", uid), nil)
+	if err != nil {
+		log.Printf("failed to create request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+	uvReq.Header.Set("Authorization", "Bearer "+accessToken)
+	uvReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+
+	// 2) fetch group volumes
+	gvReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/group/volume?gids="+fmt.Sprintf("%v", gids), nil)
+	if err != nil {
+		log.Printf("failed to create request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+	gvReq.Header.Set("Authorization", "Bearer "+accessToken)
+	gvReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+
+	// 3) fetch user jobs
+	jReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/job?uids="+fmt.Sprintf("%v", uid), nil)
+	if err != nil {
+		log.Printf("failed to create request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+	jReq.Header.Set("Authorization", "Bearer "+accessToken)
+	jReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+
+	// 4) fetch user resources
+	rReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/resources", nil)
+	if err != nil {
+		log.Printf("failed to create request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+	rReq.Header.Set("Authorization", "Bearer "+accessToken)
+	rReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	rReq.Header.Set("Access-Target", fmt.Sprintf("/home/%v %v:%v", username, uid, gids))
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	var (
+		uResp struct {
+			Content []User `json:"content"`
+		}
+		uvResp struct {
+			Content []UserVolume `json:"content"`
+		}
+		gvResp struct {
+			Content []GroupVolume `json:"content"`
+		}
+		jResp struct {
+			Content []Job `json:"content"`
+		}
+		rResp struct {
+			Content []Resource `json:"content"`
+		}
+		vResp struct {
+			Content []Volume `json:"content"`
+		}
+		uErr, uvErr, gvErr, jErr, rErr error
+	)
+
+	wg := sync.WaitGroup{}
+	wg.Add(5)
+
+	// do the requests as goroutines
+	go func() {
+		defer wg.Done()
+		resp, err := client.Do(uReq)
+		if err != nil {
+			uErr = err
+			return
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			uErr = fmt.Errorf("failed to fetch user ; status: %d", resp.StatusCode)
+			return
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&uResp); err != nil {
+			uErr = fmt.Errorf("failed to decode user  response: %v", err)
+			return
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		resp, err := client.Do(uvReq)
+		if err != nil {
+			uvErr = err
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			uvErr = fmt.Errorf("failed to fetch user volumes; status: %d", resp.StatusCode)
+			return
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&uvResp); err != nil {
+			uvErr = fmt.Errorf("failed to decode user volume response: %v", err)
+			return
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		resp, err := client.Do(gvReq)
+		if err != nil {
+			gvErr = err
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			gvErr = fmt.Errorf("failed to fetch group volumes; status: %d", resp.StatusCode)
+			return
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&gvResp); err != nil {
+			gvErr = fmt.Errorf("failed to decode group volume response: %v", err)
+			return
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		resp, err := client.Do(jReq)
+		if err != nil {
+			jErr = err
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			jErr = fmt.Errorf("failed to fetch jobs; status: %d", resp.StatusCode)
+			return
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&jResp); err != nil {
+			jErr = fmt.Errorf("failed to decode jobs response: %v", err)
+			return
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		resp, err := client.Do(rReq)
+		if err != nil {
+			rErr = err
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			rErr = fmt.Errorf("failed to fetch resources; status: %d", resp.StatusCode)
+			return
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&rResp); err != nil {
+			rErr = fmt.Errorf("failed to decode resources response: %v", err)
+			return
+		}
+	}()
+	wg.Wait()
+
+	if uErr != nil || uvErr != nil || gvErr != nil || jErr != nil || rErr != nil {
+		log.Printf("failed to fetch data: %v %v, %v, %v, %v", uErr, uvErr, gvErr, jErr, rErr)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch data"})
+		return
+	}
+
+	// we need to fetch also the volumes we are eating from,
+	var vids_map map[int]bool = make(map[int]bool)
+	for _, uv := range uvResp.Content {
+		vids_map[uv.Vid] = true
+	}
+	for _, gv := range gvResp.Content {
+		vids_map[gv.Vid] = true
+	}
+
+	log.Printf("vid map: %v", vids_map)
+
+	vids := make([]int, 0, len(vids_map))
+	for vid, is := range vids_map {
+		if is {
+			vids = append(vids, vid)
+		}
+	}
+	log.Printf("vids: %v", vids)
+
+	vReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/volumes?vids="+strings.Trim(strings.Join(strings.Fields(fmt.Sprint(vids)), ","), "[]"), nil)
+	if err != nil {
+		log.Printf("failed to create request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	vReq.Header.Set("Authorization", "Bearer "+accessToken)
+	vReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	resp, err := client.Do(vReq)
+	if err != nil {
+		rErr = err
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		rErr = fmt.Errorf("failed to fetch volumes; status: %d", resp.StatusCode)
+		return
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&vResp); err != nil {
+		rErr = fmt.Errorf("failed to decode volumes response: %v", err)
+		return
+	}
+
+	log.Printf("User Volumes Response: %+v", uvResp.Content)
+	log.Printf("Group Volumes Response: %+v", gvResp.Content)
+	log.Printf("Jobs Response: %+v", jResp.Content)
+	log.Printf("Resources Response: %+v", rResp.Content)
+	log.Printf("Volumes Response: %+v", vResp.Content)
+
+	// Render the HTML template
+	c.HTML(http.StatusOK, "dashboard.html", gin.H{
+		"message":         "Welcome to your dashboard, ",
+		"username":        username,
+		"groups":          group_names,
+		"info":            uResp.Content[0].Info,
+		"home":            uResp.Content[0].Home,
+		"jobs":            jResp.Content,
+		"total_jobs":      len(jResp.Content),
+		"resources":       rResp.Content,
+		"total_resources": len(rResp.Content),
+		"user_volume":     uvResp.Content,
+		"groups_volume":   gvResp.Content,
+	})
+
+}
+
 /*
 *********************************************************************
 * */

@@ -183,7 +183,10 @@ func (m *DBHandler) InitResourceVolumeSpecific(database_path, volumes_path, capa
 		log.Fatalf("couldn't get db connection, destructive: %v", err)
 	}
 	// specific initialization
-	var exists bool
+	var (
+		exists bool
+		vid    int64
+	)
 	err = db.QueryRow("SELECT COUNT(*) > 0 FROM volumes").Scan(&exists)
 	if err != nil {
 		log.Fatalf("failed to scan exists query: %v", err)
@@ -195,8 +198,9 @@ func (m *DBHandler) InitResourceVolumeSpecific(database_path, volumes_path, capa
 			volumes (vid, name, path, dynamic, capacity, usage)
 		VALUES
 			(nextval('seq_volumeid'), ?, ?, ?, ?, ?)
+		RETURNING (vid);
 		 `
-		_, err := db.Exec(vquery, default_volume_name, volumes_path, "true", capacity, 0)
+		err := db.QueryRow(vquery, default_volume_name, volumes_path, "true", capacity, 0).Scan(&vid)
 		if err != nil {
 			log.Fatalf("failed to insert init data, destructive: %v", err)
 		}
@@ -230,7 +234,7 @@ func (m *DBHandler) InitResourceVolumeSpecific(database_path, volumes_path, capa
 
 		currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 
-		_, err = db.Exec(vquery, 1, 0, 0, capacity, currentTime)
+		_, err = db.Exec(vquery, vid, 0, 0, capacity, currentTime)
 		if err != nil {
 			log.Fatalf("failed to insert init data, destructive: %v", err)
 		}
@@ -255,7 +259,7 @@ func (m *DBHandler) InitResourceVolumeSpecific(database_path, volumes_path, capa
 
 		currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 
-		res, err := db.Exec(vquery, 1, 0, 0, capacity, currentTime, 1, 100, 0, capacity, currentTime, 1, 1000, 0, capacity, currentTime)
+		res, err := db.Exec(vquery, vid, 0, 0, capacity, currentTime, vid, 100, 0, capacity, currentTime, vid, 1000, 0, capacity, currentTime)
 		if err != nil {
 			log.Fatalf("failed to insert init data, destructive: %v", err)
 		}

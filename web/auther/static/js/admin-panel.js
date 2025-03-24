@@ -4,9 +4,6 @@
 // global variables/constants
 /**************************************************************************/
 
-// file upload list (for resources)
-var filesList = [];
-
 // what we need to prepare jobs
 const modeMap = {
   "js": "javascript",
@@ -83,6 +80,9 @@ public static String run(String data) {
 
 `,
 }
+
+let fileUploadModule;
+
 
 /************************************************************************** */
 // global functions/utilities
@@ -192,24 +192,6 @@ function cancelEdit(index, originalValues) {
 
 }
 
-// uploading files helpers,.. i dont like these (might refactor)
-// just to update a label 
-function updateFileNameDisplay(filesList) {
-    const fileNameLabel = document.getElementById("file-name");
-    fileNameLabel.textContent = 
-      filesList.length > 0 
-        ? `${filesList.length} file(s) selected` 
-        : "No files selected";
-}
-// removes what matches the argument also
-function resetFileBoxDisplay(classMatch) {
-  const fileboxes = document.querySelectorAll(classMatch);
-  fileboxes.forEach((file_box) => {
-    file_box.remove();
-  });
-
-  updateFileNameDisplay([]);
-}
 
 // enable dynamic quota checkbox functionality
 function toggleDynamicQuota(checkbox) {
@@ -285,128 +267,19 @@ document.addEventListener("DOMContentLoaded", () => {
   const dropZone = document.getElementById("drop-zone");
   const fileInput = document.getElementById("file");
   const fileBoxContainer = document.getElementById("file-boxes");
+  const submitButton = document.getElementById("upload-button");
+  const fileNameDisplay = document.getElementById("file-name");
 
-  // Handle dragover event (to show visual feedback)
-  dropZone.addEventListener("dragover", (event) => {
-    event.preventDefault(); // Prevent default behavior (like opening the file in the browser)
-    dropZone.classList.add("drag-over");
-  });
+  fileUploadModule = fileUploadContainerFunctionality(
+    dropZone,
+    fileInput,
+    fileBoxContainer,
+    submitButton,
+    fileNameDisplay
+  );
 
-  // Handle dragleave event (to remove visual feedback)
-  dropZone.addEventListener("dragleave", () => {
-    dropZone.classList.remove("drag-over");
-  });
-
-  // Handle drop event
-  dropZone.addEventListener("drop", (event) => {
-    event.preventDefault(); // Prevent default behavior
-    dropZone.classList.remove("drag-over");
-    
-    const files = Array.from(event.dataTransfer.files);
-    if (files.length > 0) {
-      handleFileSelectionFromDrop(files);
-    }
-  });
-  
-  // enable/disable funcionality of file "submit" (upload) button
-  function toggleSubmitButton() {
-    const fileInput = document.getElementById("file");
-    const submitButton = document.getElementById("upload-button");
-
-    submitButton.disabled = fileInput.files.length === 0;
-  }
-  
-  // handling multiple file selection/upload
-  function handleFileSelection(event) {
-    toggleSubmitButton();
-
-    const selectedFiles = Array.from(event.target.files);
-    
-    selectedFiles.forEach((file) => {
-      if (!filesList.some((f) => f.name === file.name)) {
-        filesList.push(file);
-        addFileBox(file);
-      }
-    });
-    
-     updateFileNameDisplay(filesList);
-  }
-
-  function handleFileSelectionFromDrop(files) {
-    const selectedFiles = Array.from(files);
-    selectedFiles.forEach((file) => {
-      if (!filesList.some((f) => f.name === file.name)) {
-        filesList.push(file);
-        addFileBox(file);
-      }
-    });
-    
-    updateFileNameDisplay(filesList);
-  }
-
-  // file selection display
-  function addFileBox(file) {
-    const fileBox = document.createElement("div");
-    fileBox.classList.add("file-box");
-
-    const extention = file.name.split(".").pop().toLowerCase();
-    const fileClass = getFileClass(extention);
-
-    fileBox.classList.add("file-box", fileClass);
-
-    const fileNameSpan = document.createElement("span");
-    fileNameSpan.textContent = file.name;
-    fileBox.appendChild(fileNameSpan);
-    
-    const closeButton = document.createElement("span");
-    closeButton.classList.add("close-btn");
-    closeButton.textContent = "✖";
-    closeButton.addEventListener("click", () => {
-      removeFile(file);
-      fileBox.remove();
-    });
-
-    fileBox.appendChild(closeButton);
-    fileBoxContainer.appendChild(fileBox);
-  }
-
-  function removeFile(file) {
-    filesList = filesList.filter((f) => f.name !== file.name);
-    updateFileNameDisplay(filesList);
-  }
-  // Handle file selection via the input field
-  fileInput.addEventListener("change", handleFileSelection)
-
-  // Function to handle files
-  function handleFiles(files) {
-    const file = files[0];
-    if (file) {
-      fileNameDisplay.textContent = file.name;
-
-      // You can now process the file, e.g., upload it to a server
-      console.log("File selected:", file);
-    }
-  }
-  // a look up to the corresponding class per given extention
-  function getFileClass(extension) {
-    switch (extension) {
-    case "jpg":
-    case "jpeg":
-    case "png":
-    case "gif":
-      return "image";
-    case "pdf":
-      return "pdf";
-    case "doc":
-    case "docx":
-      return "doc";
-    case "zip":
-    case "rar":
-      return "zip";
-    default:
-      return "default";
-    }
-  }
+  console.log(fileUploadModule);
+ 
 
   /**************************************************************************/
   // job setup 

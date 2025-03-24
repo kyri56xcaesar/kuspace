@@ -291,4 +291,21 @@ section {
 	display: flex;
 	flex-direction: row;
 }
+
+.content-display {
+	margin-top: 3rem;
+
+	padding: 1rem 0;
+
+	/* border-top: 1px solid cadetblue */
+
+	overflow-y: scroll;
+}
   
+
+#usage-chart-display {
+	display: flex;
+	flex-direction: row;
+	justify-content: space-evenly;
+	text-align: center;
+}

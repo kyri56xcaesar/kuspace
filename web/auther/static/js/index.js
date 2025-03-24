@@ -96,13 +96,16 @@ function showSection(sectionId) {
 }
 
 function showSubSection(sectionId) {
+  console.log('called here for', sectionId);
   const subsections = document.querySelectorAll('.subsection');
+  console.log(subsections);
   if (subsections) {
     subsections.forEach(subsection => {
-      if (section.id === sectionId) {
-        section.classList.remove('hidden');
+      console.log(subsection);
+      if (subsection.id === sectionId) {
+        subsection.classList.remove('hidden');
       } else {
-        section.classList.add('hidden');
+        subsection.classList.add('hidden');
       }
     })
   }
@@ -149,8 +152,8 @@ function getCookie(name) {
 }
 
 
-// htmx events handling
 
+// htmx events handling
 document.addEventListener('htmx:afterSettle', function(event) {
   const triggeringElement = event.detail.elt;
   const triggeringElementId = triggeringElement.id;
@@ -363,14 +366,12 @@ document.addEventListener('htmx:afterRequest', function (event) {
       setTimeout(() => {
         hide(document.getElementById('progress-container'))
       }, 2000);
-      document.getElementById('upload-files-form').reset();
-      resetFileBoxDisplay(".file-box");
 
-      if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
-        while(filesList.length > 0) {
-          filesList.pop();
-        }
-        const feedback = document.querySelector(".fupload-header > svg");
+
+      if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300 && fileUploadModule) {
+        fileUploadModule.reset();
+
+        const feedback = document.querySelector("#file-boxes");
         feedback.style.opacity = "1";
         feedback.style.color = "green";
         const p = document.querySelector(".fupload-header > p");

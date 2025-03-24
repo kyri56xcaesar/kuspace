@@ -86,7 +86,7 @@ func NewUService(conf string) UService {
 		}
 	}()
 
-	log.Printf("server at: %+v", srv)
+	// log.Printf("server at: %+v", srv)
 	return srv
 }
 

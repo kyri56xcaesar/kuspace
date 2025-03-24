@@ -10,6 +10,7 @@
     <link href="../css/dashboard.css" rel="stylesheet">
     <script src="https://unpkg.com/htmx.org"></script>
     <script src="../js/index.js"></script>
+    <script src="../js/pie_chart.js"></script>
 </head>
 <body>
     <div class="main-content-wrapper">
@@ -33,6 +34,7 @@
               <a href="#">Profile</a>
               <hr>
               <a href="#">Settings</a>
+              <hr>
               <a href="#">Help</a>
               <hr>
               <a
@@ -66,19 +68,96 @@
             <div class="section-options">
               <a href="#" onclick="showSubSection('dashboard-home')">Home</a>
               <a href="#" onclick="showSubSection('dashboard-myjobs')">My Jobs</a>
-              <a href="#" onclick="showSubSection('dashboard-status')">Plugins</a>
+              <a href="#" onclick="showSubSection('dashboard-plugins')">Plugins</a>
             </div>
           </div>
         </div>
         <div class="section-content">
-          <section id="dashboard-home">
-            
+          <section class="subsection" id="dashboard-home">
+            <div class="content-display">
+              <div class="home-content">
+
+                <div id="user-information">
+                  <div>
+                    <span>Username: {{ .username }}</span>
+                    <span>Email: {{ .info }}</span>
+                    <span>Groups: {{ .groups }} </span>
+                    <span>Home: {{ .home }}</span>
+                  </div>
+                  <div>
+                    <span>Total #Jobs: {{ .total_jobs }}</span>
+                    <span>Total #Resources: {{ .total_resources }}</span>
+                  </div>
+                </div>
+
+                <div id="usage-chart-display">
+                  <div class="chart-div">
+                    <h3>User df --chart</h3>
+                    <canvas id="user-df-chart">
+                      browser doesn't support HTML5 canvas
+                    </canvas>
+                  </div>
+                  <div class="chart-div">
+                    <h3>Groups df --chart</h3>
+                    <canvas id="group-df-chart">
+                      browser doesn't support HTML5 canvas
+                    </canvas>
+                  </div>
+                </div>
+
+                <div id="vfs-display">
+                </div>
+
+                <div class="fupload">
+                  <h3>Upload files</h3>
+                  <div class="fupload-container" id="drop-zone"> 
+                    <div class="fupload-header" id="file-boxes"> 
+                      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M7 10V9C7 6.23858 9.23858 4 12 4C14.7614 4 17 6.23858 17 9V10C19.2091 10 21 11.7909 21 14C21 15.4806 20.1956 16.8084 19 17.5M7 10C4.79086 10 3 11.7909 3 14C3 15.4806 3.8044 16.8084 5 17.5M7 10C7.43285 10 7.84965 10.0688 8.24006 10.1959M12 12V21M12 12L15 15M12 12L9 15" 
+                          stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        </path>
+                      </svg> 
+                      <p>Browse File to upload or drag & drop!</p>
+                    </div>
+                    <form
+                      id="upload-files-form"
+                      hx-post="/api/v1/verified/upload"
+                      hx-swap="none" 
+                      hx-include="#file"
+                      hx-trigger="submit"
+                      hx-indicator="#progress-container"
+                      enctype="multipart/form-data"
+                      hx-on::before-request="show(document.getElementById('progress-container'))" 
+                    >
+                      <label for="file" class="fupload-footer"> 
+                        <svg fill="#000000" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M15.331 6H8.5v20h15V14.154h-8.169z"></path>
+                          <path d="M18.153 6h-.009v5.342H23.5v-.002z"></path>
+                        </svg> 
+                        <div>
+                          <p id="file-name">No file selected</p> 
+                        </div>
+                        <button 
+                          id="upload-button"
+                          type="submit"
+                          disabled
+                        >Upload Files
+                        </button>
+                      </label> 
+                      <input id="file" type="file" name="files" multiple hidden>
+                    </form>
+                  </div>
+                  <div id="progress-container" class="hidden">
+                  </div>
+                </div>
+
+              </div>
+            </div>
           </section>
-          <section id="dashboard-myjobs">
+          <section class="subsection" id="dashboard-myjobs">
           </section>
-          <section id="dashboard-status">
-          </section>
-          <section id="dashboard-settings">
+
+          <section class="subsection" id="dashboard-plugins">
           </section>
         </div>
 

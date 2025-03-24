@@ -9,6 +9,7 @@ package userspace
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -234,24 +235,41 @@ func (dbh *DBHandler) GetJobsByUid(uid int) ([]Job, error) {
 
 func (dbh *DBHandler) GetJobsByUids(uids []int) ([]Job, error) {
 	var jobs []Job
+
+	if len(uids) == 0 {
+		return jobs, nil // no users, return empty list
+	}
+
 	db, err := dbh.getConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return nil, err
 	}
-	query := `
+
+	// Build placeholders like (?, ?, ?)
+	placeholders := make([]string, len(uids))
+	args := make([]interface{}, len(uids))
+	for i, uid := range uids {
+		placeholders[i] = "?"
+		args[i] = uid
+	}
+	placeholderStr := strings.Join(placeholders, ",")
+
+	query := fmt.Sprintf(`
 		SELECT
 			*
 		FROM
 			jobs
 		WHERE
-			uid IN (?)
-	`
-	rows, err := db.Query(query, uids)
+			uid IN (%s)
+	`, placeholderStr)
+
+	rows, err := db.Query(query, args...)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
 		return nil, err
 	}
+	defer rows.Close()
 
 	var (
 		input, params string
