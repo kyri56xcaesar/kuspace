@@ -12,7 +12,9 @@
   <script src="../js/index.js"></script>
   <script src="../js/gshell.js"></script>
   <script src="../js/fileUploadModule.js"></script>
+  <script src="../js/jobCodeInput.js"></script>
   <script src="../js/admin-panel.js"></script>
+
 
   <!-- font awesome icons (free)-->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -439,14 +441,13 @@
                 </div>
               </div>
               <div id="j-editor-body">
-                <textarea id="code-editor"></textarea>
+                <textarea class="code-editor"></textarea>
               </div>
             </div>
             <div id="job-io-setup">
               <div class="minimizable fade-out">
                 <button id="select-j-input-button">Input<i class="fa-solid fa-file-import"></i></button>
                 <div>
-                  <label for="select-output-destination">Output:</label>
                   <input type="text" value="output.out" id="select-output-destination" autocomplete="off">
                 </div>
                 <div>

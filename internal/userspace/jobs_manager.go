@@ -182,7 +182,7 @@ func (jm *JobManager) executeJob(job Job) {
 	}
 
 	log.Printf("Job %d completed successfully\n", job.Jid)
-	// jm.updateJobStatus(job.Jid, "completed", duration)
+	jm.updateJobStatus(job.Jid, "completed", duration)
 
 	// insert the output resource
 	go jm.syncOutputResource(job)

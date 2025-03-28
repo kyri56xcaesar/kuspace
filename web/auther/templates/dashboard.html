@@ -11,6 +11,14 @@
     <script src="https://unpkg.com/htmx.org"></script>
     <script src="../js/index.js"></script>
     <script src="../js/pie_chart.js"></script>
+    <script src="../js/vfs.js"></script>
+    <script src="../js/fileUploadModule.js"></script>
+    <script src="../js/jobCodeInput.js"></script>
+    <script src="../js/dashboard.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+
 </head>
 <body>
     <div class="main-content-wrapper">
@@ -31,11 +39,9 @@
           </button>
           <div class="dropdown">
             <div class="dropdown-content">
-              <a href="#">Profile</a>
+              <a href="#" onclick="showSubSection('dashboard-settings')">Settings</a>
               <hr>
-              <a href="#">Settings</a>
-              <hr>
-              <a href="#">Help</a>
+              <a href="https://github.com/kyri56xcaesar/myThesis/issues">Help</a>
               <hr>
               <a
                 id="logout"
@@ -54,7 +60,7 @@
           <div class="section-header">
             <div class="section-main-header">
               <div class="section-title">
-                <h1>Details</h1>
+                <h1>Dashboard</h1>
               </div>
               <div class="search-bar">
                 <input type="text" placeholder="Search">
@@ -67,7 +73,7 @@
             </div>
             <div class="section-options">
               <a href="#" onclick="showSubSection('dashboard-home')">Home</a>
-              <a href="#" onclick="showSubSection('dashboard-myjobs')">My Jobs</a>
+              <a href="#" onclick="showSubSection('dashboard-myjobs');">Jobs</a>
               <a href="#" onclick="showSubSection('dashboard-plugins')">Plugins</a>
             </div>
           </div>
@@ -79,33 +85,62 @@
 
                 <div id="user-information">
                   <div>
-                    <span>Username: {{ .username }}</span>
-                    <span>Email: {{ .info }}</span>
-                    <span>Groups: {{ .groups }} </span>
-                    <span>Home: {{ .home }}</span>
+                    <h3>userinfo</h3>
                   </div>
-                  <div>
-                    <span>Total #Jobs: {{ .total_jobs }}</span>
-                    <span>Total #Resources: {{ .total_resources }}</span>
+                  <div>         
+                    <div>
+                      <span>Username: {{ .username }}</span>
+                      <span>Email: {{ .info }}</span>
+                      <span>Groups: {{ .groups }} </span>
+                      <span>Home: {{ .home }}</span>
+                    </div>
+                    <div>
+                      <span>Total #Jobs: {{ .total_jobs }}</span>
+                      <span>Total #Resources: {{ .total_resources }}</span>
+                    </div>
                   </div>
                 </div>
 
                 <div id="usage-chart-display">
                   <div class="chart-div">
                     <h3>User df --chart</h3>
-                    <canvas id="user-df-chart">
-                      browser doesn't support HTML5 canvas
-                    </canvas>
+                    <canvas
+                      id="user-df-chart"
+                      data-usage="{{ .user_volume.Usage }}"
+                      data-quota="{{ .user_volume.Quota }}"
+                    ></canvas>
                   </div>
                   <div class="chart-div">
                     <h3>Groups df --chart</h3>
-                    <canvas id="group-df-chart">
-                      browser doesn't support HTML5 canvas
-                    </canvas>
+                    <canvas
+                      id="group-df-chart"
+                      data-layers='{{ toJSON .groups_volume }}'
+                    ></canvas>
                   </div>
                 </div>
 
                 <div id="vfs-display">
+                  <h3>myfiles</h3>
+                  <div>
+                    <div id="vfs">
+                      <script>
+                        const resources = [
+                          {{- range $i, $r := .resources -}}
+                            {{- if $i }},{{ end -}}
+                            {{ $r }}
+                          {{ end }}
+                        ];
+                        const container = document.getElementById("vfs");
+    
+                        let vfsRoot = {};
+                        let currentPath = [];
+                        vfsRoot = buildTree(resources);
+                        renderVFS(currentPath, container);
+                      </script>
+                    </div>
+                    <div id="selected-resource-display" class="hidden">
+                    </div>
+                  </div>
                 </div>
 
                 <div class="fupload">
@@ -120,7 +155,7 @@
                       <p>Browse File to upload or drag & drop!</p>
                     </div>
                     <form
-                      id="upload-files-form"
+                      id="upload-files-form-dash"
                       hx-post="/api/v1/verified/upload"
                       hx-swap="none" 
                       hx-include="#file"
@@ -154,16 +189,141 @@
               </div>
             </div>
           </section>
-          <section class="subsection" id="dashboard-myjobs">
+
+          <section class="subsection hidden" id="dashboard-myjobs">
+            <div class="content-display">
+              <div id="new-job-container-dash">
+                <div 
+                  id="j-editor-container"
+                  class="job-section-wrapper"
+                >
+                  <div id="j-editor-header-0">
+                    <i class="fa-solid fa-code" style="color: green;"></i>
+                    <span></span>
+                  </div>
+                  <div id="j-editor-header">
+                    <div class="custom-select-wrapper">
+                      <select id="language-selector" class="custom-select">
+                        <option selected value="python">Python</option>
+                        <option value="javascript">JavaScript</option>
+                        <option value="go">Go</option>
+                        <option value="java">Java</option>
+                        <option value="c">C</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="code-file-upload" class="custom-file-label"><i class="fa-solid fa-arrow-up"></i></label>
+                      <input type="file" id="code-file-upload" style="display: none;"/>
+                    </div>
+                  </div>
+                  <div id="j-editor-body">
+                    <textarea class="code-editor"></textarea>
+                  </div>
+                </div>
+                <div id="job-io-setup">
+                  <div class="minimizable fade-out">
+                    <button id="select-j-input-button">Input<i class="fa-solid fa-file-import"></i></button>
+                    <div>
+                      <input type="text" value="output.out" id="select-output-destination" autocomplete="off">
+                    </div>
+                    <div>
+                      <textarea id="j-description" placeholder="Description" maxlength="100">
+                      </textarea>
+                    </div>
+                    <div id="resource-select-modal-container"></div>
+                  </div>
+                  <!-- display -->
+                  <div class="minimizable fade-out">
+                    <span class="input-box">input.in</span>
+                    <span>λ</i></span>
+                    <span class="script-box"> <i class="fa-solid fa-code" style="color: orange;"></i> </span>
+                    <span class="arrow-box">➡</span>
+                    <span class="output-box">output.out</span>
+                  </div>
+    
+                  <div class="mininizable fade-out" id="submit-job-wrapper">
+                    <div class="submit-cancel">
+                      <!-- From Uiverse.io by Ashon-G --> 
+                      <div aria-live="assertive" role="alert" class="j-loader hidden"></div>
+    
+                      <input type="checkbox" value="None" name="check" 
+                        id="submit-job-button" checked
+                      >
+                      <label for="submit-job-button" tabindex=1></label>
+                    </div>
+                  </div>
+    
+                  <div class="minimizer" id="job-io-minimizer">
+                    <svg class="arrow-icon" width="20" height="20" viewBox="0 0 20 20">
+                      <polygon points="2,5 18,5 10,16" fill="black"/>
+                    </svg>
+                  </div>
+                </div>
+                <div id="job-feedback" class="hidden minimizable">
+                  <div class="minimizer" id="job-feedback-minimizer">
+                    <svg class="arrow-icon" width="20" height="20" viewBox="0 0 20 20">
+                      <polygon points="2,5 18,5 10,16" fill="black"/>
+                    </svg>
+                  </div>
+                  <div id="feedback-messages">
+                    <div id="j-feedback-copy" class="minimizable">
+                      <button id="j-feedback-copy-btn" onclick="copyToClipboard('#feedback-messages', 'j-feedback-copy-btn')" type="button" class="copy-btn">📋</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="jobs-history">
+                <h3> myJobs </h3>
+                <ul>
+                    {{ if .jobs }}
+                    {{ range $index, $job := .jobs }}
+                    
+                    <li>
+                      <div class="job-display-entry darkened fade-out">
+                      <div>
+                        <span class="jid"> #JobId: {{ $job.Jid }}</span>
+                        <span class="uid"> by {{ $job.Uid }} </span>
+                      </div>
+                      <div>
+                        <div>
+                        <span class="status {{ if eq $job.Status "completed" }}success{{ else if eq $job.Status "pending" }}pending{{ else if eq $job.Status "failed" }}fail{{ end }}">
+                          Status: {{ $job.Status }}
+                        </span>            
+                        <span class="duration"> Duration: {{ $job.Duration }} </span>
+                        </div>
+                        <div>
+                        <span class="input"> Input: {{ $job.Input }} </span>
+                        <span class="output"> Output: {{ $job.Output }} </span>
+                        <span> Description: {{ $job.Description }} </span>
+                        </div>
+                        <div>
+                        <span class="created_at"> Created_at: {{ $job.Created_at }} </span>
+                        <span class="completed_at"> Completed_at: {{ $job.Completed_at }} </span>
+                        <span class="completed"> Completed: {{ $job.Completed }} </span>
+                        </div>
+                      </div>
+                      </div>
+                    </li>
+                    {{ end }}
+                    {{ else }}
+                    <li>No jobs</li>
+                    {{ end }}
+                  </ul>
+              </div>
+
+            </div>
           </section>
 
-          <section class="subsection" id="dashboard-plugins">
+          <section class="subsection hidden" id="dashboard-plugins">
+          </section>
+
+          <section class="subsection hidden" id="dashboard-settings">
           </section>
         </div>
 
       </main>
     </div>
 </body>
-<script src="../js/dashboard.js"></script>
 </html>
 

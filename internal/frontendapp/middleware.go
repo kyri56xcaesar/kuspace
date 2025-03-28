@@ -154,6 +154,8 @@ func AuthMiddleware(group string) gin.HandlerFunc {
 			return
 		}
 
+		// log.Printf("%+v", info)
+
 		if info.Info.Valid == "false" {
 			log.Printf("token not valid anymore...")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized, invalid token"})

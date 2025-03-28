@@ -305,8 +305,9 @@ type AccessClaim struct {
 	Uid  string `json:"user_id"`
 	Gids string `json:"group_ids"`
 
-	Target string `json:"target"`
-	Vid    int    `json:"volume_id"`
+	Keyword bool   `json:"keyword,omitempty"`
+	Target  string `json:"target"`
+	Vid     int    `json:"volume_id"`
 }
 
 func (ac *AccessClaim) Filter() AccessClaim {

@@ -2,6 +2,7 @@ package frontendapp
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
@@ -106,6 +107,10 @@ func (srv *HTTPService) ServeHTTP() {
 			}
 			return nil
 		},
+		"toJSON": func(v interface{}) template.JS {
+			b, _ := json.Marshal(v)
+			return template.JS(b)
+		},
 	}
 
 	// set a template eng
@@ -207,7 +212,9 @@ func (srv *HTTPService) ServeHTTP() {
 		admin := verified.Group("/admin")
 		/* minioth will verify token no need to worry here.*/
 		{
+			admin.GET("/fetch-resources", AuthMiddleware("user,admin"), srv.handleFetchResources) // we want to allow users as well
 			admin.Use(AuthMiddleware("admin"))
+
 			admin.GET("/dashboard", func(c *gin.Context) {
 				username, _ := c.Get("username")
 				c.HTML(http.StatusOK, "admin-dashboard", gin.H{
@@ -216,7 +223,6 @@ func (srv *HTTPService) ServeHTTP() {
 				})
 			})
 
-			admin.GET("/fetch-resources", srv.handleFetchResources)
 			admin.GET("/fetch-users", srv.handleFetchUsers)
 			admin.GET("/fetch-volumes", srv.handleFetchVolumes)
 			admin.GET("/fetch-jobs", srv.jobsHandler)

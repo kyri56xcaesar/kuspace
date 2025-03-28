@@ -96,12 +96,9 @@ function showSection(sectionId) {
 }
 
 function showSubSection(sectionId) {
-  console.log('called here for', sectionId);
   const subsections = document.querySelectorAll('.subsection');
-  console.log(subsections);
   if (subsections) {
     subsections.forEach(subsection => {
-      console.log(subsection);
       if (subsection.id === sectionId) {
         subsection.classList.remove('hidden');
       } else {
@@ -149,6 +146,44 @@ function getCookie(name) {
   const parts = value.split(`; ${name}=`);
   if (parts.length === 2) return parts.pop().split(';').shift();
   return '';
+}
+
+function downloadResource(filename) {
+  const link = document.createElement("a");
+  link.href = `/api/v1/verified/download?target=${(filename)}`;
+  link.download = ""; // tells browser to treat it as a download
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+
+// "resource" file editting, permissions..
+function updatePermissionString() {
+  // We assume 9 bits: owner r/w/x, group r/w/x, other r/w/x
+  // Grab the checkboxes in order
+  const ownerR = document.querySelector('input[name="owner-r"]').checked ? 'r' : '-';
+  const ownerW = document.querySelector('input[name="owner-w"]').checked ? 'w' : '-';
+  const ownerX = document.querySelector('input[name="owner-x"]').checked ? 'x' : '-';
+
+  const groupR = document.querySelector('input[name="group-r"]').checked ? 'r' : '-';
+  const groupW = document.querySelector('input[name="group-w"]').checked ? 'w' : '-';
+  const groupX = document.querySelector('input[name="group-x"]').checked ? 'x' : '-';
+
+  const otherR = document.querySelector('input[name="other-r"]').checked ? 'r' : '-';
+  const otherW = document.querySelector('input[name="other-w"]').checked ? 'w' : '-';
+  const otherX = document.querySelector('input[name="other-x"]').checked ? 'x' : '-';
+
+  const newPerms = ownerR + ownerW + ownerX + groupR + groupW + groupX + otherR + otherW + otherX;
+
+  // Update hidden field
+  const permInput = document.getElementById("permissionsInput");
+  if (permInput) {
+    permInput.value = newPerms;
+    // Manually trigger a "change" event so HTMX sees it (if you want immediate patch)
+    // or we rely on the 'delay:300ms' in hx-trigger
+    permInput.dispatchEvent(new Event("change", { bubbles: true }));
+  }
 }
 
 
@@ -400,6 +435,44 @@ document.addEventListener('htmx:afterRequest', function (event) {
           p.textContent = "Browse File to upload or drag & drop!";
         }, 2000)
       }
+  } else if (triggeringElement.id === 'upload-files-form-dash') {
+      setTimeout(() => {
+        hide(document.getElementById('progress-container'))
+      }, 2000);
+
+
+      if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300 && fileUploadModule) {
+        fileUploadModule.reset();
+
+        const feedback = document.querySelector("#file-boxes");
+        feedback.style.opacity = "1";
+        feedback.style.color = "green";
+        const p = document.querySelector(".fupload-header > p");
+        p.textContent = "File(s) uploaded";
+        p.style.opacity = "1";
+        setTimeout(() => {
+          feedback.opacity = "0.4";
+          p.style.opacity = "0.4";
+          feedback.style.color = "black";
+          p.textContent = "Browse File to upload or drag & drop!";
+        }, 10000);  
+        // reload resources
+        // document.querySelector("#fetch-resources-form").requestSubmit();
+        document.getElementById("fetch-resources-form").scrollTo({ top: 0, behavior: "smooth"});
+
+      } else if (event.detail.xhr.status >= 300) {
+        const feedback = document.querySelector(".fupload-header > svg");
+        feedback.style.opacity = "1";
+        feedback.style.color = "red";
+        const p = document.querySelector(".fupload-header > p");
+        p.textContent = "Failed to upload.";
+        p.style.opacity = "1";
+        setTimeout(() => {
+          feedback.opacity = "0.4";
+          feedback.style.color = "black";
+          p.textContent = "Browse File to upload or drag & drop!";
+        }, 2000)
+      }
   } else if (triggeringElement.className === "r-btn-delete") {
       if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
         document.querySelector("#fetch-resources-form").requestSubmit();
@@ -523,5 +596,7 @@ document.addEventListener('htmx:responseError', function(event) {
       window.location.href = "http://"+IP+":"+PORT+"/api/v1/login";
     }
 });
+
+
 
 

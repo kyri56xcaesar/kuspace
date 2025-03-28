@@ -645,6 +645,7 @@ func (srv *HTTPService) handleResourceDownload(c *gin.Context) {
 	uid, _ := c.Get("user_id")
 	group_ids, _ := c.Get("group_ids")
 	fpath := c.Request.URL.Query().Get("target")
+	log.Printf("fpath: %v", fpath)
 
 	if fpath == "" {
 		log.Printf("must provide a target")
@@ -668,6 +669,7 @@ func (srv *HTTPService) handleResourceDownload(c *gin.Context) {
 	req.Header.Add("Authorization", c.Request.Header.Get("Authorization"))
 	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
 
+	log.Printf("%v %v:%v", fpath, uid, group_ids)
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Printf("failed to forward request: %v", err)
@@ -839,9 +841,11 @@ func (srv *HTTPService) handleResourceDelete(c *gin.Context) {
 		}
 	}
 
-	req.Header.Add("Access-Target", fmt.Sprintf("/ %v:%v", uid, group_ids))
+	req.Header.Add("Access-Target", fmt.Sprintf("$rids=%s %v:%v", resource_target, uid, group_ids))
 	req.Header.Add("Authorization", c.Request.Header.Get("Authorization"))
 	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+
+	log.Printf("$rids=%v %v:%v", resource_target, uid, group_ids)
 
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -1350,7 +1354,37 @@ func (srv *HTTPService) jobsHandler(c *gin.Context) {
 		// Render the HTML template
 		respondInFormat(c, format, jobResp.Content, "jobs_list_template.html")
 	case http.MethodPost:
-		jobReq, err := http.NewRequest(http.MethodPost, apiServiceURL+"/api/v1/job", c.Request.Body)
+
+		// lets fix the uid (identify ourselves)
+		var job Job
+		err := c.ShouldBindJSON(&job)
+		if err != nil {
+			log.Printf("failed to bind json body: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to bind"})
+			return
+		}
+
+		// log.Printf("%+v", job)
+		// our uid
+		uid, exists := c.Get("user_id")
+		if !exists {
+			log.Printf("uid not set correctly... should be unreachable")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "incosiderable"})
+			return
+		}
+		job.Uid, err = strconv.Atoi(uid.(string))
+		if err != nil {
+			log.Printf("failed to atoi uid value: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to atoi uid"})
+			return
+		}
+		job_json, err := json.Marshal(job)
+		if err != nil {
+			log.Printf("failed to marshal job: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to marshal job"})
+			return
+		}
+		jobReq, err := http.NewRequest(http.MethodPost, apiServiceURL+"/api/v1/job", bytes.NewBuffer(job_json))
 		if err != nil {
 			log.Printf("failed to create request: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
@@ -1372,6 +1406,7 @@ func (srv *HTTPService) jobsHandler(c *gin.Context) {
 				c.Header(key, value)
 			}
 		}
+
 		_, err = io.Copy(c.Writer, response.Body)
 		if err != nil {
 			log.Printf("failed to write response: %v", err)
@@ -1811,7 +1846,8 @@ func (srv *HTTPService) handleDashboard(c *gin.Context) {
 	jReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
 
 	// 4) fetch user resources
-	rReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/resources", nil)
+
+	rReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/resources?struct=content", nil)
 	if err != nil {
 		log.Printf("failed to create request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
@@ -1819,7 +1855,7 @@ func (srv *HTTPService) handleDashboard(c *gin.Context) {
 	}
 	rReq.Header.Set("Authorization", "Bearer "+accessToken)
 	rReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
-	rReq.Header.Set("Access-Target", fmt.Sprintf("/home/%v %v:%v", username, uid, gids))
+	rReq.Header.Set("Access-Target", fmt.Sprintf("/ %v:%v", uid, gids))
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	var (
@@ -1958,16 +1994,12 @@ func (srv *HTTPService) handleDashboard(c *gin.Context) {
 		vids_map[gv.Vid] = true
 	}
 
-	log.Printf("vid map: %v", vids_map)
-
 	vids := make([]int, 0, len(vids_map))
 	for vid, is := range vids_map {
 		if is {
 			vids = append(vids, vid)
 		}
 	}
-	log.Printf("vids: %v", vids)
-
 	vReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/volumes?vids="+strings.Trim(strings.Join(strings.Fields(fmt.Sprint(vids)), ","), "[]"), nil)
 	if err != nil {
 		log.Printf("failed to create request: %v", err)
@@ -1995,9 +2027,9 @@ func (srv *HTTPService) handleDashboard(c *gin.Context) {
 
 	log.Printf("User Volumes Response: %+v", uvResp.Content)
 	log.Printf("Group Volumes Response: %+v", gvResp.Content)
-	log.Printf("Jobs Response: %+v", jResp.Content)
-	log.Printf("Resources Response: %+v", rResp.Content)
-	log.Printf("Volumes Response: %+v", vResp.Content)
+	// log.Printf("Jobs Response: %+v", jResp.Content)
+	// log.Printf("Resources Response: %+v", rResp.Content)
+	// log.Printf("Volumes Response: %+v", vResp.Content)
 
 	// Render the HTML template
 	c.HTML(http.StatusOK, "dashboard.html", gin.H{
@@ -2010,7 +2042,7 @@ func (srv *HTTPService) handleDashboard(c *gin.Context) {
 		"total_jobs":      len(jResp.Content),
 		"resources":       rResp.Content,
 		"total_resources": len(rResp.Content),
-		"user_volume":     uvResp.Content,
+		"user_volume":     uvResp.Content[0],
 		"groups_volume":   gvResp.Content,
 	})
 

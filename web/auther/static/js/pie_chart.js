@@ -16,6 +16,7 @@ class myChart {
         this.canvas = canvas;
         this.ctx = ctx;
         this.layers = [];
+        this.currentLindex = 0;
 
         this.how = how;
         this.centerX = this.canvas.width / 2;
@@ -26,6 +27,7 @@ class myChart {
 
     addLayer(layer) {
         this.layers.push(layer);
+        this.currentLindex += layer.target;
     }
 
     drawIndicators() {

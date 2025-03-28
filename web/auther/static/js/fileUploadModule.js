@@ -135,5 +135,5 @@ function fileUploadContainerFunctionality(dropZone, fileInput, fileBoxContainer,
         fileBoxContainer.querySelectorAll(".file-box").forEach((box) => box.remove())
       },
     };
-  }
+}
   

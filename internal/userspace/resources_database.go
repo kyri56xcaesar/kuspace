@@ -258,13 +258,23 @@ func (dbh *DBHandler) GetResourcesByIds(rids []int) ([]Resource, error) {
 		return nil, err
 	}
 
-	rows, err := db.Query(`
-    SELECT
+	placeholders := make([]string, len(rids))
+	args := make([]interface{}, len(rids))
+	for i, uid := range rids {
+		placeholders[i] = "?"
+		args[i] = uid
+	}
+	placeholderStr := strings.Join(placeholders, ",")
+
+	query := fmt.Sprintf(`
+	SELECT
       *
     FROM 
       resources 
     WHERE 
-      rid IN (?)`, rids)
+      rid IN (%s)`, placeholderStr)
+
+	rows, err := db.Query(query, args...)
 	if err != nil {
 		log.Printf("error querying db: %v", err)
 		return nil, err

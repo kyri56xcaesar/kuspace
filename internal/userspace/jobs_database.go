@@ -34,7 +34,7 @@ func (dbh *DBHandler) InsertJob(jb Job) (int64, error) {
 	`
 
 	var jid int64
-	err = db.QueryRow(query, jb.Uid, jb.Description, jb.Duration, strings.Join(jb.Input, ","), jb.InputFormat, jb.Output, jb.OutputFormat, jb.Logic, jb.LogicBody, jb.LogicHeaders, strings.Join(jb.Params, ","), jb.Status, jb.Completed, currentTime).Scan(&jid)
+	err = db.QueryRow(query, jb.Uid, jb.Description, jb.Duration, strings.Join(jb.Input, ","), jb.InputFormat, jb.Output, jb.OutputFormat, jb.Logic, jb.LogicBody, jb.LogicHeaders, strings.Join(jb.Params, ","), "pending", jb.Completed, currentTime).Scan(&jid)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
 		return -1, err
@@ -77,7 +77,7 @@ func (dbh *DBHandler) InsertJobs(jbs []Job) error {
 	for _, jb := range jbs {
 		currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 		var jid int64
-		err = db.QueryRow(query, jb.Uid, jb.Description, jb.Duration, strings.Join(jb.Input, ","), jb.InputFormat, jb.Output, jb.OutputFormat, jb.Logic, jb.LogicBody, jb.LogicHeaders, strings.Join(jb.Params, ","), jb.Status, jb.Completed, currentTime).Scan(&jid)
+		err = db.QueryRow(query, jb.Uid, jb.Description, jb.Duration, strings.Join(jb.Input, ","), jb.InputFormat, jb.Output, jb.OutputFormat, jb.Logic, jb.LogicBody, jb.LogicHeaders, strings.Join(jb.Params, ","), "pending", jb.Completed, currentTime).Scan(&jid)
 		if err != nil {
 			tx.Rollback()
 			log.Printf("failed to execute statement: %v", err)

@@ -35,6 +35,7 @@ func (srv *UService) ResourcesHandler(c *gin.Context) {
 		return
 	}
 	resources, err := srv.dbh.GetAllResourcesAt(ac.Target + "%")
+	// log.Printf("ac: %+v\nresources: %+v", ac, resources)
 	if err != nil {
 		log.Printf("error retrieving resource: %v", err)
 		if strings.Contains(err.Error(), "scan") {
@@ -64,6 +65,8 @@ func (srv *UService) ResourcesHandler(c *gin.Context) {
 		}
 
 		c.JSON(200, tree)
+	case "content":
+		c.JSON(200, gin.H{"content": resources})
 	default:
 		c.JSON(200, resources)
 	}
