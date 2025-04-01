@@ -10,13 +10,16 @@ function setupCanvas(canvas, width, height) {
     return ctx;
 }
 
+function round(value, decimals) {
+    return Number(Math.round(value + 'e' + decimals) + 'e-' + decimals);
+  }
 
 class myChart {
     constructor(canvas, ctx, how) {
         this.canvas = canvas;
         this.ctx = ctx;
         this.layers = [];
-        this.currentLindex = 0;
+        this.currentAngle = -0.5;
 
         this.how = how;
         this.centerX = this.canvas.width / 2;
@@ -27,7 +30,6 @@ class myChart {
 
     addLayer(layer) {
         this.layers.push(layer);
-        this.currentLindex += layer.target;
     }
 
     drawIndicators() {
@@ -37,10 +39,20 @@ class myChart {
         this.ctx.textBaseline = 'middle';
         this.ctx.fillStyle = 'black';
 
+
+        // center 
         this.ctx.beginPath();
+        this.ctx.arc(this.centerX, this.centerY, 5, 0, 2 * Math.PI)
+        this.ctx.fill()
+
+        // perimeter
+        this.ctx.beginPath();
+        this.ctx.lineWidth = 3;
         this.ctx.arc(this.centerX, this.centerY, this.R, 0, 2 * Math.PI);
         this.ctx.stroke();
         
+
+        // rays/radius
         for (let i = 0; i <= this.how.max; i += this.how.step) {
             const angle = (i / this.how.max) * 2 * Math.PI - 0.5 * Math.PI;
                 
@@ -79,79 +91,81 @@ class myChart {
     }
 
     draw() {
+        this.currentAngle = -0.5 * Math.PI; // start from the top
+    
         this.layers.forEach(layer => {
-            layer.draw();
+            let rotation = layer.draw(this.currentAngle); // still returning radians
+            this.currentAngle += rotation;
         });
+    
         this.drawIndicators();
-        
-    }
-
-    animate() {
-        const needsRedraw = this.layers.some(layer => layer.update());
-    
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.draw(); // calls layer.draw() + indicators
-    
-        if (needsRedraw) {
-            requestAnimationFrame(() => this.animate());
-        }
     }
     
-
+    
 }
 
 class Layer {
-    constructor(chart, howMuch, style) {
+    constructor(canvas, ctx, howMuch, style) {
         this.max = howMuch.max;
         this.target = howMuch.at;
         this.current = 0;
 
-        this.ctx = chart.ctx;
+        this.ctx = ctx;
 
         this.name = style.name;
         this.color = style.color;
         this.padding = style.padding || 25;
+        this.RScale = style.RScale || 25;
 
-        this.where = {X: chart.canvas.width / 2, Y: chart.canvas.height / 2, R: (chart.canvas.width / 2) - this.padding};
+        this.where = {X: canvas.width / 2, Y: canvas.height / 2, R: (canvas.width / 2) * this.RScale - this.padding};
     }
 
 
-    draw() {
+    draw(startAngle) {
+        // console.log('starting at (radians):', startAngle);
+        
         const usageAngle = (this.target / this.max) * 2 * Math.PI;
+        const endAngle = startAngle + usageAngle;
+    
+        // indicator darw
+        const radius = this.where.R;
+        const indicatorOffset = 0;
+        const xEnd = this.where.X + (radius + indicatorOffset) * Math.cos(endAngle);
+        const yEnd = this.where.Y + (radius + indicatorOffset) * Math.sin(endAngle);
+    
+        this.ctx.beginPath(); 
+        this.ctx.moveTo(this.where.X, this.where.Y);
+        this.ctx.strokeStyle = "black";
+        this.ctx.lineWidth = 4;
+        this.ctx.lineTo(xEnd, yEnd);
+        this.ctx.stroke(); 
+        this.ctx.lineWidth = 1;
+
+    
+
+        // label draw
+        const midAngle = startAngle + usageAngle / 2;
+        const labelRadius = radius * 1.25; // distance from center for label
+        const labelX = this.where.X + labelRadius * Math.cos(midAngle);
+        const labelY = this.where.Y + labelRadius * Math.sin(midAngle);
+        
+        this.ctx.fillStyle = "black";
+        this.ctx.font = "14px sans-serif";
+        this.ctx.textAlign = "center";
+        this.ctx.textBaseline = "middle";
+        this.ctx.fillStyle = this.color;
+        this.ctx.fillText(this.name, labelX, labelY);
+
+        // Draw the arc sector
         this.ctx.beginPath();
         this.ctx.fillStyle = this.color;
         this.ctx.moveTo(this.where.X, this.where.Y);
-        this.ctx.arc(this.where.X, this.where.Y, this.where.R, -0.5 * Math.PI, usageAngle - 0.5 * Math.PI);
+        this.ctx.arc(this.where.X, this.where.Y, radius, startAngle, endAngle);
         this.ctx.fill();
+    
+        return usageAngle;
     }
-
-    update() {
-        const speed = 0.1; // percent per frame — you can tweak this
-        if (this.current < this.target) {
-            this.current += speed;
-            if (this.current > this.target) this.current = this.target;
-            return true; // still animating
-        }
-        return false; // done
-    }
+    
 
     
 }
-
-
-// const canvas = document.getElementById('chart');
-// const ctx = setupCanvas(canvas, 250, 250); // logical dimensions (CSS size)
-
-// const chart = new myChart(canvas, ctx, {max: 100, step: 5, tick: 10, offset: 0, Rscale: 0.9, rays: [5, 5], fontWidth: 15});
-// const padding = 15;
-
-// const layer1 = new Layer(canvas, {max:100, at: 46}, {name:'Layer 1', color:'rgba(66, 164, 177, 0.5)', padding: padding});
-// const layer2 = new Layer(canvas, {max: 100, at: 67}, {name:'Layer 2', color:'rgba(25, 145, 109, 0.5)', padding: padding});
-// const layer3 = new Layer(canvas, {max: 100, at: 97}, {name:'Layer 3', color:'rgba(100, 197, 176, 0.5)', padding: padding});
-
-// // console.log(layer1)
-// chart.addLayer(layer1);
-// chart.addLayer(layer2);
-// chart.addLayer(layer3);
-
-// chart.animate();

@@ -36,7 +36,8 @@
 
 
 :focus {
-    outline: 0;
+    outline: 1;
+	/* outline-color: cadetblue; */
 }
 
 .responsive-wrapper {
@@ -71,7 +72,90 @@ section {
 
 
 
+.content {
+	padding: 3rem;
+}
 
+.label-input-class {
+	display: inline-flex;
+	justify-content: space-between;
+	gap: 1rem;
+}
+
+.settings-action {
+	/* border: 1px solid cadetblue; */
+	padding: 0 1rem;
+
+	margin-right: 5px;
+
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+#settings-option-target {
+
+	position: relative;
+	padding: 1rem;
+	display: flex;
+	flex-direction: column;
+	gap: 10rem;
+
+
+	& :is(.info-display) {
+		position: relative;
+		& > i {
+			position: absolute;
+			margin-left: 8px;
+		}
+
+		& > i:hover {
+			cursor: pointer;
+			color:blue;
+		}
+	}
+
+	& :is(#profile-settings-section) {
+		height: 200px;
+
+		display: flex;
+		flex-direction: column;
+
+		& > div {
+			/* after profile div */
+			display: flex;
+			justify-content: space-between;
+			width: 100%;
+
+			/* the profile display */
+			& > div:nth-child(1) {
+				display: flex;
+				flex-direction: column;
+				width: 30%;
+
+				& > div {
+					display: inline-flex;
+					flex-direction: row;
+					justify-content: space-between;
+				}
+			}
+
+			
+		}
+	}
+	
+	& :is(#theme-settings-section) {
+		& > div {
+			display: flex;
+			flex-direction: column;
+			width: 35%;
+		}
+	}
+ 
+	& :is(#submit_password_change_btn).focus {
+		background-color: red;
+	}
+}
 
 
 .profile-menu {
@@ -193,6 +277,8 @@ section {
     justify-content: space-between;
 
     border-bottom: 1px solid cadetblue;
+
+	position: relative;
 }
 
 .search-bar {
@@ -241,6 +327,20 @@ section {
 		padding: 0;
 		height: 40px;
 	}
+}
+
+#search-results-modal {
+	display: none;
+	position: absolute;
+	top: 80px;
+	right: 0px;
+	background: white;
+	border: 1px solid #ccc;
+	padding: 10px;
+	max-height: 400px;
+	overflow-y: auto;
+	z-index: 5000;
+	width: 400px;;
 }
 
 .section-options {

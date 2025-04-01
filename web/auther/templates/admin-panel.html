@@ -36,7 +36,7 @@
     <button id="toggle-sidebar" class="sidebar-toggle">☰</button>
       <ul class="menu collapsing">
         <li>
-          <a href="#" onclick="showSection('dashboard')">Dashboard</a>
+          <a href="/api/v1/verified/dashboard">Dashboard</a>
           <ul class="submenu">
             <p></p>
           </ul>              
@@ -129,18 +129,6 @@
       </div>
     </header>
     <main id="main-content">
-      <section id="dashboard" class="content-section">
-        <h2>Root Dashboard</h2>
-        <p>This is the dashboard where you can use the system as a user.</p>
-        <div class="dashboard-container"
-          id="root-dashboard-loader"
-          hx-get="/api/v1/verified/admin/dashboard"
-          hx-swap="innerHTML"
-          hx-target="this"
-          hx-trigger="load"
-        >  
-        </div>
-      </section>
       <!-- users -->
       <section id="users" class="content-section hidden">
         <h2>Manage Users </h2>
@@ -367,7 +355,7 @@
           </form>
         </div>
       </section>
-      <section id="jobs" class="content-section hidden">
+      <section id="jobs" class="content-section">
         <h2>Manage Jobs</h2>
         <p>Monitor, view, and manage jobs.</p>
         <hr>

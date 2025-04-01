@@ -1665,6 +1665,7 @@ a, label, ul, ol, h1, h2, h3, h4, h5, h6 {
         width: 100%;
         height: 100%;
         & :is(.resource-preview-container) {
+          min-height: 150px;
           height: 100%; /* Fixed height to prevent excessive scrolling */
           background: rgba(0, 0, 0, 0.8); /* Dark background for better readability */
           color: #ddd; /* Light text */
@@ -1691,8 +1692,8 @@ a, label, ul, ol, h1, h2, h3, h4, h5, h6 {
       & :is(#resource-preview-controls) {
         position: absolute;
         bottom: 10px;
-        width: 90%;
-        z-index: 7;
+        width: 80%;
+        z-index: 20;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -1704,8 +1705,13 @@ a, label, ul, ol, h1, h2, h3, h4, h5, h6 {
           padding-left: 15px;
           padding-top: 3px;
           padding-bottom: 3px;
-          border: 1px dashed red;
+          /* border: 1px dashed red; */
           border-radius: 5px;
+          color: white;
+        }
+
+        & :is(.next-arrow):hover{
+          cursor: pointer;
         }
       }
 

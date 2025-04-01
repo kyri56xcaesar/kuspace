@@ -8,7 +8,6 @@
     <link rel="icon" href="../assets/logos/cropped.png">
     <link href="../css/styles.css" rel="stylesheet">
     <link href="../css/dashboard.css" rel="stylesheet">
-    <script src="https://unpkg.com/htmx.org"></script>
     <script src="../js/index.js"></script>
     <script src="../js/pie_chart.js"></script>
     <script src="../js/vfs.js"></script>
@@ -18,6 +17,9 @@
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+
+    <script src="../js/htmx.min.js"></script>
+
 
 </head>
 <body>
@@ -63,12 +65,14 @@
                 <h1>Dashboard</h1>
               </div>
               <div class="search-bar">
-                <input type="text" placeholder="Search">
+                <input id="dashboard-search" type="text" placeholder="Search">
                 <button type="submit">
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
                     <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z">
                   </svg>
                 </button>
+              </div>
+              <div class="" id="search-results-modal">
               </div>
             </div>
             <div class="section-options">
@@ -319,6 +323,110 @@
           </section>
 
           <section class="subsection hidden" id="dashboard-settings">
+            <div class="content">
+              <h3> Settings </h3>
+              <hr>
+              <div class="side-options" id="settings-options">
+                  <div>
+                 </div>
+
+                  <div>
+                  </div>
+                </div>
+
+              <div id="settings-option-target">
+                <div class="" id="profile-settings-section">
+                  <h4> Profile </h4>
+                  <div>
+                    <div> 
+                      <div>                     
+                        <label for="username">Username:</label> 
+                        <span id="username">{{ .username }}</span>
+                      </div>
+
+                      <div>
+                        <label for="username">Password:</label> 
+                        <div class="info-display">
+                          <span id="password">*******</span>
+                          <i onclick="toggleHidden('#change-password-form', '.settings-action')" id="change-password-button" class="fas fa-edit"></i>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label for="email">Email:</label>
+                        <div class="info-display">
+                          <span id="email">{{ .info }}</span>
+                          <i onclick="toggleHidden('#change-email-prompt', '.settings-action')" id="change-email-button" class="fas fa-edit"></i>  
+                        </div>
+                      </div>
+
+                    </div>
+
+                    <div id="profile-actions-div">
+                        <form 
+                          class="settings-action hidden" 
+                          id="change-password-form"
+                          hx-post="/api/v1/verified/passwd"
+                          hx-swap="none"
+                          hx-trigger="submit"
+                        >
+                          <div class="label-input-class">
+                            <label for="current_password">Current password: </label>
+                            <input required readonly autocomplete="off" id="current_password" type="password" name="current_password">
+                          </div>
+
+                          <div class="label-input-class">
+                            <label for="new_password">New password: </label>
+                            <input required readonly autocomplete="off" id="new_password" type="password" name="new_password">
+                          </div>
+
+                          <div class="label-input-class">
+                            <label for="new_password_repeat">New password repeat: </label>
+                            <input required autocomplete="off" readonly id="new_password_repeat" type="password" name="new_password_repeat">
+                          </div>
+
+                          <button id="submit_password_change_btn" type="submit">Submit</button>
+                        </form>
+
+                      <div class="settings-action hidden" id="change-email-prompt">
+                        <form
+                          id="email-change-form"
+                          hx-put="/api/v1/verified/user-conf"
+                          hx-trigger="submit"
+                          hx-swap="none"
+                          hx-headers='{"Content-Type":"multipart/form-data"}'
+                          >
+                          <div class="label-input-class">
+                            <label for="email">Email</label>
+                            <input id="new-email-change" name="new-email-change">
+                          </div>
+                          <button 
+                            id="submit-email-change-btn" 
+                            type="submit"
+                            >Submit</button>
+                        </form>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="" id="theme-settings-section">
+                  <h4> Themes </h4>
+                  <div>
+                    <div class="label-input-class">
+                      <label for="font">Font</label>
+                      <input id="font">
+                    </div>
+
+                    <div class="label-input-class">
+                      <label for="background">Theme</label>
+                      <input id="theme">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
           </section>
         </div>
 

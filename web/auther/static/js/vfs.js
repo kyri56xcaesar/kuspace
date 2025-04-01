@@ -72,7 +72,6 @@ function renderVFS(pathParts, container) {
   });
 }
 
-
 function displaySelectedResource(resourcePath) {
   const targetDiv = document.getElementById("selected-resource-display");
   targetDiv.classList.remove("hidden");
@@ -86,8 +85,6 @@ function displaySelectedResource(resourcePath) {
       break;
     }
   }
-
-  console.log(resourceTarget);
 
   // Update the resource details div
   targetDiv.innerHTML = `
@@ -107,7 +104,7 @@ function displaySelectedResource(resourcePath) {
               
             <button 
               class="r-btn-edit"
-              hx-get="/api/v1/verified/edit-form?resourcename=${resourceTarget.name}&owner=${resourceTarget.uid}&group=${resourceTarget.gid}&perms=${resourceTarget.perms}&rid=${resourceTarget.rid}"
+              hx-get="/api/v1/verified/edit-form-user?resourcename=${resourceTarget.name}&owner=${resourceTarget.uid}&group=${resourceTarget.gid}&perms=${resourceTarget.perms}&rid=${resourceTarget.rid}"
               hx-swap="innerHTML"
               hx-trigger="click"
               hx-target="#edit-modal"
@@ -160,12 +157,20 @@ function displaySelectedResource(resourcePath) {
           hx-trigger="click"
           hx-swap="innerHTML"
           hx-get="/api/v1/verified/preview?rid=${resourceTarget.rid}&resourcename=${resourceTarget.name}"
-          hx-headers='{"Range": "bytes=0-4095"}'
+          hx-headers='{"Range": "bytes=${getPreviewWindow(0)}"}'
         >Preview</button>
         <div class="resource-preview-main blurred">
           <div id="resource-preview-content"></div>
           <div id="resource-preview-controls">
-            <div id="next-arrow-left" class="next-arrow">
+            <div 
+              id="next-arrow-left" 
+              class="next-arrow"
+              hx-target="#resource-preview-content"
+              hx-trigger="click"
+              hx-swap="innerHTML"
+              hx-get="/api/v1/verified/preview?rid=${resourceTarget.rid}&resourcename=${resourceTarget.name}"
+              hx-headers='js:{"Range": "bytes=" + getPreviewWindow(-1)}'  
+            >
               <svg width="24" height="8" viewBox="0 0 16 8" fill="none" xmlns="http://www.w3.org/2000/svg" class="arrow-icon">
               <g transform="scale(-1,1) translate(-16,0)">
                 <path d="M15 4H4V1" stroke="white"/>
@@ -175,9 +180,16 @@ function displaySelectedResource(resourcePath) {
               </svg>
             </div>
             <div>
-              <span id="page-index">1</span>
+              <span id="page-index">0</span>
             </div>
-            <div id="next-arrow-right" class="next-arrow">
+            <div 
+              id="next-arrow-right" 
+              class="next-arrow"
+              hx-target="#resource-preview-content"
+              hx-trigger="click"
+              hx-swap="innerHTML"
+              hx-get="/api/v1/verified/preview?rid=${resourceTarget.rid}&resourcename=${resourceTarget.name}"
+              hx-headers='js:{"Range": "bytes=" + getPreviewWindow(+1)}'            >
               <svg width="24" height="8" viewBox="0 0 16 8" fill="none" xmlns="http://www.w3.org/2000/svg" class="arrow-icon">
                 <path d="M15 4H4V1" stroke="white"/>
                 <path d="M14.5 4H3.5H0" stroke="white"/>
@@ -197,7 +209,7 @@ function displaySelectedResource(resourcePath) {
     </div>
     </div>
   `;
-  const btns = targetDiv.querySelectorAll(".r-btn-download, .r-btn-edit, .r-btn-delete, #preview-resource-btn");
+  const btns = targetDiv.querySelectorAll(".r-btn-download, .r-btn-edit, .r-btn-delete, #preview-resource-btn, #next-arrow-right, #next-arrow-left");
   btns.forEach(button => {
     htmx.process(button);
   });

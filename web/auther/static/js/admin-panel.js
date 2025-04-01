@@ -33,7 +33,7 @@ function editUser(uid, index) {
       continue;
     }
 
-    if (i == 5) {
+    if (i == 6) {
       continue;
     }
 
@@ -73,15 +73,17 @@ function getUserPatchValues(uid) {
   let ed1 = document.getElementById("edit-input-"+uid+"-1");
   let ed2 = document.getElementById("edit-input-"+uid+"-2");
   let ed3 = document.getElementById("edit-input-"+uid+"-3");
-  let ed4 = document.getElementById("edit-input-"+uid+"-4");
-  let ed6 = document.getElementById("edit-input-"+uid+"-6");
+  let ed4 = document.getElementById("edit-input-"+uid+"-4")
+  let ed5 = document.getElementById("edit-input-"+uid+"-5");
+  let ed7 = document.getElementById("edit-input-"+uid+"-7");
   r = {
     uid: uid,
     username : ed1.value,
     password : ed2.value,
-    home: ed3.value,
-    shell: ed4.value,
-    groups: ed6.value
+    info : ed3.value,
+    home: ed4.value,
+    shell: ed5.value,
+    groups: ed7.value
   };
 
   return r

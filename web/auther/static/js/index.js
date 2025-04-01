@@ -30,6 +30,7 @@ domReady(() => {
     });
   });
 
+  // logout
   const logout_btn = document.getElementById("logout-a");
   if (logout_btn) {
     logout_btn.addEventListener("click", () => {
@@ -188,6 +189,45 @@ function updatePermissionString() {
 
 
 
+var previewBytes = 4095;
+var previewIndex = 0;
+
+function getPreviewWindow(inc) {
+  // direction must be either +1 or -1
+  if (inc < -1 || inc > 1) {
+    return "0-" + previewBytes.toString();
+  }
+
+  // reset
+  if (inc == 0) {
+    previewIndex = 0;
+  }
+
+  previewIndex += inc;
+  if (previewIndex < 0) {
+    previewIndex = 0;
+  }
+
+  let start = previewIndex * previewBytes;
+  if (start < 0) {
+    start = 0;
+  }
+
+  let end = (previewIndex + 1) * previewBytes;
+
+  
+  // update page index;
+  let indexDisplay = document.getElementById("page-index");
+  if (indexDisplay) {
+    indexDisplay.textContent = previewIndex.toString();
+  }
+
+
+  return start.toString() + "-" + end.toString();
+
+}
+
+
 // htmx events handling
 document.addEventListener('htmx:afterSettle', function(event) {
   const triggeringElement = event.detail.elt;
@@ -270,6 +310,8 @@ document.addEventListener('htmx:beforeRequest', function(event) {
 
 document.addEventListener('htmx:afterRequest', function (event) {
   const triggeringElement = event.detail.elt;
+
+  // console.log('triggering element: ', triggeringElement);
 
   if (event.detail.xhr.status == 401 || event.detail.xhr.status == 303) {
     event.preventDefault();
@@ -458,7 +500,7 @@ document.addEventListener('htmx:afterRequest', function (event) {
         }, 10000);  
         // reload resources
         // document.querySelector("#fetch-resources-form").requestSubmit();
-        document.getElementById("fetch-resources-form").scrollTo({ top: 0, behavior: "smooth"});
+        // document.getElementById("fetch-resources-form").scrollTo({ top: 0, behavior: "smooth"});
 
       } else if (event.detail.xhr.status >= 300) {
         const feedback = document.querySelector(".fupload-header > svg");
@@ -539,7 +581,7 @@ document.addEventListener('htmx:afterRequest', function (event) {
     if (event.detail.xhr.status < 300) {
       
     }
-  }  else if (triggeringElement.id === 'load-users-to-cache') {
+  } else if (triggeringElement.id === 'load-users-to-cache') {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
       const rawResponse = event.detail.xhr.responseText;
       try {
@@ -569,6 +611,51 @@ document.addEventListener('htmx:afterRequest', function (event) {
       } catch (error) {
         console.error("Could not parse JSON:", error, rawResponse);
       }
+    }
+  } else if (triggeringElement.id === 'change-password-form') {
+    if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+      triggeringElement.reset();
+      triggeringElement.querySelectorAll('*').forEach((child) => {
+        child.style.color = "green";
+      });
+      setTimeout(() =>{
+        triggeringElement.querySelectorAll('*').forEach((child) => {
+          child.style.color = "black";
+        });
+        // triggeringElement.style.borderColor = bgc;
+      }, 2000);
+    } else {
+      triggeringElement.reset();
+      triggeringElement.querySelectorAll('*').forEach((child) => {
+        child.style.color = "red";
+      });
+      setTimeout(() =>{
+        triggeringElement.querySelectorAll('*').forEach((child) => {
+          child.style.color = "black";
+        });
+      }, 2000);
+    }
+  } else if (triggeringElement.id === 'email-change-form') {
+    if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+      triggeringElement.reset();
+      triggeringElement.querySelectorAll('*').forEach((child) => {
+        child.style.color = "green";
+      });
+      setTimeout(() =>{
+        triggeringElement.querySelectorAll('*').forEach((child) => {
+          child.style.color = "black";
+        });
+      }, 2000);
+    } else {
+      triggeringElement.reset();
+      triggeringElement.querySelectorAll('*').forEach((child) => {
+        child.style.color = "red";
+      });
+      setTimeout(() =>{
+        triggeringElement.querySelectorAll('*').forEach((child) => {
+          child.style.color = "black";
+        });
+      }, 2000);
     }
   }
 });

@@ -184,6 +184,10 @@ func (srv *HTTPService) ServeHTTP() {
 				"message":  "Welcome to the Admin Panel ",
 			})
 		})
+
+		verified.POST("/passwd", AuthMiddleware("user, admin"), srv.passwordChangeHandler)
+		verified.PUT("/user-conf", AuthMiddleware("user, admin"), srv.updateUser)
+
 		verified.GET("/dashboard", AuthMiddleware("user, admin"), srv.handleDashboard)
 
 		// actions for logged in users
@@ -196,6 +200,7 @@ func (srv *HTTPService) ServeHTTP() {
 		verified.DELETE("/rm", AuthMiddleware("user, admin"), srv.handleResourceDelete)
 
 		verified.GET("/edit-form", AuthMiddleware("user, admin"), srv.editFormHandler)
+		verified.GET("/edit-form-user", AuthMiddleware("user, admin"), srv.editFormUserHandler)
 		verified.GET("/add-symlink-form", AuthMiddleware("user, admin"), srv.addSymlinkFormHandler)
 
 		verified.GET("/gshell", AuthMiddleware("user, admin"), func(c *gin.Context) {
@@ -213,15 +218,9 @@ func (srv *HTTPService) ServeHTTP() {
 		/* minioth will verify token no need to worry here.*/
 		{
 			admin.GET("/fetch-resources", AuthMiddleware("user,admin"), srv.handleFetchResources) // we want to allow users as well
-			admin.Use(AuthMiddleware("admin"))
+			admin.PATCH("/chmod", AuthMiddleware("user,admin"), srv.handleResourcePerms)
 
-			admin.GET("/dashboard", func(c *gin.Context) {
-				username, _ := c.Get("username")
-				c.HTML(http.StatusOK, "admin-dashboard", gin.H{
-					"username": username,
-					"message":  "Welcome to your dashboard, ",
-				})
-			})
+			admin.Use(AuthMiddleware("admin"))
 
 			admin.GET("/fetch-users", srv.handleFetchUsers)
 			admin.GET("/fetch-volumes", srv.handleFetchVolumes)
@@ -240,7 +239,6 @@ func (srv *HTTPService) ServeHTTP() {
 
 			admin.PATCH("/chown", srv.handleResourcePerms)
 			admin.PATCH("/chgroup", srv.handleResourcePerms)
-			admin.PATCH("/chmod", srv.handleResourcePerms)
 		}
 	}
 

@@ -160,6 +160,128 @@
 </div>
 {{ end }}
 
+{{ define "edit-form-user.html"}} 
+<div class="close-btn-div"><button onclick="hide(document.getElementById('edit-modal'))" class="button-close"></button></div>
+	<div
+    id="edit-resource-form"
+  >   
+    <h3>Edit Resource</h3>
+    <p>Auto save on key release (or change)</p>
+    <hr> 
+    <div>
+    <div>
+      <div>
+      <label for="resourcename">ResourceName</label>
+  	  <input 
+        id="resource-path-select"
+		    name="resourcename" 
+        value="{{ .resourcename }}"
+        hx-patch="/api/v1/verified/mv?rid={{ .rid }}&resourcename={{ .resourcename }}"
+			  hx-trigger="keyup changed delay:3000ms"
+        hx-swap="none"
+		  >
+      </div>
+      <hr>
+      <div>
+  		<label for="permissions">Permissions</label>
+  		<div id="permissions-container">
+        <div>
+          <h4>Owner:</h4>
+            <div class="perm-display-div"> 
+              <label>
+                r
+                <input type="checkbox" name="owner-r" value="r"
+                  {{if .perms.OwnerR}}checked{{end}}
+                  onchange="updatePermissionString()"
+                >
+              </label>
+              <label>
+                w
+                <input type="checkbox" name="owner-w" value="w"
+                  {{if .perms.OwnerW}}checked{{end}}
+                  onchange="updatePermissionString()"
+                >
+              </label>
+              <label>
+                x
+                <input type="checkbox" name="owner-x" value="x"
+                  {{if .perms.OwnerX}}checked{{end}}
+                  onchange="updatePermissionString()"
+                >
+              </label>
+            </div>
+        </div>
+        <div>
+          <h4>Group:</h4>
+          <div class="perm-display-div">
+            <label>
+              r
+              <input type="checkbox" name="group-r" value="r"
+                {{if .perms.GroupR}}checked{{end}}
+                onchange="updatePermissionString()"
+              >
+            </label>
+            <label>
+              w
+              <input type="checkbox" name="group-w" value="w"
+                {{if .perms.GroupW}}checked{{end}}
+                onchange="updatePermissionString()"
+              >
+            </label>
+            <label>
+              x
+              <input type="checkbox" name="group-x" value="x"
+                {{if .perms.GroupX}}checked{{end}}
+                onchange="updatePermissionString()"
+              >
+            </label>
+          </div>
+        </div>
+        <div>
+          <h4>Others:</h4>
+          <div class="perm-display-div">
+            <label>
+              r
+              <input type="checkbox" name="other-r" value="r"
+                {{if .perms.OtherR}}checked{{end}}
+                onchange="updatePermissionString()"
+              > 
+            </label>
+            <label>
+              w
+              <input type="checkbox" name="other-w" value="w"
+                {{if .perms.OtherW}}checked{{end}}
+                onchange="updatePermissionString()"
+              >
+            </label>
+            <label>
+              x
+              <input type="checkbox" name="other-x" value="x"
+                {{if .perms.OtherX}}checked{{end}}
+                onchange="updatePermissionString()"
+              > 
+            </label>
+          </div>
+        </div>
+        <input
+          type="hidden"
+          name="permissions"
+          id="permissionsInput"
+          value="" 
+          hx-patch="/api/v1/verified/admin/chmod?rid={{ .rid }}"
+          hx-trigger="change delay:1000ms"
+          hx-headers='{"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache"}'
+          hx-swap="none"
+        >
+      </div>
+      </div>
+	  </div>
+
+    </div>
+  </div>
+</div>
+{{ end }}
+
 {{ define "add-symlink-form.html"}}
 <div id="add-symlink-form" class="add-form">
   <h3>Add symlink</h3>
@@ -252,77 +374,3 @@
 
 {{ end }}
 
-{{ define "admin-dashboard" }}
-<div class="main-content-wrapper">
-  <div class="dashboard-header">
-    <div id="dashboard-title-div" class="collapsible info">
-      <h1 class="target" id="dashboard-h1-title">{{ .message }} {{ .username }}!</h1>
-      <button class="toggle-button-collapse collapsible">
-        <svg class="arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="arrow">
-          <line x1="19" y1="12" x2="5" y2="12"></line>
-          <polyline points="12 19 5 12 12 5"></polyline>
-        </svg>
-      </button>
-    </div>
-    <div class="profile-menu">
-      <button id="profile-button" class="profile-button">
-        <div class="profile-icon"><i class="fa-solid fa-user"></i></div>
-        <span>&#x25BC;</span>
-      </button>
-      <div class="dropdown">
-        <div class="dropdown-content">
-          <a href="#">Profile</a>
-          <hr>
-          <a href="#">Settings</a>
-          <a href="#">Help</a>
-          <hr>
-          <a
-            id="logout"
-            hx-delete="/api/v1/logout?access_token&refresh_token"
-            hx-swap="none"
-            hx-trigger="click"
-            href="/api/v1/login"
-          >Logout</a>
-        </div>
-      </div>
-
-    </div>
-  </div> 
-  <main class="main-content">
-    <div class="responsive-wrapper">
-      <div class="section-header">
-        <div class="section-main-header">
-          <div class="section-title">
-            <h1>Details</h1>
-          </div>
-          <div class="search-bar">
-            <input type="text" placeholder="Search">
-            <button type="submit">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z">
-              </svg>
-            </button>
-          </div>
-        </div>
-        <div class="section-options">
-          <a href="#" onclick="showSubSection('dashboard-home')">Home</a>
-          <a href="#" onclick="showSubSection('dashboard-myjobs')">My Jobs</a>
-          <a href="#" onclick="showSubSection('dashboard-status')">Plugins</a>
-        </div>
-      </div>
-    </div>
-    <div class="section-content">
-      <section id="dashboard-home">
-        
-      </section>
-      <section id="dashboard-myjobs">
-      </section>
-      <section id="dashboard-status">
-      </section>
-      <section id="dashboard-settings">
-      </section>
-    </div>
-
-  </main>
-</div>
-{{ end }}

@@ -61,6 +61,7 @@ func (srv *HTTPService) handleFetchUsers(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
 	}
+
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -123,7 +124,7 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 	}
 
 	// Forward login request to the auth service
-	resp, err := forwardPostRequest(authServiceURL+authVersion+"/admin/useradd", accessToken, gin.H{
+	resp, err := jsonPostRequest(authServiceURL+authVersion+"/admin/useradd", accessToken, gin.H{
 		"user": User{
 			Username: uac.Username,
 			Info:     uac.Email,
@@ -288,6 +289,7 @@ func (srv *HTTPService) handleUserpatch(c *gin.Context) {
 	var rq struct {
 		Username string `json:"username" form:"username"`
 		Password string `json:"password" form:"password"`
+		Email    string `json:"info" form:"info"`
 		Home     string `json:"home" form:"home"`
 		Shell    string `json:"shell" form:"shell"`
 		Gid      string `json:"pgroup" form:"pgroup"`
@@ -435,7 +437,7 @@ func (srv *HTTPService) handleGroupadd(c *gin.Context) {
 	}
 
 	/* forward login request to the auth service */
-	resp, err := forwardPostRequest(authServiceURL+authVersion+"/admin/groupadd", accessToken, req)
+	resp, err := jsonPostRequest(authServiceURL+authVersion+"/admin/groupadd", accessToken, req)
 	if err != nil {
 		log.Printf("Error forwarding register request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "forwarding fail"})
@@ -993,7 +995,7 @@ func (srv *HTTPService) handleResourcePerms(c *gin.Context) {
 	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Access-Target", fmt.Sprintf("/ %v:%v", whoami, mygroups))
+	req.Header.Set("Access-Target", fmt.Sprintf("$rids=%s %v:%v", rid, whoami, mygroups))
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
 
@@ -1435,7 +1437,7 @@ func (srv *HTTPService) handleLogin(c *gin.Context) {
 	}
 
 	// Forward login request to the auth service
-	resp, err := forwardPostRequest(authServiceURL+authVersion+"/login", "", login)
+	resp, err := jsonPostRequest(authServiceURL+authVersion+"/login", "", login)
 	if err != nil {
 		log.Printf("Error forwarding login request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "forwarding fail"})
@@ -1513,7 +1515,7 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 		},
 	}
 	// Forward login request to the auth service
-	resp, err := forwardPostRequest(authServiceURL+authVersion+"/register", "", gin.H{
+	resp, err := jsonPostRequest(authServiceURL+authVersion+"/register", "", gin.H{
 		"user": data,
 	})
 	if err != nil {
@@ -1714,6 +1716,41 @@ func (srv *HTTPService) editFormHandler(c *gin.Context) {
 		"perms":        parsePermissionsString(perms),
 		"users":        usersResp.Content,
 		"groups":       groupsResp.Content,
+	})
+}
+
+func (srv *HTTPService) editFormUserHandler(c *gin.Context) {
+	resourcename := c.Request.URL.Query().Get("resourcename")
+	rid := c.Request.URL.Query().Get("rid")
+	owner := c.Request.URL.Query().Get("owner")
+	group := c.Request.URL.Query().Get("group")
+	perms := c.Request.URL.Query().Get("perms")
+
+	if resourcename == "" || owner == "" || group == "" || perms == "" || rid == "" {
+		log.Printf("must provide args")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide information"})
+		return
+	}
+
+	owner_int, err := strconv.Atoi(owner)
+	if err != nil {
+		log.Printf("failed to atoi owner: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad owner value"})
+		return
+	}
+	group_int, err := strconv.Atoi(group)
+	if err != nil {
+		log.Printf("failed to atoi group: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad group value"})
+		return
+	}
+
+	c.HTML(200, "edit-form-user.html", gin.H{
+		"resourcename": resourcename,
+		"rid":          rid,
+		"owner":        owner_int,
+		"group":        group_int,
+		"perms":        parsePermissionsString(perms),
 	})
 }
 
@@ -2048,11 +2085,206 @@ func (srv *HTTPService) handleDashboard(c *gin.Context) {
 
 }
 
+func (srv *HTTPService) passwordChangeHandler(c *gin.Context) {
+	// whoami?
+	username, exists := c.Get("username")
+	if !exists {
+		log.Printf("username doesn't exist, can't continue")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "couldn't authenticate user"})
+		return
+	}
+
+	var cpass struct {
+		CurPass    string `json:"current_password" form:"current_password"`
+		NewPass    string `json:"new_password" form:"new_password"`
+		NewPassRep string `json:"new_password_repeat" form:"new_password_repeat"`
+	}
+
+	// parse req
+	err := c.ShouldBind(&cpass)
+	if err != nil {
+		log.Printf("failed to bind request body: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
+		return
+	}
+
+	// verify password
+	// must match
+	if cpass.NewPass != cpass.NewPassRep {
+		log.Printf("passwords don't match")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "passwords don't match"})
+		return
+	}
+	// check if password  is correct
+	data, err := json.Marshal(gin.H{"username": username, "password": cpass.CurPass})
+	if err != nil {
+		log.Printf("failed to marshal data")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to marshal data"})
+		return
+	}
+	checkPassReq, err := http.NewRequest(http.MethodPost, authServiceURL+"/admin/verify-password", bytes.NewBuffer(data))
+	if err != nil {
+		log.Printf("failed to create a new requst: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	checkPassReq.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
+
+	resp, err := http.DefaultClient.Do(checkPassReq)
+	if err != nil {
+		log.Printf("failed to forward request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		log.Printf("invalid")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid"})
+		return
+	}
+
+	// forward password change
+	data, err = json.Marshal(gin.H{"username": username, "password": cpass.NewPass})
+	if err != nil {
+		log.Printf("failed to marshal data")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to marshal data"})
+		return
+	}
+	passReq, err := http.NewRequest(http.MethodPost, authServiceURL+"/passwd", bytes.NewBuffer(data))
+	if err != nil {
+		log.Printf("failed to create a new requst: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	passReq.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
+
+	resp2, err := http.DefaultClient.Do(passReq)
+	if err != nil {
+		log.Printf("failed to forward request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	defer resp2.Body.Close()
+	c.Status(resp2.StatusCode)
+	for key, values := range resp2.Header {
+		for _, value := range values {
+			c.Header(key, value)
+		}
+	}
+
+	_, err = io.Copy(c.Writer, resp2.Body)
+	if err != nil {
+		log.Printf("failed to write response: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to write response"})
+	}
+}
+
+func (srv *HTTPService) updateUser(c *gin.Context) {
+	// get request body (this request)
+	email := c.Request.FormValue("new-email-change")
+	if email == "" {
+		log.Printf("empty email value, must speicify")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide an email"})
+		return
+	}
+
+	// identify urself
+	accessToken, err := c.Cookie("access_token")
+	if err != nil {
+		log.Printf("missing access_token cookie: %v", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	// get current user info
+	req, err := http.NewRequest(http.MethodGet, authServiceURL+"/user/me", nil)
+	if err != nil {
+		log.Printf("failed to create a new request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	// req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Printf("failed to perform the request: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "internal server error"})
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("failed to read the response body: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	var user User
+	err = json.Unmarshal(body, &user)
+	if err != nil {
+		log.Printf("error, failed to unmarshal the body: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	// apply change
+	user.Info = email
+	// log.Printf("user updated: %+v", user)
+
+	var userFormat struct {
+		User User `json:"user"`
+	}
+	userFormat.User = user
+
+	user_data, err := json.Marshal(userFormat)
+	if err != nil {
+		log.Printf("failed to marshal user: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	// save change (forward to update)
+	newReq, err := http.NewRequest(http.MethodPut, authServiceURL+"/admin/usermod", bytes.NewBuffer(user_data))
+	if err != nil {
+		log.Printf("failed to create a new request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	newReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	newReq.Header.Set("Content-Type", "application/json")
+
+	log.Printf("data to be sent: %v", string(user_data))
+
+	resp2, err := http.DefaultClient.Do(newReq)
+	if err != nil {
+		log.Printf("failed to perform the request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	defer resp2.Body.Close()
+
+	// respond
+	c.Status(resp2.StatusCode)
+	for key, values := range resp2.Header {
+		for _, value := range values {
+			c.Header(key, value)
+		}
+	}
+
+	_, err = io.Copy(c.Writer, resp2.Body)
+	if err != nil {
+		log.Printf("failed to write response: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to write response"})
+	}
+}
+
 /*
 *********************************************************************
 * */
 /* helpful functions */
-func forwardPostRequest(destinationURI string, accessToken string, requestData interface{}) (*http.Response, error) {
+func jsonPostRequest(destinationURI string, accessToken string, requestData interface{}) (*http.Response, error) {
 	// Marshal the request data into JSON
 	jsonData, err := json.Marshal(requestData)
 	if err != nil {
