@@ -8,6 +8,7 @@ package utils
 * */
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -201,4 +202,27 @@ func LoadWsConfig(path string) WSConfig {
 		LOGS_PATH:  getEnv("LOGS_PATH", "data/logs/jobs/job.log"),
 	}
 
+}
+
+func MakeConfig(path string, fields interface{}) error {
+
+	json_data, err := json.Marshal(fields)
+	if err != nil {
+		log.Printf("failed to marshal: %v", err)
+		return err
+	}
+
+	cpth, err := os.Getwd()
+	if err != nil {
+		log.Printf("failed to get curpath: %v", err)
+		return err
+	}
+
+	err = os.WriteFile(cpth+"/"+path, json_data, os.ModePerm)
+	if err != nil {
+		log.Printf("failed to write config.json: %v", err)
+		return err
+	}
+
+	return nil
 }

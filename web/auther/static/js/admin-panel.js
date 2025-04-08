@@ -177,8 +177,6 @@ document.addEventListener("DOMContentLoaded", () => {
     submitButton,
     fileNameDisplay
   );
-
-  console.log(fileUploadModule);
  
 
   /**************************************************************************/
