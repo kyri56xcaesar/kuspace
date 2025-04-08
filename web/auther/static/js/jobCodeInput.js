@@ -3,9 +3,9 @@ const modeMap = {
     "js": "javascript",
     "go": "go",
     "py": "python",
-    "java": "text/x-java",
-    "c": "text/x-csrc",
-    "javascript":"javascript",
+    "java": "java",
+    "c": "gcc",
+    "javascript":"node",
     "python":"python",
   
   };
@@ -15,7 +15,7 @@ const extMap = {
   "py":"python",
   "go":"go",
   "c":"c",
-  "java":"java",
+  "java":"openjdk",
 };
 
 const defaultMap = {
@@ -42,7 +42,7 @@ def run(data):\n\treturn data
 `,
   "go":
 `
-func run(data str) str {
+func run(data string) string {
   return data
 }
 

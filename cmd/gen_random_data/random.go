@@ -18,7 +18,7 @@ import (
 
 func writeRandomStringToFile(no_lines, line_length int, filename string) error {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
 	}
@@ -39,15 +39,17 @@ func writeRandomStringToFile(no_lines, line_length int, filename string) error {
 }
 
 func main() {
-
 	var (
-		output_path     string = "tmp/"
-		output          string = "random_dataset.txt"
-		amount_of_lines int    = 10
-		line_length     int    = 20
+		output_path     = "tmp/"
+		output          = "random_dataset.txt"
+		amount_of_lines = 10
+		line_length     = 20
 		err             error
 	)
 
+	// argument 1, output_path,
+	// argument 2, amount of lines
+	// argument 3, length of each line
 	args := os.Args
 	switch len(args) {
 	case 2:

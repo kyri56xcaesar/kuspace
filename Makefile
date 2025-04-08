@@ -2,6 +2,10 @@ TARGET_API=cmd/userspace/
 API_OUT=userspace
 API_MAIN=main.go
 
+TARGET_J_WS=cmd/userspace/jobs_feedback_ws/
+J_WS_OUT=j_ws 
+J_WS_MAIN=main.go
+
 TARGET_F_APP=cmd/frontendapp/
 F_APP_OUT=frontendapp
 F_APP_MAIN=main.go
@@ -31,6 +35,8 @@ build:
 	go build -o ${TARGET_F_APP}${F_APP_OUT} ${TARGET_F_APP}${F_APP_MAIN}
 	go build -o ${TARGET_AUTH}${AUTH_OUT} ${TARGET_AUTH}${AUTH_MAIN}
 	go build -o ${TARGET_WS}${WS_OUT} ${TARGET_WS}${WS_MAIN}
+	go build -o ${TARGET_API}${API_OUT} ${TARGET_API}${API_MAIN} 
+
 
 .PHONY: run
 run: 
@@ -41,16 +47,23 @@ run:
 	./${TARGET_API}${API_OUT} &
 	sleep 2
 	./${TARGET_WS}${WS_OUT} &
+	sleep 2
+	./${TARGET_J_WS}${J_WS_OUT} &
 
 .PHONY: stop 
 stop:
-	kill $$(pgrep ${AUTH_OUT}) $$(pgrep ${WS_OUT}) $$(pgrep ${API_OUT}) $$(pgrep ${AUTH_OUT}) || true
+	kill $$(pgrep ${AUTH_OUT}) $$(pgrep ${WS_OUT}) $$(pgrep ${API_OUT}) $$(pgrep ${AUTH_OUT}) $$(pgrep ${J_WS_OUT}) || true
 
 
 .PHONY: userspace
 userspace:
 	go build -o ${TARGET_API}${API_OUT} ${TARGET_API}${API_MAIN} 
 	./${TARGET_API}${API_OUT} 
+
+.PHONY: j_ws
+j_ws:
+	go build -o ${TARGET_J_WS}${J_WS_OUT} ${TARGET_J_WS}${J_WS_MAIN}
+	./${TARGET_J_WS}${J_WS_OUT}
 
 .PHONY: front 
 front:
@@ -74,5 +87,5 @@ shell:
 
 .PHONY: clean
 clean:
-	rm -f ${TARGET_API}${API_OUT} ${TARGET_SHELL}${SHELL_OUT} ${TARGET_AUTH}${AUTH_OUT} ${TARGET_F_APP}${F_APP_OUT} ${TARGET_WS}${WS_OUT}
+	rm -f ${TARGET_API}${API_OUT} ${TARGET_SHELL}${SHELL_OUT} ${TARGET_AUTH}${AUTH_OUT} ${TARGET_F_APP}${F_APP_OUT} ${TARGET_WS}${WS_OUT} ${TARGET_J_WS}${J_WS_OUT}
 	
