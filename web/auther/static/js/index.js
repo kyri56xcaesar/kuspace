@@ -2,8 +2,10 @@
 cachedUsers = [];
 cachedGroups = [];
 cachedResources = [];
-const IP = "localhost";
-const PORT ="8080"
+
+
+const IP = window.location.hostname; 
+const PORT = window.location.port || (window.location.protocol === "https:" ? "443" : "80");
 
 
 let domReady = (cb) => {
