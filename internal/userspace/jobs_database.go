@@ -10,15 +10,16 @@ package userspace
 import (
 	"database/sql"
 	"fmt"
+	ut "kyri56xcaesar/myThesis/internal/utils"
 	"log"
 	"strings"
 	"time"
 )
 
 // feels wierd, lastid inserted doesnt work...
-func (dbh *DBHandler) InsertJob(jb Job) (int64, error) {
+func (srv *UService) InsertJob(jb ut.Job) (int64, error) {
 	// log.Printf("inserting job in db: %+v", jb)
-	db, err := dbh.getConn()
+	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return -1, err
@@ -47,8 +48,8 @@ func (dbh *DBHandler) InsertJob(jb Job) (int64, error) {
 }
 
 // should user an appender
-func (dbh *DBHandler) InsertJobs(jbs []Job) error {
-	db, err := dbh.getConn()
+func (srv *UService) InsertJobs(jbs []ut.Job) error {
+	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return err
@@ -94,8 +95,8 @@ func (dbh *DBHandler) InsertJobs(jbs []Job) error {
 	return nil
 }
 
-func (dbh *DBHandler) RemoveJob(jid int) error {
-	db, err := dbh.getConn()
+func (srv *UService) RemoveJob(jid int) error {
+	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to retrieve db connection: %v", err)
 		return err
@@ -114,8 +115,8 @@ func (dbh *DBHandler) RemoveJob(jid int) error {
 	return nil
 }
 
-func (dbh *DBHandler) RemoveJobs(jids []int) error {
-	db, err := dbh.getConn()
+func (srv *UService) RemoveJobs(jids []int) error {
+	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return err
@@ -153,9 +154,9 @@ func (dbh *DBHandler) RemoveJobs(jids []int) error {
 	return nil
 }
 
-func (dbh *DBHandler) GetJobById(jid int) (Job, error) {
-	var job Job
-	db, err := dbh.getConn()
+func (srv *UService) GetJobById(jid int) (ut.Job, error) {
+	var job ut.Job
+	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return job, err
@@ -188,9 +189,9 @@ func (dbh *DBHandler) GetJobById(jid int) (Job, error) {
 	return job, nil
 }
 
-func (dbh *DBHandler) GetJobsByUid(uid int) ([]Job, error) {
-	var jobs []Job
-	db, err := dbh.getConn()
+func (srv *UService) GetJobsByUid(uid int) ([]ut.Job, error) {
+	var jobs []ut.Job
+	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return nil, err
@@ -214,7 +215,7 @@ func (dbh *DBHandler) GetJobsByUid(uid int) ([]Job, error) {
 		cmplted_at    sql.NullString
 	)
 	for rows.Next() {
-		var job Job
+		var job ut.Job
 
 		err = rows.Scan(&job.Jid, &job.Uid, &job.Description, &job.Duration, &input, &job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status, &job.Completed, &job.Created_at, &cmplted_at)
 		if err != nil {
@@ -233,14 +234,14 @@ func (dbh *DBHandler) GetJobsByUid(uid int) ([]Job, error) {
 	return jobs, nil
 }
 
-func (dbh *DBHandler) GetJobsByUids(uids []int) ([]Job, error) {
-	var jobs []Job
+func (srv *UService) GetJobsByUids(uids []int) ([]ut.Job, error) {
+	var jobs []ut.Job
 
 	if len(uids) == 0 {
 		return jobs, nil // no users, return empty list
 	}
 
-	db, err := dbh.getConn()
+	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return nil, err
@@ -276,7 +277,7 @@ func (dbh *DBHandler) GetJobsByUids(uids []int) ([]Job, error) {
 		cmplted_at    sql.NullString
 	)
 	for rows.Next() {
-		var job Job
+		var job ut.Job
 
 		err = rows.Scan(&job.Jid, &job.Uid, &job.Description, &job.Duration, &input, &job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status, &job.Completed, &job.Created_at, &cmplted_at)
 		if err != nil {
@@ -296,9 +297,9 @@ func (dbh *DBHandler) GetJobsByUids(uids []int) ([]Job, error) {
 	return jobs, nil
 }
 
-func (dbh *DBHandler) GetAllJobs(limit, offset string) ([]Job, error) {
-	var jobs []Job
-	db, err := dbh.getConn()
+func (srv *UService) GetAllJobs(limit, offset string) ([]ut.Job, error) {
+	var jobs []ut.Job
+	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return nil, err
@@ -341,7 +342,7 @@ func (dbh *DBHandler) GetAllJobs(limit, offset string) ([]Job, error) {
 		cmplted_at    sql.NullString
 	)
 	for rows.Next() {
-		var job Job
+		var job ut.Job
 		err = rows.Scan(&job.Jid, &job.Uid, &job.Description, &job.Duration, &input, &job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status, &job.Completed, &job.Created_at, &cmplted_at)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
@@ -361,8 +362,8 @@ func (dbh *DBHandler) GetAllJobs(limit, offset string) ([]Job, error) {
 	return jobs, nil
 }
 
-func (dbh *DBHandler) UpdateJob(jb Job) error {
-	db, err := dbh.getConn()
+func (srv *UService) UpdateJob(jb ut.Job) error {
+	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return err
@@ -384,8 +385,8 @@ func (dbh *DBHandler) UpdateJob(jb Job) error {
 	return nil
 }
 
-func (dbh *DBHandler) MarkStatus(jid int, status string, duration time.Duration) error {
-	db, err := dbh.getConn()
+func (srv *UService) MarkJobStatus(jid int, status string, duration time.Duration) error {
+	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 		return err

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"kyri56xcaesar/myThesis/internal/shell"
+	"kyri56xcaesar/myThesis/playground/shell"
 	"log"
 )
 

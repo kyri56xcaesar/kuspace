@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"os/signal"
 	"strconv"
 	"strings"
@@ -27,10 +26,12 @@ type UService struct {
 	Engine *gin.Engine
 
 	/* database calls handlers for resources/volumes database */
-	dbh DBHandler
+	//dbh DBHandler
+
+	storage StorageSystem
 
 	/* database calls handlers for jobs database*/
-	dbhJobs DBHandler
+	jdbh ut.DBHandler
 
 	/* a job dispatcher: a preparation to runming jobs*/
 	jdp JobDispatcher
@@ -43,11 +44,17 @@ func NewUService(conf string) UService {
 
 	// service
 	srv := UService{
-		Engine:  gin.Default(),
-		config:  cfg,
-		dbh:     NewDBHandler(cfg.DB_RV, cfg.DB_RV_DRIVER),
-		dbhJobs: NewDBHandler(cfg.DB_JOBS, cfg.DB_JOBS_DRIVER),
+		Engine: gin.Default(),
+		config: cfg,
+		//dbh:     NewDBHandler(cfg.DB_RV, cfg.DB_RV_DRIVER),
 	}
+
+	// storage
+	storage, err := StorageFactory(strings.ToLower(cfg.STORAGE_TYPE), &srv)
+	if err != nil {
+		panic(err)
+	}
+	srv.storage = storage
 
 	// dispatcher
 	jdp, err := DispatcherFactory(strings.ToLower(cfg.J_DISPATCHER), &srv)
@@ -58,21 +65,24 @@ func NewUService(conf string) UService {
 	srv.jdp = jdp
 	jdp.Start()
 
-	// datbase
-	srv.dbh.Init(initSql, cfg.DB_RV_Path, cfg.DB_RV_MAX_OPEN_CONNS, cfg.DB_RV_MAX_IDLE_CONNS, cfg.DB_RV_MAX_LIFETIME)
-	srv.dbhJobs.Init(initSqlJobs, cfg.DB_JOBS_Path, cfg.DB_JOBS_MAX_OPEN_CONNS, cfg.DB_JOBS_MAX_IDLE_CONNS, cfg.DB_JOBS_MAX_LIFETIME)
+	// database
+	jdbh := ut.NewDBHandler(cfg.DB_JOBS, cfg.DB_JOBS_PATH, cfg.DB_JOBS_DRIVER)
+	srv.jdbh = jdbh
+	srv.jdbh.Init(initSqlJobs, cfg.DB_JOBS_PATH, cfg.DB_JOBS_MAX_OPEN_CONNS, cfg.DB_JOBS_MAX_IDLE_CONNS, cfg.DB_JOBS_MAX_LIFETIME)
+
+	//srv.dbh.Init(initSql, cfg.DB_RV_Path, cfg.DB_RV_MAX_OPEN_CONNS, cfg.DB_RV_MAX_IDLE_CONNS, cfg.DB_RV_MAX_LIFETIME)
 
 	// some specific init
-	srv.dbh.InitResourceVolumeSpecific(cfg.DB_RV_Path, cfg.Volumes, cfg.VCapacity)
+	//srv.dbh.InitResourceVolumeSpecific(cfg.DB_RV_Path, cfg.Volumes, cfg.VCapacity)
 
 	// also ensure local pv path
-	_, err = os.Stat(cfg.Volumes)
-	if err != nil {
-		err = os.Mkdir(cfg.Volumes, 0o777)
-		if err != nil {
-			panic("crucial")
-		}
-	}
+	//_, err = os.Stat(cfg.Volumes)
+	//if err != nil {
+	//	err = os.Mkdir(cfg.Volumes, 0o777)
+	//	if err != nil {
+	//		panic("crucial")
+	//	}
+	//}
 
 	// we should init sync (if there are) existing users (from a different service)
 	go func() {
@@ -179,8 +189,7 @@ func (srv *UService) Serve() {
 	log.Println("shutting down gracefully, press Ctrl+C again to force")
 
 	/* don't forgt to close the db conn */
-	srv.dbh.Close()
-	srv.dbhJobs.Close()
+	srv.jdbh.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -199,7 +208,7 @@ func syncUsers(srv *UService) error {
 	}
 	req.Header.Add("X-Service-Secret", string(srv.config.ServiceSecret))
 	var reqR struct {
-		Content []Group `json:"content"`
+		Content []ut.Group `json:"content"`
 	}
 
 	resp, err := http.DefaultClient.Do(req)
@@ -218,7 +227,7 @@ func syncUsers(srv *UService) error {
 		return fmt.Errorf("failed to retrieve actual users")
 	}
 
-	capacity, err := strconv.ParseFloat(srv.config.VCapacity, 64)
+	capacity, err := strconv.ParseFloat(srv.config.V_DEFAULT_CAPACITY, 64)
 	if err != nil {
 		log.Printf("failed to parse env var VCapacity: %v", err)
 		return err
@@ -229,7 +238,7 @@ func syncUsers(srv *UService) error {
 			continue
 		}
 
-		err := srv.dbh.InsertGroupVolume(GroupVolume{
+		err := srv.storage.Insert(ut.GroupVolume{
 			Vid:   1,
 			Gid:   group.Gid,
 			Quota: capacity,
@@ -240,7 +249,7 @@ func syncUsers(srv *UService) error {
 		}
 		for _, user := range group.Users {
 			if user.Username == group.Groupname {
-				err := srv.dbh.InsertUserVolume(UserVolume{
+				err := srv.storage.Insert(ut.UserVolume{
 					Vid:   1,
 					Uid:   user.Uid,
 					Quota: capacity,

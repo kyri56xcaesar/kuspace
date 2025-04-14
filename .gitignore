@@ -11,6 +11,7 @@
 *.idea
 configs/*.env
 tmp/*
+^tmp/
 data/volumes/*
 
 # binaries
@@ -20,9 +21,7 @@ cmd/frontendapp/frontendapp
 cmd/frontendapp/ws/ws_server
 cmd/userspace/userspace
 
-notes
 
 vendor
 external
 
-tmp/big_data.text

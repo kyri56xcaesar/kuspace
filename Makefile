@@ -52,7 +52,7 @@ run:
 
 .PHONY: stop 
 stop:
-	kill $$(pgrep ${AUTH_OUT}) $$(pgrep ${WS_OUT}) $$(pgrep ${API_OUT}) $$(pgrep ${AUTH_OUT}) $$(pgrep ${J_WS_OUT}) || true
+	kill $$(pgrep ${AUTH_OUT}) $$(pgrep ${WS_OUT}) $$(pgrep ${API_OUT}) $$(pgrep ${AUTH_OUT}) $$(pgrep ${J_WS_OUT}) $$(pgrep ${F_APP_OUT})|| true
 
 
 .PHONY: userspace

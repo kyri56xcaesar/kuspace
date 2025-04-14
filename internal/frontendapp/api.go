@@ -91,7 +91,7 @@ func (srv *HTTPService) ServeHTTP() {
 			}
 			return nil // Return nil if key does not exist
 		},
-		"findGroupVolume": func(s []GroupVolume, gid int) *GroupVolume {
+		"findGroupVolume": func(s []ut.GroupVolume, gid int) *ut.GroupVolume {
 			for _, v := range s {
 				if v.Gid == gid {
 					return &v
@@ -99,7 +99,7 @@ func (srv *HTTPService) ServeHTTP() {
 			}
 			return nil
 		},
-		"findUserVolume": func(s []UserVolume, uid int) *UserVolume {
+		"findUserVolume": func(s []ut.UserVolume, uid int) *ut.UserVolume {
 			for _, v := range s {
 				if v.Uid == uid {
 					return &v

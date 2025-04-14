@@ -15,6 +15,8 @@ import (
 	"sync"
 	"time"
 
+	ut "kyri56xcaesar/myThesis/internal/utils"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -74,7 +76,7 @@ func (srv *HTTPService) handleFetchUsers(c *gin.Context) {
 	defer response.Body.Close()
 
 	var resp struct {
-		Content []User `json:"content"`
+		Content []ut.User `json:"content"`
 	}
 
 	body, err := io.ReadAll(response.Body)
@@ -125,12 +127,12 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 
 	// Forward login request to the auth service
 	resp, err := jsonPostRequest(authServiceURL+authVersion+"/admin/useradd", accessToken, gin.H{
-		"user": User{
+		"user": ut.User{
 			Username: uac.Username,
 			Info:     uac.Email,
 			Home:     "/home/" + uac.Username,
 			Shell:    "gshell",
-			Password: Password{
+			Password: ut.Password{
 				Hashpass: uac.Password,
 			},
 		},
@@ -169,7 +171,7 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 
 	/* give the user some of the volume pie */
 	go func() {
-		json_data, err := json.Marshal(UserVolume{Vid: 1, Uid: useraddResp.Uid})
+		json_data, err := json.Marshal(ut.UserVolume{Vid: 1, Uid: useraddResp.Uid})
 		if err != nil {
 			log.Printf("failed to marshal to json: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
@@ -193,7 +195,7 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 
 	/* give the users primary group some of the pie as well*/
 	go func() {
-		json_data, err := json.Marshal(GroupVolume{Vid: 1, Gid: useraddResp.Pgroup})
+		json_data, err := json.Marshal(ut.GroupVolume{Vid: 1, Gid: useraddResp.Pgroup})
 		if err != nil {
 			log.Printf("failed to marshal to json: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set gv"})
@@ -386,7 +388,7 @@ func (srv *HTTPService) handleFetchGroups(c *gin.Context) {
 	defer response.Body.Close()
 
 	var resp struct {
-		Content []Group `json:"content"`
+		Content []ut.Group `json:"content"`
 	}
 
 	body, err := io.ReadAll(response.Body)
@@ -587,7 +589,7 @@ func (srv *HTTPService) handleFetchResources(c *gin.Context) {
 
 		c.HTML(http.StatusOK, "tree-resources.html", tree)
 	default:
-		var data []Resource
+		var data []ut.Resource
 		err = json.Unmarshal(body, &data)
 		if err != nil {
 			log.Printf("failed to unmarshal response: %v", err)
@@ -1081,19 +1083,19 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	var (
 		userResp struct {
-			Content []User `json:"content"`
+			Content []ut.User `json:"content"`
 		}
 		groupResp struct {
-			Content []Group `json:"content"`
+			Content []ut.Group `json:"content"`
 		}
 		volumeResp struct {
-			Content []Volume `json:"content"`
+			Content []ut.Volume `json:"content"`
 		}
 		userVolumesResp struct {
-			Content []UserVolume `json:"content"`
+			Content []ut.UserVolume `json:"content"`
 		}
 		groupVolumesResp struct {
-			Content []GroupVolume `json:"content"`
+			Content []ut.GroupVolume `json:"content"`
 		}
 	)
 
@@ -1283,7 +1285,7 @@ func (srv *HTTPService) jobsHandler(c *gin.Context) {
 		defer response.Body.Close()
 
 		var jobResp struct {
-			Content []Job `json:"content"`
+			Content []ut.Job `json:"content"`
 		}
 
 		body, err := io.ReadAll(response.Body)
@@ -1358,7 +1360,7 @@ func (srv *HTTPService) jobsHandler(c *gin.Context) {
 	case http.MethodPost:
 
 		// lets fix the uid (identify ourselves)
-		var job Job
+		var job ut.Job
 		err := c.ShouldBindJSON(&job)
 		if err != nil {
 			log.Printf("failed to bind json body: %v", err)
@@ -1505,12 +1507,12 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 		return
 	}
 
-	data := User{
+	data := ut.User{
 		Username: reg.Username,
 		Info:     reg.Email,
 		Home:     "/home/" + reg.Username,
 		Shell:    "gshell",
-		Password: Password{
+		Password: ut.Password{
 			Hashpass: reg.Password,
 		},
 	}
@@ -1550,7 +1552,7 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 	}
 	/* give user's primary group some of the pie..*/
 	go func() {
-		json_data, err := json.Marshal(GroupVolume{Vid: 1, Gid: authResponse.Pgroup})
+		json_data, err := json.Marshal(ut.GroupVolume{Vid: 1, Gid: authResponse.Pgroup})
 		if err != nil {
 			log.Printf("failed to marshal to json: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
@@ -1574,7 +1576,7 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 	}()
 	/* let user some of the volume pie*/
 	go func() {
-		json_data, err := json.Marshal(UserVolume{Vid: 1, Uid: authResponse.Uid})
+		json_data, err := json.Marshal(ut.UserVolume{Vid: 1, Uid: authResponse.Uid})
 		if err != nil {
 			log.Printf("failed to marshal to json: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
@@ -1644,7 +1646,7 @@ func (srv *HTTPService) editFormHandler(c *gin.Context) {
 	defer response.Body.Close()
 
 	var usersResp struct {
-		Content []User `json:"content"`
+		Content []ut.User `json:"content"`
 	}
 
 	body, err := io.ReadAll(response.Body)
@@ -1678,7 +1680,7 @@ func (srv *HTTPService) editFormHandler(c *gin.Context) {
 	defer response.Body.Close()
 
 	var groupsResp struct {
-		Content []Group `json:"content"`
+		Content []ut.Group `json:"content"`
 	}
 
 	body, err = io.ReadAll(response.Body)
@@ -1897,22 +1899,22 @@ func (srv *HTTPService) handleDashboard(c *gin.Context) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	var (
 		uResp struct {
-			Content []User `json:"content"`
+			Content []ut.User `json:"content"`
 		}
 		uvResp struct {
-			Content []UserVolume `json:"content"`
+			Content []ut.UserVolume `json:"content"`
 		}
 		gvResp struct {
-			Content []GroupVolume `json:"content"`
+			Content []ut.GroupVolume `json:"content"`
 		}
 		jResp struct {
-			Content []Job `json:"content"`
+			Content []ut.Job `json:"content"`
 		}
 		rResp struct {
-			Content []Resource `json:"content"`
+			Content []ut.Resource `json:"content"`
 		}
 		vResp struct {
-			Content []Volume `json:"content"`
+			Content []ut.Volume `json:"content"`
 		}
 		uErr, uvErr, gvErr, jErr, rErr error
 	)
@@ -2222,7 +2224,7 @@ func (srv *HTTPService) updateUser(c *gin.Context) {
 		return
 	}
 
-	var user User
+	var user ut.User
 	err = json.Unmarshal(body, &user)
 	if err != nil {
 		log.Printf("error, failed to unmarshal the body: %v", err)
@@ -2235,7 +2237,7 @@ func (srv *HTTPService) updateUser(c *gin.Context) {
 	// log.Printf("user updated: %+v", user)
 
 	var userFormat struct {
-		User User `json:"user"`
+		User ut.User `json:"user"`
 	}
 	userFormat.User = user
 
@@ -2306,7 +2308,7 @@ func jsonPostRequest(destinationURI string, accessToken string, requestData inte
 
 func parseTreeNode(name string, data map[string]interface{}) *TreeNode {
 	if isFileNode(data) {
-		var resource Resource
+		var resource ut.Resource
 		jsonData, _ := json.Marshal(data)
 		_ = json.Unmarshal(jsonData, &resource)
 
@@ -2398,4 +2400,57 @@ func compareStatus(status1, status2 string) bool {
 	} else {
 		return false
 	}
+}
+
+/* some structs that are used in the requests */
+type LoginRequest struct {
+	Username string `form:"username" json:"username" binding:"required,min=3,max=20"`
+	Password string `form:"password" json:"password" binding:"required,min=4,max=100"`
+}
+type RegisterRequest struct {
+	Username       string `form:"username" json:"username" binding:"required,min=3,max=20"`
+	Password       string `form:"password" json:"password" binding:"required,min=4,max=100"`
+	RepeatPassword string `form:"repeat-password" json:"repeat-password" binding:"required,min=4,max=100"`
+	Email          string `form:"email" json:"email"`
+}
+
+type AuthServiceResponse struct {
+	Token   string `json:"token"`
+	Role    string `json:"role"`
+	Message string `json:"message"`
+	Error   string `json:"error"`
+}
+
+type UseraddClaim struct {
+	Username string `json:"username" form:"username"`
+	Password string `json:"password" form:"password"`
+	Email    string `json:"email" form:"email"`
+	Home     string `json:"home" form:"home"`
+}
+
+/* This is the same response for useradd and register*/
+type RegResponse struct {
+	Message   string `json:"message"`
+	Login_url string `json:"login_url"`
+	Uid       int    `json:"uid"`
+	Pgroup    int    `json:"pgroup"`
+}
+
+type TreeNode struct {
+	Resource *ut.Resource         `json:"resource,omitempty"`
+	Children map[string]*TreeNode `json:"children,omitempty"`
+	Name     string               `json:"name,omitempty"`
+	Type     string               `json:"type"` // "directory" or "file"
+}
+
+type FilePermissions struct {
+	OwnerR bool
+	OwnerW bool
+	OwnerX bool
+	GroupR bool
+	GroupW bool
+	GroupX bool
+	OtherR bool
+	OtherW bool
+	OtherX bool
 }

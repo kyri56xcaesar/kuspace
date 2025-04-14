@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	ut "kyri56xcaesar/myThesis/internal/utils"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -26,12 +28,12 @@ func (j JDispatcher) Start() {
 }
 
 /* dispatching Jobs interface methods */
-func (j JDispatcher) PublishJob(jb Job) error {
+func (j JDispatcher) PublishJob(jb ut.Job) error {
 	// log.Printf("publishing job... :%v", jb)
 	return j.Manager.ScheduleJob(jb)
 }
 
-func (j JDispatcher) PublishJobs(jbs []Job) error {
+func (j JDispatcher) PublishJobs(jbs []ut.Job) error {
 	for _, jb := range jbs {
 		err := j.Manager.ScheduleJob(jb)
 		if err != nil {
@@ -55,7 +57,7 @@ func (j JDispatcher) RemoveJobs(jids []int) error {
 	return nil
 }
 
-func (j JDispatcher) Subscribe(job Job) error {
+func (j JDispatcher) Subscribe(job ut.Job) error {
 	return nil
 }
 
@@ -73,7 +75,7 @@ as well as scheduling and cancelling Jobs. It is a simple in-memory implementati
 type JobManager struct {
 	mu *sync.Mutex
 	// jobs       map[int]*Job
-	jobQueue   chan Job
+	jobQueue   chan ut.Job
 	workerPool chan struct{}
 	srv        *UService
 }
@@ -82,7 +84,7 @@ func NewJobManager(queueSize, maxWorkers int, srv *UService) JobManager {
 	return JobManager{
 		mu: &sync.Mutex{},
 		// jobs:       make(map[int]*Job),
-		jobQueue:   make(chan Job, queueSize),
+		jobQueue:   make(chan ut.Job, queueSize),
 		workerPool: make(chan struct{}, maxWorkers),
 		srv:        srv,
 	}
@@ -99,7 +101,7 @@ func (jm *JobManager) StartWorker() {
 	}()
 }
 
-func (jm *JobManager) ScheduleJob(jb Job) error {
+func (jm *JobManager) ScheduleJob(jb ut.Job) error {
 	log.Printf("scheduling job...")
 
 	jm.mu.Lock()
@@ -131,7 +133,7 @@ func (js *JobManager) CancelJob(jid int) error {
 	return nil
 }
 
-func (jm *JobManager) executeJob(job Job) {
+func (jm *JobManager) executeJob(job ut.Job) {
 	// log.Printf("executing job: %+v", job)
 	defer func() { <-jm.workerPool }() // Release worker slot
 
@@ -142,6 +144,7 @@ func (jm *JobManager) executeJob(job Job) {
 	// we should examine input "resources"
 
 	// language and version
+	default_v_path = jm.srv.config.VOLUMES_PATH
 	cmd, duration, err := prepareExecution(job, true)
 	if err != nil {
 		log.Printf("failed to prepare or perform job: %v", err)
@@ -193,23 +196,22 @@ func (jm *JobManager) executeJob(job Job) {
 
 func (jm *JobManager) updateJobStatus(jid int, status string, duration time.Duration) {
 	log.Printf("updating %v job status: %v", jid, status)
-
-	err := jm.srv.dbhJobs.MarkStatus(jid, status, duration)
+	err := jm.srv.MarkJobStatus(jid, status, duration)
 	if err != nil {
 		log.Printf("failed to update job %d status (%s): %v", jid, status, err)
 	}
 
 }
 
-func (jm *JobManager) syncOutputResource(job Job) {
-	fInfo, err := os.Stat(default_v_path + "/output/" + job.Output)
+func (jm *JobManager) syncOutputResource(job ut.Job) {
+	fInfo, err := os.Stat(jm.srv.config.VOLUMES_PATH + "/output/" + job.Output)
 	if err != nil {
 		log.Printf("failed to find/stat the output file: %v", err)
 		return
 	}
 
 	current_time := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
-	resource := Resource{
+	resource := ut.Resource{
 		Name:        "/output/" + job.Output,
 		Type:        "file",
 		Created_at:  current_time,
@@ -224,7 +226,7 @@ func (jm *JobManager) syncOutputResource(job Job) {
 		Links:       0,
 	}
 
-	err = jm.srv.dbh.InsertResource(resource)
+	err = jm.srv.storage.Insert(resource)
 	if err != nil {
 		log.Printf("failed to insert the resource")
 	}

@@ -2,6 +2,7 @@ package userspace
 
 import (
 	"fmt"
+	ut "kyri56xcaesar/myThesis/internal/utils"
 )
 
 /*
@@ -25,11 +26,11 @@ the default one is is JDispatcher which works as a scheduler
 */
 type JobDispatcher interface {
 	Start()
-	PublishJob(Job) error
-	PublishJobs([]Job) error
+	PublishJob(ut.Job) error
+	PublishJobs([]ut.Job) error
 	RemoveJob(int) error
 	RemoveJobs([]int) error
-	Subscribe(Job) error
+	Subscribe(ut.Job) error
 }
 
 /* a factory contstructor for JobDispatchers: @used by the API*/
