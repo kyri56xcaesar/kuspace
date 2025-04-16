@@ -55,7 +55,12 @@ type EnvConfig struct {
 	MINIO_PORT       string
 	MINIO_USE_SSL    string
 
-	J_DISPATCHER           string
+	J_DISPATCHER  string
+	J_QUEUE_SIZE  string
+	J_MAX_WORKERS string
+	J_EXECUTOR    string
+	J_WS_ADDRESS  string
+
 	DB_JOBS                string
 	DB_JOBS_DRIVER         string
 	DB_JOBS_PATH           string
@@ -68,11 +73,15 @@ type EnvConfig struct {
 
 	ServiceSecret []byte
 
+	JWKS string
+
 	AllowedOrigins []string
 	AllowedHeaders []string
 	AllowedMethods []string
 
 	AS_OPERATOR bool
+
+	NAMESPACE string
 }
 
 func LoadConfig(path string) EnvConfig {
@@ -108,7 +117,11 @@ func LoadConfig(path string) EnvConfig {
 		MINIO_PORT:       getEnv("MINIO_PORT", "9000"),
 		MINIO_USE_SSL:    getEnv("MINIO_USE_SSL", "false"),
 
-		J_DISPATCHER: getEnv("J_DISPATCHER", "default"),
+		J_DISPATCHER:  getEnv("J_DISPATCHER", "default"),
+		J_EXECUTOR:    getEnv("J_EXECUTOR", "docker"),
+		J_QUEUE_SIZE:  getEnv("J_QUEUE_SIZE", "100"),
+		J_MAX_WORKERS: getEnv("J_MAX_WORKERS", "10"),
+		J_WS_ADDRESS:  getEnv("J_WS_ADDRESS", "localhost:8082"),
 
 		DB_JOBS:                getEnv("DB_JOBS", "jobs.db"),
 		DB_JOBS_DRIVER:         getEnv("DB_JOBS_DRIVER", "duckdb"),
@@ -133,8 +146,11 @@ func LoadConfig(path string) EnvConfig {
 		JWTSecretKey:  getSecretKey("JWT_SECRET_KEY"),
 		JWTRefreshKey: getSecretKey("JWT_REFRESH_KEY"),
 		ServiceSecret: getSecretKey("SERVICE_SECRET"),
+		JWKS:          getEnv("JWKS", "data/jwks/jwks.json"),
 
 		AS_OPERATOR: getBoolEnv("AS_OPERATOR", "false"),
+
+		NAMESPACE: getEnv("NAMESPACE", "default"),
 	}
 
 	log.Print(config.ToString())

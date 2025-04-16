@@ -23,6 +23,11 @@ spec:
   containers:
   - name: minio
     image: quay.io/minio/minio:latest
+    env:
+    - name: MINIO_ROOT_USER
+      value: minioadmin # Change this value to match the MinIO root user
+    - name: MINIO_ROOT_PASSWORD
+      value: minioadmin # Change this value to match the MinIO root password
     command:
     - /bin/bash
     - -c

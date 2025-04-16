@@ -9,12 +9,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	ut "kyri56xcaesar/myThesis/internal/utils"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+
+	ut "kyri56xcaesar/myThesis/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -27,20 +28,15 @@ func (srv *UService) HandleVolumes(c *gin.Context) {
 
 		vid := c.Request.URL.Query().Get("vid")
 		if vid != "" {
-			vid_int, err := strconv.Atoi(vid)
-			if err != nil {
-				log.Printf("failed to atoi vid: %v", err)
-				c.JSON(http.StatusBadRequest, gin.H{"error": "bad vid"})
-				return
-			}
-			volume, err := srv.storage.Select(vid_int)
+
+			volume, err := srv.storage.SelectOne("", "volumes", "vid", vid)
 			if err != nil {
 				c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 				return
 			}
 			c.JSON(http.StatusOK, gin.H{"content": volume})
 		} else {
-			volumes, err := srv.storage.Select(nil)
+			volumes, err := srv.storage.Select("", "volumes", "", "", 0)
 			if err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 				return
@@ -80,7 +76,7 @@ func (srv *UService) HandleVolumes(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "couldn't bind volumes"})
 			return
 		}
-		err = srv.storage.Insert(volumes)
+		err = srv.storage.Insert([]any{volumes})
 		if err != nil {
 			log.Printf("failed to insert volumes: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "couldn't insert volumes"})
@@ -122,7 +118,7 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 				userVolume.Quota = float64(capacity)
 			}
 
-			err = srv.storage.Insert(userVolume)
+			err = srv.storage.Insert([]any{userVolume})
 			if err != nil {
 				log.Printf("failed to insert user volume: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert uv"})
@@ -132,7 +128,7 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 			return
 		}
 		// binded user
-		err = srv.storage.Insert(userVolumes)
+		err = srv.storage.Insert([]any{userVolumes})
 		if err != nil {
 			log.Printf("failed to insert user volumes: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert uv"})
@@ -154,7 +150,7 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 
 		if uids == "" && vids == "" {
 			// return all
-			data, err = srv.storage.Select(nil)
+			data, err = srv.storage.Select("", "userVolume", "", "", 0)
 			if err != nil {
 				log.Printf("failed to retrieve user volumes: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user volumes"})
@@ -163,7 +159,7 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 			userVolumes = data.([]ut.UserVolume)
 		} else if uids == "" {
 			// return by vids
-			data, err = srv.storage.Select(strings.Split(strings.TrimSpace(vids), ","))
+			data, err = srv.storage.Select("", "userVolume", "vid IN", vids, 0)
 			if err != nil {
 				log.Printf("failed to retrieve user volumes: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user volumes"})
@@ -172,16 +168,7 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 			userVolumes = data.([]ut.UserVolume)
 		} else if vids == "" {
 			// return by uids
-			data, err = srv.storage.Select(strings.Split(strings.TrimSpace(uids), ","))
-			if err != nil {
-				log.Printf("failed to retrieve user volumes: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user volumes"})
-				return
-			}
-			userVolumes = data.([]ut.UserVolume)
-		} else {
-			// return by both
-			data, err = srv.storage.Select(strings.Split(strings.TrimSpace(uids), ","), strings.Split(strings.TrimSpace(vids), ","))
+			data, err = srv.storage.Select("", "userVolume", "uid IN", uids, 0)
 			if err != nil {
 				log.Printf("failed to retrieve user volumes: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user volumes"})
@@ -189,6 +176,16 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 			}
 			userVolumes = data.([]ut.UserVolume)
 		}
+		// else {
+		// 	// return by both
+		// 	data, err = srv.storage.Select(strings.Split(strings.TrimSpace(uids), ","), strings.Split(strings.TrimSpace(vids), ","))
+		// 	if err != nil {
+		// 		log.Printf("failed to retrieve user volumes: %v", err)
+		// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user volumes"})
+		// 		return
+		// 	}
+		// 	userVolumes = data.([]ut.UserVolume)
+		// }
 		c.JSON(http.StatusOK, gin.H{"content": userVolumes})
 
 	default:
@@ -227,7 +224,7 @@ func (srv *UService) HandleGroupVolumes(c *gin.Context) {
 				groupVolume.Quota = float64(capacity)
 			}
 
-			err = srv.storage.InsertGroupVolume(groupVolume)
+			err = srv.storage.Insert([]any{groupVolume})
 			if err != nil {
 				log.Printf("failed to insert group volume: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert gv"})
@@ -238,7 +235,7 @@ func (srv *UService) HandleGroupVolumes(c *gin.Context) {
 		}
 
 		// binded user
-		err = srv.storage.InsertGroupVolumes(groupVolumes)
+		err = srv.storage.Insert([]any{groupVolumes})
 		if err != nil {
 			log.Printf("failed to insert group volumes: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert gv"})
@@ -259,7 +256,7 @@ func (srv *UService) HandleGroupVolumes(c *gin.Context) {
 
 		if gids == "" && vids == "" {
 			// return all
-			data, err = srv.storage.GetGroupVolumes()
+			data, err = srv.storage.Select("", "groupVolume", "", "", 0)
 			if err != nil {
 				log.Printf("failed to retrieve group volumes: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve group volumes"})
@@ -268,7 +265,7 @@ func (srv *UService) HandleGroupVolumes(c *gin.Context) {
 			groupVolumes = data.([]ut.GroupVolume)
 		} else if gids == "" {
 			// return by vids
-			data, err = srv.dbh.GetGroupVolumesByVolumeIds(strings.Split(strings.TrimSpace(vids), ","))
+			data, err = srv.storage.Select("", "groupVolume", "vid", vids, 0)
 			if err != nil {
 				log.Printf("failed to retrieve group volumes: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve group volumes"})
@@ -276,24 +273,25 @@ func (srv *UService) HandleGroupVolumes(c *gin.Context) {
 			}
 			groupVolumes = data.([]ut.GroupVolume)
 		} else if vids == "" {
-			// return by uids
-			data, err = srv.storage.GetGroupVolumesByGroupIds(strings.Split(strings.TrimSpace(gids), ","))
+			// return by gids
+			data, err = srv.storage.Select("", "groupVolume", "gid", gids, 0)
 			if err != nil {
 				log.Printf("failed to retrieve group volumes: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve group volumes"})
 				return
 			}
 			groupVolumes = data.([]ut.GroupVolume)
-		} else {
-			// return by both
-			data, err = srv.storage.GetGroupVolumesByVidsAndGids(strings.Split(strings.TrimSpace(vids), ","), strings.Split(strings.TrimSpace(gids), ","))
-			if err != nil {
-				log.Printf("failed to retrieve group volumes: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retireve group volumes"})
-				return
-			}
-			groupVolumes = data.([]ut.GroupVolume)
 		}
+		// else {
+		// 	// return by both
+		// 	data, err = srv.storage.GetGroupVolumesByVidsAndGids(strings.Split(strings.TrimSpace(vids), ","), strings.Split(strings.TrimSpace(gids), ","))
+		// 	if err != nil {
+		// 		log.Printf("failed to retrieve group volumes: %v", err)
+		// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retireve group volumes"})
+		// 		return
+		// 	}
+		// 	groupVolumes = data.([]ut.GroupVolume)
+		// }
 		c.JSON(http.StatusOK, gin.H{"content": groupVolumes})
 
 	default:
@@ -304,16 +302,13 @@ func (srv *UService) HandleGroupVolumes(c *gin.Context) {
 func (srv *UService) ClaimVolumeSpace(size int64, ac ut.AccessClaim) error {
 	// for now:
 	ac.Vid = 1
-	uid, err := strconv.Atoi(ac.Uid)
-	if err != nil {
-		log.Printf("failed to atoi ac.Uid, shouldn't have passed till here tbh...:%v", err)
-		return fmt.Errorf("atoi failure, shouldn't be here: %v", err)
-	}
-	volume, err := srv.storage.GetVolumeByVid(ac.Vid)
+
+	res, err := srv.storage.SelectOne("", "volumes", "vid", "1")
 	if err != nil {
 		log.Printf("could not retrieve volume: %v", err)
 		return fmt.Errorf("could not retrieve volume: %w", err)
 	}
+	volume := res.(ut.Volume)
 	// check for current volume usage.
 	// size is in Bytes
 	size_inGB := float64(size) / 1000000000
@@ -325,69 +320,61 @@ func (srv *UService) ClaimVolumeSpace(size int64, ac ut.AccessClaim) error {
 	}
 
 	// if not dynamic, we should check for per user/group quota
-	uv, err := srv.storage.GetUserVolumeByUid(uid)
+	res, err = srv.storage.SelectOne("", "userVolume", "uid", ac.Uid)
 	if err != nil {
 		log.Printf("failed to retrieve user volume: %v", err)
 		return err
 	}
-	gids := strings.Split(strings.TrimSpace(ac.Gids), ",")
-	log.Printf("gids: %v, ac: %+v", gids, ac)
-	if len(gids) == 0 {
-		return fmt.Errorf("empty gids, shouldn't be here: %v", err)
-	}
-	gvs, err := srv.storage.GetGroupVolumesByGroupIds(gids)
+	uv := res.(ut.UserVolume)
+
+	res, err = srv.storage.Select("", "groupVolume", "gid", ac.Gids, 0)
 	if err != nil {
 		log.Printf("failed to retrieve group volume: %v", err)
 		return err
 	}
+	gvs := res.([]ut.GroupVolume)
 
 	// update all usages
 	// volume
 	// volume claims user/group
 	uv.Usage += size_inGB
-	gvs_casted := gvs.([]GroupVolume)
-	for index, gv := range gvs_casted {
+	for index, gv := range gvs {
 		log.Printf("gv: %+v", gv)
-		gvs_casted[index].Usage += size_inGB
+		gvs[index].Usage += size_inGB
 	}
 	volume.Usage = new_usage_inGB
 
 	log.Printf("updated volume: %+v", volume)
 	log.Printf("updated uv: %+v", uv)
-	log.Printf("updated gvs: %+v", gvs_casted)
+	log.Printf("updated gvs: %+v", gvs)
 
-	err = srv.storage.UpdateVolume(volume)
-	if err != nil {
-		log.Printf("failed to update volume usages: %v", err)
-		return err
-	}
-	err = srv.storage.UpdateUserVolume(uv)
-	if err != nil {
-		log.Printf("failed to update user volume usages: %v", err)
-		return err
-	}
-	err = srv.storage.UpdateGroupVolumes(gvs_casted)
-	if err != nil {
-		log.Printf("failed to update group volume usages: %v", err)
-		return err
-	}
+	// err = srv.storage.UpdateVolume(volume)
+	// if err != nil {
+	// 	log.Printf("failed to update volume usages: %v", err)
+	// 	return err
+	// }
+	// err = srv.storage.UpdateUserVolume(uv)
+	// if err != nil {
+	// 	log.Printf("failed to update user volume usages: %v", err)
+	// 	return err
+	// }
+	// err = srv.storage.UpdateGroupVolumes(gvs_casted)
+	// if err != nil {
+	// 	log.Printf("failed to update group volume usages: %v", err)
+	// 	return err
+	// }
 
 	return nil
 }
 
 func (srv *UService) ReleaseVolumeSpace(size int64, ac ut.AccessClaim) error {
-	// for now:
-	ac.Vid = 1
-	uid, err := strconv.Atoi(ac.Uid)
-	if err != nil {
-		log.Printf("failed to atoi ac.Uid, shouldn't have passed till here tbh...:%v", err)
-		return fmt.Errorf("atoi failure, shouldn't be here: %v", err)
-	}
-	volume, err := srv.storage.GetVolumeByVid(ac.Vid)
+
+	res, err := srv.storage.SelectOne("", "volumes", "vid", "1")
 	if err != nil {
 		log.Printf("could not retrieve volume: %v", err)
 		return fmt.Errorf("could not retrieve volume: %w", err)
 	}
+	volume := res.(ut.Volume)
 
 	size_inGB := float64(size) / 1000000000
 	new_usage_inGB := volume.Usage - size_inGB
@@ -396,20 +383,19 @@ func (srv *UService) ReleaseVolumeSpace(size int64, ac ut.AccessClaim) error {
 		new_usage_inGB = 0
 	}
 
-	uv, err := srv.storage.GetUserVolumeByUid(uid)
+	res, err = srv.storage.SelectOne("", "userVolume", "uid", ac.Uid)
 	if err != nil {
 		log.Printf("failed to retrieve user volume: %v", err)
 		return err
 	}
-	gid, err := strconv.Atoi(strings.Split(strings.TrimSpace(ac.Gids), ",")[0])
-	if err != nil {
-		return fmt.Errorf("atoi failure, shouldn't be here: %v", err)
-	}
-	gv, err := srv.storage.GetGroupVolumeByGid(gid)
+	uv := res.(ut.UserVolume)
+
+	res, err = srv.storage.SelectOne("", "groupVolume", "gid", strings.Split(strings.TrimSpace(ac.Gids), ",")[0])
 	if err != nil {
 		log.Printf("failed to retrieve group volume: %v", err)
 		return err
 	}
+	gv := res.(ut.GroupVolume)
 
 	// update all usages
 	// volume
@@ -418,21 +404,21 @@ func (srv *UService) ReleaseVolumeSpace(size int64, ac ut.AccessClaim) error {
 	gv.Usage -= size_inGB
 	volume.Usage = new_usage_inGB
 
-	err = srv.storage.UpdateVolume(volume)
-	if err != nil {
-		log.Printf("failed to update volume usages: %v", err)
-		return err
-	}
-	err = srv.storage.UpdateUserVolume(uv)
-	if err != nil {
-		log.Printf("failed to update user volume usages: %v", err)
-		return err
-	}
-	err = srv.storage.UpdateGroupVolume(gv)
-	if err != nil {
-		log.Printf("failed to update group volume usages: %v", err)
-		return err
-	}
+	// err = srv.storage.UpdateVolume(volume)
+	// if err != nil {
+	// 	log.Printf("failed to update volume usages: %v", err)
+	// 	return err
+	// }
+	// err = srv.storage.UpdateUserVolume(uv)
+	// if err != nil {
+	// 	log.Printf("failed to update user volume usages: %v", err)
+	// 	return err
+	// }
+	// err = srv.storage.UpdateGroupVolume(gv)
+	// if err != nil {
+	// 	log.Printf("failed to update group volume usages: %v", err)
+	// 	return err
+	// }
 
 	return nil
 }

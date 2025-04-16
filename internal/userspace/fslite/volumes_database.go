@@ -8,6 +8,7 @@ package fslite
 */
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"strings"
@@ -17,12 +18,7 @@ import (
 )
 
 /* database call handlers regarding the Volume table */
-func (fsl *FsLite) GetVolumes() ([]ut.Volume, error) {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		log.Printf("failed to get database connection: %v", err)
-		return nil, err
-	}
+func GetAllVolumes(db *sql.DB) ([]ut.Volume, error) {
 	rows, err := db.Query(`
     SELECT
       *
@@ -49,14 +45,10 @@ func (fsl *FsLite) GetVolumes() ([]ut.Volume, error) {
 	return volumes, nil
 }
 
-func (fsl *FsLite) GetVolumeByVid(vid int) (ut.Volume, error) {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		log.Printf("failed to get database connection: %v", err)
-		return ut.Volume{}, err
-	}
+func GetVolumeByVid(db *sql.DB, vid int) (ut.Volume, error) {
+
 	var volume ut.Volume
-	err = db.QueryRow(`SELECT * FROM volumes WHERE vid = ?`, vid).Scan(volume.PtrFields()...)
+	err := db.QueryRow(`SELECT * FROM volumes WHERE vid = ?`, vid).Scan(volume.PtrFields()...)
 	if err != nil {
 		log.Printf("failed to scan result query: %v", err)
 		return ut.Volume{}, err
@@ -64,13 +56,7 @@ func (fsl *FsLite) GetVolumeByVid(vid int) (ut.Volume, error) {
 	return volume, nil
 }
 
-func (fsl *FsLite) UpdateVolume(volume ut.Volume) error {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		log.Printf("failed to get database connection: %v", err)
-		return err
-	}
-
+func UpdateVolume(db *sql.DB, volume ut.Volume) error {
 	query := `
 		UPDATE 
 			volumes
@@ -80,7 +66,7 @@ func (fsl *FsLite) UpdateVolume(volume ut.Volume) error {
 			vid = ?;
 	`
 
-	_, err = db.Exec(query, volume.Name, volume.Path, volume.Dynamic, volume.Capacity, volume.Usage, volume.Vid)
+	_, err := db.Exec(query, volume.Name, volume.Path, volume.Dynamic, volume.Capacity, volume.Usage, volume.Vid)
 	if err != nil {
 		log.Printf("error on query execution: %v", err)
 		return err
@@ -89,12 +75,7 @@ func (fsl *FsLite) UpdateVolume(volume ut.Volume) error {
 	return nil
 }
 
-func (fsl *FsLite) DeleteVolume(vid int) error {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		log.Printf("failed to get database connection: %v", err)
-		return err
-	}
+func DeleteVolume(db *sql.DB, vid int) error {
 	tx, err := db.Begin()
 	if err != nil {
 		log.Printf("failed to begin transaction: %v", err)
@@ -114,14 +95,8 @@ func (fsl *FsLite) DeleteVolume(vid int) error {
 	return nil
 }
 
-func (fsl *FsLite) InsertVolume(volume ut.Volume) error {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		log.Printf("failed to get database connection: %v", err)
-		return err
-	}
-
-	_, err = db.Exec(`
+func InsertVolume(db *sql.DB, volume ut.Volume) error {
+	_, err := db.Exec(`
 		INSERT INTO 
 			volumes (path, dynamic, capacity, usage) 
 		VALUES (nextval('seq_volumeid'), ?, ?, ?, ?, ?)`, volume.FieldsNoId()...)
@@ -132,13 +107,7 @@ func (fsl *FsLite) InsertVolume(volume ut.Volume) error {
 	return nil
 }
 
-func (fsl *FsLite) InsertVolumes(volumes []ut.Volume) error {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		log.Printf("error getting db connection: %v", err)
-		return err
-	}
-
+func InsertVolumes(db *sql.DB, volumes []ut.Volume) error {
 	tx, err := db.Begin()
 	if err != nil {
 		log.Printf("error starting transaction: %v", err)
@@ -176,15 +145,9 @@ func (fsl *FsLite) InsertVolumes(volumes []ut.Volume) error {
 	return nil
 }
 
-func (fsl *FsLite) DeleteVolumeByIds(ids []int) error {
+func DeleteVolumeByIds(db *sql.DB, ids []int) error {
 	if ids == nil {
 		return fmt.Errorf("must provide ids")
-	}
-
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		log.Printf("error getting database connetion")
-		return err
 	}
 
 	tx, err := db.Begin()
@@ -212,14 +175,10 @@ func (fsl *FsLite) DeleteVolumeByIds(ids []int) error {
 
 /* database call handlers regarding the UserVolume table */
 /* UNIQUE (vid, uid) pair*/
-func (fsl *FsLite) InsertUserVolume(uv ut.UserVolume) error {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		return fmt.Errorf("failed to get database connection: %v", err)
-	}
+func InsertUserVolume(db *sql.DB, uv ut.UserVolume) error {
 	// check for uniquness
 	var exists bool
-	err = db.QueryRow(`SELECT 1 FROM userVolume WHERE vid = ? AND uid = ? LIMIT 1;`, uv.Vid, uv.Uid).Scan(&exists)
+	err := db.QueryRow(`SELECT 1 FROM userVolume WHERE vid = ? AND uid = ? LIMIT 1;`, uv.Vid, uv.Uid).Scan(&exists)
 	if exists {
 		if err == nil {
 			return fmt.Errorf("already exists")
@@ -242,12 +201,7 @@ func (fsl *FsLite) InsertUserVolume(uv ut.UserVolume) error {
 	return nil
 }
 
-func (fsl *FsLite) InsertUserVolumes(uvs []ut.UserVolume) error {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		log.Printf("error getting db connection: %v", err)
-		return err
-	}
+func InsertUserVolumes(db *sql.DB, uvs []ut.UserVolume) error {
 	currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 
 	tx, err := db.Begin()
@@ -288,15 +242,10 @@ func (fsl *FsLite) InsertUserVolumes(uvs []ut.UserVolume) error {
 	return nil
 }
 
-func (fsl *FsLite) DeleteUserVolumeByUid(uid int) error {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		return fmt.Errorf("failed to get database connection: %v", err)
-	}
-
+func DeleteUserVolumeByUid(db *sql.DB, uid int) error {
 	query := `DELETE FROM userVolume WHERE uid = ?`
 
-	_, err = db.Exec(query, uid)
+	_, err := db.Exec(query, uid)
 	if err != nil {
 		return fmt.Errorf("failed to delete user volume: %v", err)
 	}
@@ -304,15 +253,10 @@ func (fsl *FsLite) DeleteUserVolumeByUid(uid int) error {
 	return nil
 }
 
-func (fsl *FsLite) DeleteUserVolumeByVid(vid int) error {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		return fmt.Errorf("failed to get database connection: %v", err)
-	}
-
+func DeleteUserVolumeByVid(db *sql.DB, vid int) error {
 	query := `DELETE FROM userVolume WHERE vid = ?`
 
-	_, err = db.Exec(query, vid)
+	_, err := db.Exec(query, vid)
 	if err != nil {
 		return fmt.Errorf("failed to delete user volume: %v", err)
 	}
@@ -320,13 +264,7 @@ func (fsl *FsLite) DeleteUserVolumeByVid(vid int) error {
 	return nil
 }
 
-func (fsl *FsLite) UpdateUserVolume(uv ut.UserVolume) error {
-
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		return fmt.Errorf("failed to get database connection: %v", err)
-	}
-
+func UpdateUserVolume(db *sql.DB, uv ut.UserVolume) error {
 	query := `
 		UPDATE userVolume
 		SET usage = ?, quota = ?, updated_at = ?
@@ -335,7 +273,7 @@ func (fsl *FsLite) UpdateUserVolume(uv ut.UserVolume) error {
 
 	currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 
-	_, err = db.Exec(query, uv.Usage, uv.Quota, currentTime, uv.Vid, uv.Uid)
+	_, err := db.Exec(query, uv.Usage, uv.Quota, currentTime, uv.Vid, uv.Uid)
 	if err != nil {
 		return fmt.Errorf("failed to update user volume: %v", err)
 	}
@@ -343,13 +281,7 @@ func (fsl *FsLite) UpdateUserVolume(uv ut.UserVolume) error {
 	return nil
 }
 
-func (fsl *FsLite) UpdateUserVolumeQuotaByUid(quota float32, uid int) error {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		log.Printf("failed to retrieve database connection: %v", err)
-		return err
-	}
-
+func UpdateUserVolumeQuotaByUid(db *sql.DB, quota float32, uid int) error {
 	query := `
     UPDATE 
       userVolume
@@ -375,13 +307,7 @@ func (fsl *FsLite) UpdateUserVolumeQuotaByUid(quota float32, uid int) error {
 	return nil
 }
 
-func (fsl *FsLite) UpdateUserVolumeUsageByUid(usage float32, uid int) error {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		log.Printf("failed to retrieve database connection: %v", err)
-		return err
-	}
-
+func UpdateUserVolumeUsageByUid(db *sql.DB, usage float32, uid int) error {
 	query := `
     UPDATE 
       userVolume
@@ -407,12 +333,7 @@ func (fsl *FsLite) UpdateUserVolumeUsageByUid(usage float32, uid int) error {
 	return nil
 }
 
-func (fsl *FsLite) UpdateUserVolumeQuotaAndUsageByUid(usage, quota float32, uid int) error {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		log.Printf("failed to retrieve database connection: %v", err)
-		return err
-	}
+func UpdateUserVolumeQuotaAndUsageByUid(db *sql.DB, usage, quota float32, uid int) error {
 
 	query := `
     UPDATE 
@@ -439,12 +360,7 @@ func (fsl *FsLite) UpdateUserVolumeQuotaAndUsageByUid(usage, quota float32, uid 
 	return nil
 }
 
-func (fsl *FsLite) GetUserVolumes() (interface{}, error) {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get database connection: %v", err)
-	}
-
+func GetAllUserVolumes(db *sql.DB) (interface{}, error) {
 	query := `SELECT * FROM userVolume`
 
 	rows, err := db.Query(query, nil)
@@ -470,27 +386,18 @@ func (fsl *FsLite) GetUserVolumes() (interface{}, error) {
 	return userVolumes, nil
 }
 
-func (fsl *FsLite) GetUserVolumeByUid(uid int) (ut.UserVolume, error) {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		return ut.UserVolume{}, fmt.Errorf("failed to get database connection: %v", err)
-	}
-
+func GetUserVolumeByUid(db *sql.DB, uid int) (ut.UserVolume, error) {
 	query := `SELECT * FROM userVolume WHERE uid = ?`
 
 	var userVolume ut.UserVolume
-	err = db.QueryRow(query, uid).Scan(userVolume.PtrFields()...)
+	err := db.QueryRow(query, uid).Scan(userVolume.PtrFields()...)
 	if err != nil {
 		return ut.UserVolume{}, fmt.Errorf("failed to query user volume: %v", err)
 	}
 	return userVolume, nil
 }
 
-func (fsl *FsLite) GetUserVolumesByUserIds(uids []string) (interface{}, error) {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get database connection: %v", err)
-	}
+func GetUserVolumesByUserIds(db *sql.DB, uids []string) (interface{}, error) {
 
 	query := `
 			SELECT * FROM userVolume WHERE uid IN (?` + strings.Repeat(",?", len(uids)-1) + `)
@@ -528,16 +435,10 @@ func (fsl *FsLite) GetUserVolumesByUserIds(uids []string) (interface{}, error) {
 	return userVolumes, nil
 }
 
-func (fsl *FsLite) GetUserVolumesByVolumeIds(vids []string) (interface{}, error) {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get database connection: %v", err)
-	}
-
+func GetUserVolumesByVolumeIds(db *sql.DB, vids []string) (interface{}, error) {
 	query := `
 			SELECT * FROM userVolume WHERE vid IN (?` + strings.Repeat(",?", len(vids)-1) + `)
 		`
-
 	if len(vids) == 1 && vids[0] == "*" {
 		query = `SELECT * FROM userVolume;`
 	}
@@ -570,12 +471,7 @@ func (fsl *FsLite) GetUserVolumesByVolumeIds(vids []string) (interface{}, error)
 	return userVolumes, nil
 }
 
-func (fsl *FsLite) GetUserVolumesByUidsAndVids(uids, vids []string) (interface{}, error) {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get database connection: %v", err)
-	}
-
+func GetUserVolumesByUidsAndVids(db *sql.DB, uids, vids []string) (interface{}, error) {
 	query := `
 		SELECT 
       * 
@@ -619,15 +515,10 @@ func (fsl *FsLite) GetUserVolumesByUidsAndVids(uids, vids []string) (interface{}
 /* database call handlers regarding the GroupVolume tabke*/
 
 /* UNIQUE pair (gid, vid) SHOULD BE (we checking)*/
-func (fsl *FsLite) InsertGroupVolume(gv ut.GroupVolume) error {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		return fmt.Errorf("failed to get database connection: %v", err)
-	}
-
+func InsertGroupVolume(db *sql.DB, gv ut.GroupVolume) error {
 	// check for uniquness
 	var exists bool
-	err = db.QueryRow(`SELECT 1 FROM groupVolume WHERE vid = ? AND gid = ? LIMIT 1;`, gv.Vid, gv.Gid).Scan(&exists)
+	err := db.QueryRow(`SELECT 1 FROM groupVolume WHERE vid = ? AND gid = ? LIMIT 1;`, gv.Vid, gv.Gid).Scan(&exists)
 	if exists {
 		if err == nil {
 			return fmt.Errorf("already exists")
@@ -651,12 +542,7 @@ func (fsl *FsLite) InsertGroupVolume(gv ut.GroupVolume) error {
 	return nil
 }
 
-func (fsl *FsLite) InsertGroupVolumes(gvs []ut.GroupVolume) error {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		log.Printf("error getting db connection: %v", err)
-		return err
-	}
+func InsertGroupVolumes(db *sql.DB, gvs []ut.GroupVolume) error {
 	currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 
 	tx, err := db.Begin()
@@ -697,15 +583,10 @@ func (fsl *FsLite) InsertGroupVolumes(gvs []ut.GroupVolume) error {
 	return nil
 }
 
-func (fsl *FsLite) DeleteGroupVolumeByGid(gid int) error {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		return fmt.Errorf("failed to get database connection: %v", err)
-	}
-
+func DeleteGroupVolumeByGid(db *sql.DB, gid int) error {
 	query := `DELETE FROM groupVolume WHERE gid = ?`
 
-	_, err = db.Exec(query, gid)
+	_, err := db.Exec(query, gid)
 	if err != nil {
 		return fmt.Errorf("failed to delete group volume: %v", err)
 	}
@@ -713,15 +594,10 @@ func (fsl *FsLite) DeleteGroupVolumeByGid(gid int) error {
 	return nil
 }
 
-func (fsl *FsLite) DeleteGroupVolumeByVid(vid int) error {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		return fmt.Errorf("failed to get database connection: %v", err)
-	}
-
+func DeleteGroupVolumeByVid(db *sql.DB, vid int) error {
 	query := `DELETE FROM groupVolume WHERE vid = ?`
 
-	_, err = db.Exec(query, vid)
+	_, err := db.Exec(query, vid)
 	if err != nil {
 		return fmt.Errorf("failed to delete group volume: %v", err)
 	}
@@ -729,12 +605,8 @@ func (fsl *FsLite) DeleteGroupVolumeByVid(vid int) error {
 	return nil
 }
 
-func (fsl *FsLite) UpdateGroupVolume(gv ut.GroupVolume) error {
+func UpdateGroupVolume(db *sql.DB, gv ut.GroupVolume) error {
 
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		return fmt.Errorf("failed to get database connection: %v", err)
-	}
 	query := `
 		UPDATE groupVolume
 		SET usage = ?, quota = ?, updated_at = ?
@@ -743,7 +615,7 @@ func (fsl *FsLite) UpdateGroupVolume(gv ut.GroupVolume) error {
 
 	current_time := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 
-	_, err = db.Exec(query, gv.Usage, gv.Quota, current_time, gv.Vid, gv.Gid)
+	_, err := db.Exec(query, gv.Usage, gv.Quota, current_time, gv.Vid, gv.Gid)
 	if err != nil {
 		return fmt.Errorf("failed to update group volume: %v", err)
 	}
@@ -751,7 +623,7 @@ func (fsl *FsLite) UpdateGroupVolume(gv ut.GroupVolume) error {
 	return nil
 }
 
-func (fsl *FsLite) UpdateGroupVolumes(gvs []ut.GroupVolume) error {
+func UpdateGroupVolumes(db *sql.DB, gvs []ut.GroupVolume) error {
 	if len(gvs) == 0 {
 		return nil // No updates needed
 	}
@@ -763,12 +635,6 @@ func (fsl *FsLite) UpdateGroupVolumes(gvs []ut.GroupVolume) error {
 		SET usage = ?, quota = ?, updated_at = ?
 		WHERE vid = ? AND gid = ?
 	`
-
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		return fmt.Errorf("failed to get database connection: %v", err)
-	}
-
 	// Begin a transaction
 	tx, err := db.Begin()
 	if err != nil {
@@ -802,18 +668,13 @@ func (fsl *FsLite) UpdateGroupVolumes(gvs []ut.GroupVolume) error {
 	return nil
 }
 
-func (fsl *FsLite) UpdateGroupVolumesUsageByGids(gids []string) error {
+func UpdateGroupVolumesUsageByGids(db *sql.DB, gids []string) error {
 	query := `
     UPDATE groupVolume 
     SET usage = ? 
     WHERE gid IN (?
     ` + strings.Repeat(", ?", len(gids)-1) + `)`
 
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		log.Printf("failed to retrieve the database connection: %v", err)
-		return err
-	}
 	args := make([]interface{}, len(gids))
 	for i, v := range gids {
 		args[i] = v
@@ -834,12 +695,7 @@ func (fsl *FsLite) UpdateGroupVolumesUsageByGids(gids []string) error {
 	return nil
 }
 
-func (fsl *FsLite) UpdateGroupVolumeQuotaByGid(quota float32, gid int) error {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		log.Printf("failed to retrieve database connection: %v", err)
-		return err
-	}
+func UpdateGroupVolumeQuotaByGid(db *sql.DB, quota float32, gid int) error {
 
 	query := `
     UPDATE 
@@ -866,12 +722,7 @@ func (fsl *FsLite) UpdateGroupVolumeQuotaByGid(quota float32, gid int) error {
 	return nil
 }
 
-func (fsl *FsLite) UpdateGroupVolumeUsageByGid(usage float32, gid int) error {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		log.Printf("failed to retrieve database connection: %v", err)
-		return err
-	}
+func UpdateGroupVolumeUsageByGid(db *sql.DB, usage float32, gid int) error {
 
 	query := `
     UPDATE 
@@ -898,12 +749,7 @@ func (fsl *FsLite) UpdateGroupVolumeUsageByGid(usage float32, gid int) error {
 	return nil
 }
 
-func (fsl *FsLite) UpdateGroupVolumeQuotaAndUsageByUid(usage, quota float32, gid int) error {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		log.Printf("failed to retrieve database connection: %v", err)
-		return err
-	}
+func UpdateGroupVolumeQuotaAndUsageByUid(db *sql.DB, usage, quota float32, gid int) error {
 
 	query := `
     UPDATE 
@@ -930,11 +776,7 @@ func (fsl *FsLite) UpdateGroupVolumeQuotaAndUsageByUid(usage, quota float32, gid
 	return nil
 }
 
-func (fsl *FsLite) GetGroupVolumes() (interface{}, error) {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get database connection: %v", err)
-	}
+func GetAllGroupVolumes(db *sql.DB) (interface{}, error) {
 
 	query := `SELECT * FROM groupVolume`
 
@@ -961,15 +803,11 @@ func (fsl *FsLite) GetGroupVolumes() (interface{}, error) {
 	return groupVolumes, nil
 }
 
-func (fsl *FsLite) GetGroupVolumeByGid(gid int) (ut.GroupVolume, error) {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		return ut.GroupVolume{}, fmt.Errorf("failed to get database connection: %v", err)
-	}
+func GetGroupVolumeByGid(db *sql.DB, gid int) (ut.GroupVolume, error) {
 
 	query := `SELECT * FROM groupVolume WHERE gid = ?`
 	var groupVolume ut.GroupVolume
-	err = db.QueryRow(query, gid).Scan(groupVolume.PtrFields()...)
+	err := db.QueryRow(query, gid).Scan(groupVolume.PtrFields()...)
 	if err != nil {
 		return ut.GroupVolume{}, fmt.Errorf("failed to query group volumes: %v", err)
 	}
@@ -977,11 +815,7 @@ func (fsl *FsLite) GetGroupVolumeByGid(gid int) (ut.GroupVolume, error) {
 	return groupVolume, nil
 }
 
-func (fsl *FsLite) GetGroupVolumesByGroupIds(gids []string) (any, error) {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get database connection: %v", err)
-	}
+func GetGroupVolumesByGroupIds(db *sql.DB, gids []string) (any, error) {
 
 	query := `
 			SELECT * FROM groupVolume WHERE gid IN (?` + strings.Repeat(",?", len(gids)-1) + `)
@@ -1018,12 +852,7 @@ func (fsl *FsLite) GetGroupVolumesByGroupIds(gids []string) (any, error) {
 	return groupVolumes, nil
 }
 
-func (fsl *FsLite) GetGroupVolumesByVolumeIds(vids []string) (interface{}, error) {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get database connection: %v", err)
-	}
-
+func GetGroupVolumesByVolumeIds(db *sql.DB, vids []string) (interface{}, error) {
 	query := `
 			SELECT * FROM groupVolume WHERE vid IN (?` + strings.Repeat(",?", len(vids)-1) + `)
 		`
@@ -1059,11 +888,7 @@ func (fsl *FsLite) GetGroupVolumesByVolumeIds(vids []string) (interface{}, error
 	return groupVolumes, nil
 }
 
-func (fsl *FsLite) GetGroupVolumesByVidsAndGids(vids, gids []string) (any, error) {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get database connection: %v", err)
-	}
+func GetGroupVolumesByVidsAndGids(db *sql.DB, vids, gids []string) (any, error) {
 
 	query := `
 		SELECT 
@@ -1104,17 +929,14 @@ func (fsl *FsLite) GetGroupVolumesByVidsAndGids(vids, gids []string) (any, error
 	return groupVolumes, nil
 }
 
-func (fsl *FsLite) InitResourceVolumeSpecific(database_path, volumes_path, capacity string) {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		log.Fatalf("couldn't get db connection, destructive: %v", err)
-	}
+func InitResourceVolumeSpecific(db *sql.DB, database_path, volumes_path, capacity string) {
+
 	// specific initialization
 	var (
 		exists bool
 		vid    int64
 	)
-	err = db.QueryRow("SELECT COUNT(*) > 0 FROM volumes").Scan(&exists)
+	err := db.QueryRow("SELECT COUNT(*) > 0 FROM volumes").Scan(&exists)
 	if err != nil {
 		log.Fatalf("failed to scan exists query: %v", err)
 	}
@@ -1191,4 +1013,201 @@ func (fsl *FsLite) InitResourceVolumeSpecific(database_path, volumes_path, capac
 			log.Fatalf("failed to insert essential groupVolumes")
 		}
 	}
+}
+
+// updated, better, more inclusive funcs
+
+func GetVolumes(db *sql.DB, sel, table, by, byvalue string, limit int) ([]any, error) {
+	if sel == "" {
+		sel = "*"
+	}
+	query := fmt.Sprintf("SELECT %s FROM %s", sel, table)
+
+	var placeholderStr string
+	var args []any
+	for _, arg := range strings.Split(strings.TrimSpace(byvalue), ",") {
+		args = append(args, arg)
+	}
+	if by != "" && byvalue != "" {
+		by_values_split := strings.Split(strings.TrimSpace(byvalue), ",")
+		placeholders := make([]string, len(by_values_split))
+		for i := range by_values_split {
+			placeholders[i] = "?"
+		}
+		placeholderStr = strings.Join(placeholders, ",")
+
+		query = fmt.Sprintf("%s WHERE %s (%s)", query, by, placeholderStr)
+	}
+
+	if limit > 0 {
+		limit_str := fmt.Sprintf("LIMIT %d", limit)
+		query = fmt.Sprintf("%s %s", query, limit_str)
+	}
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		log.Printf("error querying db: %v", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var resources []any
+	for rows.Next() {
+		var r ut.Volume
+		err = rows.Scan(r.PtrFields()...)
+		if err != nil {
+			log.Printf("error scanning row: %v", err)
+			return nil, err
+		}
+
+		resources = append(resources, r)
+	}
+
+	return resources, nil
+}
+
+func GetVolume(db *sql.DB, sel, table, by, byvalue string) (any, error) {
+	if sel == "" {
+		sel = "*"
+	}
+	query := fmt.Sprintf("SELECT %s FROM %s WHERE %s = ?", sel, table, by)
+
+	var r ut.Volume
+	err := db.QueryRow(query, byvalue).Scan(r.PtrFields()...)
+	if err != nil {
+		log.Printf("error scanning row: %v", err)
+		return r, err
+	}
+
+	return r, nil
+}
+
+func GetUserVolumes(db *sql.DB, sel, table, by, byvalue string, limit int) ([]any, error) {
+	if sel == "" {
+		sel = "*"
+	}
+	query := fmt.Sprintf("SELECT %s FROM %s", sel, table)
+
+	var placeholderStr string
+	var args []any
+	for _, arg := range strings.Split(strings.TrimSpace(byvalue), ",") {
+		args = append(args, arg)
+	}
+	if by != "" && byvalue != "" {
+		by_values_split := strings.Split(strings.TrimSpace(byvalue), ",")
+		placeholders := make([]string, len(by_values_split))
+		for i := range by_values_split {
+			placeholders[i] = "?"
+		}
+		placeholderStr = strings.Join(placeholders, ",")
+
+		query = fmt.Sprintf("%s WHERE %s (%s)", query, by, placeholderStr)
+	}
+
+	if limit > 0 {
+		limit_str := fmt.Sprintf("LIMIT %d", limit)
+		query = fmt.Sprintf("%s %s", query, limit_str)
+	}
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		log.Printf("error querying db: %v", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var resources []any
+	for rows.Next() {
+		var r ut.UserVolume
+		err = rows.Scan(r.PtrFields()...)
+		if err != nil {
+			log.Printf("error scanning row: %v", err)
+			return nil, err
+		}
+
+		resources = append(resources, r)
+	}
+
+	return resources, nil
+}
+
+func GetUserVolume(db *sql.DB, sel, table, by, byvalue string) (any, error) {
+	if sel == "" {
+		sel = "*"
+	}
+	query := fmt.Sprintf("SELECT %s FROM %s WHERE %s = ?", sel, table, by)
+
+	var r ut.UserVolume
+	err := db.QueryRow(query, byvalue).Scan(r.PtrFields()...)
+	if err != nil {
+		log.Printf("error scanning row: %v", err)
+		return r, err
+	}
+
+	return r, nil
+}
+
+func GetGroupVolumes(db *sql.DB, sel, table, by, byvalue string, limit int) ([]any, error) {
+	if sel == "" {
+		sel = "*"
+	}
+	query := fmt.Sprintf("SELECT %s FROM %s", sel, table)
+
+	var placeholderStr string
+	var args []any
+	for _, arg := range strings.Split(strings.TrimSpace(byvalue), ",") {
+		args = append(args, arg)
+	}
+	if by != "" && byvalue != "" {
+		by_values_split := strings.Split(strings.TrimSpace(byvalue), ",")
+		placeholders := make([]string, len(by_values_split))
+		for i := range by_values_split {
+			placeholders[i] = "?"
+		}
+		placeholderStr = strings.Join(placeholders, ",")
+
+		query = fmt.Sprintf("%s WHERE %s (%s)", query, by, placeholderStr)
+	}
+
+	if limit > 0 {
+		limit_str := fmt.Sprintf("LIMIT %d", limit)
+		query = fmt.Sprintf("%s %s", query, limit_str)
+	}
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		log.Printf("error querying db: %v", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var resources []any
+	for rows.Next() {
+		var r ut.GroupVolume
+		err = rows.Scan(r.PtrFields()...)
+		if err != nil {
+			log.Printf("error scanning row: %v", err)
+			return nil, err
+		}
+
+		resources = append(resources, r)
+	}
+
+	return resources, nil
+}
+
+func GetGroupVolume(db *sql.DB, sel, table, by, byvalue string) (any, error) {
+	if sel == "" {
+		sel = "*"
+	}
+	query := fmt.Sprintf("SELECT %s FROM %s WHERE %s = ?", sel, table, by)
+
+	var r ut.GroupVolume
+	err := db.QueryRow(query, byvalue).Scan(r.PtrFields()...)
+	if err != nil {
+		log.Printf("error scanning row: %v", err)
+		return r, err
+	}
+
+	return r, nil
 }

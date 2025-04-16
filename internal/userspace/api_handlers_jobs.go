@@ -12,7 +12,6 @@ package userspace
 import (
 	"encoding/json"
 	"io"
-	"kyri56xcaesar/myThesis/internal/utils"
 	"log"
 	"net/http"
 	"strconv"
@@ -32,7 +31,7 @@ func (srv *UService) HandleJob(c *gin.Context) {
 		uids, _ := c.GetQuery("uids")
 		if uids != "" {
 			// return all jobs from database by uids
-			uids_int, err := utils.SplitToInt(uids, ",")
+			uids_int, err := ut.SplitToInt(uids, ",")
 			if err != nil {
 				log.Printf("failed to atoi uids: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "failed to atoi uids"})
@@ -142,7 +141,7 @@ func (srv *UService) HandleJobAdmin(c *gin.Context) {
 		uids, _ := c.GetQuery("uids")
 		if uids != "" {
 			// return all jobs from database by uids
-			uids_int, err := utils.SplitToInt(uids, ",")
+			uids_int, err := ut.SplitToInt(uids, ",")
 			if err != nil {
 				log.Printf("failed to atoi uids: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "failed to atoi uids"})

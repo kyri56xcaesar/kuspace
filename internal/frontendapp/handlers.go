@@ -8,7 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	filepath "path/filepath"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"

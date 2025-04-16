@@ -1,0 +1,9 @@
+FROM python:3.11-slim
+
+RUN pip install duckdb requests pandas
+
+WORKDIR /app
+
+COPY run_job.py /app/
+
+ENTRYPOINT [ "python", "run_job.py" ]

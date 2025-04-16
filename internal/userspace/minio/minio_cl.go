@@ -2,20 +2,43 @@ package minio
 
 import (
 	ut "kyri56xcaesar/myThesis/internal/utils"
+	"log"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
+const (
+	region = "eu-central-1"
+)
+
+var (
+	client *MinioClient
+)
+
 type MinioClient struct {
-	accessKey string
-	secretKey string
-	endpoint  string
-	useSSL    bool
-	client    *minio.Client
+	accessKey     string
+	secretKey     string
+	endpoint      string
+	useSSL        bool
+	objectLocking bool
+	// retentionPeriod int
+	client *minio.Client
 }
 
-func NewMinioClient(cfg ut.EnvConfig) MinioClient {
+func GetOrCreateMinioClient(cfg ut.EnvConfig) (*MinioClient, error) {
+	if client == nil {
+		mc, err := NewMinioClient(cfg)
+		if err != nil {
+			return nil, err
+		}
+
+		client = &mc
+	}
+	return client, nil
+}
+
+func NewMinioClient(cfg ut.EnvConfig) (MinioClient, error) {
 	mc := MinioClient{
 		accessKey: cfg.MINIO_ACCESS_KEY,
 		secretKey: cfg.MINIO_SECRET_KEY,
@@ -29,10 +52,31 @@ func NewMinioClient(cfg ut.EnvConfig) MinioClient {
 	})
 
 	if err != nil {
-		panic(err)
+		return MinioClient{}, err
 	}
 
 	mc.client = client
 
-	return mc
+	return mc, nil
+}
+
+func (mc *MinioClient) Insert(t []any) error {
+	log.Printf("creating a bucket o_O")
+	return nil
+}
+
+func (mc *MinioClient) Select(sel, table, by, byvalue string, limit int) ([]any, error) {
+	return nil, nil
+}
+
+func (mc *MinioClient) SelectOne(sel, table, by, byvalue string) (any, error) {
+	return nil, nil
+}
+
+func (mc *MinioClient) Update(t any) error {
+	return nil
+}
+
+func (mc *MinioClient) Remove(t any) error {
+	return nil
 }

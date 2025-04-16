@@ -1,7 +1,6 @@
 package userspace
 
 import (
-	"fmt"
 	ut "kyri56xcaesar/myThesis/internal/utils"
 )
 
@@ -34,17 +33,17 @@ type JobDispatcher interface {
 }
 
 /* a factory contstructor for JobDispatchers: @used by the API*/
-func DispatcherFactory(dispatcherType string, srv *UService) (JobDispatcher, error) {
+func DispatcherShipment(dispatcherType string, srv *UService) (JobDispatcher, error) {
 	switch dispatcherType {
 	case "scheduler", "default", "local":
-		return JDispatcher{Manager: NewJobManager(100, 10, srv)}, nil
+		return JobDispatcherImpl{Manager: NewJobManager(srv)}, nil
 	case "kafka":
-		return nil, fmt.Errorf("kafka dispatcher not implemented")
+		return nil, ut.NewWarning("kafka dispatcher not implemented")
 	case "rabbitmq":
-		return nil, fmt.Errorf("rabbitmq dispatcher not implemented")
+		return nil, ut.NewWarning("rabbitmq dispatcher not implemented")
 	case "natss":
-		return nil, fmt.Errorf("natss dispatcher not implemented")
+		return nil, ut.NewWarning("natss dispatcher not implemented")
 	default:
-		return nil, fmt.Errorf("unknown dispatcher type: %s", dispatcherType)
+		return nil, ut.NewWarning("unknown dispatcher type: %s", dispatcherType)
 	}
 }

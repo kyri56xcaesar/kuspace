@@ -161,3 +161,13 @@ func MergeFiles(outputFile string, inputLocation string, inputFiles []string) er
 	fmt.Println("Merged files into:", outputFile)
 	return nil
 }
+
+func NewError(msg string, args ...any) error {
+	return fmt.Errorf("[ERROR] %s", fmt.Sprintf(msg, args...))
+}
+func NewWarning(msg string, args ...any) error {
+	return fmt.Errorf("[WARNING] %s", fmt.Sprintf(msg, args...))
+}
+func NewInfo(msg string, args ...any) error {
+	return fmt.Errorf("[INFO] %s", fmt.Sprintf(msg, args...))
+}

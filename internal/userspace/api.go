@@ -17,7 +17,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-/* Structure containing all needed aspects of this service */
+/*
+	Structure containing all needed aspects of this service
+
+- configuration object (ofc)
+- http engine (gin) reference
+- a storage system for files reference
+- a local database + handler system for the Jobs
+- a Job "dispatcher" system reference
+*/
 type UService struct {
 	/* configuration file (.env) */
 	config ut.EnvConfig
@@ -28,16 +36,29 @@ type UService struct {
 	/* database calls handlers for resources/volumes database */
 	//dbh DBHandler
 
+	/* a storage system that this service is gonna use
+	it can be either a basic volume occupation
+	or a minio storage system
+	or anything else implementin this interface
+	*/
 	storage StorageSystem
 
-	/* database calls handlers for jobs database*/
+	/* database call handlers for the Jobs db*/
 	jdbh ut.DBHandler
 
-	/* a job dispatcher: a preparation to runming jobs*/
+	/* a job dispatcher: a scheduling/setup/preparation system for runming jobs*/
+	/* it is directly associated to other objects, JobManager, JobExecutor that
+	eventually carry out the execution.
+	*/
 	jdp JobDispatcher
 }
 
-/* "constructor" */
+/*
+		"constructor"
+
+	  - @by shipment it is meant the function that getsOrCreates
+	    the object or refence to a system of choice upon choice (configuration)
+*/
 func NewUService(conf string) UService {
 	// configuration
 	cfg := ut.LoadConfig(conf)
@@ -49,15 +70,15 @@ func NewUService(conf string) UService {
 		//dbh:     NewDBHandler(cfg.DB_RV, cfg.DB_RV_DRIVER),
 	}
 
-	// storage
-	storage, err := StorageFactory(strings.ToLower(cfg.STORAGE_TYPE), &srv)
+	// storage system (constructing)
+	storage, err := StorageShipment(strings.ToLower(cfg.STORAGE_TYPE), &srv)
 	if err != nil {
 		panic(err)
 	}
 	srv.storage = storage
 
-	// dispatcher
-	jdp, err := DispatcherFactory(strings.ToLower(cfg.J_DISPATCHER), &srv)
+	// dispatcher system (constructing)
+	jdp, err := DispatcherShipment(strings.ToLower(cfg.J_DISPATCHER), &srv)
 	if err != nil {
 		panic(err)
 	}
@@ -65,7 +86,7 @@ func NewUService(conf string) UService {
 	srv.jdp = jdp
 	jdp.Start()
 
-	// database
+	// database (init)
 	jdbh := ut.NewDBHandler(cfg.DB_JOBS, cfg.DB_JOBS_PATH, cfg.DB_JOBS_DRIVER)
 	srv.jdbh = jdbh
 	srv.jdbh.Init(initSqlJobs, cfg.DB_JOBS_PATH, cfg.DB_JOBS_MAX_OPEN_CONNS, cfg.DB_JOBS_MAX_IDLE_CONNS, cfg.DB_JOBS_MAX_LIFETIME)
@@ -238,22 +259,22 @@ func syncUsers(srv *UService) error {
 			continue
 		}
 
-		err := srv.storage.Insert(ut.GroupVolume{
+		err := srv.storage.Insert([]any{ut.GroupVolume{
 			Vid:   1,
 			Gid:   group.Gid,
 			Quota: capacity,
-		})
+		}})
 		if err != nil {
 			log.Printf("failed to insert gv: %v", err)
 			return err
 		}
 		for _, user := range group.Users {
 			if user.Username == group.Groupname {
-				err := srv.storage.Insert(ut.UserVolume{
+				err := srv.storage.Insert([]any{ut.UserVolume{
 					Vid:   1,
 					Uid:   user.Uid,
 					Quota: capacity,
-				})
+				}})
 				if err != nil {
 					log.Printf("failed to insert uv: %v", err)
 					return err

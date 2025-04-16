@@ -30,13 +30,19 @@ import (
 * 'ls'
 * */
 func (srv *UService) ResourcesHandler(c *gin.Context) {
+	l := c.Request.URL.Query().Get("limit")
+	limit, err := strconv.Atoi(l)
+	if err != nil {
+		limit = 0
+	}
+
 	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
 	if err != nil {
 		log.Printf("failed to bind access-target: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing Access-Target header"})
 		return
 	}
-	resources, err := srv.storage.Select(ac.Target + "%")
+	resources, err := srv.storage.Select("", "resources", "name LIKE", ac.Target+"%", limit)
 
 	// log.Printf("ac: %+v\nresources: %+v", ac, resources)
 	if err != nil {
@@ -109,9 +115,12 @@ func (srv *UService) PostResourcesHandler(c *gin.Context) {
 		resources[i].Accessed_at = currentTime
 	}
 
-	log.Printf("binded resources: %+v", resources)
+	r := make([]any, len(resources))
+	for i := range resources {
+		r[i] = resources[i]
+	}
 
-	err = srv.storage.Insert(resources)
+	err = srv.storage.Insert(r)
 	if err != nil {
 		log.Printf("failed to insert resources: %v", err)
 		c.JSON(422, gin.H{"error": "failed to insert resources"})
@@ -312,11 +321,11 @@ func (srv *UService) HandleDownload(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing Access-Target header"})
 		return
 	}
-	log.Printf("binded access claim: %+v", ac)
-	log.Printf("trimmed: %v", strings.TrimSuffix(ac.Target, "/"))
+	// log.Printf("binded access claim: %+v", ac)
+	// log.Printf("trimmed: %v", strings.TrimSuffix(ac.Target, "/"))
 	path := strings.TrimSuffix(ac.Target, "/")
 
-	_, err = srv.storage.Select(path)
+	_, err = srv.storage.SelectOne("", "resources", "name = ", path)
 	if err != nil {
 		log.Printf("failed to retrieve resource: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to retrieve resource"})
@@ -428,7 +437,7 @@ func (srv *UService) HandleUpload(c *gin.Context) {
 			Size:        int64(fileHeader.Size),
 		}
 
-		err = srv.storage.Insert(resource)
+		err = srv.storage.Insert([]any{resource})
 		if err != nil {
 			log.Printf("failed to insert resources: %v", err)
 			c.JSON(422, gin.H{"error": "failed to insert resources"})
@@ -451,7 +460,7 @@ func (srv *UService) HandlePreview(c *gin.Context) {
 	log.Printf("binded access claim: %+v", ac)
 	path := strings.TrimSuffix(ac.Target, "/")
 	// get the resource info
-	res, err := srv.storage.SelectOne(path)
+	res, err := srv.storage.SelectOne("", "resources", "name = ", path)
 	if err != nil {
 		log.Printf("failed to get the resource: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "resource not found"})

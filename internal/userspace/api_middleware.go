@@ -109,13 +109,7 @@ func isOwner(srv *UService) gin.HandlerFunc {
 		}
 
 		if ac.Keyword {
-			target_int, err := ut.SplitToInt(ac.Target, ",")
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-				c.Abort()
-				return
-			}
-			resources, err := srv.storage.Select(target_int)
+			resources, err := srv.storage.Select("", "resources", "rid IN", ac.Target, 0)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 				c.Abort()
@@ -132,7 +126,7 @@ func isOwner(srv *UService) gin.HandlerFunc {
 			}
 		} else {
 			// lets grab the resource existing permissions:
-			resource, err := srv.storage.SelectOne(ac.Target)
+			resource, err := srv.storage.SelectOne("", "resources", "name = ", ac.Target)
 			if err != nil {
 				log.Printf("error retrieving resource: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve resouce"})
@@ -174,13 +168,8 @@ func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
 		}
 
 		if ac.Keyword {
-			target_int, err := ut.SplitToInt(ac.Target, ",")
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-				c.Abort()
-				return
-			}
-			resources, err := srv.storage.Select(target_int)
+
+			resources, err := srv.storage.Select("", "resources", "rid IN", ac.Target, 0)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 				c.Abort()
@@ -219,7 +208,7 @@ func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
 			}
 		} else {
 			// lets grab the resource existing permissions:
-			resource, err := srv.storage.SelectOne(ac.Target)
+			resource, err := srv.storage.SelectOne("", "resources", "name = ", ac.Target)
 			if err != nil {
 				log.Printf("error retrieving resource: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve resouce"})
