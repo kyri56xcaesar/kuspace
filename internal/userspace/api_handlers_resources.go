@@ -36,12 +36,15 @@ func (srv *UService) ResourcesHandler(c *gin.Context) {
 		limit = 0
 	}
 
-	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
-	if err != nil {
-		log.Printf("failed to bind access-target: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "missing Access-Target header"})
+	// get header
+	ac_h, exists := c.Get("accessTarget")
+	if !exists {
+		log.Printf("access target header was not set properly")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
 		return
 	}
+	ac := ac_h.(ut.AccessClaim)
+
 	resources, err := srv.storage.Select("", "resources", "name LIKE", ac.Target+"%", limit)
 
 	// log.Printf("ac: %+v\nresources: %+v", ac, resources)
@@ -67,7 +70,7 @@ func (srv *UService) ResourcesHandler(c *gin.Context) {
 	case "tree":
 		// build the tree and return it in json
 		// need to parse all the resources
-		tree := make(map[string]interface{})
+		tree := make(map[string]any)
 		for _, res := range resources {
 			resource := res.(ut.Resource)
 			// buildTreeRec(tree, strings.Split(strings.TrimPrefix(resource.Name, "/"), "/"), resource)
@@ -92,16 +95,17 @@ func (srv *UService) ResourcesHandler(c *gin.Context) {
 * resource path is enough.
 * */
 func (srv *UService) PostResourcesHandler(c *gin.Context) {
-	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
-	if err != nil {
-		log.Printf("failed to bind access-target: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "missing Access-Target header"})
+	// get header
+	ac_h, exists := c.Get("accessTarget")
+	if !exists {
+		log.Printf("access target header was not set properly")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
 		return
 	}
-	log.Printf("binded access claim: %+v", ac)
+	ac := ac_h.(ut.AccessClaim)
 
 	var resources []ut.Resource
-	err = c.BindJSON(&resources)
+	err := c.BindJSON(&resources)
 	if err != nil {
 		log.Printf("error binding: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad binding"})
@@ -133,12 +137,15 @@ func (srv *UService) PostResourcesHandler(c *gin.Context) {
 }
 
 func (srv *UService) RemoveResourceHandler(c *gin.Context) {
-	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
-	if err != nil {
-		log.Printf("failed to bind access-target: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "missing Access-Target header"})
+	// get header
+	ac_h, exists := c.Get("accessTarget")
+	if !exists {
+		log.Printf("access target header was not set properly")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
 		return
 	}
+	ac := ac_h.(ut.AccessClaim)
+
 	ac.Vid = 1 // for now
 	log.Printf("binded access claim: %+v", ac)
 
@@ -315,17 +322,19 @@ func (srv *UService) ResourceCpHandler(c *gin.Context) {
 
 func (srv *UService) HandleDownload(c *gin.Context) {
 	/* 1]: parse location from header*/
-	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
-	if err != nil {
-		log.Printf("failed to bind access-target: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "missing Access-Target header"})
+	// get header
+	ac_h, exists := c.Get("accessTarget")
+	if !exists {
+		log.Printf("access target header was not set properly")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
 		return
 	}
+	ac := ac_h.(ut.AccessClaim)
 	// log.Printf("binded access claim: %+v", ac)
 	// log.Printf("trimmed: %v", strings.TrimSuffix(ac.Target, "/"))
 	path := strings.TrimSuffix(ac.Target, "/")
 
-	_, err = srv.storage.SelectOne("", "resources", "name = ", path)
+	_, err := srv.storage.SelectOne("", "resources", "name = ", path)
 	if err != nil {
 		log.Printf("failed to retrieve resource: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to retrieve resource"})
@@ -339,13 +348,14 @@ func (srv *UService) HandleDownload(c *gin.Context) {
 /* the main endpoint handler for resource uploading */
 func (srv *UService) HandleUpload(c *gin.Context) {
 	/* 1]: parse location from header*/
-	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
-	log.Printf("ac: %+v", ac)
-	if err != nil {
-		log.Printf("failed to bind access-target: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "missing Access-Target header"})
+	// get header
+	ac_h, exists := c.Get("accessTarget")
+	if !exists {
+		log.Printf("access target header was not set properly")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
 		return
 	}
+	ac := ac_h.(ut.AccessClaim)
 	// 2]: we should check if destination is valid and if user is authorizated
 	/*
 	* */
@@ -357,7 +367,7 @@ func (srv *UService) HandleUpload(c *gin.Context) {
 
 	// 3]: determine physical destination path
 	// parse the form files
-	err = c.Request.ParseMultipartForm(10 << 10)
+	err := c.Request.ParseMultipartForm(10 << 10)
 	if err != nil {
 		log.Printf("failed to parse multipart form: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to parse multipart form"})
@@ -383,12 +393,14 @@ func (srv *UService) HandleUpload(c *gin.Context) {
 
 	// perhaphs we could avoid this step, since we checking frm volume metadata
 	// 3.2] or by the system..
-	physicalPath, err := determinePhysicalStorage(srv.config.VOLUMES_PATH+ac.Target, totalUploadSize)
-	if err != nil {
-		log.Printf("could't establish physical storage: %v", err)
-		c.JSON(http.StatusInsufficientStorage, gin.H{"error": "storage failure"})
-		return
-	}
+	// physicalPath, err := determinePhysicalStorage(srv.config.VOLUMES_PATH+ac.Target, totalUploadSize)
+	// if err != nil {
+	// 	log.Printf("could't establish physical storage: %v", err)
+	// 	c.JSON(http.StatusInsufficientStorage, gin.H{"error": "storage failure"})
+	// 	return
+	// }
+
+	physicalPath := "tmp/"
 
 	// 4]: perform the upload stream
 	/* I would like to do this concurrently perpahps*/
@@ -451,13 +463,15 @@ func (srv *UService) HandleUpload(c *gin.Context) {
 
 func (srv *UService) HandlePreview(c *gin.Context) {
 	// parse resource target header:
-	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
-	if err != nil {
-		log.Printf("failed to bind access-target: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "missing Access-Target header"})
+	// get header
+	ac_h, exists := c.Get("accessTarget")
+	if !exists {
+		log.Printf("access target header was not set properly")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
 		return
 	}
-	log.Printf("binded access claim: %+v", ac)
+	ac := ac_h.(ut.AccessClaim)
+
 	path := strings.TrimSuffix(ac.Target, "/")
 	// get the resource info
 	res, err := srv.storage.SelectOne("", "resources", "name = ", path)

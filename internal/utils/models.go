@@ -10,6 +10,7 @@ package utils
 * */
 import (
 	"fmt"
+	"io"
 	"log"
 	"strconv"
 	"strings"
@@ -34,119 +35,45 @@ import (
 *
 * */
 type Resource struct {
-	Name        string `json:"name"`
-	Type        string `json:"type"`
+	Name string `json:"name"`
+	Path string `json:"path"`
+	Type string `json:"type"`
+
 	Created_at  string `json:"created_at"`
 	Updated_at  string `json:"updated_at"`
 	Accessed_at string `json:"accessed_at"`
-	Perms       string `json:"perms"`
-	Rid         int    `json:"rid"`
-	Uid         int    `json:"uid"` // as in user id (owner)
-	Vid         int    `json:"vid"`
-	Gid         int    `json:"gid"` // as in group id
-	Pid         int    `json:"pid"` // as in parent id
-	Size        int64  `json:"size"`
-	Links       int    `json:"links"`
-}
 
-type Permissions struct {
-	Representation string      `json:"perms"`
-	Owner          PermTriplet `json:"owner"`
-	Group          PermTriplet `json:"group"`
-	Other          PermTriplet `json:"other"`
-}
+	Perms string `json:"perms"`
 
-/* this method goal is from the given argument "representation" which
-* looks like "r-x---r--" (or w.e) to transform into the boolean
-* */
-func (p *Permissions) fillFromStr(representation string) error {
-	if len(representation) != 9 {
-		log.Printf("fill fail, invalid representation input")
-		return fmt.Errorf("invalid representation")
-	}
+	Rid int `json:"rid"`
+	Uid int `json:"uid"` // as in user id (owner)
+	Gid int `json:"gid"` // as in group id
 
-	chunks := [3]string{
-		representation[:3],
-		representation[3:6],
-		representation[6:],
-	}
+	Size  int64 `json:"size"`
+	Links int   `json:"links"`
 
-	parseTriplet := func(triplet string) (PermTriplet, error) {
-		if len(triplet) != 3 {
-			log.Printf("invalid tripled input length")
-			return PermTriplet{}, fmt.Errorf("invalid triplet")
-		}
-		return PermTriplet{
-			Read:    triplet[0] == 'r',
-			Write:   triplet[1] == 'w',
-			Execute: triplet[2] == 'x',
-		}, nil
-	}
-	var err error
-	p.Owner, err = parseTriplet(chunks[0])
-	if err != nil {
-		log.Printf("failed to parse owner triplet: %v", err)
-		return err
-	}
-	p.Group, err = parseTriplet(chunks[1])
-	if err != nil {
-		log.Printf("failed to parse group triplet: %v", err)
-		return err
-	}
-	p.Other, err = parseTriplet(chunks[2])
-	if err != nil {
-		log.Printf("failed to parse other triplet: %v", err)
-		return err
-	}
+	Vid   int    `json:"vid"`
+	Vname string `json:"vname"`
 
-	return nil
-}
-
-func (p *Permissions) ToString() string {
-	return fmt.Sprintf("%s%s%s", p.Owner.ToString(), p.Group.ToString(), p.Other.ToString())
-}
-
-type PermTriplet struct {
-	Title   string `json:"title"`
-	Read    bool   `json:"read"`
-	Write   bool   `json:"write"`
-	Execute bool   `json:"execute"`
-}
-
-func (pt *PermTriplet) ToString() string {
-	r, w, x := "-", "-", "-"
-
-	if pt.Read {
-		r = "r"
-	}
-
-	if pt.Write {
-		w = "w"
-	}
-
-	if pt.Execute {
-		x = "x"
-	}
-
-	return fmt.Sprintf("%v%v%v", r, w, x)
+	Reader *io.Reader
 }
 
 /* representative utility methods of the above structures */
 /* fields and ptrs fields for "resource" struct helper methods*/
 func (r *Resource) Fields() []any {
-	return []any{r.Rid, r.Uid, r.Vid, r.Gid, r.Pid, r.Size, r.Links, r.Perms, r.Name, r.Type, r.Created_at, r.Updated_at, r.Accessed_at}
+	return []any{r.Rid, r.Uid, r.Gid, r.Vid, r.Vname, r.Size, r.Links, r.Perms, r.Name, r.Path, r.Type, r.Created_at, r.Updated_at, r.Accessed_at}
 }
 
 func (r *Resource) PtrFields() []any {
-	return []any{&r.Rid, &r.Uid, &r.Vid, &r.Gid, &r.Pid, &r.Size, &r.Links, &r.Perms, &r.Name, &r.Type, &r.Created_at, &r.Updated_at, &r.Accessed_at}
+	return []any{&r.Rid, &r.Uid, &r.Gid, &r.Vid, &r.Vname, &r.Size, &r.Links, &r.Perms, &r.Name, &r.Path, &r.Type, &r.Created_at, &r.Updated_at, &r.Accessed_at}
 }
 
 func (r *Resource) FieldsNoId() []any {
-	return []any{r.Uid, r.Vid, r.Gid, r.Pid, r.Size, r.Links, r.Perms, r.Name, r.Type, r.Created_at, r.Updated_at, r.Accessed_at}
+	return []any{r.Uid, r.Gid, r.Vid, r.Vname, r.Size, r.Links, r.Perms, r.Name, r.Path, r.Type, r.Created_at, r.Updated_at, r.Accessed_at}
 }
 
 func (r *Resource) PtrFieldsNoId() []any {
-	return []any{&r.Uid, &r.Vid, &r.Gid, &r.Pid, &r.Size, &r.Links, &r.Perms, &r.Name, &r.Type, &r.Created_at, &r.Updated_at, &r.Accessed_at}
+	return []any{&r.Uid, &r.Gid, &r.Vid, &r.Vname, &r.Size, &r.Links, &r.Perms, &r.Name, &r.Path, &r.Type, &r.Created_at, &r.Updated_at, &r.Accessed_at}
 }
 
 /* this method belongs to the Resource objects
@@ -238,31 +165,130 @@ func (resource *Resource) IsOwner(ac AccessClaim) bool {
 	return resource.Uid == int_uid
 }
 
+type Permissions struct {
+	Representation string      `json:"perms"`
+	Owner          PermTriplet `json:"owner"`
+	Group          PermTriplet `json:"group"`
+	Other          PermTriplet `json:"other"`
+}
+
+/* this method goal is from the given argument "representation" which
+* looks like "r-x---r--" (or w.e) to transform into the boolean
+* */
+func (p *Permissions) fillFromStr(representation string) error {
+	if len(representation) != 9 {
+		log.Printf("fill fail, invalid representation input")
+		return fmt.Errorf("invalid representation")
+	}
+
+	chunks := [3]string{
+		representation[:3],
+		representation[3:6],
+		representation[6:],
+	}
+
+	parseTriplet := func(triplet string) (PermTriplet, error) {
+		if len(triplet) != 3 {
+			log.Printf("invalid tripled input length")
+			return PermTriplet{}, fmt.Errorf("invalid triplet")
+		}
+		return PermTriplet{
+			Read:    triplet[0] == 'r',
+			Write:   triplet[1] == 'w',
+			Execute: triplet[2] == 'x',
+		}, nil
+	}
+	var err error
+	p.Owner, err = parseTriplet(chunks[0])
+	if err != nil {
+		log.Printf("failed to parse owner triplet: %v", err)
+		return err
+	}
+	p.Group, err = parseTriplet(chunks[1])
+	if err != nil {
+		log.Printf("failed to parse group triplet: %v", err)
+		return err
+	}
+	p.Other, err = parseTriplet(chunks[2])
+	if err != nil {
+		log.Printf("failed to parse other triplet: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func (p *Permissions) ToString() string {
+	return fmt.Sprintf("%s%s%s", p.Owner.ToString(), p.Group.ToString(), p.Other.ToString())
+}
+
+type PermTriplet struct {
+	Title   string `json:"title"`
+	Read    bool   `json:"read"`
+	Write   bool   `json:"write"`
+	Execute bool   `json:"execute"`
+}
+
+func (pt *PermTriplet) ToString() string {
+	r, w, x := "-", "-", "-"
+
+	if pt.Read {
+		r = "r"
+	}
+
+	if pt.Write {
+		w = "w"
+	}
+
+	if pt.Execute {
+		x = "x"
+	}
+
+	return fmt.Sprintf("%v%v%v", r, w, x)
+}
+
 /* This will represent the physical volumes provides by Kubernetes and supervised by the controller */
 type Volume struct {
-	Name     string  `json:"name"`
-	Path     string  `json:"path"`
-	Vid      int     `json:"vid"`
-	Dynamic  bool    `json:"dynamic"`
-	Capacity float64 `json:"capacity"`
-	Usage    float64 `json:"usage"`
+	Name         string  `json:"name"`
+	Path         string  `json:"path,omitempty"`
+	Vid          int     `json:"vid,omitempty"`
+	Dynamic      bool    `json:"dynamic,omitempty"`
+	Capacity     float64 `json:"capacity,omitempty"`
+	Usage        float64 `json:"usage,omitempty"`
+	CreationDate string  `json:"created_at"`
 }
 
 /* fields and ptr fields for "volume" struct helper methods*/
 func (v *Volume) Fields() []any {
-	return []any{v.Vid, v.Name, v.Path, v.Dynamic, v.Capacity, v.Usage}
+	return []any{v.Vid, v.Name, v.Path, v.Dynamic, v.Capacity, v.Usage, v.CreationDate}
 }
 
 func (v *Volume) PtrFields() []any {
-	return []any{&v.Vid, &v.Name, &v.Path, &v.Dynamic, &v.Capacity, &v.Usage}
+	return []any{&v.Vid, &v.Name, &v.Path, &v.Dynamic, &v.Capacity, &v.Usage, &v.CreationDate}
 }
 
 func (v *Volume) FieldsNoId() []any {
-	return []any{v.Name, v.Path, v.Dynamic, v.Capacity, v.Usage}
+	return []any{v.Name, v.Path, v.Dynamic, v.Capacity, v.Usage, v.CreationDate}
 }
 
 func (v *Volume) PtrFieldsNoId() []any {
-	return []any{&v.Name, &v.Path, &v.Dynamic, &v.Capacity, &v.Usage}
+	return []any{&v.Name, &v.Path, &v.Dynamic, &v.Capacity, &v.Usage, &v.CreationDate}
+}
+
+func (v *Volume) Validate() error {
+	// name should be specific
+	// path should exist
+	// vid should exist
+
+	// for starters, check just the name
+	if len(v.Name) > 63 {
+		return fmt.Errorf("volume name too large: max 63 chars")
+	}
+	if HasInvalidCharacters(v.Name, "^*|\\/&\"_,;") {
+		return fmt.Errorf("invalid characters in the name. (^*|\\/&\"_,;) not allowed")
+	}
+
+	return nil
 }
 
 /* a struct to represent each user volume relationship */
@@ -304,12 +330,16 @@ func (gv *GroupVolume) Fields() []any {
 *  (who the user is and in which groups he belongs to)
 * */
 type AccessClaim struct {
-	Uid  string `json:"user_id"`
-	Gids string `json:"group_ids"`
+	Uid  string `json:"user_id"`   // owner id
+	Gids string `json:"group_ids"` // owner group ids
 
-	Keyword bool   `json:"keyword,omitempty"`
-	Target  string `json:"target"`
-	Vid     int    `json:"volume_id"`
+	Vid int `json:"volume_id"` // volume target
+
+	// keyword, is a mechanism to specify a target
+	// more like a set of "instructions"
+	// comms establishment @look at the header parser
+	HasKeyword bool   `json:"haskeyword,omitempty"` // used keyword ($)?
+	Target     string `json:"target"`               // target
 }
 
 func (ac *AccessClaim) Filter() AccessClaim {

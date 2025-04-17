@@ -5,13 +5,14 @@ const (
     	CREATE TABLE IF NOT EXISTS resources (
     	  rid INTEGER PRIMARY KEY,
     	  uid INTEGER,
-    	  vid INTEGER,
     	  gid INTEGER,
-    	  pid INTEGER,
+    	  vid INTEGER,
+		  vname TEXT,
     	  size BIGINT,
     	  links INTEGER,
     	  perms TEXT,
     	  name TEXT,
+		  path TEXT,
     	  type TEXT,
     	  created_at DATETIME,
     	  updated_at DATETIME,
@@ -23,7 +24,8 @@ const (
     	  path TEXT,
 		  dynamic BOOLEAN,
     	  capacity FLOAT,
-    	  usage FLOAT
+    	  usage FLOAT,
+		  created_at DATETIME
     	);
 		CREATE TABLE IF NOT EXISTS userVolume(
 			vid INTEGER,

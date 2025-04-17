@@ -11,6 +11,7 @@ require (
 	github.com/kyri56xcaesar/minioth v1.0.2
 	github.com/marcboeker/go-duckdb v1.8.4
 	github.com/minio/minio-go/v7 v7.0.90
+	github.com/zeebo/assert v1.3.0
 	golang.org/x/oauth2 v0.24.0
 	golang.org/x/sys v0.31.0
 	k8s.io/api v0.32.3

@@ -71,10 +71,9 @@ func NewUService(conf string) UService {
 	}
 
 	// storage system (constructing)
-	storage, err := StorageShipment(strings.ToLower(cfg.STORAGE_TYPE), &srv)
-	if err != nil {
-		panic(err)
-	}
+	storage := StorageShipment(strings.ToLower(cfg.STORAGE_SYSTEM), &srv)
+	// storage shipment will panic if its not working
+
 	srv.storage = storage
 
 	// dispatcher system (constructing)
@@ -89,7 +88,7 @@ func NewUService(conf string) UService {
 	// database (init)
 	jdbh := ut.NewDBHandler(cfg.DB_JOBS, cfg.DB_JOBS_PATH, cfg.DB_JOBS_DRIVER)
 	srv.jdbh = jdbh
-	srv.jdbh.Init(initSqlJobs, cfg.DB_JOBS_PATH, cfg.DB_JOBS_MAX_OPEN_CONNS, cfg.DB_JOBS_MAX_IDLE_CONNS, cfg.DB_JOBS_MAX_LIFETIME)
+	srv.jdbh.Init(initSqlJobs, cfg.DB_JOBS_MAX_OPEN_CONNS, cfg.DB_JOBS_MAX_IDLE_CONNS, cfg.DB_JOBS_MAX_LIFETIME)
 
 	//srv.dbh.Init(initSql, cfg.DB_RV_Path, cfg.DB_RV_MAX_OPEN_CONNS, cfg.DB_RV_MAX_IDLE_CONNS, cfg.DB_RV_MAX_LIFETIME)
 
@@ -106,16 +105,16 @@ func NewUService(conf string) UService {
 	//}
 
 	// we should init sync (if there are) existing users (from a different service)
-	go func() {
-		err := syncUsers(&srv)
-		if err != nil && strings.Contains(err.Error(), "already exists") {
-			log.Printf("users are in sync (already).")
-		} else if err != nil {
-			log.Printf("syncUsers failed: %v", err)
-		} else {
-			log.Println("users synced in userspace (uservolumes,groupvolumes claims).")
-		}
-	}()
+	// go func() {
+	// 	err := syncUsers(&srv)
+	// 	if err != nil && strings.Contains(err.Error(), "already exists") {
+	// 		log.Printf("users are in sync (already).")
+	// 	} else if err != nil {
+	// 		log.Printf("syncUsers failed: %v", err)
+	// 	} else {
+	// 		log.Println("users synced in userspace (uservolumes,groupvolumes claims).")
+	// 	}
+	// }()
 
 	// log.Printf("server at: %+v", srv)
 	return srv
@@ -135,7 +134,7 @@ func (srv *UService) Serve() {
 	*    to the permissions of the user. For now, we will just implement the endpoints without any
 	* */
 	apiV1 := srv.Engine.Group("/api/v1")
-	apiV1.Use(serviceAuth(srv))
+	apiV1.Use(serviceAuth(srv)) //, bindHeadersMiddleware())
 	{
 		/* equivalent to "ls", will return the resources, from the given path*/
 		apiV1.GET("/resources", srv.ResourcesHandler)
@@ -159,7 +158,7 @@ func (srv *UService) Serve() {
 	}
 
 	admin := apiV1.Group("/admin")
-	admin.Use(serviceAuth(srv))
+	admin.Use(serviceAuth(srv)) //, bindHeadersMiddleware())
 	{
 		admin.POST("/resources", srv.PostResourcesHandler)
 
@@ -222,7 +221,7 @@ func (srv *UService) Serve() {
 }
 
 func syncUsers(srv *UService) error {
-	req, err := http.NewRequest(http.MethodGet, "http://"+srv.config.AUTH_ADDRESS+":"+srv.config.AUTH_PORT+"/admin/groups", nil)
+	req, err := http.NewRequest(http.MethodGet, "http://"+srv.config.AUTH_ADDRESS+":"+srv.config.AUTH_PORT+"/v1/admin/groups", nil)
 	if err != nil {
 		log.Printf("failed to create a request: %v", err)
 		return err

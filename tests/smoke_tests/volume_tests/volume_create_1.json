@@ -1,0 +1,8 @@
+{
+    "name":"this-is-volume-1",
+    "path":"idk_which_path_to_put",
+    "vid":0,
+    "dynamic":true,
+    "capacity":50,
+    "usage":0
+}

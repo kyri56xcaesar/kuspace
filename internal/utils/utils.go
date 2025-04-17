@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -52,7 +53,7 @@ func Reduce[E any](s []E, init E, f reduceFunc[E]) E {
 }
 
 // util
-func ToFloat64(value interface{}) float64 {
+func ToFloat64(value any) float64 {
 	switch v := value.(type) {
 	case int:
 		return float64(v)
@@ -109,16 +110,16 @@ func ToSnakeCase(input string) string {
 }
 
 func SplitToInt(input, seperator string) ([]int, error) {
-	// Split the input string by comma
+	// split the input string by comma
 	parts := strings.Split(input, seperator)
 
-	// Trim spaces and convert to int
+	// trim spaces and convert to int
 	trimAndConvert := func(s string) (int, error) {
 		trimmed := strings.TrimSpace(s)
 		return strconv.Atoi(trimmed)
 	}
 
-	// Apply the trimAndConvert function to each part
+	// apply the trimAndConvert function to each part
 	result := make([]int, len(parts))
 	for i, part := range parts {
 		value, err := trimAndConvert(part)
@@ -131,6 +132,8 @@ func SplitToInt(input, seperator string) ([]int, error) {
 	return result, nil
 }
 
+// this func will read multiple files, "concat" them (essentially appending one after another)
+// and write to a single output file.
 func MergeFiles(outputFile string, inputLocation string, inputFiles []string) error {
 	out, err := os.Create(outputFile)
 	if err != nil {
@@ -162,6 +165,7 @@ func MergeFiles(outputFile string, inputLocation string, inputFiles []string) er
 	return nil
 }
 
+// short error messaging funcs..
 func NewError(msg string, args ...any) error {
 	return fmt.Errorf("[ERROR] %s", fmt.Sprintf(msg, args...))
 }
@@ -170,4 +174,15 @@ func NewWarning(msg string, args ...any) error {
 }
 func NewInfo(msg string, args ...any) error {
 	return fmt.Errorf("[INFO] %s", fmt.Sprintf(msg, args...))
+}
+
+func HasInvalidCharacters(s, chars string) bool {
+	// Escape regex meta-characters to avoid pattern errors
+	var escapedChars []string
+	for _, c := range chars {
+		escapedChars = append(escapedChars, regexp.QuoteMeta(string(c)))
+	}
+	pattern := "[" + strings.Join(escapedChars, "") + "]"
+	re := regexp.MustCompile(pattern)
+	return re.MatchString(s)
 }

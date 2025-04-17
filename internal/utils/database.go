@@ -53,11 +53,12 @@ func NewDBHandler(dbname, dbpath, db_driver string) DBHandler {
 	}
 	// check if the database path is valid
 	if dbpath[len(dbpath)-1:] != "/" {
-		log.Fatalf("database path should end with /")
+		log.Printf("database path %q should end with /... fixing...", dbpath)
+		dbpath += "/"
 	}
 	// check if the database name is valid
 	if dbname[len(dbname)-3:] != ".db" {
-		log.Fatalf("database name should end with .db")
+		log.Fatalf("database name %q should end with .db", dbname)
 	}
 
 	var dbh DBHandler = DBHandler{
@@ -89,10 +90,10 @@ func (m *DBHandler) Close() {
 
 /* Initialization routines for a database */
 /* must be a pointer since there is no specific connection variable and is depending on the Handler struct*/
-func (m *DBHandler) Init(initSqlArg, database_path, max_open_conns, max_idle_cons, conn_lifetime string) {
+func (m *DBHandler) Init(initSqlArg, max_open_conns, max_idle_cons, conn_lifetime string) {
 	log.Printf("Initializing %v database", m.DBName)
-	if err := os.MkdirAll(database_path, 0o740); err != nil {
-		log.Fatalf("failed to create directory path %s, destructive: %v", database_path, err)
+	if err := os.MkdirAll(m.db_path, 0o740); err != nil {
+		log.Fatalf("failed to create directory path %s, destructive: %v", m.db_path, err)
 	}
 
 	/* perform the init db scripts */

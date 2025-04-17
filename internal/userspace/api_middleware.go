@@ -46,7 +46,7 @@ func BindAccessTarget(http_header string) (ut.AccessClaim, error) {
 		switch strings.TrimPrefix(parts2[0], "$") {
 		case "rids":
 			target = strings.TrimSpace(parts2[1])
-			ac.Keyword = true
+			ac.HasKeyword = true
 		default:
 			return ac, fmt.Errorf("invalid header target format: unrecognised keyword")
 		}
@@ -70,6 +70,23 @@ func BindAccessTarget(http_header string) (ut.AccessClaim, error) {
 	log.Printf("ac: %+v", ac)
 
 	return ac, nil
+}
+
+func bindHeadersMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
+		if err != nil {
+			log.Printf("failed to bind access-target: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "missing Access-Target header"})
+			c.Abort()
+			return
+		}
+
+		log.Printf("ac binded: %+v", ac)
+
+		// save variables to gin context
+		c.Set("accessTarget", ac)
+	}
 }
 
 /*
@@ -108,7 +125,7 @@ func isOwner(srv *UService) gin.HandlerFunc {
 			return
 		}
 
-		if ac.Keyword {
+		if ac.HasKeyword {
 			resources, err := srv.storage.Select("", "resources", "rid IN", ac.Target, 0)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -152,22 +169,22 @@ func isOwner(srv *UService) gin.HandlerFunc {
  */
 func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
-		if err != nil {
-			log.Printf("failed to bind access-target: %v", err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "missing Access-Target header"})
-			c.Abort()
+
+		// get header
+		ac_h, exists := c.Get("accessTarget")
+		if !exists {
+			log.Printf("access target header was not set properly")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
 			return
 		}
-
-		log.Printf("ac binded: %+v", ac)
+		ac := ac_h.(ut.AccessClaim)
 
 		// root user has access to all
 		if ac.Uid == "0" {
 			return
 		}
 
-		if ac.Keyword {
+		if ac.HasKeyword {
 
 			resources, err := srv.storage.Select("", "resources", "rid IN", ac.Target, 0)
 			if err != nil {

@@ -38,7 +38,8 @@ type EnvConfig struct {
 
 	IP string
 
-	STORAGE_TYPE         string
+	STORAGE_SYSTEM string
+
 	DB_RV                string
 	DB_RV_DRIVER         string
 	DB_RV_PATH           string
@@ -49,11 +50,13 @@ type EnvConfig struct {
 	VOLUMES_PATH       string
 	V_DEFAULT_CAPACITY string
 
-	MINIO_ACCESS_KEY string
-	MINIO_SECRET_KEY string
-	MINIO_ENDPOINT   string
-	MINIO_PORT       string
-	MINIO_USE_SSL    string
+	MINIO_ACCESS_KEY     string
+	MINIO_SECRET_KEY     string
+	MINIO_ENDPOINT       string
+	MINIO_PORT           string
+	MINIO_USE_SSL        string
+	MINIO_DEFAULT_BUCKET string
+	MINIO_OBJECT_LOCKING bool
 
 	J_DISPATCHER  string
 	J_QUEUE_SIZE  string
@@ -102,7 +105,7 @@ func LoadConfig(path string) EnvConfig {
 		API_LOGS_PATH:        getEnv("API_J_LOGS_PATH", "data/logs/jobs/job.log"),
 		API_LOGS_MAX_SIZE:    getEnv("API_J_LOGS_MAX_SIZE", "10"),
 
-		STORAGE_TYPE: getEnv("STORAGE_TYPE", "local"),
+		STORAGE_SYSTEM: getEnv("STORAGE_SYSTEM", "local"),
 
 		DB_RV:                getEnv("DB_RV", "database.db"),
 		DB_RV_DRIVER:         getEnv("DB_RV_DRIVER", "duckdb"),
@@ -111,11 +114,13 @@ func LoadConfig(path string) EnvConfig {
 		DB_RV_MAX_IDLE_CONNS: getEnv("DB_RV_MAX_IDLE_CONNS", "10"),
 		DB_RV_MAX_LIFETIME:   getEnv("DB_RV_MAX_LIFETIME", "10"),
 
-		MINIO_ACCESS_KEY: getEnv("MINIO_ACCESS_KEY", "minioadmin"),
-		MINIO_SECRET_KEY: getEnv("MINIO_SECRET_KEY", "minioadmin"),
-		MINIO_ENDPOINT:   getEnv("MINIO_ENDPOINT", "localhost"),
-		MINIO_PORT:       getEnv("MINIO_PORT", "9000"),
-		MINIO_USE_SSL:    getEnv("MINIO_USE_SSL", "false"),
+		MINIO_ACCESS_KEY:     getEnv("MINIO_ACCESS_KEY", "minioadmin"),
+		MINIO_SECRET_KEY:     getEnv("MINIO_SECRET_KEY", "minioadmin"),
+		MINIO_ENDPOINT:       getEnv("MINIO_ENDPOINT", "localhost"),
+		MINIO_PORT:           getEnv("MINIO_PORT", "9000"),
+		MINIO_USE_SSL:        getEnv("MINIO_USE_SSL", "false"),
+		MINIO_DEFAULT_BUCKET: getEnv("MINIO_DEFAULT_BUCKET", "default"),
+		MINIO_OBJECT_LOCKING: getBoolEnv("MINIO_OBJECT_LOCKING", "false"),
 
 		J_DISPATCHER:  getEnv("J_DISPATCHER", "default"),
 		J_EXECUTOR:    getEnv("J_EXECUTOR", "docker"),
