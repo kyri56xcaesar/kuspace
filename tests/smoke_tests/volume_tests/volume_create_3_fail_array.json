@@ -1,0 +1,18 @@
+[
+    {
+        "name":"this-is-volume-2*",
+        "path":"idk_which_path_to_put",
+        "vid":0,
+        "dynamic":true,
+        "capacity":50,
+        "usage":0
+    },
+    {
+        "name":"this-is-volume_3",
+        "path":"idk_which_path_to_put",
+        "vid":0,
+        "dynamic":true,
+        "capacity":50,
+        "usage":0
+    }
+]

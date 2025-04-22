@@ -17,6 +17,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	VERSION = "/v1"
+)
+
 /*
 	Structure containing all needed aspects of this service
 
@@ -133,54 +137,56 @@ func (srv *UService) Serve() {
 	/* These endpoints should parse an authentication token and handle verification of authorization according
 	*    to the permissions of the user. For now, we will just implement the endpoints without any
 	* */
-	apiV1 := srv.Engine.Group("/api/v1")
-	apiV1.Use(serviceAuth(srv)) //, bindHeadersMiddleware())
+	apiV1 := srv.Engine.Group("/api" + VERSION)
+	// apiV1.Use(serviceAuth(srv)) //, bindHeadersMiddleware())
+	apiV1.Use(bindHeadersMiddleware())
 	{
 		/* equivalent to "ls", will return the resources, from the given path*/
-		apiV1.GET("/resources", srv.ResourcesHandler)
+		apiV1.GET("/resources", srv.getResourcesHandler)
 
-		apiV1.POST("/resource/upload", srv.HandleUpload)
-		apiV1.GET("/resource/download", hasAccessMiddleware("r", srv), srv.HandleDownload)
-		apiV1.GET("/resource/preview", hasAccessMiddleware("r", srv), srv.HandlePreview)
+		apiV1.POST("/resource/upload", srv.handleUpload)
+		// apiV1.GET("/resource/download", hasAccessMiddleware("r", srv), srv.handleDownload)
+		// apiV1.GET("/resource/preview", hasAccessMiddleware("r", srv), srv.handlePreview)
 
-		apiV1.DELETE("/resource/rm", hasAccessMiddleware("w", srv), srv.RemoveResourceHandler)
-		apiV1.PATCH("/resource/mv", hasAccessMiddleware("w", srv), srv.MoveResourcesHandler)
-		apiV1.POST("/resource/cp", hasAccessMiddleware("r", srv), srv.ResourceCpHandler)
+		// apiV1.DELETE("/resource/rm", hasAccessMiddleware("w", srv), srv.rmResourceHandler)
+		// apiV1.PATCH("/resource/mv", hasAccessMiddleware("w", srv), srv.mvResourcesHandler)
+		// apiV1.POST("/resource/cp", hasAccessMiddleware("r", srv), srv.cpResourceHandler)
 
-		apiV1.PATCH("/resource/permissions", isOwner(srv), srv.ChmodResourceHandler)
-		apiV1.PATCH("/resource/ownership", isOwner(srv), srv.ChownResourceHandler)
-		apiV1.PATCH("/resource/group", isOwner(srv), srv.ChgroupResourceHandler)
+		// apiV1.PATCH("/resource/permissions", isOwner(srv), srv.chmodResourceHandler)
+		// apiV1.PATCH("/resource/ownership", isOwner(srv), srv.chownResourceHandler)
+		// apiV1.PATCH("/resource/group", isOwner(srv), srv.chgroupResourceHandler)
 
 		// job related
-		apiV1.POST("/job", srv.HandleJob)
-		apiV1.GET("/job", srv.HandleJob)
-
+		apiV1.Match(
+			[]string{"GET", "POST"},
+			"/job",
+			srv.HandleJob,
+		)
 	}
 
-	admin := apiV1.Group("/admin")
-	admin.Use(serviceAuth(srv)) //, bindHeadersMiddleware())
+	admin := srv.Engine.Group("/api" + VERSION + "/admin")
+	// admin.Use(serviceAuth(srv)) //, bindHeadersMiddleware())
 	{
-		admin.POST("/resources", srv.PostResourcesHandler)
-
-		admin.GET("/volumes", srv.HandleVolumes)
-		admin.POST("/volumes", srv.HandleVolumes)
-		admin.PUT("/volumes", srv.HandleVolumes)
-		admin.DELETE("/volumes", srv.HandleVolumes)
-		admin.PATCH("/volumes", srv.HandleVolumes)
-
-		admin.GET("/user/volume", srv.HandleUserVolumes)
-		admin.POST("/user/volume", srv.HandleUserVolumes)
-		admin.PATCH("/user/volume", srv.HandleUserVolumes)
-		admin.DELETE("/user/volume", srv.HandleUserVolumes)
-
-		admin.GET("/group/volume", srv.HandleGroupVolumes)
-		admin.POST("/group/volume", srv.HandleGroupVolumes)
-		admin.PATCH("/group/volume", srv.HandleGroupVolumes)
-		admin.DELETE("/group/volume", srv.HandleGroupVolumes)
-
-		admin.DELETE("/job", srv.HandleJobAdmin)
-		admin.PUT("/job", srv.HandleJobAdmin)
-
+		admin.Match(
+			[]string{"GET", "POST", "PUT", "DELETE", "PATCH"},
+			"/volumes",
+			srv.HandleVolumes,
+		)
+		admin.Match(
+			[]string{"DELETE", "PUT"},
+			"/job",
+			srv.HandleJobAdmin,
+		)
+		admin.Match(
+			[]string{"GET", "POST", "PATCH", "DELETE"},
+			"/user/volume",
+			srv.HandleUserVolumes,
+		)
+		admin.Match(
+			[]string{"GET", "POST", "PATCH", "DELETE"},
+			"/group/volume",
+			srv.HandleGroupVolumes,
+		)
 	}
 	/* context handler */
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

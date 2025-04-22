@@ -15,15 +15,18 @@ type StorageSystem interface {
 
 	Insert(t any) error
 
-	Select(sel, table, by, byvalue string, limit int) ([]any, error)
-	SelectOne(sel, table, by, byvalue string) (any, error)
+	SelectVolumes(how map[string]any) ([]any, error)
+	SelectObjects(how map[string]any) ([]any, error)
+
 	Stat(t any) any
 
-	Download(t any) error
+	Download(t *any) error
 
 	Remove(t any) error
+	RemoveVolume(t any) error
+
 	Update(t any) error
-	Copy(t any) error
+	Copy(s, d any) error
 }
 
 func StorageShipment(storageType string, srv *UService) StorageSystem {

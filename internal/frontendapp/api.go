@@ -24,8 +24,8 @@ import (
 * Constants */
 const (
 	apiVersion    string = "v1"
-	templatesPath string = "./web/auther/templates"
-	staticsPath   string = "web/auther/static"
+	templatesPath string = "./web/templates"
+	staticsPath   string = "web/static"
 )
 
 /*

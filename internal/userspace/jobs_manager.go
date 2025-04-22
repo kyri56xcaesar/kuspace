@@ -127,7 +127,8 @@ func (jm *JobManager) StartWorker() {
 	log.Printf("jobQueue length: %v", len(jm.jobQueue))
 	go func() {
 		for job := range jm.jobQueue {
-			jm.workerPool <- struct{}{}    // Acquire worker slot
+			jm.workerPool <- struct{}{} // Acquire worker slot
+			// the worker itself will release it
 			go jm.executor.ExecuteJob(job) // Spawn worker goroutine
 		}
 	}()

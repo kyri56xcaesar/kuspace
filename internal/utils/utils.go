@@ -84,16 +84,37 @@ func ToFloat64(value any) float64 {
 	}
 }
 
-// Helper function to determine if a value is empty
+// helper function to determine if a value is empty
 func IsEmpty(v reflect.Value) bool {
 	switch v.Kind() {
 	case reflect.String:
 		return v.String() == ""
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return v.Int() == 0
+	case reflect.Map:
+		return v.Len() == 0
+	case reflect.Array:
+		return v.Len() == 0
 	default:
-		return v.IsZero() // General case for other types
+		return v.IsZero() // general case for other types
+		// this might not work for everything
 	}
+}
+
+func MakeMapFrom(names []string, values []any) map[string]any {
+	if len(names) != len(values) {
+		return nil
+	}
+
+	m := make(map[string]any)
+	for i, arg := range values {
+		reflectV := reflect.ValueOf(arg)
+		if !IsEmpty(reflectV) {
+			m[names[i]] = arg
+		}
+	}
+
+	return m
 }
 
 /* generic helpers*/

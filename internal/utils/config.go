@@ -219,12 +219,12 @@ func (cfg *EnvConfig) ToString() string {
 		} else {
 			strBuilder.WriteString(fmt.Sprintf("%d. ", i+1))
 		}
-		if len(fieldName) < 7 {
+		if len(fieldName) < 6 {
+			strBuilder.WriteString(fmt.Sprintf("%v\t\t\t\t-> %v\n", fieldName, fieldValue))
+		} else if len(fieldName) <= 14 {
+			strBuilder.WriteString(fmt.Sprintf("%v\t\t\t-> %v\n", fieldName, fieldValue))
+		} else { //if len(fieldName) <= 20 {
 			strBuilder.WriteString(fmt.Sprintf("%v\t\t-> %v\n", fieldName, fieldValue))
-		} else if len(fieldName) < 14 {
-			strBuilder.WriteString(fmt.Sprintf("%v\t-> %v\n", fieldName, fieldValue))
-		} else {
-			strBuilder.WriteString(fmt.Sprintf("%v\t-> %v\n", fieldName, fieldValue))
 		}
 	}
 

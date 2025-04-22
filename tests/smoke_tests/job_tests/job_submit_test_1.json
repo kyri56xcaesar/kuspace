@@ -1,0 +1,8 @@
+{
+    "uid":0,
+    "description":"test",
+    "input":["dataset_random_xsmall.txt"],
+    "output":"de-small-job",
+    "logic":"python",
+    "logic_body":"def run(data):\n\tprint('hello_world from this job')"
+}

@@ -194,6 +194,9 @@ func formatJobCommand(job ut.Job, fileSave bool) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve working directory")
 	}
+
+	// get or fetch input files
+
 	// how should we handle multiple input files? 1] lets combine (append) them to a single file for now...
 	err = ut.MergeFiles(default_v_path+"/input", default_v_path+"/", job.Input)
 	if err != nil {

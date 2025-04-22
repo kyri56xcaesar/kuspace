@@ -18,46 +18,36 @@ import (
 )
 
 /* HTTP Gin handlers related to volumes, uservolumes, groupvolumes, used by the api to handle endpoints*/
-
 func (srv *UService) HandleVolumes(c *gin.Context) {
 	switch c.Request.Method {
 	case http.MethodGet:
 		vid := c.Request.URL.Query().Get("vid")
-		if vid != "" { // get a specific volume/bucket
-			volume, err := srv.storage.SelectOne("", "volumes", "vid", vid)
-			if err != nil {
-				c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
-				return
-			}
-			c.JSON(http.StatusOK, gin.H{"content": volume})
-		} else { // get all volumes/buckets
-			volumes, err := srv.storage.Select("", "volumes", "", "", 0)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
-				return
-			}
-			log.Printf("volumes returned: %+v", volumes)
-			c.JSON(http.StatusOK, gin.H{"content": volumes})
-		}
 
-	case http.MethodPut:
-		c.JSON(200, gin.H{"status": "tbd"})
+		names := []string{"vid", "limit", "sort"}
+		values := []any{vid, c.Request.URL.Query().Get("limit"), c.Request.URL.Query().Get("sort")}
+
+		volumes, err := srv.storage.SelectVolumes(ut.MakeMapFrom(names, values))
+		if err != nil {
+			log.Printf("failed to select volumes: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"content": volumes})
+
 	case http.MethodDelete:
 		vid := c.Request.URL.Query().Get("vid")
 		if vid == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "must provide vid"})
 			return
 		}
-		err := srv.storage.Remove(vid)
+		err := srv.storage.RemoveVolume(vid)
 		if err != nil {
+			log.Printf("failed to delete the volume: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete the volume"})
 			return
 		}
 
 		c.JSON(http.StatusAccepted, gin.H{"status": "successfully deleted volume"})
-
-	case http.MethodPatch:
-		c.JSON(200, gin.H{"status": "tbd"})
 	case http.MethodPost:
 		// read body
 		body, err := io.ReadAll(c.Request.Body)
@@ -110,6 +100,10 @@ func (srv *UService) HandleVolumes(c *gin.Context) {
 		}
 
 		c.JSON(http.StatusCreated, gin.H{"message": "inserted volume(s) successfully"})
+	case http.MethodPatch:
+		c.JSON(200, gin.H{"status": "tbd"})
+	case http.MethodPut:
+		c.JSON(200, gin.H{"status": "tbd"})
 	default:
 		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "not allowed."})
 	}
@@ -165,55 +159,6 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 
 	case http.MethodDelete:
 	case http.MethodPatch:
-
-	case http.MethodGet:
-		uids := c.Request.URL.Query().Get("uids")
-		vids := c.Request.URL.Query().Get("vids")
-		var (
-			userVolumes []ut.UserVolume
-			data        interface{}
-			err         error
-		)
-
-		if uids == "" && vids == "" {
-			// return all
-			data, err = srv.storage.Select("", "userVolume", "", "", 0)
-			if err != nil {
-				log.Printf("failed to retrieve user volumes: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user volumes"})
-				return
-			}
-			userVolumes = data.([]ut.UserVolume)
-		} else if uids == "" {
-			// return by vids
-			data, err = srv.storage.Select("", "userVolume", "vid IN", vids, 0)
-			if err != nil {
-				log.Printf("failed to retrieve user volumes: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user volumes"})
-				return
-			}
-			userVolumes = data.([]ut.UserVolume)
-		} else if vids == "" {
-			// return by uids
-			data, err = srv.storage.Select("", "userVolume", "uid IN", uids, 0)
-			if err != nil {
-				log.Printf("failed to retrieve user volumes: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user volumes"})
-				return
-			}
-			userVolumes = data.([]ut.UserVolume)
-		}
-		// else {
-		// 	// return by both
-		// 	data, err = srv.storage.Select(strings.Split(strings.TrimSpace(uids), ","), strings.Split(strings.TrimSpace(vids), ","))
-		// 	if err != nil {
-		// 		log.Printf("failed to retrieve user volumes: %v", err)
-		// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user volumes"})
-		// 		return
-		// 	}
-		// 	userVolumes = data.([]ut.UserVolume)
-		// }
-		c.JSON(http.StatusOK, gin.H{"content": userVolumes})
 
 	default:
 		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "method not allowed"})
@@ -272,54 +217,6 @@ func (srv *UService) HandleGroupVolumes(c *gin.Context) {
 
 	case http.MethodDelete:
 	case http.MethodPatch:
-	case http.MethodGet:
-		gids := c.Request.URL.Query().Get("gids")
-		vids := c.Request.URL.Query().Get("vids")
-		var (
-			groupVolumes []ut.GroupVolume
-			data         interface{}
-			err          error
-		)
-
-		if gids == "" && vids == "" {
-			// return all
-			data, err = srv.storage.Select("", "groupVolume", "", "", 0)
-			if err != nil {
-				log.Printf("failed to retrieve group volumes: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve group volumes"})
-				return
-			}
-			groupVolumes = data.([]ut.GroupVolume)
-		} else if gids == "" {
-			// return by vids
-			data, err = srv.storage.Select("", "groupVolume", "vid", vids, 0)
-			if err != nil {
-				log.Printf("failed to retrieve group volumes: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve group volumes"})
-				return
-			}
-			groupVolumes = data.([]ut.GroupVolume)
-		} else if vids == "" {
-			// return by gids
-			data, err = srv.storage.Select("", "groupVolume", "gid", gids, 0)
-			if err != nil {
-				log.Printf("failed to retrieve group volumes: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve group volumes"})
-				return
-			}
-			groupVolumes = data.([]ut.GroupVolume)
-		}
-		// else {
-		// 	// return by both
-		// 	data, err = srv.storage.GetGroupVolumesByVidsAndGids(strings.Split(strings.TrimSpace(vids), ","), strings.Split(strings.TrimSpace(gids), ","))
-		// 	if err != nil {
-		// 		log.Printf("failed to retrieve group volumes: %v", err)
-		// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retireve group volumes"})
-		// 		return
-		// 	}
-		// 	groupVolumes = data.([]ut.GroupVolume)
-		// }
-		c.JSON(http.StatusOK, gin.H{"content": groupVolumes})
 
 	default:
 		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "method not allowed"})

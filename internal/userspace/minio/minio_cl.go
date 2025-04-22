@@ -8,9 +8,10 @@ package minio
 
 import (
 	"fmt"
-	ut "kyri56xcaesar/myThesis/internal/utils"
 	"log"
 	"strings"
+
+	ut "kyri56xcaesar/myThesis/internal/utils"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -30,6 +31,7 @@ type MinioClient struct {
 	client *minio.Client
 }
 
+// ✅
 func NewMinioClient(cfg ut.EnvConfig) MinioClient {
 	mc := MinioClient{
 		accessKey:     cfg.MINIO_ACCESS_KEY,
@@ -49,7 +51,7 @@ func NewMinioClient(cfg ut.EnvConfig) MinioClient {
 	mc.client = client
 
 	// lets create a default bucket
-	err = mc.CreateBucket(cfg.MINIO_DEFAULT_BUCKET)
+	err = mc.createBucket(cfg.MINIO_DEFAULT_BUCKET)
 	if err != nil {
 		if strings.Contains(err.Error(), "already exists") {
 			log.Printf("already exists... continuing")
@@ -62,12 +64,16 @@ func NewMinioClient(cfg ut.EnvConfig) MinioClient {
 	return mc
 }
 
+// ✅
 func (mc *MinioClient) CreateVolume(volume any) error {
-	v := volume.(ut.Volume)
+	v, ok := volume.(ut.Volume)
+	if !ok {
+		return ut.NewError("failed to cast to a volume")
+	}
 
 	log.Printf("volume incoming: %+v", v)
 
-	err := mc.CreateBucket(v.Name)
+	err := mc.createBucket(v.Name)
 	if err != nil {
 		log.Printf("failed to create a bucket on minio: %v", err)
 		return err
@@ -75,15 +81,17 @@ func (mc *MinioClient) CreateVolume(volume any) error {
 	return nil
 }
 
+// ✅
 func (mc *MinioClient) Insert(t any) error {
-	log.Printf("inserting an object in a bucket")
+	object, ok := t.(ut.Resource)
+	if !ok {
+		return ut.NewError("failed to cast")
+	}
 
-	object := t.(ut.Resource)
-
-	err := mc.PutObject(
+	err := mc.putObject(
 		object.Vname,
 		object.Name,
-		*object.Reader,
+		object.Reader,
 		object.Size,
 	)
 	if err != nil {
@@ -94,82 +102,164 @@ func (mc *MinioClient) Insert(t any) error {
 	return nil
 }
 
-func (mc *MinioClient) Select(sel, table, by, byvalue string, limit int) ([]any, error) {
-	switch table {
-	case "bucket", "volumes":
-		res, err := mc.ListBuckets()
-		if err != nil {
-			log.Printf("failed to retrieve buckets: %v", err)
-			return nil, err
-		}
-		var r []any
+// ✅ .. maybe can enhance with more which factors
+func (mc *MinioClient) SelectVolumes(which map[string]any) ([]any, error) {
+	res, err := mc.listBuckets()
+	if err != nil {
+		log.Printf("failed to retrieve buckets: %v", err)
+		return nil, err
+	}
 
-		for _, b := range res {
-			var volume ut.Volume = ut.Volume{
-				Name:         b.Name,
-				CreationDate: b.CreationDate.String(),
-			}
+	prefix, _ := which["vid"].(string)
+
+	var r []any
+	for _, b := range res {
+		volume := ut.Volume{
+			Name:         b.Name,
+			CreationDate: b.CreationDate.String(),
+		}
+		if prefix == "" {
+			r = append(r, volume)
+		} else if strings.Contains(b.Name, prefix) {
 			r = append(r, volume)
 		}
-		log.Printf("res: %+v", res)
-		log.Printf("r: %+v", r)
-		return r, nil
 
-	case "object":
-		mc.ListObjects(table, byvalue)
-		return nil, nil //fornow
-	default:
-		return nil, ut.NewError("bad option for 'table'")
 	}
+
+	return r, nil
 }
 
-func (mc *MinioClient) SelectOne(sel, table, by, byvalue string) (any, error) {
-	switch table {
-	case "bucket", "volumes":
-		res, err := mc.ListBuckets()
-		if err != nil {
-			log.Printf("failed to retrieve buckets: %v", err)
-			return nil, err
-		}
-		var volume ut.Volume
-		for _, b := range res {
-			if b.Name == byvalue {
-				volume.Name = b.Name
-				volume.CreationDate = b.CreationDate.String()
-				return volume, nil
-			}
-		}
-		return nil, fmt.Errorf("bucket %q not found", byvalue)
+// ✅
+func (mc *MinioClient) SelectObjects(which map[string]any) ([]any, error) {
 
-	case "object":
-		return nil, nil
-	default:
-		return nil, nil
+	vN, is := which["vname"]
+	if !is {
+		return nil, fmt.Errorf("must specify volume")
 	}
+	vName, is := vN.(string)
+	if !is {
+		return nil, fmt.Errorf("bad volume identifier")
+	}
+	// fix vName
+	prefix := which["prefix"].(string)
+	p := strings.Split(strings.TrimPrefix(prefix, "/"), "/")
+	if len(p) > 0 {
+		prefix = p[len(p)-1]
+	}
+
+	objectCh, cancel, err := mc.listObjects(vName, prefix)
+	if err != nil {
+		log.Printf("failed to retrieve the lits of objects: %v", err)
+		return nil, err
+	}
+	defer cancel()
+
+	var objects []any
+	for object := range objectCh {
+		if object.Err != nil {
+			fmt.Println(object.Err)
+			return nil, object.Err
+		}
+		rsrc := ut.Resource{
+			Name:       object.Key,
+			Size:       object.Size,
+			Type:       "object",
+			Vname:      vName,
+			Updated_at: object.LastModified.String(),
+		}
+
+		objects = append(objects, rsrc)
+	}
+
+	return objects, nil
 }
 
 func (mc *MinioClient) Stat(t any) any {
+	object, ok := t.(ut.Resource)
+	if !ok {
+		return ut.NewError("failed to cast")
+	}
 
-	object := t.(ut.Resource)
-
-	mc.StatObject(object.Vname, object.Name)
+	mc.statObject(object.Vname, object.Name)
 
 	return nil
 }
 
+// ✅
 func (mc *MinioClient) Remove(t any) error {
+	resource, ok := t.(ut.Resource)
+	if !ok {
+		return ut.NewError("failed to cast")
+	}
+
+	err := mc.removeObject(resource.Vname, resource.Name)
+
+	return err
+}
+
+// ✅
+func (mc *MinioClient) RemoveVolume(t any) error {
+	var bucketname string
+
+	// check if the argument passed is either an entire volume
+	// or just the identifier (name)
+	// either case, get the name
+	volume, ok := t.(ut.Volume)
+	if !ok {
+		bucketname, ok = t.(string)
+		if !ok {
+			return ut.NewError("failed to cast to a volume/id")
+		}
+	} else {
+		bucketname = volume.Name
+	}
+
+	err := mc.removeBucket(bucketname)
+	if err != nil {
+		log.Printf("failed to remove bucket")
+	}
+
+	return err
+}
+
+// ✅
+func (mc *MinioClient) Download(t *any) error {
+	b := *t
+	resource, ok := b.(ut.Resource)
+	if !ok {
+		return ut.NewError("failed to cast")
+	}
+
+	reader, err := mc.getObject(resource.Vname, resource.Name)
+	if err != nil {
+
+	}
+
+	resource.Reader = reader
+
+	return err
+}
+
+func (mc *MinioClient) Copy(s, d any) error {
+	src, ok := s.(ut.Resource)
+	if !ok {
+		return ut.NewError("failed to cast")
+	}
+	dst, ok := d.(ut.Resource)
+	if !ok {
+		return ut.NewError("failed to cast")
+	}
+
+	uploadInfo, err := mc.copyObject(minio.CopySrcOptions{Bucket: src.Vname, Object: src.Name}, minio.CopyDestOptions{Bucket: dst.Vname, Object: dst.Name})
+	if err != nil {
+		return err
+	}
+
+	log.Printf("upload info: %+v", uploadInfo)
 	return nil
 }
 
-/* copy + delete in this case*/
+/* find + copy + delete in this case*/
 func (mc *MinioClient) Update(t any) error {
-	return nil
-}
-
-func (mc *MinioClient) Download(t any) error {
-	return nil
-}
-
-func (mc *MinioClient) Copy(t any) error {
 	return nil
 }

@@ -1,0 +1,30 @@
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: linear-gradient(to top, #75e8e1, #FFFFFF);
+}
+
+.error {
+  margin: 50 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+
+  width: 550px;
+  background-image: url("../assets/logos/cropped.png");
+  background-repeat: no-repeat;
+  background-size: 300px 300px;
+  background-position: left;
+
+  text-align: end;
+
+  padding: 100px;
+  border: 2px dotted;
+  border-radius: 40px;
+}
+
+
+.error-message {
+  color: red;
+}

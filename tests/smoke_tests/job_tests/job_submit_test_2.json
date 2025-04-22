@@ -1,0 +1,18 @@
+[
+    {
+        "uid":0,
+        "description":"aggressive job",
+        "input":"",
+        "output":"de-small-job-2",
+        "logic":"python",
+        "logic_body":"print('fk you all ')"
+    },
+    {
+        "uid":0,
+        "description":"asssss",
+        "input":"",
+        "output":"de-small-job-3",
+        "logic":"python",
+        "logic_body":"print('fk you man')"
+    }
+]

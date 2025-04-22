@@ -36,26 +36,26 @@ import (
 * */
 type Resource struct {
 	Name string `json:"name"`
-	Path string `json:"path"`
-	Type string `json:"type"`
+	Path string `json:"path,omitempty"`
+	Type string `json:"type,omitempty"`
 
-	Created_at  string `json:"created_at"`
-	Updated_at  string `json:"updated_at"`
-	Accessed_at string `json:"accessed_at"`
+	Created_at  string `json:"created_at,omitempty"`
+	Updated_at  string `json:"updated_at,omitempty"`
+	Accessed_at string `json:"accessed_at,omitempty"`
 
-	Perms string `json:"perms"`
+	Perms string `json:"perms,omitempty"`
 
-	Rid int `json:"rid"`
-	Uid int `json:"uid"` // as in user id (owner)
-	Gid int `json:"gid"` // as in group id
+	Rid int `json:"rid,omitempty"`
+	Uid int `json:"uid,omitempty"` // as in user id (owner)
+	Gid int `json:"gid,omitempty"` // as in group id
 
-	Size  int64 `json:"size"`
-	Links int   `json:"links"`
+	Size  int64 `json:"size,omitempty"`
+	Links int   `json:"links,omitempty"`
 
-	Vid   int    `json:"vid"`
-	Vname string `json:"vname"`
+	Vid   int    `json:"vid,omitempty"`
+	Vname string `json:"vname,omitempty"`
 
-	Reader *io.Reader
+	Reader io.Reader `json:"reader,omitempty"`
 }
 
 /* representative utility methods of the above structures */
@@ -333,8 +333,8 @@ type AccessClaim struct {
 	Uid  string `json:"user_id"`   // owner id
 	Gids string `json:"group_ids"` // owner group ids
 
-	Vid int `json:"volume_id"` // volume target
-
+	Vid   string `json:"volume_id"` // volume target
+	Vname string `json:"volume_name"`
 	// keyword, is a mechanism to specify a target
 	// more like a set of "instructions"
 	// comms establishment @look at the header parser

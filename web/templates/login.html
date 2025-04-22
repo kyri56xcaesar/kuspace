@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>kuSpace</title>
+    <link rel="icon" href="assets/logos/cropped.png">
+    <link href="css/styles.css" rel="stylesheet">
+    <script src="js/index.js"></script>
+  </head>
+  <body style="visibility: hidden;">
+    <script>0</script>
+    <div class="main-login">
+      <form 
+        id="login-form"   
+        hx-post="/api/1v/login" 
+        hx-trigger="submit"
+        hx-swap="none"
+      >
+        <div class="login-logo">
+          <a tabindex="-1" href="/">
+            <img class="selectDisable" src=assets/logos/cropped.png>
+          </a>
+        </div>
+        <div class="form-inputs">
+          <input type="text" required name="username" placeholder="Username" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
+          <input type="password" required name="password" placeholder="Password" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
+        </div>
+        <div class=form-sub-div>
+          <input type="submit" name="Submit" value="Login">
+        </div>
+        <div class="sso-login">
+          <button id="google-button" type="button" class="sso-button">
+            <a href="/api/v1/auth/google" tabindex="-1">
+              <img src="assets/icons/google-icon.png" alt="Google Icon">
+            </a>
+          </button>
+          <button id="github-button" type="button" class="sso-button">
+            <a href="/api/v1/auth/github" tabindex="-1">
+              <img src="assets/icons/github-icon.png" alt="Github Icon">
+            </a>
+          </button>
+        </div>
+        <div id="register-prompt">
+          <p> Don't have an account?</p>
+          <a href="/api/v1/register">Register</a>
+        </div>
+        <span class="loader" id="login-loader" style="display: none;"></span>
+        <div id="login-error" style="display: none; color: red; font-size: 15px;"></div>
+      </form>
+    </div>
+  </body>
+</html>
+
+<script>
+
+document.addEventListener('DOMContentLoaded', () => {
+  const loginForm = document.getElementById('login-form');
+  const loaderDiv = document.getElementById('login-loader');
+  const errorDiv = document.getElementById('login-error');
+  const submitButton = loginForm.querySelector('input[type="submit"]');
+
+  if (loginForm) {
+    loginForm.addEventListener('submit', function (event) {
+      // Show the loader and disable the submit button
+      if (loaderDiv) {
+        loaderDiv.style.display = 'block';
+      }
+      if (submitButton) {
+        submitButton.disabled = true;
+      }
+
+      // Allow the form to submit as normal, but monitor its progress
+      event.preventDefault();
+      const formData = new FormData(loginForm);
+
+      let resp;
+
+      fetch(loginForm.action, {
+        method: 'POST',
+        body: formData,
+      })
+        .then(response => {
+          resp = response;
+          if (!response.ok) {
+            return response.json().then(data => {
+              // Throw structured error for handling
+              throw { status: response.status, message: data.error || 'An error occurred.' };
+            });
+          }
+
+          // If the request is successful, allow the browser to handle the redirect
+          window.location.href = response.url; // Let the redirect happen naturally
+        })
+        .catch(err => {
+          // Handle errors for 4xx and 5xx status codes
+          console.error('Error:', err);
+
+          // Display error message
+          if (errorDiv) {
+            errorDiv.innerHTML = `<span>${'Login error: ' + err.message || 'Err^2'}</span>`;
+            errorDiv.style.display = 'flex';
+          }
+
+          // reset form
+          loginForm.reset();
+          // hide the error message after 15 seconds
+          setTimeout(() => {
+            if (errorDiv) {
+              errorDiv.style.display = 'none';
+              if (regRef) {
+                regRef.remove();
+              }
+            }
+          }, 15000);
+        })
+        .finally(() => {
+          // Hide the loader and re-enable the submit button
+          if (loaderDiv) {
+            loaderDiv.style.display = 'none';
+          }
+          if (submitButton) {
+            submitButton.disabled = false;
+          }
+        });
+    });
+  }
+});
+</script>
+
+

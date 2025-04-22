@@ -83,6 +83,8 @@ func (srv *UService) HandleJob(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read request body"})
 			return
 		}
+		log.Printf("request body: %s", string(body))
+
 		if err = json.Unmarshal(body, &job); err != nil {
 			if err = json.Unmarshal(body, &jobs); err != nil {
 				log.Printf("failed to bind job(s): %v", err)
@@ -99,6 +101,9 @@ func (srv *UService) HandleJob(c *gin.Context) {
 			srv.jdp.PublishJobs(jobs)
 
 			// respond with status
+			c.JSON(http.StatusOK, gin.H{
+				"status": "job(s) published",
+			})
 			return
 		}
 		// log.Printf("job: %v", job)

@@ -15,7 +15,7 @@ import (
 )
 
 /* bucket crud */
-func (mc *MinioClient) CreateBucket(bucketname string) error {
+func (mc *MinioClient) createBucket(bucketname string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -40,7 +40,7 @@ func (mc *MinioClient) CreateBucket(bucketname string) error {
 	return nil
 }
 
-func (mc *MinioClient) ListBuckets() ([]minio.BucketInfo, error) {
+func (mc *MinioClient) listBuckets() ([]minio.BucketInfo, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -61,7 +61,7 @@ func (mc *MinioClient) ListBuckets() ([]minio.BucketInfo, error) {
 	return buckets, nil
 }
 
-func (mc *MinioClient) BucketExists(bucketname string) (bool, error) {
+func (mc *MinioClient) bucketExists(bucketname string) (bool, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -73,7 +73,7 @@ func (mc *MinioClient) BucketExists(bucketname string) (bool, error) {
 	return exists, nil
 }
 
-func (mc *MinioClient) RemoveBucket(bucketname string) error {
+func (mc *MinioClient) removeBucket(bucketname string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -85,25 +85,20 @@ func (mc *MinioClient) RemoveBucket(bucketname string) error {
 	return err
 }
 
-func (mc *MinioClient) ListObjects(bucketname, prefix string) {
+func (mc *MinioClient) listObjects(bucketname, prefix string) (<-chan minio.ObjectInfo, context.CancelFunc, error) {
 	// List all objects from a bucket-name with a matching prefix.
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// defer cancel()
 
 	objectCh := mc.client.ListObjects(ctx, bucketname, minio.ListObjectsOptions{
 		Prefix:    prefix,
 		Recursive: true,
 	})
-	for object := range objectCh {
-		if object.Err != nil {
-			fmt.Println(object.Err)
-			return
-		}
-		fmt.Println(object)
-	}
+
+	return objectCh, cancel, nil
 }
 
-func (mc *MinioClient) ListIncompleteUploads(bucketname, prefix string, isRecursive bool) {
+func (mc *MinioClient) listIncompleteUploads(bucketname, prefix string, isRecursive bool) {
 	// List all incomplete uploads from a bucket-name with a matching prefix.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -121,7 +116,7 @@ func (mc *MinioClient) ListIncompleteUploads(bucketname, prefix string, isRecurs
 // bucket control
 
 // direct object to/from fs minio
-func (mc *MinioClient) FPutObject(bucketname, objectname, filepath string) {
+func (mc *MinioClient) fPutObject(bucketname, objectname, filepath string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -139,7 +134,7 @@ func (mc *MinioClient) FPutObject(bucketname, objectname, filepath string) {
 	log.Println("successfully uploaded object: ", uploadInfo)
 }
 
-func (mc *MinioClient) FGetObject(bucketname, objectname, filepath string) {
+func (mc *MinioClient) fGetObject(bucketname, objectname, filepath string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -151,22 +146,21 @@ func (mc *MinioClient) FGetObject(bucketname, objectname, filepath string) {
 
 // object crud
 // stream of the object from minio, similar to FGetObject but without save
-func (mc *MinioClient) GetObject(bucketname, objectname string) {
+func (mc *MinioClient) getObject(bucketname, objectname string) (io.Reader, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	object, err := mc.client.GetObject(ctx, bucketname, objectname, minio.GetObjectOptions{})
 	if err != nil {
 		log.Printf("failed to retrieve object stream from minio")
-		return
+		return nil, err
 	}
-	defer object.Close()
-
+	return object, nil
 	// idk what to do with the stream yet... we'll see!
 }
 
 // stream of the object to minio
-func (mc *MinioClient) PutObject(bucketname, objectname string, reader io.Reader, objectSize int64) error {
+func (mc *MinioClient) putObject(bucketname, objectname string, reader io.Reader, objectSize int64) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -175,11 +169,11 @@ func (mc *MinioClient) PutObject(bucketname, objectname string, reader io.Reader
 		return err
 	}
 
-	log.Printf("upload info: %v", uploadInfo)
+	log.Printf("upload info: %+v", uploadInfo)
 	return nil
 }
 
-func (mc *MinioClient) StatObject(bucketname, objectname string) {
+func (mc *MinioClient) statObject(bucketname, objectname string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -192,21 +186,18 @@ func (mc *MinioClient) StatObject(bucketname, objectname string) {
 	log.Println("object statted: ", objInfo)
 }
 
-func (mc *MinioClient) CopyObject(origin minio.CopySrcOptions, output minio.CopyDestOptions) {
+func (mc *MinioClient) copyObject(origin minio.CopySrcOptions, output minio.CopyDestOptions) (minio.UploadInfo, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	uploadInfo, err := mc.client.CopyObject(ctx, output, origin)
 	if err != nil {
 		log.Print("failed to initiate copy on minio: ", err)
-		return
 	}
-
-	log.Print("upload info: ", uploadInfo)
-
+	return uploadInfo, err
 }
 
-func (mc *MinioClient) RemoveObject(bucketname, objectname string) {
+func (mc *MinioClient) removeObject(bucketname, objectname string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -219,9 +210,11 @@ func (mc *MinioClient) RemoveObject(bucketname, objectname string) {
 	if err != nil {
 		log.Print("failed to remove object from minio: ", err)
 	}
+
+	return err
 }
 
-func (mc *MinioClient) RemoveObjects(bucketname string, objects <-chan minio.ObjectInfo) {
+func (mc *MinioClient) removeObjects(bucketname string, objects <-chan minio.ObjectInfo) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -234,7 +227,7 @@ func (mc *MinioClient) RemoveObjects(bucketname string, objects <-chan minio.Obj
 	}
 }
 
-func (mc *MinioClient) SelectObjectContent(bucketname, objectname string) {
+func (mc *MinioClient) selectObjectContent(bucketname, objectname string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -269,7 +262,7 @@ func (mc *MinioClient) SelectObjectContent(bucketname, objectname string) {
 }
 
 // object control
-func (mc *MinioClient) GetObjectAttributes(bucketname, objectname string) {
+func (mc *MinioClient) getObjectAttributes(bucketname, objectname string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

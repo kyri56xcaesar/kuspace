@@ -30,6 +30,15 @@ func (fsl *FsLite) CreateVolume(volumeId any) error {
 func (fsl *FsLite) Insert(t any) error {
 	return nil
 }
+
+func (fsl *FsLite) SelectVolumes(how map[string]any) ([]any, error) {
+	return nil, nil
+}
+
+func (fsl *FsLite) SelectObjects(how map[string]any) ([]any, error) {
+	return nil, nil
+}
+
 func (fsl *FsLite) Select(sel, table, by, byvalue string, limit int) ([]any, error) {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
@@ -91,15 +100,19 @@ func (fsl *FsLite) Remove(t any) error {
 	return nil
 }
 
+func (fsl *FsLite) RemoveVolume(t any) error {
+	return nil
+}
+
 func (fsl *FsLite) Update(t any) error {
 	return nil
 }
 
-func (fsl *FsLite) Download(t any) error {
+func (fsl *FsLite) Download(t *any) error {
 	return nil
 }
 
-func (fsl *FsLite) Copy(t any) error {
+func (fsl *FsLite) Copy(s, d any) error {
 	return nil
 }
 

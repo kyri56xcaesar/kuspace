@@ -33,7 +33,7 @@ default: rendered html template
 * */
 var (
 	authServiceURL string
-	authVersion    string
+	authVersion    string = "/v1"
 
 	apiServiceURL string
 )
@@ -57,7 +57,7 @@ func (srv *HTTPService) handleFetchUsers(c *gin.Context) {
 		return
 	}
 
-	req, err := http.NewRequest(http.MethodGet, authServiceURL+"/admin/users", nil)
+	req, err := http.NewRequest(http.MethodGet, authServiceURL+authVersion+"/admin/users", nil)
 	if err != nil {
 		log.Printf("failed to create request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
@@ -239,7 +239,7 @@ func (srv *HTTPService) handleUserdel(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing uid param"})
 		return
 	}
-	req, err := http.NewRequest(http.MethodDelete, authServiceURL+"/admin/userdel?uid="+uid, nil)
+	req, err := http.NewRequest(http.MethodDelete, authServiceURL+authVersion+"/admin/userdel?uid="+uid, nil)
 	if err != nil {
 		log.Printf("failed to create request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
@@ -313,7 +313,7 @@ func (srv *HTTPService) handleUserpatch(c *gin.Context) {
 		return
 	}
 
-	req, err := http.NewRequest(http.MethodPatch, authServiceURL+"/admin/userpatch", bytes.NewBuffer(jsonRq))
+	req, err := http.NewRequest(http.MethodPatch, authServiceURL+authVersion+"/admin/userpatch", bytes.NewBuffer(jsonRq))
 	if err != nil {
 		log.Printf("failed to create request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
@@ -370,7 +370,7 @@ func (srv *HTTPService) handleFetchGroups(c *gin.Context) {
 		return
 	}
 
-	req, err := http.NewRequest(http.MethodGet, authServiceURL+"/admin/groups", nil)
+	req, err := http.NewRequest(http.MethodGet, authServiceURL+authVersion+"/admin/groups", nil)
 	if err != nil {
 		log.Printf("failed to create request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
@@ -479,7 +479,7 @@ func (srv *HTTPService) handleGroupdel(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing gid param"})
 		return
 	}
-	req, err := http.NewRequest(http.MethodDelete, authServiceURL+"/admin/groupdel?gid="+gid, nil)
+	req, err := http.NewRequest(http.MethodDelete, authServiceURL+authVersion+"/admin/groupdel?gid="+gid, nil)
 	if err != nil {
 		log.Printf("failed to create request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
@@ -1035,7 +1035,7 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 		return
 	}
 
-	userReq, err := http.NewRequest(http.MethodGet, authServiceURL+"/admin/users", nil)
+	userReq, err := http.NewRequest(http.MethodGet, authServiceURL+authVersion+"/admin/users", nil)
 	if err != nil {
 		log.Printf("failed to create request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
@@ -1044,7 +1044,7 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 	userReq.Header.Set("Authorization", "Bearer "+accessToken)
 	userReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
 
-	groupReq, err := http.NewRequest(http.MethodGet, authServiceURL+"/admin/groups", nil)
+	groupReq, err := http.NewRequest(http.MethodGet, authServiceURL+authVersion+"/admin/groups", nil)
 	if err != nil {
 		log.Printf("failed to create request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
@@ -1628,7 +1628,7 @@ func (srv *HTTPService) editFormHandler(c *gin.Context) {
 		return
 	}
 
-	usersReq, err := http.NewRequest(http.MethodGet, authServiceURL+"/admin/users", nil)
+	usersReq, err := http.NewRequest(http.MethodGet, authServiceURL+authVersion+"/admin/users", nil)
 	if err != nil {
 		log.Printf("failed to create request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
@@ -1663,7 +1663,7 @@ func (srv *HTTPService) editFormHandler(c *gin.Context) {
 		return
 	}
 
-	groupsReq, err := http.NewRequest(http.MethodGet, authServiceURL+"/admin/groups", nil)
+	groupsReq, err := http.NewRequest(http.MethodGet, authServiceURL+authVersion+"/admin/groups", nil)
 	if err != nil {
 		log.Printf("failed to create request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
@@ -1789,7 +1789,7 @@ func (srv *HTTPService) handleHasher(c *gin.Context) {
 		c.JSON(500, gin.H{"error": "failed to marshal"})
 		return
 	}
-	req, err := http.NewRequest(http.MethodPost, authServiceURL+"/admin/hasher", bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest(http.MethodPost, authServiceURL+authVersion+"/admin/hasher", bytes.NewBuffer(jsonData))
 	if err != nil {
 		log.Printf("failed to create request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
@@ -1846,7 +1846,7 @@ func (srv *HTTPService) handleDashboard(c *gin.Context) {
 
 	// we need to fetch bunch of data here
 	// 0) fetch user info
-	uReq, err := http.NewRequest(http.MethodGet, authServiceURL+"/admin/users?uid="+fmt.Sprintf("%v", uid), nil)
+	uReq, err := http.NewRequest(http.MethodGet, authServiceURL+authVersion+"/admin/users?uid="+fmt.Sprintf("%v", uid), nil)
 	if err != nil {
 		log.Printf("failed to create request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
@@ -2124,7 +2124,7 @@ func (srv *HTTPService) passwordChangeHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to marshal data"})
 		return
 	}
-	checkPassReq, err := http.NewRequest(http.MethodPost, authServiceURL+"/admin/verify-password", bytes.NewBuffer(data))
+	checkPassReq, err := http.NewRequest(http.MethodPost, authServiceURL+authVersion+"/admin/verify-password", bytes.NewBuffer(data))
 	if err != nil {
 		log.Printf("failed to create a new requst: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -2153,7 +2153,7 @@ func (srv *HTTPService) passwordChangeHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to marshal data"})
 		return
 	}
-	passReq, err := http.NewRequest(http.MethodPost, authServiceURL+"/passwd", bytes.NewBuffer(data))
+	passReq, err := http.NewRequest(http.MethodPost, authServiceURL+authVersion+"/passwd", bytes.NewBuffer(data))
 	if err != nil {
 		log.Printf("failed to create a new requst: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -2200,7 +2200,7 @@ func (srv *HTTPService) updateUser(c *gin.Context) {
 		return
 	}
 	// get current user info
-	req, err := http.NewRequest(http.MethodGet, authServiceURL+"/user/me", nil)
+	req, err := http.NewRequest(http.MethodGet, authServiceURL+authVersion+"/user/me", nil)
 	if err != nil {
 		log.Printf("failed to create a new request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -2248,7 +2248,7 @@ func (srv *HTTPService) updateUser(c *gin.Context) {
 		return
 	}
 	// save change (forward to update)
-	newReq, err := http.NewRequest(http.MethodPut, authServiceURL+"/admin/usermod", bytes.NewBuffer(user_data))
+	newReq, err := http.NewRequest(http.MethodPut, authServiceURL+authVersion+"/admin/usermod", bytes.NewBuffer(user_data))
 	if err != nil {
 		log.Printf("failed to create a new request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
