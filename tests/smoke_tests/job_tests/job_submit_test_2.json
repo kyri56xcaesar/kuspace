@@ -2,17 +2,25 @@
     {
         "uid":0,
         "description":"aggressive job",
-        "input":"",
-        "output":"de-small-job-2",
+        "input":["dataset_random_xsmall.txt"],
+        "output":"de-small-job-197",
         "logic":"python",
-        "logic_body":"print('fk you all ')"
+        "logic_body":"def run(data):\n\tprint('fk you all ')\n\treturn data"
     },
     {
         "uid":0,
         "description":"asssss",
-        "input":"",
-        "output":"de-small-job-3",
+        "input":["dataset_random_small.txt"],
+        "output":"de-small-job-198",
         "logic":"python",
-        "logic_body":"print('fk you man')"
+        "logic_body":"def run(data):\n\tprint('jajajaalksajglksa ')\n\treturn data"
+    },
+    {
+        "uid":0,
+        "description":"asssss",
+        "input":["dataset_random_small.txt", "tmp_code_go"],
+        "output":"de-small-job-199",
+        "logic":"python",
+        "logic_body":"def run(data):\n\tprint('jajajaalksajglksa ')\n\treturn data"
     }
 ]

@@ -1,6 +1,7 @@
 package fslite
 
 import (
+	"context"
 	"fmt"
 	ut "kyri56xcaesar/myThesis/internal/utils"
 	"log"
@@ -27,8 +28,8 @@ func (fsl *FsLite) CreateVolume(volumeId any) error {
 }
 
 // need to implement the interface StorageSystem
-func (fsl *FsLite) Insert(t any) error {
-	return nil
+func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
+	return nil, nil
 }
 
 func (fsl *FsLite) SelectVolumes(how map[string]any) ([]any, error) {
@@ -93,8 +94,8 @@ func (fsl *FsLite) SelectOne(sel, table, by, byvalue string) (any, error) {
 	}
 
 }
-func (fsl *FsLite) Stat(t any) any {
-	return nil
+func (fsl *FsLite) Stat(t any, locally bool) (any, error) {
+	return nil, nil
 }
 func (fsl *FsLite) Remove(t any) error {
 	return nil
@@ -108,8 +109,8 @@ func (fsl *FsLite) Update(t any) error {
 	return nil
 }
 
-func (fsl *FsLite) Download(t *any) error {
-	return nil
+func (fsl *FsLite) Download(t *any) (context.CancelFunc, error) {
+	return nil, nil
 }
 
 func (fsl *FsLite) Copy(s, d any) error {
@@ -287,4 +288,8 @@ func determinePhysicalStorage(target string, fileSize int64) (string, error) {
 	}
 
 	return target, nil
+}
+
+func (fsl *FsLite) DefaultVolume(local bool) string {
+	return default_volume_name
 }

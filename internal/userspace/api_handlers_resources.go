@@ -288,19 +288,52 @@ func (srv *UService) handleDownload(c *gin.Context) {
 		return
 	}
 	ac := ac_h.(ut.AccessClaim)
-	// log.Printf("binded access claim: %+v", ac)
-	// log.Printf("trimmed: %v", strings.TrimSuffix(ac.Target, "/"))
-	path := strings.TrimSuffix(ac.Target, "/")
+	log.Printf("binded access claim: %+v", ac)
 
-	err := srv.storage.Download(nil)
+	if strings.HasSuffix(ac.Target, "/") {
+		log.Printf("target should be a file, not a directory")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "target should be a file, not a directory"})
+		return
+	}
+	// get the path
+	parts := strings.Split(ac.Target, "/")
+	path := strings.Join(parts[1:], "/")
+	name := parts[len(parts)-1]
+	vid, err := strconv.Atoi(ac.Vid)
+	if err != nil && ac.Vname == "" {
+		log.Printf("failed to atoi vid: %v and vname not provided", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad vid"})
+		return
+	}
+
+	resource := &ut.Resource{
+		Path:  path,
+		Name:  name,
+		Vname: ac.Vname,
+		Vid:   vid,
+		Size:  -1,
+	}
+	var a_r any = resource
+
+	cancelFn, err := srv.storage.Download(&a_r)
+	defer cancelFn()
 	if err != nil {
 		log.Printf("failed to retrieve resource: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to retrieve resource"})
 		return
 	}
 
-	split := strings.Split(path, "/")
-	c.FileAttachment(srv.config.VOLUMES_PATH+path, split[len(split)-1])
+	if resource.Reader == nil {
+		log.Printf("resource reader is nil")
+		c.JSON(http.StatusNotFound, gin.H{"error": "resource not found"})
+		return
+	}
+
+	c.DataFromReader(http.StatusOK, resource.Size, resource.Name, resource.Reader, map[string]string{
+		"Content-Disposition": "attachment; filename=\"" + resource.Name + "\"",
+		"Content-Type":        "application/octet-stream",
+	})
+
 }
 
 /* the main endpoint handler for resource uploading */
@@ -386,7 +419,8 @@ func (srv *UService) handleUpload(c *gin.Context) {
 			Size:        int64(fileHeader.Size),
 		}
 
-		err = srv.storage.Insert(resource)
+		cancelFn, err := srv.storage.Insert(resource)
+		defer cancelFn()
 		if err != nil {
 			log.Printf("failed to insert resources: %v", err)
 			c.JSON(422, gin.H{"error": "failed to insert resources"})

@@ -134,56 +134,61 @@ func (mc *MinioClient) fPutObject(bucketname, objectname, filepath string) {
 	log.Println("successfully uploaded object: ", uploadInfo)
 }
 
-func (mc *MinioClient) fGetObject(bucketname, objectname, filepath string) {
+func (mc *MinioClient) fGetObject(bucketname, objectname, filepath string) (context.CancelFunc, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	err := mc.client.FGetObject(ctx, bucketname, objectname, filepath, minio.GetObjectOptions{})
 	if err != nil {
 		log.Printf("failed to get object from minio and save it locally")
+		cancel()
+		return nil, err
 	}
+
+	return cancel, nil
 }
 
 // object crud
 // stream of the object from minio, similar to FGetObject but without save
-func (mc *MinioClient) getObject(bucketname, objectname string) (io.Reader, error) {
+func (mc *MinioClient) getObject(bucketname, objectname string) (io.Reader, context.CancelFunc, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	object, err := mc.client.GetObject(ctx, bucketname, objectname, minio.GetObjectOptions{})
 	if err != nil {
 		log.Printf("failed to retrieve object stream from minio")
-		return nil, err
+		cancel()
+		return nil, nil, err
 	}
-	return object, nil
+	return object, cancel, nil
 	// idk what to do with the stream yet... we'll see!
 }
 
 // stream of the object to minio
-func (mc *MinioClient) putObject(bucketname, objectname string, reader io.Reader, objectSize int64) error {
+func (mc *MinioClient) putObject(bucketname, objectname string, reader io.Reader, objectSize int64) (context.CancelFunc, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	uploadInfo, err := mc.client.PutObject(ctx, bucketname, objectname, reader, objectSize, minio.PutObjectOptions{})
 	if err != nil {
-		return err
+		log.Printf("failed to put object to minio: %v", err)
+		cancel()
+		return nil, err
 	}
 
 	log.Printf("upload info: %+v", uploadInfo)
-	return nil
+	return cancel, nil
 }
 
-func (mc *MinioClient) statObject(bucketname, objectname string) {
+func (mc *MinioClient) statObject(bucketname, objectname string) (minio.ObjectInfo, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	objInfo, err := mc.client.StatObject(ctx, bucketname, objectname, minio.StatObjectOptions{})
 	if err != nil {
 		log.Println("failed to stat object on minio: ", err)
-		return
+		return objInfo, err
 	}
 
 	log.Println("object statted: ", objInfo)
+	return objInfo, nil
 }
 
 func (mc *MinioClient) copyObject(origin minio.CopySrcOptions, output minio.CopyDestOptions) (minio.UploadInfo, error) {

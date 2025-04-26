@@ -85,7 +85,10 @@ func NewUService(conf string) UService {
 	if err != nil {
 		panic(err)
 	}
-	jobs_socket_address = cfg.API_J_SOCKET_ADDRESS
+	jobs_socket_address = cfg.J_WS_ADDRESS
+	if jobs_socket_address == "" {
+		panic(fmt.Errorf("jobs socket address is empty"))
+	}
 	srv.jdp = jdp
 	jdp.Start()
 
@@ -145,6 +148,7 @@ func (srv *UService) Serve() {
 		apiV1.GET("/resources", srv.getResourcesHandler)
 
 		apiV1.POST("/resource/upload", srv.handleUpload)
+		apiV1.GET("/resource/download", srv.handleDownload)
 		// apiV1.GET("/resource/download", hasAccessMiddleware("r", srv), srv.handleDownload)
 		// apiV1.GET("/resource/preview", hasAccessMiddleware("r", srv), srv.handlePreview)
 
@@ -253,7 +257,7 @@ func syncUsers(srv *UService) error {
 		return fmt.Errorf("failed to retrieve actual users")
 	}
 
-	capacity, err := strconv.ParseFloat(srv.config.V_DEFAULT_CAPACITY, 64)
+	capacity, err := strconv.ParseFloat(srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY, 64)
 	if err != nil {
 		log.Printf("failed to parse env var VCapacity: %v", err)
 		return err
@@ -264,26 +268,29 @@ func syncUsers(srv *UService) error {
 			continue
 		}
 
-		err := srv.storage.Insert([]any{ut.GroupVolume{
+		cancelFn, err := srv.storage.Insert([]any{ut.GroupVolume{
 			Vid:   1,
 			Gid:   group.Gid,
 			Quota: capacity,
 		}})
+		defer cancelFn()
 		if err != nil {
 			log.Printf("failed to insert gv: %v", err)
 			return err
 		}
 		for _, user := range group.Users {
 			if user.Username == group.Groupname {
-				err := srv.storage.Insert([]any{ut.UserVolume{
+				cancelFn, err := srv.storage.Insert([]any{ut.UserVolume{
 					Vid:   1,
 					Uid:   user.Uid,
 					Quota: capacity,
 				}})
+				defer cancelFn()
 				if err != nil {
 					log.Printf("failed to insert uv: %v", err)
 					return err
 				}
+
 			}
 		}
 	}

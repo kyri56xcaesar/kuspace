@@ -3,13 +3,28 @@ package ws_registry
 import (
 	"log"
 	"net/http"
+	"os"
 	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
 
-var Job_log_path = "data/logs/jobs/job.log"
+var (
+	Job_log_path = "data/logs/jobs/"
+
+	// Registry maps jobIDs to their socket servers
+	registry = struct {
+		sync.Mutex
+		servers map[string]*JobSocketServer
+	}{
+		servers: make(map[string]*JobSocketServer),
+	}
+
+	upgrader = websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool { return true },
+	}
+)
 
 type Role string
 
@@ -20,6 +35,7 @@ const (
 
 // client represents a WebSocket connection
 type Client struct {
+	Jid  string
 	Conn *websocket.Conn
 	Role Role
 	Send chan []byte
@@ -33,10 +49,22 @@ type JobSocketServer struct {
 	Register   chan *Client
 	Unregister chan *Client
 	sync.Mutex
+
+	Jid    string
+	Logger *log.Logger
 }
 
-func NewJobSocketServer() *JobSocketServer {
+func NewJobSocketServer(jid string) *JobSocketServer {
+	// Create a new logger for the job socket server
+	log_file, err := os.OpenFile(Job_log_path+"job-"+jid+".log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		log.Fatalf("failed to open log file: %v", err)
+	}
+	logger := log.New(log_file, "[JOB-"+jid+" WS-server] ", log.LstdFlags)
+
 	return &JobSocketServer{
+		Jid:        jid,
+		Logger:     logger,
 		Producers:  make(map[*Client]bool),
 		Consumers:  make(map[*Client]bool),
 		Broadcast:  make(chan []byte),
@@ -72,7 +100,7 @@ func (s *JobSocketServer) Start() {
 			for Consumer := range s.Consumers {
 				select {
 				case Consumer.Send <- msg:
-					log.Printf("message incoming: %s\n", msg)
+					// log.Printf("message incoming: %s\n", msg)
 				default:
 					close(Consumer.Send)
 					delete(s.Consumers, Consumer)
@@ -83,28 +111,16 @@ func (s *JobSocketServer) Start() {
 	}
 }
 
-// Registry maps jobIDs to their socket servers
-var registry = struct {
-	sync.Mutex
-	servers map[string]*JobSocketServer
-}{
-	servers: make(map[string]*JobSocketServer),
-}
-
 func getOrCreateServer(jobID string) *JobSocketServer {
 	registry.Lock()
 	defer registry.Unlock()
 	server, exists := registry.servers[jobID]
 	if !exists {
-		server = NewJobSocketServer()
+		server = NewJobSocketServer(jobID)
 		registry.servers[jobID] = server
 		go server.Start()
 	}
 	return server
-}
-
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
 func HandleJobWS(c *gin.Context) {
@@ -124,6 +140,7 @@ func HandleJobWS(c *gin.Context) {
 		return
 	}
 	client := &Client{
+		Jid:  jobID,
 		Conn: conn,
 		Role: role,
 		Send: make(chan []byte, 256),
@@ -131,11 +148,35 @@ func HandleJobWS(c *gin.Context) {
 	server := getOrCreateServer(jobID)
 	server.Register <- client
 
-	log.Printf("client registered: %v\n", client.Role)
+	server.Logger.Printf("client registered: %v\n", client.Role)
 
 	go writeMessages(client)
 	go readMessages(client, server)
 
+}
+
+func HandleJobWSClose(c *gin.Context) {
+	jobID := c.Query("jid")
+	if jobID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing job_id"})
+		return
+	}
+	registry.Lock()
+	defer registry.Unlock()
+	if server, exists := registry.servers[jobID]; exists {
+		for client := range server.Producers {
+			client.Conn.Close()
+			close(client.Send)
+			delete(server.Producers, client)
+		}
+		for client := range server.Consumers {
+			client.Conn.Close()
+			close(client.Send)
+			delete(server.Consumers, client)
+		}
+		delete(registry.servers, jobID)
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "successfully deleted job socket server"})
 }
 
 func readMessages(client *Client, server *JobSocketServer) {
@@ -146,12 +187,12 @@ func readMessages(client *Client, server *JobSocketServer) {
 
 	for {
 		_, msg, err := client.Conn.ReadMessage()
-		log.Printf("message read: %s", msg)
+		server.Logger.Printf("message read: %s", msg)
 		if err != nil {
 			break
 		}
 		if client.Role == Producer {
-			log.Printf("broadcasting message by the producer")
+			server.Logger.Printf("producer broadcasting: %s", msg)
 			server.Broadcast <- msg
 		}
 	}
@@ -163,6 +204,5 @@ func writeMessages(client *Client) {
 		if err := client.Conn.WriteMessage(websocket.TextMessage, msg); err != nil {
 			break
 		}
-		log.Printf("message sent: %s\n", msg)
 	}
 }

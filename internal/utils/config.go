@@ -22,13 +22,12 @@ import (
 type EnvConfig struct {
 	ConfigPath string
 
-	API_CERT_FILE        string
-	API_KEY_FILE         string
-	API_LOGS_PATH        string
-	API_LOGS_MAX_SIZE    string
-	API_PORT             string
-	API_ADDRESS          string
-	API_J_SOCKET_ADDRESS string
+	API_CERT_FILE     string
+	API_KEY_FILE      string
+	API_LOGS_PATH     string
+	API_LOGS_MAX_SIZE string
+	API_PORT          string
+	API_ADDRESS       string
 
 	FRONT_PORT    string
 	FRONT_ADDRESS string
@@ -47,8 +46,8 @@ type EnvConfig struct {
 	DB_RV_MAX_IDLE_CONNS string
 	DB_RV_MAX_LIFETIME   string
 
-	VOLUMES_PATH       string
-	V_DEFAULT_CAPACITY string
+	LOCAL_VOLUMES_DEFAULT_PATH     string
+	LOCAL_VOLUMES_DEFAULT_CAPACITY string
 
 	MINIO_ACCESS_KEY     string
 	MINIO_SECRET_KEY     string
@@ -58,11 +57,12 @@ type EnvConfig struct {
 	MINIO_DEFAULT_BUCKET string
 	MINIO_OBJECT_LOCKING bool
 
-	J_DISPATCHER  string
-	J_QUEUE_SIZE  string
-	J_MAX_WORKERS string
-	J_EXECUTOR    string
-	J_WS_ADDRESS  string
+	J_DISPATCHER   string
+	J_QUEUE_SIZE   string
+	J_MAX_WORKERS  string
+	J_EXECUTOR     string
+	J_WS_ADDRESS   string
+	J_WS_LOGS_PATH string
 
 	DB_JOBS                string
 	DB_JOBS_DRIVER         string
@@ -97,15 +97,17 @@ func LoadConfig(path string) EnvConfig {
 	config := EnvConfig{
 		ConfigPath: split[len(split)-1],
 
-		API_PORT:             getEnv("API_PORT", "8079"),
-		API_ADDRESS:          getEnv("API_ADDRESS", "localhost"),
-		API_J_SOCKET_ADDRESS: getEnv("API_J_SOCKET_ADDRESS", "localhost:8082"),
-		API_CERT_FILE:        getEnv("API_CERT_FILE", "localhost.pem"),
-		API_KEY_FILE:         getEnv("API_KEY_FILE", "localhost-key.pem"),
-		API_LOGS_PATH:        getEnv("API_J_LOGS_PATH", "data/logs/jobs/job.log"),
-		API_LOGS_MAX_SIZE:    getEnv("API_J_LOGS_MAX_SIZE", "10"),
+		API_PORT:          getEnv("API_PORT", "8079"),
+		API_ADDRESS:       getEnv("API_ADDRESS", "localhost"),
+		API_CERT_FILE:     getEnv("API_CERT_FILE", "localhost.pem"),
+		API_KEY_FILE:      getEnv("API_KEY_FILE", "localhost-key.pem"),
+		API_LOGS_PATH:     getEnv("API_J_LOGS_PATH", "data/logs/jobs/job.log"),
+		API_LOGS_MAX_SIZE: getEnv("API_J_LOGS_MAX_SIZE", "10"),
 
 		STORAGE_SYSTEM: getEnv("STORAGE_SYSTEM", "local"),
+
+		LOCAL_VOLUMES_DEFAULT_PATH:     getEnv("V_LOCAL_PATH", "data/volumes"),
+		LOCAL_VOLUMES_DEFAULT_CAPACITY: getEnv("V_LOCAL_CAPACITY", "20"),
 
 		DB_RV:                getEnv("DB_RV", "database.db"),
 		DB_RV_DRIVER:         getEnv("DB_RV_DRIVER", "duckdb"),
@@ -122,11 +124,12 @@ func LoadConfig(path string) EnvConfig {
 		MINIO_DEFAULT_BUCKET: getEnv("MINIO_DEFAULT_BUCKET", "default"),
 		MINIO_OBJECT_LOCKING: getBoolEnv("MINIO_OBJECT_LOCKING", "false"),
 
-		J_DISPATCHER:  getEnv("J_DISPATCHER", "default"),
-		J_EXECUTOR:    getEnv("J_EXECUTOR", "docker"),
-		J_QUEUE_SIZE:  getEnv("J_QUEUE_SIZE", "100"),
-		J_MAX_WORKERS: getEnv("J_MAX_WORKERS", "10"),
-		J_WS_ADDRESS:  getEnv("J_WS_ADDRESS", "localhost:8082"),
+		J_DISPATCHER:   getEnv("J_DISPATCHER", "default"),
+		J_EXECUTOR:     getEnv("J_EXECUTOR", "docker"),
+		J_QUEUE_SIZE:   getEnv("J_QUEUE_SIZE", "100"),
+		J_MAX_WORKERS:  getEnv("J_MAX_WORKERS", "10"),
+		J_WS_ADDRESS:   getEnv("J_WS_ADDRESS", "localhost:8082"),
+		J_WS_LOGS_PATH: getEnv("J_WS_LOGS_PATH", "data/logs/jobs/job_ws.log"),
 
 		DB_JOBS:                getEnv("DB_JOBS", "jobs.db"),
 		DB_JOBS_DRIVER:         getEnv("DB_JOBS_DRIVER", "duckdb"),
@@ -134,9 +137,6 @@ func LoadConfig(path string) EnvConfig {
 		DB_JOBS_MAX_OPEN_CONNS: getEnv("DB_JOBS_MAX_OPEN_CONNS", "50"),
 		DB_JOBS_MAX_IDLE_CONNS: getEnv("DB_JOBS_MAX_IDLE_CONNS", "10"),
 		DB_JOBS_MAX_LIFETIME:   getEnv("DB_JOBS_MAX_LIFETIME", "10"),
-
-		VOLUMES_PATH:       getEnv("VOLUMES_PATH", "data/volumes"),
-		V_DEFAULT_CAPACITY: getEnv("V_DEFAULT_CAPACITY", "20"),
 
 		FRONT_PORT:    getEnv("FRONT_PORT", "8080"),
 		FRONT_ADDRESS: getEnv("FRONT_ADDRESS", "localhost"),
@@ -235,27 +235,7 @@ func (cfg *EnvConfig) Addr(port string) string {
 	return cfg.IP + ":" + port
 }
 
-type WSConfig struct {
-	WS_PORT    string
-	WS_ADDRESS string
-	LOGS_PATH  string
-}
-
-func LoadWsConfig(path string) WSConfig {
-	if err := godotenv.Load(path); err != nil {
-		log.Printf("Could not load %s config file. Using default variables", path)
-	}
-
-	return WSConfig{
-		WS_PORT:    getEnv("WS_PORT", "8082"),
-		WS_ADDRESS: getEnv("WS_ADDRESS", "localhost"),
-		LOGS_PATH:  getEnv("LOGS_PATH", "data/logs/jobs/job.log"),
-	}
-
-}
-
-func MakeConfig(path string, fields interface{}) error {
-
+func MakeConfig(path string, fields any) error {
 	json_data, err := json.Marshal(fields)
 	if err != nil {
 		log.Printf("failed to marshal: %v", err)

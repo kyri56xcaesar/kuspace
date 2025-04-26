@@ -13,6 +13,7 @@ import (
 
 var (
 	default_v_path          string = "data/volumes"
+	tmp_path                string = "tmp/"
 	python_io_skeleton_code string = `%s
 
 with open('%s', 'r') as input:
@@ -93,6 +94,8 @@ type JDockerExecutor struct {
 }
 
 func NewJDockerExecutor(jm *JobManager) JDockerExecutor {
+	default_v_path = jm.srv.storage.DefaultVolume(true)
+
 	return JDockerExecutor{
 		jm: jm,
 	}
@@ -107,9 +110,27 @@ func (je JDockerExecutor) ExecuteJob(job ut.Job) error {
 	je.jm.mu.Unlock()
 
 	// we should examine input "resources"
+	// or if exists in the storage
+	for _, inp := range job.Input {
+		var asResource ut.Resource
+		// inp can be in format <volume>/<path>
+		parts := strings.Split(inp, "/")
+		if len(parts) > 1 {
+			asResource.Vname = parts[0]
+			asResource.Name = strings.Join(parts[1:], "/")
+		} else {
+			asResource.Vname = je.jm.srv.storage.DefaultVolume(false)
+			asResource.Name = inp
+		}
+
+		_, err := je.jm.srv.storage.Stat(asResource, true)
+		if err != nil {
+			log.Printf("failed to find input resource: %v", err)
+			return err
+		}
+	}
 
 	// language and version
-	default_v_path = je.jm.srv.config.VOLUMES_PATH
 	cmd, duration, err := prepareExecution(job, true)
 	if err != nil {
 		log.Printf("failed to prepare or perform job: %v", err)
@@ -124,12 +145,6 @@ func (je JDockerExecutor) ExecuteJob(job ut.Job) error {
 		return err
 	}
 
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		log.Printf("error creating stderr pipe: %v", err)
-		return err
-	}
-
 	// Start the command
 	log.Printf("starting job execution")
 	if err := cmd.Start(); err != nil {
@@ -139,24 +154,26 @@ func (je JDockerExecutor) ExecuteJob(job ut.Job) error {
 	}
 	log.Printf("streaming to socket")
 	go streamToSocketWS(job.Jid, stdout)
-	go streamToSocketWS(job.Jid, stderr)
 
 	log.Printf("waiting...")
 	err = cmd.Wait()
 	if err != nil {
 		log.Printf("Job %d failed: %s\n", job.Jid, err)
-		je.updateJobStatus(job.Jid, "failed", 0)
-		return err
+		// je.updateJobStatus(job.Jid, "failed", 0)
+
 	}
 
+	//success
 	log.Printf("Job %d completed successfully\n", job.Jid)
-	je.updateJobStatus(job.Jid, "completed", duration)
+	// je.updateJobStatus(job.Jid, "completed", duration)
 
-	// insert the output resource
-	go je.syncOutputResource(job)
+	// // insert the output resource
+	// go je.syncOutputResource(job)
 
 	// should cleanup the tmps, etc..
-	return nil
+	//lets cleanup the debree
+	cleanup(job.Jid, true, job.Logic)
+	return err
 }
 
 func (je JDockerExecutor) CancelJob(job ut.Job) error {
@@ -195,16 +212,14 @@ func formatJobCommand(job ut.Job, fileSave bool) ([]string, error) {
 		return nil, fmt.Errorf("failed to retrieve working directory")
 	}
 
-	// get or fetch input files
-
 	// how should we handle multiple input files? 1] lets combine (append) them to a single file for now...
-	err = ut.MergeFiles(default_v_path+"/input", default_v_path+"/", job.Input)
+	err = ut.MergeFiles(fmt.Sprintf("%sinput-%d", tmp_path, job.Jid), default_v_path+"/", job.Input)
 	if err != nil {
 		log.Printf("failed to merge input files: %v", err)
 		return nil, err
 	}
 
-	inp := "input"
+	inp := fmt.Sprintf("input-%d", job.Jid)
 	out := strings.Split(job.Output, "/")
 	parts := strings.Split(job.Logic, ":")
 	language := parts[0]
@@ -224,11 +239,12 @@ func formatJobCommand(job ut.Job, fileSave bool) ([]string, error) {
 				return nil, fmt.Errorf("failed to write tmp file script: %v", err)
 			}
 			command = append(command, []string{
-				"-v", cwd + "/" + default_v_path + "/" + inp + ":/input/" + inp, // input
-				"-v", cwd + "/" + default_v_path + "/output:/output", // output,
+				"-v", cwd + "/" + tmp_path + inp + ":/input/" + inp, // input
+				"-v", cwd + "/" + default_v_path + "output:/output", // output,
 				"-v", cwd + fmt.Sprintf("/tmp/job-%d.py", job.Jid) + ":/script.py", // script to run
 				language + ":" + version, // image
 				"python", "./script.py",
+				"ls", "-lrth",
 			}...)
 
 			return command, nil
@@ -244,7 +260,7 @@ func formatJobCommand(job ut.Job, fileSave bool) ([]string, error) {
 				return nil, fmt.Errorf("failed to write tmp file script: %v", err)
 			}
 			command = append(command, []string{
-				"-v", cwd + "/" + default_v_path + "/" + inp + ":/input/" + inp, // input
+				"-v", cwd + "/" + tmp_path + inp + ":/input/" + inp, // input
 				"-v", cwd + "/" + default_v_path + "/output:/output", // output,
 				"-v", cwd + fmt.Sprintf("/tmp/job-%d.js", job.Jid) + ":/script.js", // script to run
 				language + ":" + version, // image
@@ -262,7 +278,7 @@ func formatJobCommand(job ut.Job, fileSave bool) ([]string, error) {
 				return nil, fmt.Errorf("failed to write tmp file script: %v", err)
 			}
 			command = append(command, []string{
-				"-v", cwd + "/" + default_v_path + "/" + inp + ":/input/" + inp, // input
+				"-v", cwd + "/" + tmp_path + inp + ":/input/" + inp, // input
 				"-v", cwd + "/" + default_v_path + "/output:/output", // output,
 				"-v", cwd + fmt.Sprintf("/tmp/job-%d.go", job.Jid) + ":/script.go", // script to run
 				language + ":" + version, // image
@@ -280,7 +296,7 @@ func formatJobCommand(job ut.Job, fileSave bool) ([]string, error) {
 				return nil, fmt.Errorf("failed to write tmp file script: %v", err)
 			}
 			command = append(command, []string{
-				"-v", cwd + "/" + default_v_path + "/" + inp + ":/input/" + inp, // input
+				"-v", cwd + "/" + tmp_path + inp + ":/input/" + inp, // input
 				"-v", cwd + "/" + default_v_path + "/output:/output", // output,
 				"-v", cwd + fmt.Sprintf("/tmp/job-%d.java", job.Jid) + ":/Main.java", // script to run
 				language + ":" + version,      // image
@@ -298,7 +314,7 @@ func formatJobCommand(job ut.Job, fileSave bool) ([]string, error) {
 				return nil, fmt.Errorf("failed to write tmp file script: %v", err)
 			}
 			command = append(command, []string{
-				"-v", cwd + "/" + default_v_path + "/" + inp + ":/input/" + inp, // input
+				"-v", cwd + "/" + tmp_path + inp + ":/input/" + inp, // input
 				"-v", cwd + "/" + default_v_path + "/output:/output", // output,
 				"-v", cwd + fmt.Sprintf("/tmp/job-%d.c", job.Jid) + ":/program.c", // script to run
 				language + ":" + version,                             // image
@@ -316,7 +332,7 @@ func formatJobCommand(job ut.Job, fileSave bool) ([]string, error) {
 	return nil, fmt.Errorf("bad state")
 }
 
-func (je *JDockerExecutor) updateJobStatus(jid int, status string, duration time.Duration) {
+func (je *JDockerExecutor) updateJobStatus(jid int64, status string, duration time.Duration) {
 	log.Printf("updating %v job status: %v", jid, status)
 	err := je.jm.srv.MarkJobStatus(jid, status, duration)
 	if err != nil {
@@ -326,7 +342,7 @@ func (je *JDockerExecutor) updateJobStatus(jid int, status string, duration time
 }
 
 func (je *JDockerExecutor) syncOutputResource(job ut.Job) {
-	fInfo, err := os.Stat(je.jm.srv.config.VOLUMES_PATH + "/output/" + job.Output)
+	fInfo, err := os.Stat(default_v_path + "/output/" + job.Output)
 	if err != nil {
 		log.Printf("failed to find/stat the output file: %v", err)
 		return
@@ -348,8 +364,52 @@ func (je *JDockerExecutor) syncOutputResource(job ut.Job) {
 		Links:       0,
 	}
 
-	err = je.jm.srv.storage.Insert([]any{resource})
+	cancelFn, err := je.jm.srv.storage.Insert([]any{resource})
+	defer cancelFn()
 	if err != nil {
 		log.Printf("failed to insert the resource")
 	}
 }
+
+func cleanup(jid int64, verbose bool, language string) {
+	// remove the tmp files
+	err := os.Remove(fmt.Sprintf("tmp/input-%d", jid))
+	if err != nil && verbose {
+		log.Printf("failed to remove tmp file: %v", err)
+
+	}
+
+	if strings.Contains(language, "python") {
+		err = os.Remove(fmt.Sprintf("tmp/job-%d.py", jid))
+		if err != nil && verbose {
+			log.Printf("failed to remove tmp file: %v", err)
+		}
+	} else if strings.Contains(language, "node") || strings.Contains(language, "javascript") {
+		err = os.Remove(fmt.Sprintf("tmp/job-%d.js", jid))
+		if err != nil && verbose {
+			log.Printf("failed to remove tmp file: %v", err)
+		}
+	} else if strings.Contains(language, "go") || strings.Contains(language, "golang") {
+		err = os.Remove(fmt.Sprintf("tmp/job-%d.go", jid))
+		if err != nil && verbose {
+			log.Printf("failed to remove tmp file: %v", err)
+		}
+	} else if strings.Contains(language, "openjdk") || strings.Contains(language, "java") {
+		err = os.Remove(fmt.Sprintf("tmp/job-%d.java", jid))
+		if err != nil && verbose {
+			log.Printf("failed to remove tmp file: %v", err)
+		}
+	} else if strings.Contains(language, "c") || strings.Contains(language, "gcc") {
+		err = os.Remove(fmt.Sprintf("tmp/job-%d.c", jid))
+		if err != nil && verbose {
+			log.Printf("failed to remove tmp file: %v", err)
+		}
+	} else {
+		if verbose {
+			log.Printf("no such language support")
+		}
+	}
+
+}
+
+// err = os.Remove(fmt.Sprintf("tmp/job-%d.out", jid))

@@ -23,6 +23,10 @@ import (
 
 // Api call Handlers
 func (srv *UService) HandleJob(c *gin.Context) {
+	var (
+		job  ut.Job
+		jobs []ut.Job
+	)
 	switch c.Request.Method {
 	// "getting" jobs should be treated as "subscribing"
 	case http.MethodGet:
@@ -66,7 +70,7 @@ func (srv *UService) HandleJob(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to atoi jid"})
 			return
 		}
-		job, err := srv.GetJobById(jid_int)
+		job, err = srv.GetJobById(jid_int)
 		if err != nil {
 			log.Printf("failed to retrieve the job: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the job"})
@@ -75,30 +79,35 @@ func (srv *UService) HandleJob(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"content": job})
 
 	case http.MethodPost:
-		var job ut.Job
-		var jobs []ut.Job
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
 			log.Printf("failed to read request body: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read request body"})
 			return
 		}
-		log.Printf("request body: %s", string(body))
-
 		if err = json.Unmarshal(body, &job); err != nil {
 			if err = json.Unmarshal(body, &jobs); err != nil {
 				log.Printf("failed to bind job(s): %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "failed to bind job(s)"})
 				return
 			}
-			// handle multiple jobs
-			// check for jobs valitidy.
-
+			// check for job validity.s
 			// save jobs (insert in DB)
-			srv.InsertJobs(jobs)
+			// also acquire jids
+			err := srv.InsertJobs(jobs)
+			if err != nil {
+				log.Printf("failed to save jobs in the db: %+v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert into db"})
+				return
+			}
 
 			// "publish" jobs
-			srv.jdp.PublishJobs(jobs)
+			err = srv.jdp.PublishJobs(jobs)
+			if err != nil {
+				log.Printf("failed to publish the jobs: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to publish jobs"})
+				return
+			}
 
 			// respond with status
 			c.JSON(http.StatusOK, gin.H{
@@ -117,7 +126,7 @@ func (srv *UService) HandleJob(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert into db"})
 			return
 		}
-		job.Jid = int(jid)
+		job.Jid = jid
 		log.Printf("jid acquired: %d", jid)
 		// "publish" job
 		err = srv.jdp.PublishJob(job)

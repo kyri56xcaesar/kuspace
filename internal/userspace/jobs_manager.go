@@ -166,8 +166,8 @@ func (js *JobManager) CancelJob(jid int) error {
 	return nil
 }
 
-func streamToSocketWS(jobID int, pipe io.Reader) {
-	jobIDStr := strconv.Itoa(jobID)
+func streamToSocketWS(jobID int64, pipe io.Reader) {
+	jobIDStr := fmt.Sprintf("%d", jobID)
 	wsURL := fmt.Sprintf("ws://"+jobs_socket_address+"/job-stream?jid=%s&role=Producer", jobIDStr)
 	log.Printf("ws_url: %s", wsURL)
 

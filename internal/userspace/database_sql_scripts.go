@@ -61,7 +61,9 @@ const (
 			status TEXT,
 			completed BOOLEAN,
 			created_at DATETIME,
-			completed_at DATETIME
+			completed_at DATETIME,
+			parallelism INTEGER,
+			priority INTEGER,
 		);
 		CREATE SEQUENCE IF NOT EXISTS seq_jobid START 1;
 	`

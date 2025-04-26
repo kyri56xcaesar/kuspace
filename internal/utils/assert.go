@@ -5,7 +5,7 @@ import (
 	"reflect"
 )
 
-func AssertNotEmptyUpon(strct any, assertm map[any]bool) bool {
+func AssertStructNotEmptyUpon(strct any, assertm map[any]bool) bool {
 
 	v := reflect.ValueOf(strct)
 	t := reflect.TypeOf(strct)

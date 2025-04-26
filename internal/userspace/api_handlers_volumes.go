@@ -134,12 +134,13 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 				return
 			}
 
-			if capacity, _ := strconv.ParseFloat(srv.config.V_DEFAULT_CAPACITY, 64); int(userVolume.Quota) == 0 || userVolume.Quota > float64(capacity) {
+			if capacity, _ := strconv.ParseFloat(srv.config.LOCAL_VOLUMES_DEFAULT_PATH, 64); int(userVolume.Quota) == 0 || userVolume.Quota > float64(capacity) {
 				log.Printf("inserted")
 				userVolume.Quota = float64(capacity)
 			}
 
-			err = srv.storage.Insert([]any{userVolume})
+			cancelFn, err := srv.storage.Insert([]any{userVolume})
+			defer cancelFn()
 			if err != nil {
 				log.Printf("failed to insert user volume: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert uv"})
@@ -149,7 +150,8 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 			return
 		}
 		// binded user
-		err = srv.storage.Insert([]any{userVolumes})
+		cancelFn, err := srv.storage.Insert([]any{userVolumes})
+		defer cancelFn()
 		if err != nil {
 			log.Printf("failed to insert user volumes: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert uv"})
@@ -191,12 +193,13 @@ func (srv *UService) HandleGroupVolumes(c *gin.Context) {
 				return
 			}
 
-			if capacity, _ := strconv.ParseFloat(srv.config.V_DEFAULT_CAPACITY, 64); int(groupVolume.Quota) == 0 || groupVolume.Quota > float64(capacity) {
+			if capacity, _ := strconv.ParseFloat(srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY, 64); int(groupVolume.Quota) == 0 || groupVolume.Quota > float64(capacity) {
 				log.Printf("inserted")
 				groupVolume.Quota = float64(capacity)
 			}
 
-			err = srv.storage.Insert([]any{groupVolume})
+			cancelFn, err := srv.storage.Insert([]any{groupVolume})
+			defer cancelFn()
 			if err != nil {
 				log.Printf("failed to insert group volume: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert gv"})
@@ -207,7 +210,8 @@ func (srv *UService) HandleGroupVolumes(c *gin.Context) {
 		}
 
 		// binded user
-		err = srv.storage.Insert([]any{groupVolumes})
+		cancelFn, err := srv.storage.Insert([]any{groupVolumes})
+		defer cancelFn()
 		if err != nil {
 			log.Printf("failed to insert group volumes: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert gv"})

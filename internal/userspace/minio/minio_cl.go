@@ -7,8 +7,10 @@ package minio
  */
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 
 	ut "kyri56xcaesar/myThesis/internal/utils"
@@ -18,7 +20,8 @@ import (
 )
 
 const (
-	region = "eu-central-1"
+	region   = "eu-central-1"
+	localDir = "minio_local"
 )
 
 type MinioClient struct {
@@ -29,16 +32,21 @@ type MinioClient struct {
 	objectLocking bool
 	// retentionPeriod int
 	client *minio.Client
+
+	default_local_space_path string
+	default_bucket_name      string
 }
 
 // ✅
 func NewMinioClient(cfg ut.EnvConfig) MinioClient {
 	mc := MinioClient{
-		accessKey:     cfg.MINIO_ACCESS_KEY,
-		secretKey:     cfg.MINIO_SECRET_KEY,
-		endpoint:      cfg.MINIO_ENDPOINT + ":" + cfg.MINIO_PORT,
-		useSSL:        cfg.MINIO_USE_SSL == "true",
-		objectLocking: cfg.MINIO_OBJECT_LOCKING,
+		accessKey:                cfg.MINIO_ACCESS_KEY,
+		secretKey:                cfg.MINIO_SECRET_KEY,
+		endpoint:                 cfg.MINIO_ENDPOINT + ":" + cfg.MINIO_PORT,
+		useSSL:                   cfg.MINIO_USE_SSL == "true",
+		objectLocking:            cfg.MINIO_OBJECT_LOCKING,
+		default_bucket_name:      cfg.MINIO_DEFAULT_BUCKET,
+		default_local_space_path: cfg.LOCAL_VOLUMES_DEFAULT_PATH + "/" + localDir + "/",
 	}
 
 	client, err := minio.New(mc.endpoint, &minio.Options{
@@ -59,7 +67,7 @@ func NewMinioClient(cfg ut.EnvConfig) MinioClient {
 			log.Fatal("failed to create the default bucket: ", err)
 		}
 	}
-	log.Printf("successfully created the default bucket")
+	log.Printf("default bucket ready: %s", cfg.MINIO_DEFAULT_BUCKET)
 
 	return mc
 }
@@ -82,13 +90,13 @@ func (mc *MinioClient) CreateVolume(volume any) error {
 }
 
 // ✅
-func (mc *MinioClient) Insert(t any) error {
+func (mc *MinioClient) Insert(t any) (context.CancelFunc, error) {
 	object, ok := t.(ut.Resource)
 	if !ok {
-		return ut.NewError("failed to cast")
+		return nil, ut.NewError("failed to cast")
 	}
 
-	err := mc.putObject(
+	cancel, err := mc.putObject(
 		object.Vname,
 		object.Name,
 		object.Reader,
@@ -96,10 +104,10 @@ func (mc *MinioClient) Insert(t any) error {
 	)
 	if err != nil {
 		log.Printf("failed to iniate stream upload to minio: %v", err)
-		return err
+		return nil, err
 	}
 
-	return nil
+	return cancel, nil
 }
 
 // ✅ .. maybe can enhance with more which factors
@@ -174,15 +182,50 @@ func (mc *MinioClient) SelectObjects(which map[string]any) ([]any, error) {
 	return objects, nil
 }
 
-func (mc *MinioClient) Stat(t any) any {
+// ✅
+func (mc *MinioClient) Stat(t any, fetchAndCheck bool) (any, error) {
 	object, ok := t.(ut.Resource)
 	if !ok {
-		return ut.NewError("failed to cast")
+		return nil, ut.NewError("failed to cast")
 	}
 
-	mc.statObject(object.Vname, object.Name)
+	// check if the object exists
 
-	return nil
+	fi, err := os.Stat(mc.default_local_space_path + object.Name)
+	if err == nil {
+		log.Printf("object exists")
+		return fi, nil
+	} else if os.IsNotExist(err) {
+	} else {
+		return nil, fmt.Errorf("error checking file existence: %v", err)
+	}
+
+	log.Printf("fetch ? %v", fetchAndCheck)
+
+	if fetchAndCheck {
+		cancel, err := mc.fGetObject(object.Vname, object.Name, mc.default_local_space_path+object.Name)
+		if err != nil {
+			log.Printf("failed to get object from minio: %v", err)
+			return nil, err
+		}
+		defer cancel()
+		log.Printf("successfully downloaded the object: %s", object.Name)
+
+		info, err := os.Stat(mc.default_local_space_path + object.Name)
+		if err != nil {
+			log.Printf("failed to stat the object: %v", err)
+			return nil, err
+		}
+		return info, nil
+
+	}
+
+	info, err := mc.statObject(object.Vname, object.Name)
+	if err != nil {
+		log.Printf("faile to stat remote object: %v", err)
+	}
+
+	return info, err
 }
 
 // ✅
@@ -223,21 +266,22 @@ func (mc *MinioClient) RemoveVolume(t any) error {
 }
 
 // ✅
-func (mc *MinioClient) Download(t *any) error {
-	b := *t
-	resource, ok := b.(ut.Resource)
+func (mc *MinioClient) Download(t *any) (context.CancelFunc, error) {
+	value := *t
+	resourcePtr, ok := value.(*ut.Resource)
 	if !ok {
-		return ut.NewError("failed to cast")
+		return nil, ut.NewError("failed to cast to *Resource")
 	}
 
-	reader, err := mc.getObject(resource.Vname, resource.Name)
-	if err != nil {
-
+	reader, cancelFn, err := mc.getObject(resourcePtr.Vname, resourcePtr.Name)
+	if err != nil && reader == nil {
+		log.Printf("failed to get object from minio: %v", err)
+		return nil, err
 	}
 
-	resource.Reader = reader
+	resourcePtr.Reader = reader
 
-	return err
+	return cancelFn, err
 }
 
 func (mc *MinioClient) Copy(s, d any) error {
@@ -262,4 +306,13 @@ func (mc *MinioClient) Copy(s, d any) error {
 /* find + copy + delete in this case*/
 func (mc *MinioClient) Update(t any) error {
 	return nil
+}
+
+// ✅
+func (mc *MinioClient) DefaultVolume(local bool) string {
+	if local {
+		return mc.default_local_space_path
+	} else {
+		return mc.default_bucket_name
+	}
 }

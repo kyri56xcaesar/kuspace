@@ -1,0 +1,26 @@
+[
+    {
+        "uid":0,
+        "description":"running as a python kube code job!!",
+        "input":["dataset_random_xsmall.txt", "dataset_random_small.txt", "tmp_code_go"],
+        "output":"kubernetiko job",
+        "logic":"python:3.9",
+        "logic_body":"print(\"hello_world from this job this container this pod this engine this kernel this memory this architecture this model\")"
+    },
+    {
+        "uid":0,
+        "description":"running as a python kube code job!!",
+        "input":["dataset_random_small.txt"],
+        "output":"de-small-job-198",
+        "logic":"golang",
+        "logic_body":"package main\nimport \"fmt\"\nfunc main() {\nfmt.Println(\"hello from go\")\n}"
+    },
+    {
+        "uid":0,
+        "description":"asssss",
+        "input":["dataset_random_small.txt", "tmp_code_go"],
+        "output":"de-small-job-199",
+        "logic":"node",
+        "logic_body":"console.log(\"hello from node\")"
+    }
+]

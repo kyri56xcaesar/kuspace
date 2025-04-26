@@ -1,8 +1,8 @@
 {
     "uid":0,
-    "description":"test",
-    "input":["dataset_random_xsmall.txt"],
-    "output":"de-small-job",
+    "description":"running as a kube job!!",
+    "input":["dataset_random_xsmall.txt", "dataset_random_small.txt", "tmp_code_go"],
+    "output":"kubernetiko job",
     "logic":"python",
-    "logic_body":"def run(data):\n\tprint('hello_world from this job')"
+    "logic_body":"print(\"hello_world from this job this container this pod this engine this kernel this memory this architecture this model\")"
 }

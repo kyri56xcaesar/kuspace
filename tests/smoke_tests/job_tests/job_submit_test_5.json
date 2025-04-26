@@ -1,0 +1,8 @@
+{
+    "uid":0,
+    "description":"running as a kube job!!",
+    "input":["dataset_random_xsmall.txt", "dataset_random_small.txt", "tmp_code_go"],
+    "output":"job.out",
+    "logic":"bash",
+    "logic_body":"env"
+}

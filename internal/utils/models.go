@@ -391,14 +391,19 @@ type Group struct {
 }
 
 type Job struct {
-	Jid int `json:"jid,omitempty"`
-	Uid int `json:"uid"`
+	Jid int64 `json:"jid,omitempty"`
+	Uid int   `json:"uid"`
+
+	Parallelism int `json:"parallelism,omitempty"`
+	Priority    int `json:"priority,omitempty"`
 
 	Description string  `json:"description,omitempty"`
 	Duration    float64 `json:"duration,omitempty"`
 
 	Input  []string `json:"input"`
 	Output string   `json:"output"`
+
+	Env map[string]string `json:"env,omitempty"`
 
 	// perhaps unecessary
 	InputFormat  string `json:"input_format,omitempty"`
@@ -416,17 +421,17 @@ type Job struct {
 }
 
 func (j *Job) PtrFields() []any {
-	return []any{&j.Jid, &j.Uid, &j.Description, &j.Duration, &j.Input, &j.InputFormat, &j.Output, &j.OutputFormat, &j.Logic, &j.LogicBody, &j.LogicHeaders, &j.Params, &j.Status, &j.Completed, &j.Completed_at, &j.Created_at}
+	return []any{&j.Jid, &j.Uid, &j.Description, &j.Duration, &j.Input, &j.InputFormat, &j.Output, &j.OutputFormat, &j.Logic, &j.LogicBody, &j.LogicHeaders, &j.Params, &j.Status, &j.Completed, &j.Completed_at, &j.Created_at, &j.Parallelism, &j.Priority}
 }
 
 func (j *Job) Fields() []any {
-	return []any{j.Jid, j.Uid, j.Description, j.Duration, j.Input, j.InputFormat, j.Output, j.OutputFormat, j.Logic, j.LogicBody, j.LogicHeaders, j.Params, j.Status, j.Completed, j.Completed_at, j.Created_at}
+	return []any{j.Jid, j.Uid, j.Description, j.Duration, j.Input, j.InputFormat, j.Output, j.OutputFormat, j.Logic, j.LogicBody, j.LogicHeaders, j.Params, j.Status, j.Completed, j.Completed_at, j.Created_at, j.Parallelism, j.Priority}
 }
 
 func (j *Job) PtrFieldsNoId() []any {
-	return []any{&j.Uid, &j.Description, &j.Duration, &j.Input, &j.InputFormat, &j.Output, &j.OutputFormat, &j.Logic, &j.LogicBody, &j.LogicHeaders, &j.Params, &j.Status, &j.Completed, &j.Completed_at, &j.Created_at}
+	return []any{&j.Uid, &j.Description, &j.Duration, &j.Input, &j.InputFormat, &j.Output, &j.OutputFormat, &j.Logic, &j.LogicBody, &j.LogicHeaders, &j.Params, &j.Status, &j.Completed, &j.Completed_at, &j.Created_at, &j.Parallelism, &j.Priority}
 }
 
 func (j *Job) FieldsNoId() []any {
-	return []any{j.Uid, j.Description, j.Duration, j.Input, j.InputFormat, j.Output, j.OutputFormat, j.Logic, j.LogicBody, j.LogicHeaders, j.Params, j.Status, j.Completed, j.Completed_at, j.Created_at}
+	return []any{j.Uid, j.Description, j.Duration, j.Input, j.InputFormat, j.Output, j.OutputFormat, j.Logic, j.LogicBody, j.LogicHeaders, j.Params, j.Status, j.Completed, j.Completed_at, j.Created_at, j.Parallelism, j.Priority}
 }

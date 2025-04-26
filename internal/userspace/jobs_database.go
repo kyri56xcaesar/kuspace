@@ -48,7 +48,8 @@ func (srv *UService) InsertJob(jb ut.Job) (int64, error) {
 }
 
 // should user an appender
-func (srv *UService) InsertJobs(jbs []ut.Job) error {
+func (srv *UService) InsertJobs(jobs []ut.Job) error {
+
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
@@ -75,7 +76,9 @@ func (srv *UService) InsertJobs(jbs []ut.Job) error {
 	}
 	defer stmt.Close()
 
-	for _, jb := range jbs {
+	for i := range jobs {
+		jb := &(jobs)[i]
+
 		currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 		var jid int64
 		err = db.QueryRow(query, jb.Uid, jb.Description, jb.Duration, strings.Join(jb.Input, ","), jb.InputFormat, jb.Output, jb.OutputFormat, jb.Logic, jb.LogicBody, jb.LogicHeaders, strings.Join(jb.Params, ","), "pending", jb.Completed, currentTime).Scan(&jid)
@@ -84,6 +87,7 @@ func (srv *UService) InsertJobs(jbs []ut.Job) error {
 			log.Printf("failed to execute statement: %v", err)
 			return err
 		}
+		jb.Jid = jid
 	}
 
 	err = tx.Commit()
@@ -385,7 +389,7 @@ func (srv *UService) UpdateJob(jb ut.Job) error {
 	return nil
 }
 
-func (srv *UService) MarkJobStatus(jid int, status string, duration time.Duration) error {
+func (srv *UService) MarkJobStatus(jid int64, status string, duration time.Duration) error {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)

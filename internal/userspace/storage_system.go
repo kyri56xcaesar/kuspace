@@ -1,6 +1,7 @@
 package userspace
 
 import (
+	"context"
 	"kyri56xcaesar/myThesis/internal/userspace/fslite"
 	"kyri56xcaesar/myThesis/internal/userspace/minio"
 	"log"
@@ -11,16 +12,17 @@ import (
  *
  */
 type StorageSystem interface {
-	CreateVolume(volumeId any) error
+	DefaultVolume(local bool) string
 
-	Insert(t any) error
+	CreateVolume(volumeId any) error
 
 	SelectVolumes(how map[string]any) ([]any, error)
 	SelectObjects(how map[string]any) ([]any, error)
 
-	Stat(t any) any
+	Insert(t any) (context.CancelFunc, error)
+	Download(t *any) (context.CancelFunc, error)
 
-	Download(t *any) error
+	Stat(t any, fetchAndCheck bool) (any, error)
 
 	Remove(t any) error
 	RemoveVolume(t any) error
