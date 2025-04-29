@@ -35,7 +35,7 @@ func (srv *UService) InsertJob(jb ut.Job) (int64, error) {
 	`
 
 	var jid int64
-	err = db.QueryRow(query, jb.Uid, jb.Description, jb.Duration, strings.Join(jb.Input, ","), jb.InputFormat, jb.Output, jb.OutputFormat, jb.Logic, jb.LogicBody, jb.LogicHeaders, strings.Join(jb.Params, ","), "pending", jb.Completed, currentTime).Scan(&jid)
+	err = db.QueryRow(query, jb.Uid, jb.Description, jb.Duration, jb.Input, jb.InputFormat, jb.Output, jb.OutputFormat, jb.Logic, jb.LogicBody, jb.LogicHeaders, strings.Join(jb.Params, ","), "pending", jb.Completed, currentTime).Scan(&jid)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
 		return -1, err
@@ -81,7 +81,7 @@ func (srv *UService) InsertJobs(jobs []ut.Job) error {
 
 		currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 		var jid int64
-		err = db.QueryRow(query, jb.Uid, jb.Description, jb.Duration, strings.Join(jb.Input, ","), jb.InputFormat, jb.Output, jb.OutputFormat, jb.Logic, jb.LogicBody, jb.LogicHeaders, strings.Join(jb.Params, ","), "pending", jb.Completed, currentTime).Scan(&jid)
+		err = db.QueryRow(query, jb.Uid, jb.Description, jb.Duration, jb.Input, jb.InputFormat, jb.Output, jb.OutputFormat, jb.Logic, jb.LogicBody, jb.LogicHeaders, strings.Join(jb.Params, ","), "pending", jb.Completed, currentTime).Scan(&jid)
 		if err != nil {
 			tx.Rollback()
 			log.Printf("failed to execute statement: %v", err)
@@ -187,7 +187,7 @@ func (srv *UService) GetJobById(jid int) (ut.Job, error) {
 	} else {
 		job.Completed_at = ""
 	}
-	job.Input = strings.Split(strings.TrimSpace(input), ",")
+	job.Input = strings.TrimSpace(input)
 	job.Params = strings.Split(strings.TrimSpace(params), ",")
 
 	return job, nil
@@ -231,7 +231,7 @@ func (srv *UService) GetJobsByUid(uid int) ([]ut.Job, error) {
 		} else {
 			job.Completed_at = ""
 		}
-		job.Input = strings.Split(strings.TrimSpace(input), ",")
+		job.Input = strings.TrimSpace(input)
 		job.Params = strings.Split(strings.TrimSpace(params), ",")
 		jobs = append(jobs, job)
 	}
@@ -293,7 +293,7 @@ func (srv *UService) GetJobsByUids(uids []int) ([]ut.Job, error) {
 		} else {
 			job.Completed_at = ""
 		}
-		job.Input = strings.Split(strings.TrimSpace(input), ",")
+		job.Input = strings.TrimSpace(input)
 		job.Params = strings.Split(strings.TrimSpace(params), ",")
 
 		jobs = append(jobs, job)
@@ -357,7 +357,7 @@ func (srv *UService) GetAllJobs(limit, offset string) ([]ut.Job, error) {
 		} else {
 			job.Completed_at = ""
 		}
-		job.Input = strings.Split(strings.TrimSpace(input), ",")
+		job.Input = strings.TrimSpace(input)
 		job.Params = strings.Split(strings.TrimSpace(params), ",")
 
 		jobs = append(jobs, job)

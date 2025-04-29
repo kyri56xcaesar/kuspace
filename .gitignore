@@ -9,6 +9,7 @@
 *.pub
 *.vscode
 *.idea
+*.exe
 configs/*.env
 tmp/*
 ^tmp/

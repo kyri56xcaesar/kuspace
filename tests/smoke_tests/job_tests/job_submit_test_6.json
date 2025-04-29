@@ -1,0 +1,9 @@
+{
+    "uid":0,
+    "description":"customa app duckdb job",
+    "input_format":"txt",
+    "input":"test_dataset_random2.txt",
+    "output":"t_out.test",
+    "logic":"application/duckdb:v1",
+    "logic_body":"SELECT *"
+}

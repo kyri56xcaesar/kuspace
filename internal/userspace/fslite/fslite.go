@@ -293,3 +293,7 @@ func determinePhysicalStorage(target string, fileSize int64) (string, error) {
 func (fsl *FsLite) DefaultVolume(local bool) string {
 	return default_volume_name
 }
+
+func (fsl *FsLite) Share(method string, t any) (any, error) {
+	return nil, nil
+}

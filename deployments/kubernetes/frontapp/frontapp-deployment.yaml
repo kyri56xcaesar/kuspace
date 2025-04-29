@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontapp
+  labels:
+    app: frontapp
+  namespace: default 
+spec:
+  selector:
+    matchLabels:
+      app: frontapp
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: frontapp
+    spec:
+      containers:
+      - name: frontapp
+        image: kyri56xcaesar/kuspace/frontapp
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "250m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 8080

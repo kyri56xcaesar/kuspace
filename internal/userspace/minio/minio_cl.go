@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	ut "kyri56xcaesar/myThesis/internal/utils"
 
@@ -22,6 +23,10 @@ import (
 const (
 	region   = "eu-central-1"
 	localDir = "minio_local"
+)
+
+var (
+	default_sign_duration = time.Duration(time.Hour * 24 * 2)
 )
 
 type MinioClient struct {
@@ -42,7 +47,7 @@ func NewMinioClient(cfg ut.EnvConfig) MinioClient {
 	mc := MinioClient{
 		accessKey:                cfg.MINIO_ACCESS_KEY,
 		secretKey:                cfg.MINIO_SECRET_KEY,
-		endpoint:                 cfg.MINIO_ENDPOINT + ":" + cfg.MINIO_PORT,
+		endpoint:                 cfg.MINIO_ENDPOINT,
 		useSSL:                   cfg.MINIO_USE_SSL == "true",
 		objectLocking:            cfg.MINIO_OBJECT_LOCKING,
 		default_bucket_name:      cfg.MINIO_DEFAULT_BUCKET,
@@ -54,7 +59,7 @@ func NewMinioClient(cfg ut.EnvConfig) MinioClient {
 		Secure: mc.useSSL,
 	})
 	if err != nil {
-		log.Fatal("failed to instantiate a new minio client")
+		log.Fatal("failed to instantiate a new minio client: ", err)
 	}
 	mc.client = client
 
@@ -314,5 +319,35 @@ func (mc *MinioClient) DefaultVolume(local bool) string {
 		return mc.default_local_space_path
 	} else {
 		return mc.default_bucket_name
+	}
+}
+
+// ✅
+func (mc *MinioClient) Share(method string, t any) (any, error) {
+
+	resource, ok := t.(ut.Resource)
+	if !ok {
+		log.Printf("failed to cast to resource")
+		return nil, ut.NewError("bad object, failed to cast to resource")
+	}
+
+	switch method {
+	case "get":
+		url, err := mc.getPresignedObject(resource.Vname, resource.Name, default_sign_duration)
+		if err != nil {
+			log.Printf("failed to retrieve object sign")
+		}
+		return url, err
+
+	case "put":
+		url, err := mc.putPresignedObject(resource.Vname, resource.Name, default_sign_duration)
+		if err != nil {
+			log.Printf("failed to retrieve object sign")
+		}
+		return url, err
+
+	default:
+		log.Printf("invalid method")
+		return nil, ut.NewError("bad method")
 	}
 }

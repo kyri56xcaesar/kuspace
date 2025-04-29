@@ -29,6 +29,8 @@ type StorageSystem interface {
 
 	Update(t any) error
 	Copy(s, d any) error
+
+	Share(method string, t any) (any, error)
 }
 
 func StorageShipment(storageType string, srv *UService) StorageSystem {

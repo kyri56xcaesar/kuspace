@@ -1,7 +1,7 @@
 {
     "uid":0,
     "description":"running as a kube job!!",
-    "input":["dataset_random_xsmall.txt", "dataset_random_small.txt", "tmp_code_go"],
+    "input":"dataset_random_xsmall.txt",
     "output":"kubernetiko job",
     "logic":"python",
     "logic_body":"print(\"hello_world from this job this container this pod this engine this kernel this memory this architecture this model\")"

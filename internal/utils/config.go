@@ -52,10 +52,11 @@ type EnvConfig struct {
 	MINIO_ACCESS_KEY     string
 	MINIO_SECRET_KEY     string
 	MINIO_ENDPOINT       string
-	MINIO_PORT           string
 	MINIO_USE_SSL        string
 	MINIO_DEFAULT_BUCKET string
 	MINIO_OBJECT_LOCKING bool
+	OBJECT_SHARED        bool
+	OBJECT_SHARE_EXPIRE  string
 
 	J_DISPATCHER   string
 	J_QUEUE_SIZE   string
@@ -118,11 +119,12 @@ func LoadConfig(path string) EnvConfig {
 
 		MINIO_ACCESS_KEY:     getEnv("MINIO_ACCESS_KEY", "minioadmin"),
 		MINIO_SECRET_KEY:     getEnv("MINIO_SECRET_KEY", "minioadmin"),
-		MINIO_ENDPOINT:       getEnv("MINIO_ENDPOINT", "localhost"),
-		MINIO_PORT:           getEnv("MINIO_PORT", "9000"),
+		MINIO_ENDPOINT:       getEnv("MINIO_ENDPOINT", "minio:9000"),
 		MINIO_USE_SSL:        getEnv("MINIO_USE_SSL", "false"),
 		MINIO_DEFAULT_BUCKET: getEnv("MINIO_DEFAULT_BUCKET", "default"),
 		MINIO_OBJECT_LOCKING: getBoolEnv("MINIO_OBJECT_LOCKING", "false"),
+		OBJECT_SHARED:        getBoolEnv("OBJECT_SHARED", "false"),
+		OBJECT_SHARE_EXPIRE:  getEnv("OBJECT_SHARE_EXPIRE", "1440"),
 
 		J_DISPATCHER:   getEnv("J_DISPATCHER", "default"),
 		J_EXECUTOR:     getEnv("J_EXECUTOR", "docker"),
@@ -178,6 +180,7 @@ func getEnv(key, fallback string) string {
 }
 
 func getBoolEnv(key, fallback string) bool {
+	key = getEnv(key, fallback)
 	b, err := strconv.ParseBool(key)
 	if err != nil {
 		b, _ = strconv.ParseBool(fallback)

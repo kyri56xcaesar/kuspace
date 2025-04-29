@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/url"
 	"strings"
 
 	k "kyri56xcaesar/myThesis/internal/userspace/kubernetes"
@@ -17,14 +18,17 @@ import (
 )
 
 type JKubernetesExecutor struct {
+	jm *JobManager
 }
 
-func NewJKubernetesExecutor() JKubernetesExecutor {
-	return JKubernetesExecutor{}
+func NewJKubernetesExecutor(jm *JobManager) JKubernetesExecutor {
+	return JKubernetesExecutor{
+		jm: jm,
+	}
 }
 
 func (jke JKubernetesExecutor) ExecuteJob(job ut.Job) error {
-	executeK8sJob(job)
+	executeK8sJob(&jke, job)
 	return nil
 }
 func (jke JKubernetesExecutor) CancelJob(job ut.Job) error {
@@ -132,84 +136,10 @@ func streamJobLogs(clientset *kubernetes.Clientset, jobName, namespace string, s
 	return nil
 }
 
-func formatJobData(job *ut.Job) error {
-	// handle some generic checks as guard statement
-	if job.Input == nil {
-		return fmt.Errorf("input is empty")
-	}
-	if job.Output == "" {
-		return fmt.Errorf("output is empty")
-	}
-	if job.Logic == "" {
-		return fmt.Errorf("logic is empty")
-	}
-	if job.Parallelism == 0 {
-		job.Parallelism = 1
-	}
-	// Assuming job.Logic is the image name and job.LogicBody is the command
-	var (
-		name, version string
-	)
-
-	// deduct name and version
-	p := strings.Split(job.Logic, ":")
-	if len(p) == 2 {
-		name = p[0]
-		version = p[1]
-	} else {
-		name = p[0]
-		version = "latest"
-	}
-	if name == "" || version == "" {
-		return fmt.Errorf("invalid job data")
-	}
-
-	// check if the given logic is a custom app
-	if strings.Contains(name, "application") {
-		// handle this case (later)
-		appName := strings.TrimPrefix(name, "application/")
-		log.Print(appName)
-
-		// what do we need to do here ?
-		return nil
-	} else { // this is a code job
-		// format the logic
-		if job.LogicBody == "" {
-			return fmt.Errorf("logic body is empty")
-		}
-
-		job.Logic = fmt.Sprintf("%s:%s", name, version)
-		body, err := formatJobBody(name, job.LogicBody)
-		if err != nil {
-			return fmt.Errorf("error formatting job body: %v", err)
-		}
-		job.LogicBody = body
-
-	}
-
-	// format i/o variables
-	// format and setup environment variables
-	job.Output = strings.TrimSpace(job.Output)
-	job.OutputFormat = strings.TrimSpace(job.OutputFormat)
-	if job.OutputFormat == "" {
-		job.OutputFormat = "csv"
-	}
-	job.Env = map[string]string{
-		"INPUT":         strings.Join(job.Input, ","),
-		"OUTPUT":        job.Output,
-		"OUTPUT_FORMAT": job.OutputFormat,
-		"LOGIC":         job.LogicBody,
-	}
-
-	log.Printf("job formatted to :%+v", job)
-
-	return nil
-}
-
-func executeK8sJob(job ut.Job) {
+func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	jobName := fmt.Sprintf("j-%d", job.Jid)
 
-	err := formatJobData(&job)
+	command, err := formatJobData(je, &job)
 	if err != nil {
 		log.Printf("error formatting job data: %v", err)
 		return
@@ -218,7 +148,7 @@ func executeK8sJob(job ut.Job) {
 	jobSpec := buildK8sJob(
 		jobName,
 		job.Logic,
-		[]string{"/bin/sh", "-c", job.LogicBody},
+		command,
 		job.Env,
 		int32(job.Parallelism), // parallelism // should default to 1
 	)
@@ -244,96 +174,232 @@ func executeK8sJob(job ut.Job) {
 	// Optional: cleanup or postprocess
 }
 
-func formatJobBody(lng, body string) (string, error) {
+func formatJobData(je *JKubernetesExecutor, job *ut.Job) ([]string, error) {
+	// handle some generic checks as guard statement
+	if !ut.AssertStructNotEmptyUpon(job, map[any]bool{
+		"Input":     true,
+		"Output":    true,
+		"Logic":     true,
+		"LogicBody": true,
+	}) {
+		return nil, ut.NewError("empty field that shouldn't be empty..")
+	}
+
+	// Assuming job.Logic is the image name and job.LogicBody is the command
+	var (
+		name, version string
+		asResource    ut.Resource
+	)
+
+	// deduct name and version
+	p := strings.Split(job.Logic, ":")
+	if len(p) == 2 {
+		name = p[0]
+		version = p[1]
+	} else {
+		name = p[0]
+		version = "latest"
+	}
+	if name == "" || version == "" {
+		return nil, fmt.Errorf("invalid job data")
+	}
+
+	// create an env map
+	envMap := make(map[string]string)
+
+	// we should handle the job input by contacting the storage_system api
+	// can do it with Share or simply by Stat the objects, idk
+	parts := strings.Split(job.Input, "/")
+	if len(parts) > 1 {
+		asResource.Vname = parts[0]
+		asResource.Name = strings.Join(parts[1:], "/")
+	} else {
+		asResource.Vname = je.jm.srv.storage.DefaultVolume(false)
+		asResource.Name = job.Input
+	}
+
+	if je.jm.srv.config.OBJECT_SHARED {
+		inp, err := je.jm.srv.storage.Share("get", asResource)
+		if err != nil {
+			log.Printf("failed to retrieve input share link")
+			return nil, fmt.Errorf("failed to retrieve input share link: %v", err)
+		}
+		log.Printf("inp: %+v", inp)
+
+		input, ok := inp.(*url.URL)
+		if !ok {
+			log.Printf("couldn't cast inp to url.URL")
+			return nil, fmt.Errorf("failed to cast")
+		}
+		job.Input = strings.Replace(input.String(), "localhost", "minio", 1)
+		out, err := je.jm.srv.storage.Share("put", ut.Resource{
+			Name:  job.Output,
+			Vname: asResource.Vname,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrieve output share link: %v", err)
+		}
+		output, ok := out.(*url.URL)
+		if !ok {
+			return nil, fmt.Errorf("failed to cast")
+		}
+		job.Output = strings.Replace(output.String(), "localhost", "minio", 1)
+
+		envMap["OBJECT_SHARE"] = "true"
+
+	} else {
+		envMap["ENDPOINT"] = je.jm.srv.config.MINIO_ENDPOINT
+		envMap["ACCESS_KEY"] = je.jm.srv.config.MINIO_ACCESS_KEY
+		envMap["SECRET_KEY"] = je.jm.srv.config.MINIO_SECRET_KEY
+
+		// inp can be in format <volume>/<path>
+
+	}
+	envMap["DEFAULT_V"] = asResource.Vname
+
+	command, err := formatJobCommand(name, job.LogicBody)
+	if err != nil {
+		return nil, fmt.Errorf("error formatting job command: %v", err)
+	}
+
+	body, err := formatJobBody(name, job.LogicBody, job.Input, job.InputFormat)
+	if err != nil {
+		return nil, fmt.Errorf("error formatting job body: %v", err)
+	}
+	job.LogicBody = body
+	// format job vars
+	job.Logic = fmt.Sprintf("%s:%s", name, version)
+	job.Output = strings.TrimSpace(job.Output)
+	job.OutputFormat = strings.TrimSpace(job.OutputFormat)
+	if job.OutputFormat == "" { //default format
+		job.OutputFormat = "csv"
+	}
+	if job.Parallelism == 0 { //default parallelism
+		job.Parallelism = 1
+	}
+	envMap["OUTPUT"] = job.Output
+	envMap["OUTPUT_FORMAT"] = job.OutputFormat
+	envMap["TIMEOUT"] = fmt.Sprintf("%d", job.Timeout)
+	envMap["LOGIC"] = job.LogicBody
+	job.Env = envMap
+
+	return command, nil
+}
+
+func formatJobBody(lng, body, input, input_format string) (string, error) {
+	switch lng {
+	case "application/duckdb":
+		switch input_format {
+		case "txt", "text", "string":
+			return fmt.Sprintf("%s FROM read_text(\"%s\")", body, input), nil
+		case "csv":
+			return fmt.Sprintf("%s FROM read_csv_auto(\"%s\")", body, input), nil
+		case "json":
+			return fmt.Sprintf("%s FROM read_json_auto(\"%s\")", body, input), nil
+		case "parquet":
+			return fmt.Sprintf("%s FROM read_parquet(\"%s\")", body, input), nil
+		default:
+			return fmt.Sprintf("%s FROM read_text(\"%s\")", body, input), nil
+		}
+	default:
+		return "", nil
+	}
+}
+
+func formatJobCommand(lng, body string) ([]string, error) {
 	switch lng {
 	case "python", "py":
-		return fmt.Sprintf("python3 -c '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("python3 -c '%s'", body)}, nil
 	case "bash", "sh", "shell":
-		return fmt.Sprintf("bash -c '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("bash -c '%s'", body)}, nil
 	case "go", "golang":
-		return fmt.Sprintf("echo '%s' > /tmp/tmp.go && go run /tmp/tmp.go && rm /tmp/tmp.go", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("echo '%s' > /tmp/tmp.go && go run /tmp/tmp.go && rm /tmp/tmp.go", body)}, nil
 	case "java", "javac", "openjdk":
-		return fmt.Sprintf(`cat <<EOF > /tmp/Tmp.java
+		return []string{"/bin/sh", "-c", fmt.Sprintf(`cat <<EOF > /tmp/Tmp.java
 		%s
 		EOF
-		javac /tmp/Tmp.java && java -cp /tmp Tmp && rm /tmp/Tmp.java /tmp/Tmp.class`, body), nil
+		javac /tmp/Tmp.java && java -cp /tmp Tmp && rm /tmp/Tmp.java /tmp/Tmp.class`, body)}, nil
 	case "node", "javascript", "js":
-		return fmt.Sprintf("node -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("node -e '%s'", body)}, nil
+
+	case "application/duckdb": // check if the given logic is a custom app
+		return []string{"python", "duckdb_app.py"}, nil
+
 	case "ruby":
-		return fmt.Sprintf("ruby -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("ruby -e '%s'", body)}, nil
 	case "php":
-		return fmt.Sprintf("php -r '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("php -r '%s'", body)}, nil
 	case "perl":
-		return fmt.Sprintf("perl -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("perl -e '%s'", body)}, nil
 	case "rust":
-		return fmt.Sprintf("rustc -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("rustc -e '%s'", body)}, nil
 	case "swift":
-		return fmt.Sprintf("swift -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("swift -e '%s'", body)}, nil
 	case "typescript":
-		return fmt.Sprintf("ts-node -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("ts-node -e '%s'", body)}, nil
 	case "scala":
-		return fmt.Sprintf("scala -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("scala -e '%s'", body)}, nil
 	case "haskell":
-		return fmt.Sprintf("runhaskell -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("runhaskell -e '%s'", body)}, nil
 	case "kotlin":
-		return fmt.Sprintf("kotlin -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("kotlin -e '%s'", body)}, nil
 	case "elixir":
-		return fmt.Sprintf("elixir -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("elixir -e '%s'", body)}, nil
 	case "lua":
-		return fmt.Sprintf("lua -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("lua -e '%s'", body)}, nil
 	case "r":
-		return fmt.Sprintf("Rscript -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("Rscript -e '%s'", body)}, nil
 	case "dart":
-		return fmt.Sprintf("dart -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("dart -e '%s'", body)}, nil
 	case "powershell":
-		return fmt.Sprintf("pwsh -c '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("pwsh -c '%s'", body)}, nil
 	case "sql":
-		return fmt.Sprintf("sqlcmd -Q '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("sqlcmd -Q '%s'", body)}, nil
 	case "groovy":
-		return fmt.Sprintf("groovy -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("groovy -e '%s'", body)}, nil
 	case "clojure":
-		return fmt.Sprintf("clojure -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("clojure -e '%s'", body)}, nil
 	case "objective-c":
-		return fmt.Sprintf("clang -x objective-c -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("clang -x objective-c -e '%s'", body)}, nil
 	case "visual-basic":
-		return fmt.Sprintf("vbc -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("vbc -e '%s'", body)}, nil
 	case "assembly":
-		return fmt.Sprintf("nasm -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("nasm -e '%s'", body)}, nil
 	case "fortran":
-		return fmt.Sprintf("gfortran -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("gfortran -e '%s'", body)}, nil
 	case "pascal":
-		return fmt.Sprintf("fpc -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("fpc -e '%s'", body)}, nil
 	case "prolog":
-		return fmt.Sprintf("swipl -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("swipl -e '%s'", body)}, nil
 	case "scheme":
-		return fmt.Sprintf("guile -c '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("guile -c '%s'", body)}, nil
 	case "tcl":
-		return fmt.Sprintf("tclsh -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("tclsh -e '%s'", body)}, nil
 	case "smalltalk":
-		return fmt.Sprintf("gst -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("gst -e '%s'", body)}, nil
 	case "nim":
-		return fmt.Sprintf("nim c -d:nodebug -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("nim c -d:nodebug -e '%s'", body)}, nil
 	case "ocaml":
-		return fmt.Sprintf("ocaml -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("ocaml -e '%s'", body)}, nil
 	case "f#":
-		return fmt.Sprintf("fsharpi -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("fsharpi -e '%s'", body)}, nil
 	case "crystal":
-		return fmt.Sprintf("crystal eval '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("crystal eval '%s'", body)}, nil
 	case "reason":
-		return fmt.Sprintf("reason-cli -e '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("reason-cli -e '%s'", body)}, nil
 	case "d":
-		return fmt.Sprintf("dmd -run '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("dmd -run '%s'", body)}, nil
 	case "solidity":
-		return fmt.Sprintf("solc --bin '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("solc --bin '%s'", body)}, nil
 	case "v":
-		return fmt.Sprintf("v run '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("v run '%s'", body)}, nil
 	case "zig":
-		return fmt.Sprintf("zig run '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("zig run '%s'", body)}, nil
 	case "vala":
-		return fmt.Sprintf("valac --pkg gtk+-3.0 '%s'", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("valac --pkg gtk+-3.0 '%s'", body)}, nil
 	case "c", "gcc":
-		return fmt.Sprintf("cat <<EOF > /tmp/tmp.c \n%s\nEOF && gcc /tmp/tmp.c -o /tmp/tmp.out && /tmp/tmp.out && rm /tmp/tmp.*", body), nil
+		return []string{"/bin/sh", "-c", fmt.Sprintf("cat <<EOF > /tmp/tmp.c \n%s\nEOF && gcc /tmp/tmp.c -o /tmp/tmp.out && /tmp/tmp.out && rm /tmp/tmp.*", body)}, nil
 	default:
-		return "", fmt.Errorf("unsupported language: %s", lng)
+		return nil, fmt.Errorf("unsupported language: %s", lng)
 	}
 }

@@ -111,23 +111,21 @@ func (je JDockerExecutor) ExecuteJob(job ut.Job) error {
 
 	// we should examine input "resources"
 	// or if exists in the storage
-	for _, inp := range job.Input {
-		var asResource ut.Resource
-		// inp can be in format <volume>/<path>
-		parts := strings.Split(inp, "/")
-		if len(parts) > 1 {
-			asResource.Vname = parts[0]
-			asResource.Name = strings.Join(parts[1:], "/")
-		} else {
-			asResource.Vname = je.jm.srv.storage.DefaultVolume(false)
-			asResource.Name = inp
-		}
+	var asResource ut.Resource
+	// inp can be in format <volume>/<path>
+	parts := strings.Split(job.Input, "/")
+	if len(parts) > 1 {
+		asResource.Vname = parts[0]
+		asResource.Name = strings.Join(parts[1:], "/")
+	} else {
+		asResource.Vname = je.jm.srv.storage.DefaultVolume(false)
+		asResource.Name = job.Input
+	}
 
-		_, err := je.jm.srv.storage.Stat(asResource, true)
-		if err != nil {
-			log.Printf("failed to find input resource: %v", err)
-			return err
-		}
+	_, err := je.jm.srv.storage.Stat(asResource, true)
+	if err != nil {
+		log.Printf("failed to find input resource: %v", err)
+		return err
 	}
 
 	// language and version
@@ -182,7 +180,7 @@ func (je JDockerExecutor) CancelJob(job ut.Job) error {
 
 func prepareExecution(job ut.Job, verbose bool) (*exec.Cmd, time.Duration, error) {
 	// ctx := context.Background()
-	command, err := formatJobCommand(job, true)
+	command, err := formatJobCommandD(job, true)
 	if err != nil {
 		log.Printf("failed to format command: %v", err)
 		return nil, 0, err
@@ -196,7 +194,7 @@ func prepareExecution(job ut.Job, verbose bool) (*exec.Cmd, time.Duration, error
 	return cmd, time.Since(start), nil
 }
 
-func formatJobCommand(job ut.Job, fileSave bool) ([]string, error) {
+func formatJobCommandD(job ut.Job, fileSave bool) ([]string, error) {
 	/*
 		// ctx,
 		"docker",
@@ -213,11 +211,11 @@ func formatJobCommand(job ut.Job, fileSave bool) ([]string, error) {
 	}
 
 	// how should we handle multiple input files? 1] lets combine (append) them to a single file for now...
-	err = ut.MergeFiles(fmt.Sprintf("%sinput-%d", tmp_path, job.Jid), default_v_path+"/", job.Input)
-	if err != nil {
-		log.Printf("failed to merge input files: %v", err)
-		return nil, err
-	}
+	// err = ut.MergeFiles(fmt.Sprintf("%sinput-%d", tmp_path, job.Jid), default_v_path+"/", job.Input)
+	// if err != nil {
+	// 	log.Printf("failed to merge input files: %v", err)
+	// 	return nil, err
+	// }
 
 	inp := fmt.Sprintf("input-%d", job.Jid)
 	out := strings.Split(job.Output, "/")

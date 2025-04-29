@@ -15,7 +15,7 @@ func JobExecutorShipment(jobType string, jm *JobManager) (JobExecutor, error) {
 	case "local", "docker", "default":
 		return NewJDockerExecutor(jm), nil
 	case "kubernetes":
-		return NewJKubernetesExecutor(), nil
+		return NewJKubernetesExecutor(jm), nil
 	default:
 		return nil, ut.NewError("Invalid job type")
 	}

@@ -85,6 +85,7 @@ func (srv *UService) HandleJob(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read request body"})
 			return
 		}
+
 		if err = json.Unmarshal(body, &job); err != nil {
 			if err = json.Unmarshal(body, &jobs); err != nil {
 				log.Printf("failed to bind job(s): %v", err)

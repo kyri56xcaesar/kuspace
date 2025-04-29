@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/url"
 	"os"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 )
@@ -21,11 +23,11 @@ func (mc *MinioClient) createBucket(bucketname string) error {
 
 	exists, err := mc.client.BucketExists(ctx, bucketname)
 	if err != nil {
-		// log.Printf("failed to check if bucket exists: %v", err)
+		log.Printf("failed to check if bucket exists: %v", err)
 		return err
 	}
 	if exists {
-		// log.Printf("bucket %s already exists", bucketname)
+		log.Printf("bucket %s already exists", bucketname)
 		return fmt.Errorf("bucket %s already exists", bucketname)
 
 	}
@@ -286,4 +288,33 @@ func (mc *MinioClient) getObjectAttributes(bucketname, objectname string) {
 	}
 
 	fmt.Println(objectAttributes)
+}
+
+func (mc *MinioClient) getPresignedObject(bucketname, objectname string, duration time.Duration) (*url.URL, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	reqParams := make(url.Values)
+	reqParams.Set("response-content-disposition", fmt.Sprintf("attachment; filename=\"%s\"", objectname))
+
+	presignedURL, err := mc.client.PresignedGetObject(ctx, bucketname, objectname, duration, reqParams)
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+
+	return presignedURL, nil
+}
+
+func (mc *MinioClient) putPresignedObject(bucketname, objectname string, duration time.Duration) (*url.URL, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	presignedURL, err := mc.client.PresignedPutObject(ctx, bucketname, objectname, duration)
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+
+	return presignedURL, nil
 }

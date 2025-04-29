@@ -1,7 +1,7 @@
 package userspace
 
 const (
-	initSql = `
+	InitSql = `
     	CREATE TABLE IF NOT EXISTS resources (
     	  rid INTEGER PRIMARY KEY,
     	  uid INTEGER,

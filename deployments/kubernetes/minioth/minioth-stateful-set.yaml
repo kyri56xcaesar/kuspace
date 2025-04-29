@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: minioth
+  labels:
+    app: minioth
+spec:
+  selector:
+    matchLabels:
+      app: minioth
+  serviceName: minioth
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: minioth
+    spec:
+      containers:
+      - name: minioth
+        image: kyri56xcaesar/kuspace/minioth:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9090
+          name: web
+        volumeMounts:
+        - name: www
+          mountPath: /data
+  volumeClaimTemplates:
+  - metadata:
+      name: www
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
