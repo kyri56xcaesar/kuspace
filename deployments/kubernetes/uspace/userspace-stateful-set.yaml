@@ -24,12 +24,13 @@ spec:
         - containerPort: 8079
           name: web
         volumeMounts:
-        - name: www
+        - name: database
           mountPath: /data
   volumeClaimTemplates:
   - metadata:
-      name: www
+      name: database
     spec:
+      storageClassName: uspace
       accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:

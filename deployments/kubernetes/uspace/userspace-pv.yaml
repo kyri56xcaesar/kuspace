@@ -1,16 +1,17 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: minio-pv
+  name: uspace-pv
   labels:
     type: local
 spec:
   capacity:
-    storage: 20Gi
+    storage: 1Gi
   accessModes:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
-  storageClassName: manual
+  storageClassName: uspace
+  volumeMode: Filesystem
   hostPath:
-    path: /host_mnt/c/Users/kyri/minio-storage # change this path in the future
+    path: /host_mnt/c/Users/kyri/uspace-storage # change this path in the future
     type: DirectoryOrCreate

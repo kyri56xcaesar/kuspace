@@ -19,12 +19,12 @@ import (
 type ScanFunc[T any] func(*sql.Rows) (T, error)
 
 /* database call handlers regarding the Resource table */
-func InsertResource(db *sql.DB, resource ut.Resource) error {
+func insertResource(db *sql.DB, resource ut.Resource) error {
 	query := `
     INSERT INTO 
-      resources (rid, uid, vid, gid, pid, size, links, perms, name, type, created_at, updated_at, accessed_at)
-    VALUES (nextval('seq_resourceid'), ?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,?, ?);
-  `
+      resources (rid, uid, gid, vid, vname, size, links, perms, name, path, type, created_at, updated_at, accessed_at)
+	VALUES (nextval('seq_resourceid'), ?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,?, ?, ?);  
+	`
 	_, err := db.Exec(query, resource.FieldsNoId()...)
 	if err != nil {
 		log.Printf("failed to insert the resource: %v", err)
@@ -35,7 +35,7 @@ func InsertResource(db *sql.DB, resource ut.Resource) error {
 	return nil
 }
 
-func InsertResourceUniqueName(db *sql.DB, resource ut.Resource) error {
+func insertResourceUniqueName(db *sql.DB, resource ut.Resource) error {
 
 	// Check if a resource with the same name and UID already exists
 	queryCheck := `SELECT 1 FROM resources WHERE name = ? LIMIT 1;`
@@ -54,8 +54,8 @@ func InsertResourceUniqueName(db *sql.DB, resource ut.Resource) error {
 	// Insert the resource if no duplicate was found
 	queryInsert := `
     INSERT INTO 
-      resources (rid, uid, vid, gid, pid, size, links, perms, name, type, created_at, updated_at, accessed_at)
-    VALUES (nextval('seq_resourceid'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      resources (rid, uid, gid, vid, vname, size, links, perms, name, path, type, created_at, updated_at, accessed_at)
+	VALUES (nextval('seq_resourceid'), ?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,?, ?, ?);
   `
 
 	_, err = db.Exec(queryInsert, resource.FieldsNoId()...)
@@ -67,7 +67,7 @@ func InsertResourceUniqueName(db *sql.DB, resource ut.Resource) error {
 	return nil
 }
 
-func InsertResources(db *sql.DB, resources []ut.Resource) error {
+func insertResources(db *sql.DB, resources []ut.Resource) error {
 	tx, err := db.Begin()
 	if err != nil {
 		log.Printf("failed to begin transacation: %v", err)
@@ -76,8 +76,9 @@ func InsertResources(db *sql.DB, resources []ut.Resource) error {
 
 	query := `
     INSERT INTO 
-      resources (rid, uid, vid, gid, pid, size, links, perms, name, type, created_at, updated_at, accessed_at)
-    VALUES (nextval('seq_resourceid'), ?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,?, ?);`
+      resources (rid, uid, gid, vid, vname, size, links, perms, name, path, type, created_at, updated_at, accessed_at)
+	VALUES (nextval('seq_resourceid'), ?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,?, ?, ?);
+	`
 
 	stmt, err := tx.Prepare(query)
 	if err != nil {
@@ -103,7 +104,7 @@ func InsertResources(db *sql.DB, resources []ut.Resource) error {
 	return nil
 }
 
-func GetAllResourcesAt(db *sql.DB, path string) ([]ut.Resource, error) {
+func getAllResourcesAt(db *sql.DB, path string) ([]ut.Resource, error) {
 	rows, err := db.Query(`
     SELECT 
       * 
@@ -133,7 +134,7 @@ func GetAllResourcesAt(db *sql.DB, path string) ([]ut.Resource, error) {
 	return resources, nil
 }
 
-func GetAllResources(db *sql.DB) ([]ut.Resource, error) {
+func getAllResources(db *sql.DB) ([]ut.Resource, error) {
 	rows, err := db.Query(`
     SELECT
       *
@@ -160,7 +161,7 @@ func GetAllResources(db *sql.DB) ([]ut.Resource, error) {
 	return resources, nil
 }
 
-func GetResourcesByIds(db *sql.DB, rids []int) ([]ut.Resource, error) {
+func getResourcesByIds(db *sql.DB, rids []int) ([]ut.Resource, error) {
 	placeholders := make([]string, len(rids))
 	args := make([]any, len(rids))
 	for i, uid := range rids {
@@ -197,10 +198,10 @@ func GetResourcesByIds(db *sql.DB, rids []int) ([]ut.Resource, error) {
 	return resources, nil
 }
 
-func GetResourceByFilepath(db *sql.DB, filepath string) (ut.Resource, error) {
+func getResourceByName(db *sql.DB, name string) (ut.Resource, error) {
 	var resource ut.Resource
 
-	err := db.QueryRow("SELECT * FROM resources WHERE name = ?", filepath).Scan(resource.PtrFields()...)
+	err := db.QueryRow("SELECT * FROM resources WHERE name = ?", name).Scan(resource.PtrFields()...)
 	if err != nil {
 		log.Printf("error scanning resource: %v", err)
 		return resource, err
@@ -209,7 +210,7 @@ func GetResourceByFilepath(db *sql.DB, filepath string) (ut.Resource, error) {
 	return resource, nil
 }
 
-func InsertResourcesUniqueName(db *sql.DB, resources []ut.Resource) error {
+func insertResourcesUniqueName(db *sql.DB, resources []ut.Resource) error {
 	tx, err := db.Begin()
 	if err != nil {
 		log.Printf("failed to begin transaction: %v", err)
@@ -228,8 +229,9 @@ func InsertResourcesUniqueName(db *sql.DB, resources []ut.Resource) error {
 	// Prepare the INSERT statement
 	queryInsert := `
     INSERT INTO 
-      resources (rid, uid, vid, gid, pid, size, links, perms, name, type, created_at, updated_at, accessed_at)
-    VALUES (nextval('seq_resourceid'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+      resources (rid, uid, gid, vid, vname, size, links, perms, name, path, type, created_at, updated_at, accessed_at)
+	VALUES (nextval('seq_resourceid'), ?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,?, ?, ?);
+	`
 	stmtInsert, err := tx.Prepare(queryInsert)
 	if err != nil {
 		log.Printf("error preparing insert statement: %v", err)
@@ -270,7 +272,7 @@ func InsertResourcesUniqueName(db *sql.DB, resources []ut.Resource) error {
 	return nil
 }
 
-func DeleteResourcesByIds(db *sql.DB, rids []string) (int64, error) {
+func deleteResourcesByIds(db *sql.DB, rids []string) (int64, error) {
 	// can't have empty arg (might be destructive)
 	if len(rids) == 0 {
 		log.Printf("empty argument, returning...")
@@ -335,7 +337,7 @@ func DeleteResourcesByIds(db *sql.DB, rids []string) (int64, error) {
 	return size, nil
 }
 
-func DeleteResourceByName(db *sql.DB, name string) error {
+func deleteResourceByName(db *sql.DB, name string) error {
 	tx, err := db.Begin()
 	if err != nil {
 		log.Printf("error starting transaction: %v", err)
@@ -363,7 +365,7 @@ func DeleteResourceByName(db *sql.DB, name string) error {
 	return nil
 }
 
-func UpdateResourceNameById(db *sql.DB, rid, name string) error {
+func updateResourceNameById(db *sql.DB, rid, name string) error {
 	tx, err := db.Begin()
 	if err != nil {
 		log.Printf("error starting transaction: %v", err)
@@ -400,7 +402,7 @@ func UpdateResourceNameById(db *sql.DB, rid, name string) error {
 	return nil
 }
 
-func UpdateResourcePermsById(db *sql.DB, rid, perms string) error {
+func updateResourcePermsById(db *sql.DB, rid, perms string) error {
 	tx, err := db.Begin()
 	if err != nil {
 		log.Printf("error starting transaction: %v", err)
@@ -437,7 +439,7 @@ func UpdateResourcePermsById(db *sql.DB, rid, perms string) error {
 	return nil
 }
 
-func UpdateResourceOwnerById(db *sql.DB, rid, uid int) error {
+func updateResourceOwnerById(db *sql.DB, rid, uid int) error {
 	tx, err := db.Begin()
 	if err != nil {
 		log.Printf("error starting transaction: %v", err)
@@ -474,7 +476,7 @@ func UpdateResourceOwnerById(db *sql.DB, rid, uid int) error {
 	return nil
 }
 
-func UpdateResourceGroupById(db *sql.DB, rid, gid int) error {
+func updateResourceGroupById(db *sql.DB, rid, gid int) error {
 	tx, err := db.Begin()
 	if err != nil {
 		log.Printf("error starting transaction: %v", err)
@@ -513,7 +515,7 @@ func UpdateResourceGroupById(db *sql.DB, rid, gid int) error {
 
 // updated, better, more inclusive funcs
 
-func GetResources(db *sql.DB, sel, table, by, byvalue string, limit int) ([]any, error) {
+func getResources(db *sql.DB, sel, table, by, byvalue string, limit int) ([]any, error) {
 	if sel == "" {
 		sel = "*"
 	}
@@ -562,7 +564,7 @@ func GetResources(db *sql.DB, sel, table, by, byvalue string, limit int) ([]any,
 	return resources, nil
 }
 
-func GetResource(db *sql.DB, sel, table, by, byvalue string) (any, error) {
+func getResource(db *sql.DB, sel, table, by, byvalue string) (any, error) {
 	if sel == "" {
 		sel = "*"
 	}
@@ -578,7 +580,7 @@ func GetResource(db *sql.DB, sel, table, by, byvalue string) (any, error) {
 	return r, nil
 }
 
-func Get[T any](db *sql.DB, sel, table, by, byvalue string, limit int, scanFn func(*sql.Rows) (T, error)) ([]T, error) {
+func get[T any](db *sql.DB, sel, table, by, byvalue string, limit int, scanFn func(*sql.Rows) (T, error)) ([]T, error) {
 	if sel == "" {
 		sel = "*"
 	}
@@ -648,7 +650,7 @@ func scanGroupVolume(rows *sql.Rows) (ut.GroupVolume, error) {
 	return gv, err
 }
 
-func PickScanFn(table string) func(*sql.Rows) (any, error) {
+func pickScanFn(table string) func(*sql.Rows) (any, error) {
 	switch table {
 	case "resources":
 		return func(rows *sql.Rows) (any, error) {

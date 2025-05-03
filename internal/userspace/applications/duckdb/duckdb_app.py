@@ -4,42 +4,69 @@ import os
 
 # get env vars
 query = os.getenv("LOGIC", "SELECT * FROM read_csv_auto('input.csv');")
-output_path = os.getenv("OUTPUT", "output.csv")
-minio_bucket = os.getenv("DEFAULT_V", "uspace-default")
-output_format = os.getenv("OUTPUT_FORMAT", "csv")
+
+input_bucket = os.getenv("INPUT_BUCKET", "uspace-default")
+input_object = os.getenv("INPUT_OBJECT", "input.csv")
+input_format = os.getenv("INPUT_FORMAT", "csv")
+
+output_bucket = os.getenv("OUTPUT_BUCKET", "uspace-default")
+output_object = os.getenv("OUTPUT_OBJECT", "output.csv")
+output_format = os.getenv("OUTPUT_FORMAT", "txt")
 
 minio_endpoint = os.getenv("ENDPOINT", "minio:9000")
 minio_access_key = os.getenv("ACCESS_KEY", "minioadmin")
 minio_secret_key = os.getenv("SECRET_KEY", "minioadmin")
 
+
 print(f"[INFO] Starting DuckDB application with query: {query}")
-print(f"[INFO] Output bucket: {minio_bucket}")
-print(f"[INFO] Output path: {output_path}")
+print(f"[INFO] Input bucket: {input_bucket}")
+print(f"[INFO] Input object: {input_object}")
+print(f"[INFO] Input format: {output_format}")
+print(f"[INFO] Output bucket: {output_bucket}")
+print(f"[INFO] Output object: {output_object}")
 print(f"[INFO] Output format: {output_format}")
 print(f"[INFO] MinIO endpoint: {minio_endpoint}")
 
-           
+# should format input query to read from s3://{input_bucket}/{input_object}
+if input_format == "csv":
+    query = query.replace("%", f"read_csv_auto('s3://{input_bucket}/{input_object}')")
+elif input_format == "json":
+    query = query.replace("%", f"read_json_auto('s3://{input_bucket}/{input_object}')")
+elif input_format == "parquet":
+    query = query.replace("%", f"read_parquet('s3://{input_bucket}/{input_object}')")
+else:
+    query = query.replace("%", f"read_csv_auto('s3://{input_bucket}/{input_object}')")
+
+
+print(f"[INFO] Updated query: {query}")
+
+
+
 con = duckdb.connect(database=':memory:')
+con.execute("SET enable_http_metadata_cache=false;")
 con.execute("INSTALL aws;")
 con.execute("LOAD aws;")
 
-con.execute(f"SET s3_region='us-east-1';")
+con.execute(f"SET s3_region='eu-central-1';")
 con.execute(f"SET s3_endpoint='{minio_endpoint}';")
 con.execute(f"SET s3_access_key_id='{minio_access_key}';")
 con.execute(f"SET s3_secret_access_key='{minio_secret_key}';")
 con.execute(f"SET s3_url_style='path';") 
+con.execute("SET s3_use_ssl=false;")
 
 if output_format == "csv":
-    con.execute(f"COPY ({query}) TO 's3://{minio_bucket}/{output_path}' (FORMAT CSV, HEADER true);")
+    print("about to execute the following...")
+    print(f"COPY ({query}) TO 's3://{output_bucket}/{output_object}' (FORMAT CSV, HEADER true);")
+    con.execute(f"COPY ({query}) TO 's3://{output_bucket}/{output_object}' (FORMAT CSV, HEADER true);")
 elif output_format == "json":
-    con.execute(f"COPY ({query}) TO 's3://{minio_bucket}/{output_path}' (FORMAT JSON);")
+    con.execute(f"COPY ({query}) TO 's3://{output_bucket}/{output_object}' (FORMAT JSON);")
 elif output_format == "parquet":
-    con.execute(f"COPY ({query}) TO 's3://{minio_bucket}/{output_path}' (FORMAT PARQUET);")
+    con.execute(f"COPY ({query}) TO 's3://{output_bucket}/{output_object}' (FORMAT PARQUET);")
 else:
-    con.execute(f"COPY ({query}) TO 's3://{minio_bucket}/{output_path}' (FORMAT CSV, HEADER true);")
+    con.execute(f"COPY ({query}) TO 's3://{output_bucket}/{output_object}' (FORMAT CSV, HEADER true);")
 
 con.close()
-print(f"[INFO] Successfully wrote output to MinIO: s3://{minio_bucket}/{output_path}")
+print(f"[INFO] Successfully wrote output to MinIO: s3://{output_bucket}/{output_object}")
 
 
 

@@ -10,7 +10,10 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,7 +29,11 @@ const (
 )
 
 var (
-	default_sign_duration = time.Duration(time.Hour * 24 * 2)
+	default_sign_duration              = time.Duration(time.Hour * 24 * 2)
+	OBJECT_SIZE_THRESHOLD        int64 = 400_000_000
+	DEFALT_OBJECT_SIZE_THRESHOLD int64 = 400_000_000
+
+	ONLY_PRESIGNED_UPLOAD = false
 )
 
 type MinioClient struct {
@@ -44,6 +51,14 @@ type MinioClient struct {
 
 // ✅
 func NewMinioClient(cfg ut.EnvConfig) MinioClient {
+	var err error
+	ONLY_PRESIGNED_UPLOAD = cfg.ONLY_PRESIGNED_UPLOAD
+	OBJECT_SIZE_THRESHOLD, err = strconv.ParseInt(cfg.OBJECT_SIZE_THRESHOLD, 10, 64)
+	if err != nil {
+		log.Printf("failed to parse object threshold, fallingthrough to default")
+		OBJECT_SIZE_THRESHOLD = DEFALT_OBJECT_SIZE_THRESHOLD
+	}
+
 	mc := MinioClient{
 		accessKey:                cfg.MINIO_ACCESS_KEY,
 		secretKey:                cfg.MINIO_SECRET_KEY,
@@ -101,22 +116,51 @@ func (mc *MinioClient) Insert(t any) (context.CancelFunc, error) {
 		return nil, ut.NewError("failed to cast")
 	}
 
-	cancel, err := mc.putObject(
-		object.Vname,
-		object.Name,
-		object.Reader,
-		object.Size,
-	)
-	if err != nil {
-		log.Printf("failed to iniate stream upload to minio: %v", err)
-		return nil, err
+	log.Printf("about to insert object: %+v", object)
+
+	// maybe use a presigned link for upload for a certain size threshold?
+	if object.Size > OBJECT_SIZE_THRESHOLD || ONLY_PRESIGNED_UPLOAD {
+		signedurl, err := mc.Share("put", t)
+		if err != nil {
+			log.Printf("failed to get a presigned link: %v", err)
+			return nil, err
+		}
+		url, ok := signedurl.(url.URL)
+		if !ok {
+			log.Printf("failed to cast to URL")
+			return nil, fmt.Errorf("bad presigned url")
+		}
+
+		resp, err := http.DefaultClient.Post(http.MethodPut, url.String(), object.Reader)
+		if err != nil {
+			log.Printf("failed to perform request: %v", err)
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode >= 300 {
+			log.Printf("bad response")
+			return nil, fmt.Errorf("failed to upload to minio via link")
+		}
+		return nil, nil
+
+	} else {
+		cancel, err := mc.putObject(
+			object.Vname,
+			object.Name,
+			object.Reader,
+			object.Size,
+		)
+		if err != nil {
+			log.Printf("failed to iniate stream upload to minio: %v", err)
+		}
+		return cancel, err
 	}
 
-	return cancel, nil
 }
 
 // ✅ .. maybe can enhance with more which factors
-func (mc *MinioClient) SelectVolumes(which map[string]any) ([]any, error) {
+func (mc *MinioClient) SelectVolumes(which map[string]any) (any, error) {
 	res, err := mc.listBuckets()
 	if err != nil {
 		log.Printf("failed to retrieve buckets: %v", err)
@@ -143,7 +187,7 @@ func (mc *MinioClient) SelectVolumes(which map[string]any) ([]any, error) {
 }
 
 // ✅
-func (mc *MinioClient) SelectObjects(which map[string]any) ([]any, error) {
+func (mc *MinioClient) SelectObjects(which map[string]any) (any, error) {
 
 	vN, is := which["vname"]
 	if !is {
@@ -324,7 +368,6 @@ func (mc *MinioClient) DefaultVolume(local bool) string {
 
 // ✅
 func (mc *MinioClient) Share(method string, t any) (any, error) {
-
 	resource, ok := t.(ut.Resource)
 	if !ok {
 		log.Printf("failed to cast to resource")

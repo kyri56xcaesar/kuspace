@@ -47,8 +47,8 @@ spec:
         memory: "256Mi"
         cpu: "250m"
     volumeMounts:
-    - mountPath: /data
-      name: minio-storage # Corresponds to the `spec.volumes` Persistent Volume
+      - name: minio-storage # Corresponds to the `spec.volumes` Persistent Volume
+        mountPath: /data
   nodeSelector:
   #  kubernetes.io/hostname: minikube
     kubernetes.io/hostname: docker-desktop

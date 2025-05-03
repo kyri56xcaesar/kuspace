@@ -9,7 +9,7 @@ spec:
     matchLabels:
       app: minioth
   serviceName: minioth
-  replicas: 2
+  replicas: 1
   template:
     metadata:
       labels:
@@ -23,13 +23,15 @@ spec:
         - containerPort: 9090
           name: web
         volumeMounts:
-        - name: www
+        - name: database
           mountPath: /data
   volumeClaimTemplates:
   - metadata:
-      name: www
+      name: database
     spec:
+      storageClassName: minioth
       accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:
           storage: 1Gi
+

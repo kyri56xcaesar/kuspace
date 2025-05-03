@@ -5,6 +5,6 @@ import (
 )
 
 func main() {
-	srv := userspace.NewUService("configs/userspace.env")
+	srv := userspace.NewUService("configs/userspace.conf")
 	srv.Serve()
 }

@@ -6,11 +6,10 @@ package userspace
 */
 
 import (
-	"errors"
+	"bytes"
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -45,16 +44,16 @@ func (srv *UService) getResourcesHandler(c *gin.Context) {
 	}
 	ac := ac_h.(ut.AccessClaim)
 
-	resources, err := srv.storage.SelectObjects(
+	r, err := srv.storage.SelectObjects(
 		map[string]any{
 			"vname":  ac.Vname,
 			"prefix": ac.Target,
 			"limit":  limit,
 		},
 	)
-
+	resources, ok := r.([]ut.Resource)
 	// log.Printf("ac: %+v\nresources: %+v", ac, resources)
-	if err != nil {
+	if err != nil || !ok {
 		log.Printf("error retrieving resource: %v", err)
 		if strings.Contains(err.Error(), "scan") {
 			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
@@ -81,8 +80,7 @@ func (srv *UService) getResourcesHandler(c *gin.Context) {
 		// build the tree and return it in json
 		// need to parse all the resources
 		tree := make(map[string]any)
-		for _, res := range resources {
-			resource := res.(ut.Resource)
+		for _, resource := range resources {
 			// buildTreeRec(tree, strings.Split(strings.TrimPrefix(resource.Name, "/"), "/"), resource)
 			buildTreeRec(tree, append([]string{"/"}, strings.Split(strings.TrimPrefix(resource.Name, "/"), "/")...), resource)
 		}
@@ -104,37 +102,16 @@ func (srv *UService) rmResourceHandler(c *gin.Context) {
 		return
 	}
 	ac := ac_h.(ut.AccessClaim)
-
 	log.Printf("binded access claim: %+v", ac)
 
-	target := c.Request.URL.Query().Get("rids")
-	if target == "" {
-		log.Printf("must provide a target")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a target"})
+	if err := srv.storage.Remove(ut.Resource{
+		Name:  ac.Target,
+		Vname: ac.Vname,
+	}); err != nil {
+		log.Printf("error when removing object: %v", err) // perhaps specify exact details of error
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete obj"})
 		return
 	}
-	// rids_str := strings.Split(target, ",")
-
-	// needs to return some info bout what is deleted, lets do the size
-	// size, err := srv.storage.Remove(rids_str)
-	// if err != nil {
-	// 	log.Printf("failed to delete resource: %v", err)
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete resource"})
-	// 	return
-	// }
-
-	// // release the volume space
-
-	// err = srv.ReleaseVolumeSpace(size, ac)
-	// if err != nil {
-	// 	log.Printf("failed to release volume space: %v", err)
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to release volume space"})
-	// 	return
-	// }
-
-	// delete the phyiscal data (on the volume)
-	// @TODO:
-	//
 
 	c.JSON(200, gin.H{
 		"message": "resource deleted successfully.",
@@ -142,140 +119,94 @@ func (srv *UService) rmResourceHandler(c *gin.Context) {
 }
 
 func (srv *UService) mvResourcesHandler(c *gin.Context) {
-	rid := c.Request.URL.Query().Get("rid")
-	if rid == "" {
-		log.Printf("empty rid, not allowed")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a rid"})
+	// get header
+	ac_h, exists := c.Get("accessTarget")
+	if !exists {
+		log.Printf("access target header was not set properly")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
 		return
 	}
-	newName := c.Request.FormValue("resourcename")
-	if newName == "" {
-		log.Printf("empty resourcename, not allowed")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a resourcename as formvalue"})
+	ac := ac_h.(ut.AccessClaim)
+	log.Printf("binded access claim: %+v", ac)
+
+	dest := c.Request.URL.Query().Get("dest")
+	if dest == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must specify destination 'dest'"})
 		return
 	}
 
-	// update resource name
-	// err := srv.storage.Update(rid, newName)
-	// if err != nil {
-	// 	log.Printf("error updating resource name: %v", err)
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
-	// 	return
-	// }
+	parts := strings.SplitN(dest, "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad destination format 'bucket/object'"})
+		return
+	}
+	if err := srv.storage.Copy(
+		ut.Resource{
+			Name:  ac.Target,
+			Vname: ac.Vname,
+		},
+		ut.Resource{
+			Name:  parts[1],
+			Vname: parts[0],
+		},
+	); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to copy object"})
+		return
+	}
+
+	if err := srv.storage.Remove(
+		ut.Resource{
+			Name:  ac.Target,
+			Vname: ac.Vname,
+		},
+	); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete original"})
+		return
+	}
 
 	c.JSON(200, gin.H{
-		"message": "resource updated successfully",
+		"message": "resource moved successfully",
 	})
 }
 
 func (srv *UService) cpResourceHandler(c *gin.Context) {
-	c.JSON(200, gin.H{"message": "tbd"})
-}
-
-func (srv *UService) chmodResourceHandler(c *gin.Context) {
-	rid := c.Request.URL.Query().Get("rid")
-	if rid == "" {
-		log.Printf("empty rid, not allowed")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a rid"})
+	// get header
+	ac_h, exists := c.Get("accessTarget")
+	if !exists {
+		log.Printf("access target header was not set properly")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
 		return
 	}
-	newPerms := c.PostForm("permissions")
-	log.Printf("perms: %v", newPerms)
-	if newPerms == "" {
-		log.Printf("empty perms, not allowed")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide perms as formvalue"})
-		return
-	}
+	ac := ac_h.(ut.AccessClaim)
+	log.Printf("binded access claim: %+v", ac)
 
-	// update resource name
-	// err := srv.storage.Update(rid, newPerms)
-	// if err != nil {
-	// 	log.Printf("error updating resource perms: %v", err)
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
-	// 	return
-	// }
-
-	c.JSON(200, gin.H{
-		"message": "resource updated successfully",
-	})
-}
-
-func (srv *UService) chownResourceHandler(c *gin.Context) {
-	rid := c.Request.URL.Query().Get("rid")
-	if rid == "" {
-		log.Printf("empty rid, not allowed")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a rid"})
-		return
-	}
-	newOwner := c.PostForm("owner")
-	log.Printf("owner id: %v", newOwner)
-	if newOwner == "" {
-		log.Printf("empty uid, not allowed")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a uid as formvalue"})
+	dest := c.Request.URL.Query().Get("dest")
+	if dest == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must specify destination 'dest'"})
 		return
 	}
 
-	// rid_int, err := strconv.Atoi(rid)
-	// if err != nil {
-	// 	log.Printf("failed to atoi rid: %v", err)
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "bad request format"})
-	// 	return
-	// }
-	// newOwner_int, err := strconv.Atoi(newOwner)
-	// if err != nil {
-	// 	log.Printf("failed to atoi ids: %v", err)
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "bad request format"})
-	// }
-	// update resource name
-	// err = srv.storage.Update(rid_int, newOwner_int)
-	// if err != nil {
-	// 	log.Printf("error updating resource uid: %v", err)
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
-	// 	return
-	// }
-
-	c.JSON(200, gin.H{
-		"message": "resource updated successfully",
-	})
-}
-
-func (srv *UService) chgroupResourceHandler(c *gin.Context) {
-	rid := c.Request.URL.Query().Get("rid")
-	if rid == "" {
-		log.Printf("empty rid, not allowed")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a rid"})
+	parts := strings.SplitN(dest, "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad destination format 'bucket/object'"})
 		return
-	}
-	newGroup := c.PostForm("group")
-	log.Printf("new gid: %v", newGroup)
-	if newGroup == "" {
-		log.Printf("empty gid, not allowed")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a gid as formvalue"})
+	} //destV := parts[0] //destN := parts[1]
+
+	if err := srv.storage.Copy(
+		ut.Resource{
+			Name:  ac.Target,
+			Vname: ac.Vname,
+		},
+		ut.Resource{
+			Name:  parts[1],
+			Vname: parts[0],
+		},
+	); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to copy object"})
 		return
 	}
 
-	// update resource name
-	// rid_int, err := strconv.Atoi(rid)
-	// if err != nil {
-	// 	log.Printf("failed to atoi rid: %v", err)
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "bad request format"})
-	// 	return
-	// }
-	// newGroup_int, err := strconv.Atoi(newGroup)
-	// if err != nil {
-	// 	log.Printf("failed to atoi ids: %v", err)
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "bad request format"})
-	// }
-	// err = srv.storage.Update(rid_int, newGroup_int)
-	// if err != nil {
-	// 	log.Printf("error updating resource group: %v", err)
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
-	// 	return
-	// }
-
-	c.JSON(200, gin.H{
-		"message": "resource updated successfully",
-	})
+	c.JSON(200, gin.H{"message": "successful copy"})
 }
 
 func (srv *UService) handleDownload(c *gin.Context) {
@@ -432,98 +363,80 @@ func (srv *UService) handleUpload(c *gin.Context) {
 	})
 }
 
-// func (srv *UService) handlePreview(c *gin.Context) {
-// 	// parse resource target header:
-// 	// get header
-// 	ac_h, exists := c.Get("accessTarget")
-// 	if !exists {
-// 		log.Printf("access target header was not set properly")
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
-// 		return
-// 	}
-// 	ac := ac_h.(ut.AccessClaim)
+func (srv *UService) handlePreview(c *gin.Context) {
+	// parse resource target header:
+	// get header
+	ac_h, exists := c.Get("accessTarget")
+	if !exists {
+		log.Printf("access target header was not set properly")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
+		return
+	}
+	ac := ac_h.(ut.AccessClaim)
 
-// 	path := strings.TrimSuffix(ac.Target, "/")
-// 	// get the resource info
-// 	res, err := srv.storage.SelectOne("", "resources", "name = ", path)
-// 	if err != nil {
-// 		log.Printf("failed to get the resource: %v", err)
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "resource not found"})
-// 		return
-// 	}
-// 	resource := res.(ut.Resource)
-// 	// read the actual file to a buffer
-
-// 	// parse byte range header
-// 	var start, end, totalLength int64
-// 	start, end, totalLength = 0, 4095, resource.Size
-// 	rangeHeader := c.GetHeader("Range")
-// 	if rangeHeader != "" {
-// 		// Expected format: "bytes=0-1023"
-// 		parts := strings.Split(strings.TrimPrefix(rangeHeader, "bytes="), "-")
-// 		if len(parts) == 2 {
-// 			if s, err := strconv.Atoi(parts[0]); err == nil {
-// 				start = int64(s)
-// 			}
-// 			if e, err := strconv.Atoi(parts[1]); err == nil {
-// 				end = int64(e)
-// 			}
-// 		}
-// 	}
-// 	if start > totalLength {
-// 		c.JSON(http.StatusRequestedRangeNotSatisfiable, gin.H{"error": "Requested range exceeds file size"})
-// 		return
-// 	}
-// 	if end >= totalLength {
-// 		end = totalLength - 1
-// 	}
-
-// 	pContent, err := fetchResource(srv.config.VOLUMES_PATH+path, int64(start), int64(end))
-// 	if err != nil {
-// 		log.Printf("failed to fetch resource: %v", err)
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch resoruc"})
-// 		return
-// 	}
-
-// 	c.Header("Content-Range", "bytes "+strconv.FormatInt(start, 10)+"-"+strconv.FormatInt(end, 10)+"/"+strconv.FormatInt(totalLength, 10))
-// 	c.Header("Accept-Ranges", "bytes")
-// 	c.Header("Content-Length", strconv.Itoa(len(pContent)))
-// 	c.Data(http.StatusPartialContent, "text/plain", pContent)
-// }
-
-// fetchResource reads a file from the given path within the specified byte range.
-func fetchResource(filePath string, start, end int64) ([]byte, error) {
-	file, err := os.Open(filePath)
+	// get the resource info
+	resource := ut.Resource{
+		Name:  ac.Target,
+		Vname: ac.Vname,
+	}
+	ar := any(resource)
+	cancel, err := srv.storage.Download(&ar)
+	defer cancel()
 	if err != nil {
-		return nil, err
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get download stream"})
 	}
-	defer file.Close()
+	// read the actual file to a buffer
 
-	fileInfo, err := file.Stat()
-	if err != nil {
-		return nil, err
-	}
-	fileSize := fileInfo.Size()
+	// parse byte range header
+	var start, end, totalLength int64
+	start, end, totalLength = 0, 4095, resource.Size
 
-	if start >= fileSize {
-		return nil, errors.New("requested range exceeds file size")
+	rangeHeader := c.GetHeader("Range")
+	if rangeHeader != "" {
+		// Expected format: "bytes=0-1023"
+		parts := strings.Split(strings.TrimPrefix(rangeHeader, "bytes="), "-")
+		if len(parts) == 2 {
+			if s, err := strconv.Atoi(parts[0]); err == nil {
+				start = int64(s)
+			}
+			if e, err := strconv.Atoi(parts[1]); err == nil {
+				end = int64(e)
+			}
+		}
 	}
-	if end >= fileSize {
-		end = fileSize - 1
+	if start > totalLength {
+		c.JSON(http.StatusRequestedRangeNotSatisfiable, gin.H{"error": "Requested range exceeds file size"})
+		return
+	}
+	if end >= totalLength {
+		end = totalLength - 1
 	}
 
-	_, err = file.Seek(start, io.SeekStart)
-	if err != nil {
-		return nil, err
+	length := end - start + 1
+	pContent := make([]byte, length)
+
+	readerAt, ok := resource.Reader.(io.ReaderAt)
+	if !ok {
+		// Wrap it if it's a byte slice or similar
+		log.Printf("failed to cast as readerat, buffering reader...")
+		var content []byte
+		_, err = resource.Reader.Read(content)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read resoruce"})
+		}
+		readerAt = bytes.NewReader(content) // if you have raw []byte
 	}
 
-	data := make([]byte, end-start+1)
-	_, err = file.Read(data)
+	_, err = readerAt.ReadAt(pContent, start)
 	if err != nil && err != io.EOF {
-		return nil, err
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read resource"})
+		return
 	}
 
-	return data, nil
+	c.Header("Content-Range", "bytes "+strconv.FormatInt(start, 10)+"-"+strconv.FormatInt(end, 10)+"/"+strconv.FormatInt(totalLength, 10))
+	c.Header("Accept-Ranges", "bytes")
+	c.Header("Content-Length", strconv.Itoa(len(pContent)))
+	c.Data(http.StatusPartialContent, "text/plain", pContent)
 }
 
 func buildTreeRec(tree map[string]any, entry []string, resource ut.Resource) {
@@ -536,4 +449,110 @@ func buildTreeRec(tree map[string]any, entry []string, resource ut.Resource) {
 	}
 
 	buildTreeRec(tree[entry[0]].(map[string]any), entry[1:], resource)
+}
+
+func (srv *UService) chmodResourceHandler(c *gin.Context) {
+	rid := c.Request.URL.Query().Get("rid")
+	if rid == "" {
+		log.Printf("empty rid, not allowed")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a rid"})
+		return
+	}
+	newPerms := c.PostForm("permissions")
+	log.Printf("perms: %v", newPerms)
+	if newPerms == "" {
+		log.Printf("empty perms, not allowed")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide perms as formvalue"})
+		return
+	}
+
+	// update resource name
+	// err := srv.storage.Update(rid, newPerms)
+	// if err != nil {
+	// 	log.Printf("error updating resource perms: %v", err)
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
+	// 	return
+	// }
+
+	c.JSON(200, gin.H{
+		"message": "resource updated successfully",
+	})
+}
+
+func (srv *UService) chownResourceHandler(c *gin.Context) {
+	rid := c.Request.URL.Query().Get("rid")
+	if rid == "" {
+		log.Printf("empty rid, not allowed")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a rid"})
+		return
+	}
+	newOwner := c.PostForm("owner")
+	log.Printf("owner id: %v", newOwner)
+	if newOwner == "" {
+		log.Printf("empty uid, not allowed")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a uid as formvalue"})
+		return
+	}
+
+	// rid_int, err := strconv.Atoi(rid)
+	// if err != nil {
+	// 	log.Printf("failed to atoi rid: %v", err)
+	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "bad request format"})
+	// 	return
+	// }
+	// newOwner_int, err := strconv.Atoi(newOwner)
+	// if err != nil {
+	// 	log.Printf("failed to atoi ids: %v", err)
+	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "bad request format"})
+	// }
+	// update resource name
+	// err = srv.storage.Update(rid_int, newOwner_int)
+	// if err != nil {
+	// 	log.Printf("error updating resource uid: %v", err)
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
+	// 	return
+	// }
+
+	c.JSON(200, gin.H{
+		"message": "resource updated successfully",
+	})
+}
+
+func (srv *UService) chgroupResourceHandler(c *gin.Context) {
+	rid := c.Request.URL.Query().Get("rid")
+	if rid == "" {
+		log.Printf("empty rid, not allowed")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a rid"})
+		return
+	}
+	newGroup := c.PostForm("group")
+	log.Printf("new gid: %v", newGroup)
+	if newGroup == "" {
+		log.Printf("empty gid, not allowed")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a gid as formvalue"})
+		return
+	}
+
+	// update resource name
+	// rid_int, err := strconv.Atoi(rid)
+	// if err != nil {
+	// 	log.Printf("failed to atoi rid: %v", err)
+	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "bad request format"})
+	// 	return
+	// }
+	// newGroup_int, err := strconv.Atoi(newGroup)
+	// if err != nil {
+	// 	log.Printf("failed to atoi ids: %v", err)
+	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "bad request format"})
+	// }
+	// err = srv.storage.Update(rid_int, newGroup_int)
+	// if err != nil {
+	// 	log.Printf("error updating resource group: %v", err)
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
+	// 	return
+	// }
+
+	c.JSON(200, gin.H{
+		"message": "resource updated successfully",
+	})
 }

@@ -249,13 +249,13 @@ func (pt *PermTriplet) ToString() string {
 
 /* This will represent the physical volumes provides by Kubernetes and supervised by the controller */
 type Volume struct {
-	Name         string  `json:"name"`
-	Path         string  `json:"path,omitempty"`
-	Vid          int     `json:"vid,omitempty"`
-	Dynamic      bool    `json:"dynamic,omitempty"`
-	Capacity     float64 `json:"capacity,omitempty"`
-	Usage        float64 `json:"usage,omitempty"`
-	CreationDate string  `json:"created_at"`
+	Name         string  `json:"name" form:"name"`
+	Path         string  `json:"path,omitempty" form:"path,omitempty"`
+	Vid          int     `json:"vid,omitempty" form:"vid,omitempty"`
+	Dynamic      bool    `json:"dynamic,omitempty" form:"dynamic,omitempty"`
+	Capacity     float64 `json:"capacity,omitempty" form:"capacity,omitempty"`
+	Usage        float64 `json:"usage,omitempty" form:"usage,omitempty"`
+	CreationDate string  `json:"created_at,omitempty" form:"created_at,omitempty"`
 }
 
 /* fields and ptr fields for "volume" struct helper methods*/
@@ -275,7 +275,7 @@ func (v *Volume) PtrFieldsNoId() []any {
 	return []any{&v.Name, &v.Path, &v.Dynamic, &v.Capacity, &v.Usage, &v.CreationDate}
 }
 
-func (v *Volume) Validate() error {
+func (v *Volume) Validate(max_capacity, fallback_capacity float64) error {
 	// name should be specific
 	// path should exist
 	// vid should exist
@@ -284,8 +284,12 @@ func (v *Volume) Validate() error {
 	if len(v.Name) > 63 {
 		return fmt.Errorf("volume name too large: max 63 chars")
 	}
-	if HasInvalidCharacters(v.Name, "^*|\\/&\"_,;") {
+	if HasInvalidCharacters(v.Name, "^*|\\/&\"'.,;") {
 		return fmt.Errorf("invalid characters in the name. (^*|\\/&\"_,;) not allowed")
+	}
+
+	if v.Capacity > max_capacity {
+		v.Capacity = fallback_capacity
 	}
 
 	return nil

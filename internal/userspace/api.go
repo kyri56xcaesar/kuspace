@@ -149,12 +149,15 @@ func (srv *UService) Serve() {
 
 		apiV1.POST("/resource/upload", srv.handleUpload)
 		apiV1.GET("/resource/download", srv.handleDownload)
+		apiV1.GET("/resource/preview", srv.handlePreview)
 		// apiV1.GET("/resource/download", hasAccessMiddleware("r", srv), srv.handleDownload)
-		// apiV1.GET("/resource/preview", hasAccessMiddleware("r", srv), srv.handlePreview)
 
 		// apiV1.DELETE("/resource/rm", hasAccessMiddleware("w", srv), srv.rmResourceHandler)
 		// apiV1.PATCH("/resource/mv", hasAccessMiddleware("w", srv), srv.mvResourcesHandler)
 		// apiV1.POST("/resource/cp", hasAccessMiddleware("r", srv), srv.cpResourceHandler)
+		apiV1.DELETE("/resource/rm", srv.rmResourceHandler)
+		apiV1.PATCH("/resource/mv", srv.mvResourcesHandler)
+		apiV1.POST("/resource/cp", srv.cpResourceHandler)
 
 		// apiV1.PATCH("/resource/permissions", isOwner(srv), srv.chmodResourceHandler)
 		// apiV1.PATCH("/resource/ownership", isOwner(srv), srv.chownResourceHandler)
@@ -181,16 +184,16 @@ func (srv *UService) Serve() {
 			"/job",
 			srv.HandleJobAdmin,
 		)
-		admin.Match(
-			[]string{"GET", "POST", "PATCH", "DELETE"},
-			"/user/volume",
-			srv.HandleUserVolumes,
-		)
-		admin.Match(
-			[]string{"GET", "POST", "PATCH", "DELETE"},
-			"/group/volume",
-			srv.HandleGroupVolumes,
-		)
+		// admin.Match(
+		// 	[]string{"GET", "POST", "PATCH", "DELETE"},
+		// 	"/user/volume",
+		// 	srv.HandleUserVolumes,
+		// )
+		// admin.Match(
+		// 	[]string{"GET", "POST", "PATCH", "DELETE"},
+		// 	"/group/volume",
+		// 	srv.HandleGroupVolumes,
+		// )
 	}
 	/* context handler */
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

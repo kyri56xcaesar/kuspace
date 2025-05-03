@@ -1,9 +1,10 @@
 {
     "uid":0,
     "description":"customa app duckdb job",
-    "input_format":"txt",
-    "input":"test_dataset_random2.txt",
-    "output":"t_out.test",
+    "input_format":"csv",
+    "input":"small_csv_out.csv",
+    "output":"test_out_3.csv",
+    "output_format":"csv",
     "logic":"application/duckdb:v1",
-    "logic_body":"SELECT *"
+    "logic_body":"SELECT \"header-kimch\" FROM % LIMIT 2"
 }

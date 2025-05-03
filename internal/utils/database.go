@@ -61,6 +61,10 @@ func NewDBHandler(dbname, dbpath, db_driver string) DBHandler {
 		log.Fatalf("database name %q should end with .db", dbname)
 	}
 
+	if err := os.MkdirAll(dbpath, 0755); err != nil {
+		log.Fatalf("failed to create the path: %v", err)
+	}
+
 	var dbh DBHandler = DBHandler{
 		DBName:    dbname,
 		db_path:   dbpath,

@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 /*
@@ -206,4 +207,44 @@ func HasInvalidCharacters(s, chars string) bool {
 	pattern := "[" + strings.Join(escapedChars, "") + "]"
 	re := regexp.MustCompile(pattern)
 	return re.MatchString(s)
+}
+
+func ReadFileAt(filePath string, start, end int64) ([]byte, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	fileSize := fileInfo.Size()
+
+	if start >= fileSize {
+		return nil, NewError("requested range exceeds file size")
+	}
+	if end >= fileSize {
+		end = fileSize - 1
+	}
+
+	_, err = file.Seek(start, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+
+	data := make([]byte, end-start+1)
+	_, err = file.Read(data)
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+var time_format string = "2006-01-02 15:04:05-07:00"
+
+func CurrentTime() string {
+	return time.Now().UTC().Format(time_format)
 }

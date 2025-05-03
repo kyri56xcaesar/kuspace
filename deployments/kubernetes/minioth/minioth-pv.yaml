@@ -1,16 +1,15 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: minio-pv
-  labels:
-    type: local
+  name: minioth-pv
 spec:
   capacity:
-    storage: 20Gi
+    storage: 1Gi
   accessModes:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
-  storageClassName: manual
+  storageClassName: minioth
   hostPath:
-    path: /host_mnt/c/Users/kyri/minio-storage # change this path in the future
+    path: /host_mnt/c/Users/kyri/minioth-storage  # is this on my host?
     type: DirectoryOrCreate
+  volumeMode: Filesystem

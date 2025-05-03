@@ -5,6 +5,6 @@ import (
 )
 
 func main() {
-	srv := frontendapp.NewService("configs/frontapp.env")
+	srv := frontendapp.NewService("configs/frontapp.conf")
 	srv.ServeHTTP()
 }

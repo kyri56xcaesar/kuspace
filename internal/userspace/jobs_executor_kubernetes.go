@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/url"
 	"strings"
 
 	k "kyri56xcaesar/myThesis/internal/userspace/kubernetes"
@@ -139,9 +138,15 @@ func streamJobLogs(clientset *kubernetes.Clientset, jobName, namespace string, s
 func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	jobName := fmt.Sprintf("j-%d", job.Jid)
 
-	command, err := formatJobData(je, &job)
+	err := formatJobData(je, &job)
 	if err != nil {
 		log.Printf("error formatting job data: %v", err)
+		return
+	}
+
+	command, err := formatJobCommand(job.Logic, job.LogicBody)
+	if err != nil {
+		log.Printf("error formatting job command: %v", err)
 		return
 	}
 
@@ -174,7 +179,7 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	// Optional: cleanup or postprocess
 }
 
-func formatJobData(je *JKubernetesExecutor, job *ut.Job) ([]string, error) {
+func formatJobData(je *JKubernetesExecutor, job *ut.Job) error {
 	// handle some generic checks as guard statement
 	if !ut.AssertStructNotEmptyUpon(job, map[any]bool{
 		"Input":     true,
@@ -182,17 +187,18 @@ func formatJobData(je *JKubernetesExecutor, job *ut.Job) ([]string, error) {
 		"Logic":     true,
 		"LogicBody": true,
 	}) {
-		return nil, ut.NewError("empty field that shouldn't be empty..")
+		return ut.NewError("empty field that shouldn't be empty..")
 	}
 
 	// Assuming job.Logic is the image name and job.LogicBody is the command
 	var (
 		name, version string
-		asResource    ut.Resource
+		InpAsResource ut.Resource
+		OutAsResource ut.Resource
 	)
 
-	// deduct name and version
-	p := strings.Split(job.Logic, ":")
+	// deduct name and version and format it
+	p := strings.Split(strings.TrimSpace(job.Logic), ":")
 	if len(p) == 2 {
 		name = p[0]
 		version = p[1]
@@ -201,113 +207,67 @@ func formatJobData(je *JKubernetesExecutor, job *ut.Job) ([]string, error) {
 		version = "latest"
 	}
 	if name == "" || version == "" {
-		return nil, fmt.Errorf("invalid job data")
+		return fmt.Errorf("invalid job data")
 	}
+	job.Logic = fmt.Sprintf("%s:%s", name, version)
 
 	// create an env map
 	envMap := make(map[string]string)
+
+	// inp/out can be in format <volume>/<path>
 
 	// we should handle the job input by contacting the storage_system api
 	// can do it with Share or simply by Stat the objects, idk
 	parts := strings.Split(job.Input, "/")
 	if len(parts) > 1 {
-		asResource.Vname = parts[0]
-		asResource.Name = strings.Join(parts[1:], "/")
+		InpAsResource.Vname = parts[0]
+		InpAsResource.Name = strings.Join(parts[1:], "/")
 	} else {
-		asResource.Vname = je.jm.srv.storage.DefaultVolume(false)
-		asResource.Name = job.Input
+		InpAsResource.Vname = je.jm.srv.storage.DefaultVolume(false)
+		InpAsResource.Name = job.Input
 	}
 
-	if je.jm.srv.config.OBJECT_SHARED {
-		inp, err := je.jm.srv.storage.Share("get", asResource)
-		if err != nil {
-			log.Printf("failed to retrieve input share link")
-			return nil, fmt.Errorf("failed to retrieve input share link: %v", err)
-		}
-		log.Printf("inp: %+v", inp)
-
-		input, ok := inp.(*url.URL)
-		if !ok {
-			log.Printf("couldn't cast inp to url.URL")
-			return nil, fmt.Errorf("failed to cast")
-		}
-		job.Input = strings.Replace(input.String(), "localhost", "minio", 1)
-		out, err := je.jm.srv.storage.Share("put", ut.Resource{
-			Name:  job.Output,
-			Vname: asResource.Vname,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to retrieve output share link: %v", err)
-		}
-		output, ok := out.(*url.URL)
-		if !ok {
-			return nil, fmt.Errorf("failed to cast")
-		}
-		job.Output = strings.Replace(output.String(), "localhost", "minio", 1)
-
-		envMap["OBJECT_SHARE"] = "true"
-
+	parts = strings.Split(job.Output, "/")
+	if len(parts) > 1 {
+		OutAsResource.Vname = parts[0]
+		OutAsResource.Name = strings.Join(parts[1:], "/")
 	} else {
-		envMap["ENDPOINT"] = je.jm.srv.config.MINIO_ENDPOINT
-		envMap["ACCESS_KEY"] = je.jm.srv.config.MINIO_ACCESS_KEY
-		envMap["SECRET_KEY"] = je.jm.srv.config.MINIO_SECRET_KEY
-
-		// inp can be in format <volume>/<path>
-
-	}
-	envMap["DEFAULT_V"] = asResource.Vname
-
-	command, err := formatJobCommand(name, job.LogicBody)
-	if err != nil {
-		return nil, fmt.Errorf("error formatting job command: %v", err)
+		OutAsResource.Vname = je.jm.srv.storage.DefaultVolume(false)
+		OutAsResource.Name = job.Output
 	}
 
-	body, err := formatJobBody(name, job.LogicBody, job.Input, job.InputFormat)
-	if err != nil {
-		return nil, fmt.Errorf("error formatting job body: %v", err)
-	}
-	job.LogicBody = body
 	// format job vars
-	job.Logic = fmt.Sprintf("%s:%s", name, version)
 	job.Output = strings.TrimSpace(job.Output)
 	job.OutputFormat = strings.TrimSpace(job.OutputFormat)
 	if job.OutputFormat == "" { //default format
-		job.OutputFormat = "csv"
+		job.OutputFormat = "txt"
+	}
+	if job.InputFormat == "" {
+		job.InputFormat = "txt"
 	}
 	if job.Parallelism == 0 { //default parallelism
 		job.Parallelism = 1
 	}
-	envMap["OUTPUT"] = job.Output
+
+	envMap["ENDPOINT"] = je.jm.srv.config.MINIO_ENDPOINT
+	envMap["ACCESS_KEY"] = je.jm.srv.config.MINIO_ACCESS_KEY
+	envMap["SECRET_KEY"] = je.jm.srv.config.MINIO_SECRET_KEY
+	envMap["LOGIC"] = job.LogicBody
+	envMap["INPUT_BUCKET"] = InpAsResource.Vname
+	envMap["INPUT_OBJECT"] = InpAsResource.Name
+	envMap["INPUT_FORMAT"] = job.InputFormat
+	envMap["OUTPUT_BUCKET"] = OutAsResource.Vname
+	envMap["OUTPUT_OBJECT"] = OutAsResource.Name
 	envMap["OUTPUT_FORMAT"] = job.OutputFormat
 	envMap["TIMEOUT"] = fmt.Sprintf("%d", job.Timeout)
-	envMap["LOGIC"] = job.LogicBody
 	job.Env = envMap
 
-	return command, nil
+	return nil
 }
 
-func formatJobBody(lng, body, input, input_format string) (string, error) {
-	switch lng {
-	case "application/duckdb":
-		switch input_format {
-		case "txt", "text", "string":
-			return fmt.Sprintf("%s FROM read_text(\"%s\")", body, input), nil
-		case "csv":
-			return fmt.Sprintf("%s FROM read_csv_auto(\"%s\")", body, input), nil
-		case "json":
-			return fmt.Sprintf("%s FROM read_json_auto(\"%s\")", body, input), nil
-		case "parquet":
-			return fmt.Sprintf("%s FROM read_parquet(\"%s\")", body, input), nil
-		default:
-			return fmt.Sprintf("%s FROM read_text(\"%s\")", body, input), nil
-		}
-	default:
-		return "", nil
-	}
-}
-
-func formatJobCommand(lng, body string) ([]string, error) {
-	switch lng {
+func formatJobCommand(logic, body string) ([]string, error) {
+	lang := logic[:strings.Index(logic+":", ":")]
+	switch lang {
 	case "python", "py":
 		return []string{"/bin/sh", "-c", fmt.Sprintf("python3 -c '%s'", body)}, nil
 	case "bash", "sh", "shell":
@@ -400,6 +360,6 @@ func formatJobCommand(lng, body string) ([]string, error) {
 	case "c", "gcc":
 		return []string{"/bin/sh", "-c", fmt.Sprintf("cat <<EOF > /tmp/tmp.c \n%s\nEOF && gcc /tmp/tmp.c -o /tmp/tmp.out && /tmp/tmp.out && rm /tmp/tmp.*", body)}, nil
 	default:
-		return nil, fmt.Errorf("unsupported language: %s", lng)
+		return nil, fmt.Errorf("unsupported language: %s", lang)
 	}
 }

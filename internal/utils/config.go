@@ -39,24 +39,28 @@ type EnvConfig struct {
 
 	STORAGE_SYSTEM string
 
-	DB_RV                string
-	DB_RV_DRIVER         string
-	DB_RV_PATH           string
-	DB_RV_MAX_OPEN_CONNS string
-	DB_RV_MAX_IDLE_CONNS string
-	DB_RV_MAX_LIFETIME   string
+	DB_FSL                string
+	DB_FSL_DRIVER         string
+	DB_FSL_PATH           string
+	DB_FSL_MAX_OPEN_CONNS string
+	DB_FSL_MAX_IDLE_CONNS string
+	DB_FSL_MAX_LIFETIME   string
+	FSL_ACCESS_KEY        string
+	FSL_SECRET_KEY        string
 
 	LOCAL_VOLUMES_DEFAULT_PATH     string
 	LOCAL_VOLUMES_DEFAULT_CAPACITY string
 
-	MINIO_ACCESS_KEY     string
-	MINIO_SECRET_KEY     string
-	MINIO_ENDPOINT       string
-	MINIO_USE_SSL        string
-	MINIO_DEFAULT_BUCKET string
-	MINIO_OBJECT_LOCKING bool
-	OBJECT_SHARED        bool
-	OBJECT_SHARE_EXPIRE  string
+	MINIO_ACCESS_KEY      string
+	MINIO_SECRET_KEY      string
+	MINIO_ENDPOINT        string
+	MINIO_USE_SSL         string
+	MINIO_DEFAULT_BUCKET  string
+	MINIO_OBJECT_LOCKING  bool
+	OBJECT_SHARED         bool
+	OBJECT_SHARE_EXPIRE   string
+	ONLY_PRESIGNED_UPLOAD bool
+	OBJECT_SIZE_THRESHOLD string
 
 	J_DISPATCHER   string
 	J_QUEUE_SIZE   string
@@ -110,21 +114,25 @@ func LoadConfig(path string) EnvConfig {
 		LOCAL_VOLUMES_DEFAULT_PATH:     getEnv("V_LOCAL_PATH", "data/volumes"),
 		LOCAL_VOLUMES_DEFAULT_CAPACITY: getEnv("V_LOCAL_CAPACITY", "20"),
 
-		DB_RV:                getEnv("DB_RV", "database.db"),
-		DB_RV_DRIVER:         getEnv("DB_RV_DRIVER", "duckdb"),
-		DB_RV_PATH:           getEnv("DB_RV_PATH", "data/db"),
-		DB_RV_MAX_OPEN_CONNS: getEnv("DB_RV_MAX_OPEN_CONNS", "50"),
-		DB_RV_MAX_IDLE_CONNS: getEnv("DB_RV_MAX_IDLE_CONNS", "10"),
-		DB_RV_MAX_LIFETIME:   getEnv("DB_RV_MAX_LIFETIME", "10"),
+		DB_FSL:                getEnv("DB_FSL", "database.db"),
+		DB_FSL_DRIVER:         getEnv("DB_FSL_DRIVER", "duckdb"),
+		DB_FSL_PATH:           getEnv("DB_FSL_PATH", "data/db/uspace"),
+		DB_FSL_MAX_OPEN_CONNS: getEnv("DB_FSL_MAX_OPEN_CONNS", "50"),
+		DB_FSL_MAX_IDLE_CONNS: getEnv("DB_FSL_MAX_IDLE_CONNS", "10"),
+		DB_FSL_MAX_LIFETIME:   getEnv("DB_FSL_MAX_LIFETIME", "10"),
+		FSL_ACCESS_KEY:        getEnv("FSL_ACCESS_KEY", "fsladmin"),
+		FSL_SECRET_KEY:        getEnv("FSL_SECRET_KEY", "fsladmin"),
 
-		MINIO_ACCESS_KEY:     getEnv("MINIO_ACCESS_KEY", "minioadmin"),
-		MINIO_SECRET_KEY:     getEnv("MINIO_SECRET_KEY", "minioadmin"),
-		MINIO_ENDPOINT:       getEnv("MINIO_ENDPOINT", "minio:9000"),
-		MINIO_USE_SSL:        getEnv("MINIO_USE_SSL", "false"),
-		MINIO_DEFAULT_BUCKET: getEnv("MINIO_DEFAULT_BUCKET", "default"),
-		MINIO_OBJECT_LOCKING: getBoolEnv("MINIO_OBJECT_LOCKING", "false"),
-		OBJECT_SHARED:        getBoolEnv("OBJECT_SHARED", "false"),
-		OBJECT_SHARE_EXPIRE:  getEnv("OBJECT_SHARE_EXPIRE", "1440"),
+		MINIO_ACCESS_KEY:      getEnv("MINIO_ACCESS_KEY", "minioadmin"),
+		MINIO_SECRET_KEY:      getEnv("MINIO_SECRET_KEY", "minioadmin"),
+		MINIO_ENDPOINT:        getEnv("MINIO_ENDPOINT", "minio:9000"),
+		MINIO_USE_SSL:         getEnv("MINIO_USE_SSL", "false"),
+		MINIO_DEFAULT_BUCKET:  getEnv("MINIO_DEFAULT_BUCKET", "default"),
+		MINIO_OBJECT_LOCKING:  getBoolEnv("MINIO_OBJECT_LOCKING", "false"),
+		OBJECT_SHARED:         getBoolEnv("OBJECT_SHARED", "false"),
+		OBJECT_SHARE_EXPIRE:   getEnv("OBJECT_SHARE_EXPIRE", "1440"),
+		ONLY_PRESIGNED_UPLOAD: getBoolEnv("ONLY_PRESIGNED_UPLOAD", "false"),
+		OBJECT_SIZE_THRESHOLD: getEnv("OBJECT_SIZE_THRESHOLD", "400000000"),
 
 		J_DISPATCHER:   getEnv("J_DISPATCHER", "default"),
 		J_EXECUTOR:     getEnv("J_EXECUTOR", "docker"),
@@ -135,7 +143,7 @@ func LoadConfig(path string) EnvConfig {
 
 		DB_JOBS:                getEnv("DB_JOBS", "jobs.db"),
 		DB_JOBS_DRIVER:         getEnv("DB_JOBS_DRIVER", "duckdb"),
-		DB_JOBS_PATH:           getEnv("DB_JOBS_PATH", "data/db"),
+		DB_JOBS_PATH:           getEnv("DB_JOBS_PATH", "data/db/uspace"),
 		DB_JOBS_MAX_OPEN_CONNS: getEnv("DB_JOBS_MAX_OPEN_CONNS", "50"),
 		DB_JOBS_MAX_IDLE_CONNS: getEnv("DB_JOBS_MAX_IDLE_CONNS", "10"),
 		DB_JOBS_MAX_LIFETIME:   getEnv("DB_JOBS_MAX_LIFETIME", "10"),

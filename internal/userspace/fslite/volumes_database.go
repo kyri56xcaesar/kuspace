@@ -18,7 +18,7 @@ import (
 )
 
 /* database call handlers regarding the Volume table */
-func GetAllVolumes(db *sql.DB) ([]ut.Volume, error) {
+func getAllVolumes(db *sql.DB) ([]ut.Volume, error) {
 	rows, err := db.Query(`
     SELECT
       *
@@ -45,8 +45,7 @@ func GetAllVolumes(db *sql.DB) ([]ut.Volume, error) {
 	return volumes, nil
 }
 
-func GetVolumeByVid(db *sql.DB, vid int) (ut.Volume, error) {
-
+func getVolumeByVid(db *sql.DB, vid int) (ut.Volume, error) {
 	var volume ut.Volume
 	err := db.QueryRow(`SELECT * FROM volumes WHERE vid = ?`, vid).Scan(volume.PtrFields()...)
 	if err != nil {
@@ -56,7 +55,17 @@ func GetVolumeByVid(db *sql.DB, vid int) (ut.Volume, error) {
 	return volume, nil
 }
 
-func UpdateVolume(db *sql.DB, volume ut.Volume) error {
+func getVolumeByName(db *sql.DB, name string) (ut.Volume, error) {
+	var volume ut.Volume
+	err := db.QueryRow(`SELECT * FROM volumes WHERE name = ?`, name).Scan(volume.PtrFields()...)
+	if err != nil {
+		log.Printf("failed to scan result query: %v", err)
+		return ut.Volume{}, err
+	}
+	return volume, nil
+}
+
+func updateVolume(db *sql.DB, volume ut.Volume) error {
 	query := `
 		UPDATE 
 			volumes
@@ -75,7 +84,7 @@ func UpdateVolume(db *sql.DB, volume ut.Volume) error {
 	return nil
 }
 
-func DeleteVolume(db *sql.DB, vid int) error {
+func deleteVolume(db *sql.DB, vid int) error {
 	tx, err := db.Begin()
 	if err != nil {
 		log.Printf("failed to begin transaction: %v", err)
@@ -95,11 +104,31 @@ func DeleteVolume(db *sql.DB, vid int) error {
 	return nil
 }
 
-func InsertVolume(db *sql.DB, volume ut.Volume) error {
+func deleteVolumeByName(db *sql.DB, name string) error {
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("failed to begin transaction: %v", err)
+		return err
+	}
+	_, err = tx.Exec("DELETE FROM volumes WHERE name = ?", name)
+	if err != nil {
+		log.Printf("failed to execute delete query: %v", err)
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("failed to commit transaction: %v", err)
+		return err
+	}
+	return nil
+}
+
+func insertVolume(db *sql.DB, volume ut.Volume) error {
 	_, err := db.Exec(`
 		INSERT INTO 
-			volumes (path, dynamic, capacity, usage) 
-		VALUES (nextval('seq_volumeid'), ?, ?, ?, ?, ?)`, volume.FieldsNoId()...)
+			volumes (vid, name, path, dynamic, capacity, usage, created_at) 
+		VALUES (nextval('seq_volumeid'), ?, ?, ?, ?, ?, ?)`, volume.FieldsNoId()...)
 	if err != nil {
 		log.Printf("error upon executing insert query: %v", err)
 		return err
@@ -107,17 +136,17 @@ func InsertVolume(db *sql.DB, volume ut.Volume) error {
 	return nil
 }
 
-func InsertVolumes(db *sql.DB, volumes []ut.Volume) error {
+func insertVolumes(db *sql.DB, volumes []ut.Volume) error {
 	tx, err := db.Begin()
 	if err != nil {
 		log.Printf("error starting transaction: %v", err)
 		return err
 	}
 
-	placeholder := strings.Repeat("(nextval('seq_volumeid'), ?, ?, ?),", len(volumes))
+	placeholder := strings.Repeat("(nextval('seq_volumeid'), ?, ?, ?, ?, ?, ?),", len(volumes))
 	query := fmt.Sprintf(`
     INSERT INTO 
-      volumes (vid, path, capacity, usage)
+		volumes (vid, name, path, dynamic, capacity, usage, created_at) 
     VALUES %s`, placeholder[:len(placeholder)-1])
 
 	stmt, err := tx.Prepare(query)
@@ -145,7 +174,7 @@ func InsertVolumes(db *sql.DB, volumes []ut.Volume) error {
 	return nil
 }
 
-func DeleteVolumeByIds(db *sql.DB, ids []int) error {
+func deleteVolumeByIds(db *sql.DB, ids []int) error {
 	if ids == nil {
 		return fmt.Errorf("must provide ids")
 	}
@@ -175,7 +204,7 @@ func DeleteVolumeByIds(db *sql.DB, ids []int) error {
 
 /* database call handlers regarding the UserVolume table */
 /* UNIQUE (vid, uid) pair*/
-func InsertUserVolume(db *sql.DB, uv ut.UserVolume) error {
+func insertUserVolume(db *sql.DB, uv ut.UserVolume) error {
 	// check for uniquness
 	var exists bool
 	err := db.QueryRow(`SELECT 1 FROM userVolume WHERE vid = ? AND uid = ? LIMIT 1;`, uv.Vid, uv.Uid).Scan(&exists)
@@ -201,7 +230,7 @@ func InsertUserVolume(db *sql.DB, uv ut.UserVolume) error {
 	return nil
 }
 
-func InsertUserVolumes(db *sql.DB, uvs []ut.UserVolume) error {
+func insertUserVolumes(db *sql.DB, uvs []ut.UserVolume) error {
 	currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 
 	tx, err := db.Begin()
@@ -242,7 +271,7 @@ func InsertUserVolumes(db *sql.DB, uvs []ut.UserVolume) error {
 	return nil
 }
 
-func DeleteUserVolumeByUid(db *sql.DB, uid int) error {
+func deleteUserVolumeByUid(db *sql.DB, uid int) error {
 	query := `DELETE FROM userVolume WHERE uid = ?`
 
 	_, err := db.Exec(query, uid)
@@ -253,7 +282,7 @@ func DeleteUserVolumeByUid(db *sql.DB, uid int) error {
 	return nil
 }
 
-func DeleteUserVolumeByVid(db *sql.DB, vid int) error {
+func deleteUserVolumeByVid(db *sql.DB, vid int) error {
 	query := `DELETE FROM userVolume WHERE vid = ?`
 
 	_, err := db.Exec(query, vid)
@@ -264,7 +293,7 @@ func DeleteUserVolumeByVid(db *sql.DB, vid int) error {
 	return nil
 }
 
-func UpdateUserVolume(db *sql.DB, uv ut.UserVolume) error {
+func updateUserVolume(db *sql.DB, uv ut.UserVolume) error {
 	query := `
 		UPDATE userVolume
 		SET usage = ?, quota = ?, updated_at = ?
@@ -281,7 +310,7 @@ func UpdateUserVolume(db *sql.DB, uv ut.UserVolume) error {
 	return nil
 }
 
-func UpdateUserVolumeQuotaByUid(db *sql.DB, quota float32, uid int) error {
+func updateUserVolumeQuotaByUid(db *sql.DB, quota float32, uid int) error {
 	query := `
     UPDATE 
       userVolume
@@ -307,7 +336,7 @@ func UpdateUserVolumeQuotaByUid(db *sql.DB, quota float32, uid int) error {
 	return nil
 }
 
-func UpdateUserVolumeUsageByUid(db *sql.DB, usage float32, uid int) error {
+func updateUserVolumeUsageByUid(db *sql.DB, usage float32, uid int) error {
 	query := `
     UPDATE 
       userVolume
@@ -333,7 +362,7 @@ func UpdateUserVolumeUsageByUid(db *sql.DB, usage float32, uid int) error {
 	return nil
 }
 
-func UpdateUserVolumeQuotaAndUsageByUid(db *sql.DB, usage, quota float32, uid int) error {
+func updateUserVolumeQuotaAndUsageByUid(db *sql.DB, usage, quota float32, uid int) error {
 
 	query := `
     UPDATE 
@@ -360,7 +389,7 @@ func UpdateUserVolumeQuotaAndUsageByUid(db *sql.DB, usage, quota float32, uid in
 	return nil
 }
 
-func GetAllUserVolumes(db *sql.DB) (interface{}, error) {
+func getAllUserVolumes(db *sql.DB) (interface{}, error) {
 	query := `SELECT * FROM userVolume`
 
 	rows, err := db.Query(query, nil)
@@ -386,7 +415,7 @@ func GetAllUserVolumes(db *sql.DB) (interface{}, error) {
 	return userVolumes, nil
 }
 
-func GetUserVolumeByUid(db *sql.DB, uid int) (ut.UserVolume, error) {
+func getUserVolumeByUid(db *sql.DB, uid int) (ut.UserVolume, error) {
 	query := `SELECT * FROM userVolume WHERE uid = ?`
 
 	var userVolume ut.UserVolume
@@ -397,7 +426,7 @@ func GetUserVolumeByUid(db *sql.DB, uid int) (ut.UserVolume, error) {
 	return userVolume, nil
 }
 
-func GetUserVolumesByUserIds(db *sql.DB, uids []string) (interface{}, error) {
+func getUserVolumesByUserIds(db *sql.DB, uids []string) (interface{}, error) {
 
 	query := `
 			SELECT * FROM userVolume WHERE uid IN (?` + strings.Repeat(",?", len(uids)-1) + `)
@@ -435,7 +464,7 @@ func GetUserVolumesByUserIds(db *sql.DB, uids []string) (interface{}, error) {
 	return userVolumes, nil
 }
 
-func GetUserVolumesByVolumeIds(db *sql.DB, vids []string) (interface{}, error) {
+func getUserVolumesByVolumeIds(db *sql.DB, vids []string) (interface{}, error) {
 	query := `
 			SELECT * FROM userVolume WHERE vid IN (?` + strings.Repeat(",?", len(vids)-1) + `)
 		`
@@ -471,7 +500,7 @@ func GetUserVolumesByVolumeIds(db *sql.DB, vids []string) (interface{}, error) {
 	return userVolumes, nil
 }
 
-func GetUserVolumesByUidsAndVids(db *sql.DB, uids, vids []string) (interface{}, error) {
+func getUserVolumesByUidsAndVids(db *sql.DB, uids, vids []string) (interface{}, error) {
 	query := `
 		SELECT 
       * 
@@ -515,7 +544,7 @@ func GetUserVolumesByUidsAndVids(db *sql.DB, uids, vids []string) (interface{}, 
 /* database call handlers regarding the GroupVolume tabke*/
 
 /* UNIQUE pair (gid, vid) SHOULD BE (we checking)*/
-func InsertGroupVolume(db *sql.DB, gv ut.GroupVolume) error {
+func insertGroupVolume(db *sql.DB, gv ut.GroupVolume) error {
 	// check for uniquness
 	var exists bool
 	err := db.QueryRow(`SELECT 1 FROM groupVolume WHERE vid = ? AND gid = ? LIMIT 1;`, gv.Vid, gv.Gid).Scan(&exists)
@@ -542,7 +571,7 @@ func InsertGroupVolume(db *sql.DB, gv ut.GroupVolume) error {
 	return nil
 }
 
-func InsertGroupVolumes(db *sql.DB, gvs []ut.GroupVolume) error {
+func insertGroupVolumes(db *sql.DB, gvs []ut.GroupVolume) error {
 	currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 
 	tx, err := db.Begin()
@@ -583,7 +612,7 @@ func InsertGroupVolumes(db *sql.DB, gvs []ut.GroupVolume) error {
 	return nil
 }
 
-func DeleteGroupVolumeByGid(db *sql.DB, gid int) error {
+func deleteGroupVolumeByGid(db *sql.DB, gid int) error {
 	query := `DELETE FROM groupVolume WHERE gid = ?`
 
 	_, err := db.Exec(query, gid)
@@ -594,7 +623,7 @@ func DeleteGroupVolumeByGid(db *sql.DB, gid int) error {
 	return nil
 }
 
-func DeleteGroupVolumeByVid(db *sql.DB, vid int) error {
+func deleteGroupVolumeByVid(db *sql.DB, vid int) error {
 	query := `DELETE FROM groupVolume WHERE vid = ?`
 
 	_, err := db.Exec(query, vid)
@@ -605,7 +634,7 @@ func DeleteGroupVolumeByVid(db *sql.DB, vid int) error {
 	return nil
 }
 
-func UpdateGroupVolume(db *sql.DB, gv ut.GroupVolume) error {
+func updateGroupVolume(db *sql.DB, gv ut.GroupVolume) error {
 
 	query := `
 		UPDATE groupVolume
@@ -623,7 +652,7 @@ func UpdateGroupVolume(db *sql.DB, gv ut.GroupVolume) error {
 	return nil
 }
 
-func UpdateGroupVolumes(db *sql.DB, gvs []ut.GroupVolume) error {
+func updateGroupVolumes(db *sql.DB, gvs []ut.GroupVolume) error {
 	if len(gvs) == 0 {
 		return nil // No updates needed
 	}
@@ -668,7 +697,7 @@ func UpdateGroupVolumes(db *sql.DB, gvs []ut.GroupVolume) error {
 	return nil
 }
 
-func UpdateGroupVolumesUsageByGids(db *sql.DB, gids []string) error {
+func updateGroupVolumesUsageByGids(db *sql.DB, gids []string) error {
 	query := `
     UPDATE groupVolume 
     SET usage = ? 
@@ -695,7 +724,7 @@ func UpdateGroupVolumesUsageByGids(db *sql.DB, gids []string) error {
 	return nil
 }
 
-func UpdateGroupVolumeQuotaByGid(db *sql.DB, quota float32, gid int) error {
+func updateGroupVolumeQuotaByGid(db *sql.DB, quota float32, gid int) error {
 
 	query := `
     UPDATE 
@@ -722,7 +751,7 @@ func UpdateGroupVolumeQuotaByGid(db *sql.DB, quota float32, gid int) error {
 	return nil
 }
 
-func UpdateGroupVolumeUsageByGid(db *sql.DB, usage float32, gid int) error {
+func updateGroupVolumeUsageByGid(db *sql.DB, usage float32, gid int) error {
 
 	query := `
     UPDATE 
@@ -749,7 +778,7 @@ func UpdateGroupVolumeUsageByGid(db *sql.DB, usage float32, gid int) error {
 	return nil
 }
 
-func UpdateGroupVolumeQuotaAndUsageByUid(db *sql.DB, usage, quota float32, gid int) error {
+func updateGroupVolumeQuotaAndUsageByUid(db *sql.DB, usage, quota float32, gid int) error {
 
 	query := `
     UPDATE 
@@ -776,7 +805,7 @@ func UpdateGroupVolumeQuotaAndUsageByUid(db *sql.DB, usage, quota float32, gid i
 	return nil
 }
 
-func GetAllGroupVolumes(db *sql.DB) (interface{}, error) {
+func getAllGroupVolumes(db *sql.DB) (interface{}, error) {
 
 	query := `SELECT * FROM groupVolume`
 
@@ -803,7 +832,7 @@ func GetAllGroupVolumes(db *sql.DB) (interface{}, error) {
 	return groupVolumes, nil
 }
 
-func GetGroupVolumeByGid(db *sql.DB, gid int) (ut.GroupVolume, error) {
+func getGroupVolumeByGid(db *sql.DB, gid int) (ut.GroupVolume, error) {
 
 	query := `SELECT * FROM groupVolume WHERE gid = ?`
 	var groupVolume ut.GroupVolume
@@ -815,7 +844,7 @@ func GetGroupVolumeByGid(db *sql.DB, gid int) (ut.GroupVolume, error) {
 	return groupVolume, nil
 }
 
-func GetGroupVolumesByGroupIds(db *sql.DB, gids []string) (any, error) {
+func getGroupVolumesByGroupIds(db *sql.DB, gids []string) (any, error) {
 
 	query := `
 			SELECT * FROM groupVolume WHERE gid IN (?` + strings.Repeat(",?", len(gids)-1) + `)
@@ -852,7 +881,7 @@ func GetGroupVolumesByGroupIds(db *sql.DB, gids []string) (any, error) {
 	return groupVolumes, nil
 }
 
-func GetGroupVolumesByVolumeIds(db *sql.DB, vids []string) (interface{}, error) {
+func getGroupVolumesByVolumeIds(db *sql.DB, vids []string) (interface{}, error) {
 	query := `
 			SELECT * FROM groupVolume WHERE vid IN (?` + strings.Repeat(",?", len(vids)-1) + `)
 		`
@@ -888,7 +917,7 @@ func GetGroupVolumesByVolumeIds(db *sql.DB, vids []string) (interface{}, error) 
 	return groupVolumes, nil
 }
 
-func GetGroupVolumesByVidsAndGids(db *sql.DB, vids, gids []string) (any, error) {
+func getGroupVolumesByVidsAndGids(db *sql.DB, vids, gids []string) (any, error) {
 
 	query := `
 		SELECT 
@@ -929,7 +958,7 @@ func GetGroupVolumesByVidsAndGids(db *sql.DB, vids, gids []string) (any, error) 
 	return groupVolumes, nil
 }
 
-func InitResourceVolumeSpecific(db *sql.DB, database_path, volumes_path, capacity string) {
+func initResourceVolumeSpecific(db *sql.DB, database_path, volumes_path, capacity string) {
 
 	// specific initialization
 	var (
@@ -1017,7 +1046,7 @@ func InitResourceVolumeSpecific(db *sql.DB, database_path, volumes_path, capacit
 
 // updated, better, more inclusive funcs
 
-func GetVolumes(db *sql.DB, sel, table, by, byvalue string, limit int) ([]any, error) {
+func getVolumes(db *sql.DB, sel, table, by, byvalue string, limit int) ([]any, error) {
 	if sel == "" {
 		sel = "*"
 	}
@@ -1066,7 +1095,7 @@ func GetVolumes(db *sql.DB, sel, table, by, byvalue string, limit int) ([]any, e
 	return resources, nil
 }
 
-func GetVolume(db *sql.DB, sel, table, by, byvalue string) (any, error) {
+func getVolume(db *sql.DB, sel, table, by, byvalue string) (any, error) {
 	if sel == "" {
 		sel = "*"
 	}
@@ -1082,7 +1111,7 @@ func GetVolume(db *sql.DB, sel, table, by, byvalue string) (any, error) {
 	return r, nil
 }
 
-func GetUserVolumes(db *sql.DB, sel, table, by, byvalue string, limit int) ([]any, error) {
+func getUserVolumes(db *sql.DB, sel, table, by, byvalue string, limit int) ([]any, error) {
 	if sel == "" {
 		sel = "*"
 	}
@@ -1131,7 +1160,7 @@ func GetUserVolumes(db *sql.DB, sel, table, by, byvalue string, limit int) ([]an
 	return resources, nil
 }
 
-func GetUserVolume(db *sql.DB, sel, table, by, byvalue string) (any, error) {
+func getUserVolume(db *sql.DB, sel, table, by, byvalue string) (any, error) {
 	if sel == "" {
 		sel = "*"
 	}
@@ -1147,7 +1176,7 @@ func GetUserVolume(db *sql.DB, sel, table, by, byvalue string) (any, error) {
 	return r, nil
 }
 
-func GetGroupVolumes(db *sql.DB, sel, table, by, byvalue string, limit int) ([]any, error) {
+func getGroupVolumes(db *sql.DB, sel, table, by, byvalue string, limit int) ([]any, error) {
 	if sel == "" {
 		sel = "*"
 	}
@@ -1196,7 +1225,7 @@ func GetGroupVolumes(db *sql.DB, sel, table, by, byvalue string, limit int) ([]a
 	return resources, nil
 }
 
-func GetGroupVolume(db *sql.DB, sel, table, by, byvalue string) (any, error) {
+func getGroupVolume(db *sql.DB, sel, table, by, byvalue string) (any, error) {
 	if sel == "" {
 		sel = "*"
 	}

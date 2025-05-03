@@ -5,7 +5,7 @@ import (
 )
 
 func main() {
-	m := minioth.NewMinioth("root", true, "minioth.db")
-	srv := minioth.NewMSerivce(&m, "configs/minioth.env")
+	m := minioth.NewMinioth("root", true, "data/db/minioth/minioth.db")
+	srv := minioth.NewMSerivce(&m, "configs/minioth.conf")
 	srv.ServeHTTP()
 }

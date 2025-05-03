@@ -16,6 +16,32 @@ import (
 	"time"
 )
 
+const (
+	initSqlJobs = `
+	CREATE TABLE IF NOT EXISTS jobs (
+		jid INTEGER PRIMARY KEY,
+		uid INTEGER,
+		description TEXT,
+		duration FLOAT,
+		input TEXT,
+		input_format TEXT,
+		output TEXT,
+		output_format TEXT,
+		logic TEXT,
+		logic_body TEXT,
+		logic_headers TEXT,
+		parameters TEXT,
+		status TEXT,
+		completed BOOLEAN,
+		created_at DATETIME,
+		completed_at DATETIME,
+		parallelism INTEGER,
+		priority INTEGER,
+	);
+	CREATE SEQUENCE IF NOT EXISTS seq_jobid START 1;
+`
+)
+
 // feels wierd, lastid inserted doesnt work...
 func (srv *UService) InsertJob(jb ut.Job) (int64, error) {
 	// log.Printf("inserting job in db: %+v", jb)

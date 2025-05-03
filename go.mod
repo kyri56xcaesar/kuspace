@@ -6,22 +6,26 @@ require (
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-contrib/static v1.1.2
 	github.com/gin-gonic/gin v1.10.0
+	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kyri56xcaesar/minioth v1.0.2
 	github.com/marcboeker/go-duckdb v1.8.4
 	github.com/minio/minio-go/v7 v7.0.90
 	github.com/zeebo/assert v1.3.0
+	golang.org/x/crypto v0.36.0
 	golang.org/x/oauth2 v0.24.0
 	golang.org/x/sys v0.31.0
+	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.32.3
 	k8s.io/apimachinery v0.32.3
 	k8s.io/client-go v0.32.3
 )
 
-replace github.com/kyri56xcaesar/minioth => github.com/kyri56xcaesar/minioth v1.0.3
+// replace github.com/kyri56xcaesar/minioth => github.com/kyri56xcaesar/minioth v1.0.3
 
-// replace github.com/kyri56xcaesar/minioth v1.0.2 => ../minioth
+replace github.com/kyri56xcaesar/minioth v1.0.2 => ../minioth
 
 require (
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
@@ -46,13 +50,11 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/flatbuffers v25.2.10+incompatible // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
@@ -75,7 +77,6 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect
 	golang.org/x/arch v0.14.0 // indirect
-	golang.org/x/crypto v0.36.0 // indirect
 	golang.org/x/exp v0.0.0-20250215185904-eff6e970281f // indirect
 	golang.org/x/mod v0.23.0 // indirect
 	golang.org/x/net v0.38.0 // indirect

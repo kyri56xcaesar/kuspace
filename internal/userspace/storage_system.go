@@ -16,8 +16,8 @@ type StorageSystem interface {
 
 	CreateVolume(volumeId any) error
 
-	SelectVolumes(how map[string]any) ([]any, error)
-	SelectObjects(how map[string]any) ([]any, error)
+	SelectVolumes(how map[string]any) (any, error)
+	SelectObjects(how map[string]any) (any, error)
 
 	Insert(t any) (context.CancelFunc, error)
 	Download(t *any) (context.CancelFunc, error)

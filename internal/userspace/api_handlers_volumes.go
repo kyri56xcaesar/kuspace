@@ -68,7 +68,7 @@ func (srv *UService) HandleVolumes(c *gin.Context) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 				return
 			}
-			err = volume.Validate()
+			err = volume.Validate(0, 0)
 			if err != nil {
 				log.Printf("failed to validate the volume info: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -85,7 +85,7 @@ func (srv *UService) HandleVolumes(c *gin.Context) {
 		// array of volumes
 		// insert them iteratevly
 		for _, volume := range volumes {
-			err = volume.Validate()
+			err = volume.Validate(0, 0)
 			if err != nil {
 				log.Printf("failed to validate the volume info: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
