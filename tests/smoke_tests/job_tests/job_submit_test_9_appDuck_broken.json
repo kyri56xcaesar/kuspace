@@ -1,0 +1,10 @@
+{
+    "uid":0,
+    "description":"testing if duckdb query job works with broken logic",
+    "input_format":"csv",
+    "input":"test/small_csv_out.csv",
+    "output":"test_out_jd_broken.csv",
+    "output_format":"csv",
+    "logic":"application/duckdb:v1",
+    "logic_body":"samalaamamamma"
+}

@@ -41,11 +41,11 @@ spec:
     - minio server /data --console-address :9090
     resources:
       limits:
-        memory: "512Mi"
-        cpu: "500m"
+        memory: "4Gi"
+        cpu: "4000m"
       requests:
-        memory: "256Mi"
-        cpu: "250m"
+        memory: "2Gi"
+        cpu: "2000m"
     volumeMounts:
       - name: minio-storage # Corresponds to the `spec.volumes` Persistent Volume
         mountPath: /data

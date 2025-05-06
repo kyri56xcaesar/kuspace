@@ -12,7 +12,7 @@ FROM debian:bookworm-slim
 WORKDIR /root/
 RUN apt-get update && apt-get install -y libstdc++6 
 COPY --from=builder /app/cmd/userspace/userspace .
-COPY ./configs/userspace.env ./configs/ 
+COPY ./configs/userspace.conf ./configs/ 
 
 RUN chmod +x /root/userspace
 CMD ["./userspace"]

@@ -95,7 +95,7 @@ func BindAccessTarget(http_header string) (ut.AccessClaim, error) {
 	ac.Uid = uid
 	ac.Gids = gids
 
-	log.Printf("ac: %+v", ac)
+	log.Printf("[Middleware] Request header binded: \t(who) %v:%v \t(what) %v:%v:%v", ac.Uid, ac.Gids, ac.Vid, ac.Vname, ac.Target)
 
 	return ac, nil
 }

@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	fslite_data_path    string  = "data/volumes"
+	fslite_data_path    string  = "data/volumes/fslite"
 	default_volume_name string  = "default_ku_space_volume"
 	default_volume_cap  float64 = 20
 	max_volume_cap      float64 = 100

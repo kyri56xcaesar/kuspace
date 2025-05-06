@@ -12,6 +12,7 @@ import (
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -27,12 +28,14 @@ func NewJKubernetesExecutor(jm *JobManager) JKubernetesExecutor {
 }
 
 func (jke JKubernetesExecutor) ExecuteJob(job ut.Job) error {
+	defer func() { <-jke.jm.workerPool }() // release worker slot
 	executeK8sJob(&jke, job)
 	return nil
 }
 func (jke JKubernetesExecutor) CancelJob(job ut.Job) error {
 	cancelJob(k.GetKubeClient(), fmt.Sprintf("job-%d", job.Jid), "default")
 	return nil
+
 }
 
 func buildK8sJob(
@@ -40,6 +43,7 @@ func buildK8sJob(
 	image string,
 	command []string,
 	env map[string]string,
+	quotas map[string]string,
 	parallelism int32,
 ) *batchv1.Job {
 	envVars := []corev1.EnvVar{}
@@ -49,7 +53,8 @@ func buildK8sJob(
 
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("job-%s", jobID),
+			Name:   fmt.Sprintf("job-%s", jobID),
+			Labels: map[string]string{"job-group": "uspace-job"},
 		},
 		Spec: batchv1.JobSpec{
 			Parallelism:  &parallelism,
@@ -63,6 +68,16 @@ func buildK8sJob(
 						Image:   image,
 						Command: command,
 						Env:     envVars,
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse(quotas["RMem"]),
+								corev1.ResourceCPU:    resource.MustParse(quotas["RCpu"]),
+							},
+							Limits: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse(quotas["LMem"]),
+								corev1.ResourceCPU:    resource.MustParse(quotas["LCpu"]),
+							},
+						},
 					}},
 				},
 			},
@@ -155,6 +170,7 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 		job.Logic,
 		command,
 		job.Env,
+		map[string]string{"RMem": job.MemoryRequest, "RCpu": job.CpuRequest, "LMem": job.MemoryLimit, "LCpu": job.CpuLimit},
 		int32(job.Parallelism), // parallelism // should default to 1
 	)
 
@@ -247,6 +263,22 @@ func formatJobData(je *JKubernetesExecutor, job *ut.Job) error {
 	}
 	if job.Parallelism == 0 { //default parallelism
 		job.Parallelism = 1
+	}
+
+	if job.MemoryLimit == "" {
+		job.MemoryLimit = "4Gi" // default limit
+	}
+
+	if job.CpuLimit == "" {
+		job.CpuLimit = "1000m"
+	}
+
+	if job.MemoryRequest == "" {
+		job.MemoryRequest = "2Gi"
+	}
+
+	if job.CpuRequest == "" {
+		job.CpuRequest = "500m"
 	}
 
 	envMap["ENDPOINT"] = je.jm.srv.config.MINIO_ENDPOINT

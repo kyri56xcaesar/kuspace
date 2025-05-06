@@ -1,0 +1,10 @@
+{
+    "uid":0,
+    "description":"testing if a more complex duckdb query job works",
+    "input_format":"csv",
+    "input":"test/small_csv_out.csv",
+    "output":"test_out_jd_complex.csv",
+    "output_format":"csv",
+    "logic":"application/duckdb:v1",
+    "logic_body":"SELECT * FROM (SELECT \"header-kimch\", COUNT(*) FROM #% GROUP BY 1 ORDER BY COUNT(*) DESC LIMIT 2)"
+}

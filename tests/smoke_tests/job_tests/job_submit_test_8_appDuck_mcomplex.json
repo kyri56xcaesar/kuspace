@@ -1,0 +1,53 @@
+[
+    {
+        "uid":0,
+        "description":"1]testing if a more complex duckdb query job works",
+        "input_format":"csv",
+        "input":"test/small_csv_out.csv",
+        "output":"test_out_jd_mcomplex_1.csv",
+        "output_format":"csv",
+        "logic":"application/duckdb:v1",
+        "logic_body":"SELECT * FROM (SELECT \"header-kimch\", COUNT(*) FROM #% GROUP BY 1 ORDER BY COUNT(*) DESC LIMIT 2)"
+    },
+    {
+        "uid":0,
+        "description":"2]testing if a more complex duckdb query job works",
+        "input_format":"csv",
+        "input":"test/small_csv_out.csv",
+        "output":"test_out_jd_mcomplex_2.csv",
+        "output_format":"csv",
+        "logic":"application/duckdb:v1",
+        "logic_body":"SELECT * FROM (SELECT \"header-kimch\", COUNT(*) FROM #% GROUP BY 1 ORDER BY COUNT(*) DESC LIMIT 2)"
+    },
+    {
+        "uid":0,
+        "description":"3]testing if a more complex duckdb query job works",
+        "input_format":"csv",
+        "input":"test/small_csv_out.csv",
+        "output":"test_out_jd_mcomplex_3.csv",
+        "output_format":"csv",
+        "logic":"application/duckdb:v1",
+        "logic_body":"SELECT * FROM (SELECT \"header-kimch\", COUNT(*) FROM #% GROUP BY 1 ORDER BY COUNT(*) DESC LIMIT 2)"
+    },
+    {
+        "uid":0,
+        "description":"4]testing if a more complex duckdb query job works",
+        "input_format":"csv",
+        "input":"test/small_csv_out.csv",
+        "output":"test_out_jd_mcomplex_4.csv",
+        "output_format":"csv",
+        "logic":"application/duckdb:v1",
+        "logic_body":"SELECT * FROM (SELECT \"header-kimch\", COUNT(*) FROM #% GROUP BY 1 ORDER BY COUNT(*) DESC LIMIT 2)"
+    },
+    {
+        "uid":0,
+        "description":"5]testing if a more complex duckdb query job works",
+        "input_format":"csv",
+        "input":"test/small_csv_out.csv",
+        "output":"test_out_jd_mcomplex_5.csv",
+        "output_format":"csv",
+        "logic":"application/duckdb:v1",
+        "logic_body":"SELECT * FROM (SELECT \"header-kimch\", COUNT(*) FROM #% GROUP BY 1 ORDER BY COUNT(*) DESC LIMIT 2)"
+    }
+    
+]

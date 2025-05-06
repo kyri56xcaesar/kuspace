@@ -3,6 +3,7 @@ import os
 
 
 # get env vars
+placeholder = "#%"
 query = os.getenv("LOGIC", "SELECT * FROM read_csv_auto('input.csv');")
 
 input_bucket = os.getenv("INPUT_BUCKET", "uspace-default")
@@ -29,13 +30,15 @@ print(f"[INFO] MinIO endpoint: {minio_endpoint}")
 
 # should format input query to read from s3://{input_bucket}/{input_object}
 if input_format == "csv":
-    query = query.replace("%", f"read_csv_auto('s3://{input_bucket}/{input_object}')")
+    query = query.replace(placeholder, f"read_csv_auto('s3://{input_bucket}/{input_object}')")
 elif input_format == "json":
-    query = query.replace("%", f"read_json_auto('s3://{input_bucket}/{input_object}')")
+    query = query.replace(placeholder, f"read_json_auto('s3://{input_bucket}/{input_object}')")
 elif input_format == "parquet":
-    query = query.replace("%", f"read_parquet('s3://{input_bucket}/{input_object}')")
+    query = query.replace(placeholder, f"read_parquet('s3://{input_bucket}/{input_object}')")
+elif input_format == "txt" or input_format == "text" or input_format == "str":
+    query = query.replace(placeholder, f"read_csv_auto('s3://{input_bucket}/{input_object}', delim='\\n', header=False)")
 else:
-    query = query.replace("%", f"read_csv_auto('s3://{input_bucket}/{input_object}')")
+    query = query.replace(placeholder, f"read_csv_auto('s3://{input_bucket}/{input_object}')")
 
 
 print(f"[INFO] Updated query: {query}")

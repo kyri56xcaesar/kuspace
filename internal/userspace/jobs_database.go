@@ -67,7 +67,7 @@ func (srv *UService) InsertJob(jb ut.Job) (int64, error) {
 		return -1, err
 	}
 
-	log.Printf("last inserted id: %v", jid)
+	// log.Printf("[Database] Inserted job id: %v", jid)
 
 	// perhaps we require the id, but letgo for now
 	return jid, nil

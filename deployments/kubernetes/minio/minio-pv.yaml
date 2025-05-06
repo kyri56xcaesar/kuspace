@@ -12,5 +12,5 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: manual
   hostPath:
-    path: /host_mnt/c/Users/kyri/minio-storage # change this path in the future
+    path: /var/lib/docker/volumes/minio-data/_data
     type: DirectoryOrCreate

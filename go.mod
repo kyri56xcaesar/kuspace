@@ -23,9 +23,9 @@ require (
 	k8s.io/client-go v0.32.3
 )
 
-// replace github.com/kyri56xcaesar/minioth => github.com/kyri56xcaesar/minioth v1.0.3
+replace github.com/kyri56xcaesar/minioth => github.com/kyri56xcaesar/minioth v1.0.4
 
-replace github.com/kyri56xcaesar/minioth v1.0.2 => ../minioth
+// replace github.com/kyri56xcaesar/minioth v1.0.2 => ../minioth
 
 require (
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect

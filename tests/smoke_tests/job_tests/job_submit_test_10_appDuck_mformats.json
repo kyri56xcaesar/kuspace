@@ -1,0 +1,32 @@
+[
+    {
+        "uid":0,
+        "description":"testing duckdb job queries on different input formats",
+        "input_format":"parquet",
+        "input":"test/test.parquet",
+        "output":"test_out_jd_mformats_1.parquet",
+        "output_format":"parquet",
+        "logic":"application/duckdb:v1",
+        "logic_body":"SELECT * FROM #%"
+    },
+    {
+        "uid":0,
+        "description":"testing duckdb job queries on different input formats",
+        "input_format":"json",
+        "input":"test/test.json",
+        "output":"test_out_jd_mformats_2.json",
+        "output_format":"json",
+        "logic":"application/duckdb:v1",
+        "logic_body":"SELECT \"header-Cu\", \"header-DE\", * FROM #% WHERE \"header-Cu\" LIKE 'X%'"
+    },
+    {
+        "uid":0,
+        "description":"testing duckdb job queries on different input formats",
+        "input_format":"csv",
+        "input":"test/small_csv_out.csv",
+        "output":"test_out_jd_mformats_3.csv",
+        "output_format":"csv",
+        "logic":"application/duckdb:v1",
+        "logic_body":"SELECT * FROM (SELECT \"header-kimch\", COUNT(*) FROM #% GROUP BY 1 ORDER BY COUNT(*) DESC LIMIT 2)"
+    }
+]

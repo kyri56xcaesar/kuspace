@@ -128,7 +128,7 @@ func (srv *UService) HandleJob(c *gin.Context) {
 			return
 		}
 		job.Jid = jid
-		log.Printf("jid acquired: %d", jid)
+		log.Printf("[Database] Job id acquired: %d", jid)
 		// "publish" job
 		err = srv.jdp.PublishJob(job)
 		if err != nil {

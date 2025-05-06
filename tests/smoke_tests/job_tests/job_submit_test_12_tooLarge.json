@@ -1,0 +1,14 @@
+{
+    "uid":0,
+    "description":"testing a large file i/o",
+    "input_format":"txt",
+    "input":"test/test_dataset_random_xl.txt",
+    "output":"test_out_large_dataset.csv",
+    "output_format":"csv",
+    "logic":"application/duckdb:v1",
+    "logic_body":"WITH numbered AS (SELECT row_number() OVER () AS row_id, column0 AS file FROM read_csv_auto('s3://test/test_dataset_random_xl.txt', delim='\n', header=False)) SELECT (row_id - 1) / 100 AS group_id, array_agg(file) AS lines_batch FROM numbered GROUP BY group_id ORDER BY group_id",
+    "memory_request":"8Gi",
+    "memory_limit":"16Gi",
+    "cpu_request":"4",
+    "cpu_limit":"4"
+}

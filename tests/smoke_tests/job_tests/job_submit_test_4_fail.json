@@ -1,0 +1,8 @@
+{
+    "uid":0,
+    "description":"running as a python kube code job!!",
+    "input":"`escape`",
+    "output":"../../../../etc/passwd",
+    "logic":"bash",
+    "logic_body":"ls"
+}

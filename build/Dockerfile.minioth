@@ -11,7 +11,7 @@ FROM debian:bookworm-slim
 WORKDIR /root/
 RUN apt-get update && apt-get install -y libstdc++6 
 COPY --from=builder /app/cmd/minioth/minioth .
-COPY ./configs/minioth.env ./configs/ 
+COPY ./configs/minioth.conf ./configs/ 
 
 RUN chmod +x /root/minioth
 CMD ["./minioth"]

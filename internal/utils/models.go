@@ -401,6 +401,14 @@ type Job struct {
 	Parallelism int `json:"parallelism,omitempty"`
 	Priority    int `json:"priority,omitempty"`
 
+	MemoryRequest string `json:"memory_request,omitempty"`
+	CpuRequest    string `json:"cpu_request,omitempty"`
+	MemoryLimit   string `json:"memory_limit,omitempty"`
+	CpuLimit      string `json:"cpu_limit,omitempty"`
+
+	EphimeralStorageRequest string `json:"ephimeral_storage_request,omitempty"`
+	EphimeralStorageLimit   string `json:"ephimeral_storage_limit,omitempty"`
+
 	Description string  `json:"description,omitempty"`
 	Duration    float64 `json:"duration,omitempty"`
 

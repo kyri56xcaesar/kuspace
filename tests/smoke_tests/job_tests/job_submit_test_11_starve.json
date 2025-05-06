@@ -1,0 +1,10 @@
+{
+    "uid":0,
+    "description":"testing a large file i/o with complex logic",
+    "input_format":"csv",
+    "input":"test/large_csv_dataset.csv",
+    "output":"test_out_large_dataset.csv",
+    "output_format":"csv",
+    "logic":"application/duckdb:v1",
+    "logic_body":"SELECT * FROM (SELECT \"header-p2THq\", COUNT(*) FROM #% GROUP BY 1 ORDER BY COUNT(*) DESC LIMIT 2)"
+}

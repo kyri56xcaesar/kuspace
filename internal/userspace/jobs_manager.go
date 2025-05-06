@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	ut "kyri56xcaesar/myThesis/internal/utils"
 
@@ -33,7 +32,7 @@ type JobDispatcherImpl struct {
 }
 
 func (j JobDispatcherImpl) Start() {
-	j.Manager.StartWorker()
+	j.Manager.StartDispatcher()
 }
 
 /* dispatching Jobs interface methods */
@@ -122,12 +121,13 @@ func NewJobManager(srv *UService) JobManager {
 	return jm
 }
 
-func (jm *JobManager) StartWorker() {
-	log.Printf("starting worker")
-	log.Printf("jobQueue length: %v", len(jm.jobQueue))
+func (jm *JobManager) StartDispatcher() {
+	log.Printf("[Scheduler] Starting worker")
 	go func() {
 		for job := range jm.jobQueue {
+			log.Printf("[Scheduler] Job received: ID=%d. Waiting for available worker slot...", job.Jid)
 			jm.workerPool <- struct{}{} // Acquire worker slot
+			log.Printf("[Scheduler] Assigned job ID=%ds to a worker. Active workers: %d/%d", job.Jid, len(jm.workerPool), cap(jm.workerPool))
 			// the worker itself will release it
 			go jm.executor.ExecuteJob(job) // Spawn worker goroutine
 		}
@@ -135,21 +135,19 @@ func (jm *JobManager) StartWorker() {
 }
 
 func (jm *JobManager) ScheduleJob(jb ut.Job) error {
-	log.Printf("scheduling job...")
-
-	jm.mu.Lock()
-	defer jm.mu.Unlock()
-	// if _, exists := jm.jobs[jb.Jid]; exists {
-	// 	return fmt.Errorf("job %d already exists", jb.Jid)
-	// }
+	log.Printf("[Scheduler] Scheduling job... ID=%d", jb.Jid)
 
 	jb.Status = "queued"
-	jb.Created_at = time.Now().Format(time.RFC3339)
-	// jm.jobs[jb.Jid] = &jb
-	jm.jobQueue <- jb
+	jb.Created_at = ut.CurrentTime()
 
-	// log.Printf("Job %d submitted\n", jb.Jid)
-	return nil
+	select {
+	case jm.jobQueue <- jb:
+		log.Printf("[Scheduler] Job ID=%d added to queue. Current queue length: %d/%d", jb.Jid, len(jm.jobQueue), cap(jm.jobQueue))
+		return nil
+	default:
+		log.Printf("⚠️ [Scheduler] Job queue full! Job ID=%d rejected", jb.Jid)
+		return fmt.Errorf("job queue full")
+	}
 }
 
 func (js *JobManager) CancelJob(jid int) error {
