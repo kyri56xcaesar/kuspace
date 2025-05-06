@@ -5,6 +5,7 @@ metadata:
   labels:
     app: minio
   namespace: default
+  #namespace: kuspace
 spec:
   type: NodePort
   selector:

@@ -3,11 +3,13 @@ kind: ServiceAccount
 metadata:
   name: job-runner
   namespace: default
+  #namespace: kuspace
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   namespace: default
+  #namespace: kuspace
   name: job-manager
 rules:
 - apiGroups: ["batch"]
@@ -19,10 +21,13 @@ kind: RoleBinding
 metadata:
   name: job-manager-binding
   namespace: default
+  #namespace: kuspace
 subjects:
 - kind: ServiceAccount
   name: job-runner
   namespace: default
+ #namespace: kuspace
+
 roleRef:
   kind: Role
   name: job-manager

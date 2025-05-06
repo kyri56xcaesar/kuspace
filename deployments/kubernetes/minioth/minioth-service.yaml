@@ -5,6 +5,7 @@ metadata:
   labels:
     app: minioth
   namespace: default 
+  #namespace: kuspace
 spec:
   clusterIP: None
   selector:

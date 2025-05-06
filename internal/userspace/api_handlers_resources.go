@@ -28,6 +28,21 @@ import (
 * this should behave as:
 * 'ls'
 * */
+//
+// @Summary     List resources (like `ls`)
+// @Description Returns resources for a given access context. Supports list, tree, or content views.
+// @Tags        resources
+// @Accept      json
+// @Produce     json
+//
+// @Param       limit    query     int     false  "Maximum number of results"
+// @Param       struct   query     string  false  "Output structure: list, tree, or content"  Enums(list,tree,content)
+//
+// @Success     200      {object}  map[string]interface{}  "Resources or resource tree"
+// @Failure     404      {object}  map[string]string       "No resources found"
+// @Failure     500      {object}  map[string]string       "Internal server error"
+//
+// @Router      /resources [get]
 func (srv *UService) getResourcesHandler(c *gin.Context) {
 	l := c.Request.URL.Query().Get("limit")
 	limit, err := strconv.Atoi(l)
@@ -93,6 +108,16 @@ func (srv *UService) getResourcesHandler(c *gin.Context) {
 	}
 }
 
+// @Summary     Delete a resource
+// @Description Deletes the resource specified by the access claim in the request context.
+// @Tags        resources
+// @Accept      json
+// @Produce     json
+//
+// @Success     200  {object}  map[string]string  "Resource deleted successfully"
+// @Failure     500  {object}  map[string]string  "Internal server error or access claim missing"
+//
+// @Router      /resource/rm [delete]
 func (srv *UService) rmResourceHandler(c *gin.Context) {
 	// get header
 	ac_h, exists := c.Get("accessTarget")
@@ -118,6 +143,19 @@ func (srv *UService) rmResourceHandler(c *gin.Context) {
 	})
 }
 
+// @Summary     Move a resource
+// @Description Moves a resource (copy + delete) to another bucket/object path using the `dest` query parameter.
+// @Tags        resources
+// @Accept      json
+// @Produce     json
+//
+// @Param       dest  query     string  true  "Destination path in 'bucket/object' format"
+//
+// @Success     200   {object}  map[string]string  "Resource moved successfully"
+// @Failure     400   {object}  map[string]string  "Invalid destination format or missing destination"
+// @Failure     500   {object}  map[string]string  "Copy or delete failed"
+//
+// @Router      /resource/mv [post]
 func (srv *UService) mvResourcesHandler(c *gin.Context) {
 	// get header
 	ac_h, exists := c.Get("accessTarget")
@@ -169,6 +207,19 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 	})
 }
 
+// @Summary     Copy a resource
+// @Description Copies a resource from one path to another using the `dest` query param in `bucket/object` format.
+// @Tags        resources
+// @Accept      json
+// @Produce     json
+//
+// @Param       dest  query     string  true  "Destination path in 'bucket/object' format"
+//
+// @Success     200   {object}  map[string]string  "Successful copy"
+// @Failure     400   {object}  map[string]string  "Bad request or missing destination"
+// @Failure     500   {object}  map[string]string  "Copy failed or internal error"
+//
+// @Router      /resource/cp [post]
 func (srv *UService) cpResourceHandler(c *gin.Context) {
 	// get header
 	ac_h, exists := c.Get("accessTarget")
@@ -190,7 +241,7 @@ func (srv *UService) cpResourceHandler(c *gin.Context) {
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad destination format 'bucket/object'"})
 		return
-	} //destV := parts[0] //destN := parts[1]
+	} // destV := parts[0] //destN := parts[1]
 
 	if err := srv.storage.Copy(
 		ut.Resource{
@@ -209,6 +260,18 @@ func (srv *UService) cpResourceHandler(c *gin.Context) {
 	c.JSON(200, gin.H{"message": "successful copy"})
 }
 
+// @Summary     Download a resource
+// @Description Downloads a single resource specified by the access context (must be a file, not a directory).
+// @Tags        resources
+// @Accept      json
+// @Produce     application/octet-stream
+//
+// @Success     200  {file}    binary  "File downloaded"
+// @Failure     400  {object}  map[string]string  "Bad request (e.g., target is a directory or vid is invalid)"
+// @Failure     404  {object}  map[string]string  "Resource not found"
+// @Failure     500  {object}  map[string]string  "Failed to access or stream the resource"
+//
+// @Router      /resource/download [get]
 func (srv *UService) handleDownload(c *gin.Context) {
 	/* 1]: parse location from header*/
 	// get header
@@ -264,10 +327,24 @@ func (srv *UService) handleDownload(c *gin.Context) {
 		"Content-Disposition": "attachment; filename=\"" + resource.Name + "\"",
 		"Content-Type":        "application/octet-stream",
 	})
-
 }
 
 /* the main endpoint handler for resource uploading */
+//
+// @Summary     Upload files
+// @Description Uploads one or more files to a specified resource path from multipart form data.
+// @Tags        resources
+// @Accept      multipart/form-data
+// @Produce     json
+//
+// @Param       files  formData  file  true  "Files to upload (multiple supported)"
+//
+// @Success     200    {object}  map[string]string  "Files uploaded successfully"
+// @Failure     400    {object}  map[string]string  "Bad request or form error"
+// @Failure     422    {object}  map[string]string  "Unprocessable entity (insertion error)"
+// @Failure     500    {object}  map[string]string  "Internal server error"
+//
+// @Router      /resource/upload [post]
 func (srv *UService) handleUpload(c *gin.Context) {
 	/* 1]: parse location from header*/
 	// get header

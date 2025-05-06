@@ -13,5 +13,6 @@ spec:
   storageClassName: uspace
   volumeMode: Filesystem
   hostPath:
-    path: /host_mnt/c/Users/kyri/uspace-storage # change this path in the future
+    #path: /host_mnt/c/Users/kyri/uspace-storage # windows path (wsl)
+    path: /mnt/uspace
     type: DirectoryOrCreate

@@ -4,7 +4,8 @@ metadata:
   name: frontapp
   labels:
     app: frontapp
-  namespace: default 
+  namespace: default
+  #namespace: kuspace
 spec:
   selector:
     matchLabels:
@@ -17,7 +18,7 @@ spec:
     spec:
       containers:
       - name: frontapp
-        image: kyri56xcaesar/kuspace/frontapp
+        image: kyri56xcaesar/kuspace/frontapp:latest
         imagePullPolicy: IfNotPresent
         resources:
           requests:

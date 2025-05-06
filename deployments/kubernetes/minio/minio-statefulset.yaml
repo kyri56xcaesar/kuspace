@@ -4,6 +4,7 @@ metadata:
   name: minio
   labels:
     app: minio
+#  namespace: kuspace
 spec:
   serviceName: minio 
   replicas: 1 
@@ -42,4 +43,6 @@ spec:
         persistentVolumeClaim:
           claimName: minio-pvc
       nodeSelector:
-        kubernetes.io/hostname: docker-desktop
+        #kubernetes.io/hostname: docker-desktop
+        kubernetes.io/hostname: minikube
+

@@ -22,6 +22,29 @@ import (
 )
 
 // Api call Handlers
+// HandleJob handles job creation (POST) and job querying (GET)
+//
+// @Summary     Get or submit jobs
+// @Description GET retrieves jobs by uid(s), jid, or returns all. POST submits one or multiple jobs.
+// @Tags        jobs
+// @Accept      json
+// @Produce     json
+//
+// @Param       limit   query     string  false  "Limit number of jobs"
+// @Param       offset  query     string  false  "Offset for pagination"
+// @Param       uids    query     string  false  "Comma-separated list of user IDs"
+// @Param       jids    query     string  false  "Job ID or '*' for all jobs"
+//
+// @Param       job     body      ut.Job     true  "Single job"      default({"uid":1,"input":"...","meta":"..."})
+// @Param       jobs    body      []ut.Job   true  "Multiple jobs"   default([{"uid":1},{"uid":2}])
+//
+// @Success     200     {object}  map[string]interface{}
+// @Failure     400     {object}  map[string]string
+// @Failure     405     {object}  map[string]string
+// @Failure     500     {object}  map[string]string
+//
+// @Router      /job [get]
+// @Router      /job [post]
 func (srv *UService) HandleJob(c *gin.Context) {
 	var (
 		job  ut.Job

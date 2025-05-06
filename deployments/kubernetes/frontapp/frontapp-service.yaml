@@ -5,6 +5,7 @@ metadata:
   labels:
     app: frontapp
   namespace: default 
+  #namespace: kuspace
 spec:
   selector:
     app: frontapp

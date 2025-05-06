@@ -4,6 +4,7 @@ metadata:
   name: minioth
   labels:
     app: minioth
+  #namespace: kuspace
 spec:
   selector:
     matchLabels:

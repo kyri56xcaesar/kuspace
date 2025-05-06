@@ -17,7 +17,33 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-/* HTTP Gin handlers related to volumes, uservolumes, groupvolumes, used by the api to handle endpoints*/
+// HandleVolumes manages volume resources (create, read, delete)
+//
+// @Summary     Manage volumes
+// @Description GET to list volumes, POST to create one or more, DELETE to remove by vid
+// @Tags        volumes
+// @Accept      json
+// @Produce     json
+//
+// @Param       vid    query     string        false  "Volume ID to filter (GET) or delete (DELETE)"
+// @Param       limit  query     string        false  "Limit number of returned volumes"
+// @Param       sort   query     string        false  "Sort order for volumes"
+//
+// @Param       volume body      ut.Volume     true   "Single volume object"
+// @Param       volumes body     []ut.Volume   true   "Array of volume objects"
+//
+// @Success     200     {object}  map[string]interface{}  "Success with content"
+// @Success     201     {object}  map[string]string       "Volume(s) created"
+// @Success     202     {object}  map[string]string       "Volume deleted"
+// @Failure     400     {object}  map[string]string       "Bad request or validation failure"
+// @Failure     405     {object}  map[string]string       "Method not allowed"
+// @Failure     500     {object}  map[string]string       "Internal server error"
+//
+// @Router      /volumes [get]
+// @Router      /volumes [post]
+// @Router      /volumes [delete]
+// @Router      /volumes [patch]
+// @Router      /volumes [put]
 func (srv *UService) HandleVolumes(c *gin.Context) {
 	switch c.Request.Method {
 	case http.MethodGet:

@@ -18,7 +18,8 @@ metadata:
   labels:
     app: minio
   name: minio
-  namespace: default # Change this value to match the namespace metadata.name
+  namespace: default 
+  #namespace: kuspace
 spec:
   volumes:
     - name: minio-storage
@@ -50,8 +51,8 @@ spec:
       - name: minio-storage # Corresponds to the `spec.volumes` Persistent Volume
         mountPath: /data
   nodeSelector:
-  #  kubernetes.io/hostname: minikube
-    kubernetes.io/hostname: docker-desktop
+    kubernetes.io/hostname: minikube
+  #  kubernetes.io/hostname: docker-desktop
   # kubernetes.io/hostname: kubealpha.local # Specify a node label associated to the Worker Node on which you want to deploy the pod.
   # volumes:
   # - name: localvolume

@@ -4,6 +4,8 @@ metadata:
   name: uspace
   labels:
     app: uspace
+  #namespace: kuspace
+
 spec:
   selector:
     matchLabels:

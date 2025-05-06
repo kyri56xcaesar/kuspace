@@ -5,6 +5,8 @@ metadata:
   labels:
     app: uspace
   namespace: default 
+  #namespace: kuspace
+
 spec:
   selector:
     app: uspace

@@ -12,9 +12,11 @@ import (
 	"syscall"
 	"time"
 
-	ut "kyri56xcaesar/myThesis/internal/utils"
-
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+	_ "kyri56xcaesar/myThesis/docs/userspace"
+	ut "kyri56xcaesar/myThesis/internal/utils"
 )
 
 const (
@@ -71,7 +73,7 @@ func NewUService(conf string) UService {
 	srv := UService{
 		Engine: gin.Default(),
 		config: cfg,
-		//dbh:     NewDBHandler(cfg.DB_RV, cfg.DB_RV_DRIVER),
+		// dbh:     NewDBHandler(cfg.DB_RV, cfg.DB_RV_DRIVER),
 	}
 
 	// storage system (constructing)
@@ -97,10 +99,10 @@ func NewUService(conf string) UService {
 	srv.jdbh = jdbh
 	srv.jdbh.Init(initSqlJobs, cfg.DB_JOBS_MAX_OPEN_CONNS, cfg.DB_JOBS_MAX_IDLE_CONNS, cfg.DB_JOBS_MAX_LIFETIME)
 
-	//srv.dbh.Init(initSql, cfg.DB_RV_Path, cfg.DB_RV_MAX_OPEN_CONNS, cfg.DB_RV_MAX_IDLE_CONNS, cfg.DB_RV_MAX_LIFETIME)
+	// srv.dbh.Init(initSql, cfg.DB_RV_Path, cfg.DB_RV_MAX_OPEN_CONNS, cfg.DB_RV_MAX_IDLE_CONNS, cfg.DB_RV_MAX_LIFETIME)
 
 	// some specific init
-	//srv.dbh.InitResourceVolumeSpecific(cfg.DB_RV_Path, cfg.Volumes, cfg.VCapacity)
+	// srv.dbh.InitResourceVolumeSpecific(cfg.DB_RV_Path, cfg.Volumes, cfg.VCapacity)
 
 	// also ensure local pv path
 	//_, err = os.Stat(cfg.Volumes)
@@ -142,6 +144,8 @@ func (srv *UService) Serve() {
 	* */
 	apiV1 := srv.Engine.Group("/api" + VERSION)
 	// apiV1.Use(serviceAuth(srv)) //, bindHeadersMiddleware())
+	apiV1.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
 	apiV1.Use(bindHeadersMiddleware())
 	{
 		/* equivalent to "ls", will return the resources, from the given path*/
