@@ -42,7 +42,7 @@ spec:
       - name: minio-storage
         persistentVolumeClaim:
           claimName: minio-pvc
-      nodeSelector:
-        #kubernetes.io/hostname: docker-desktop
-        kubernetes.io/hostname: minikube
+      # nodeSelector:
+        # kubernetes.io/hostname: docker-desktop
+        # kubernetes.io/hostname: minikube
 

@@ -3,7 +3,16 @@ package utils
 /*
 * part of the utils module
 *
-* reusable code for extracting environmental variables.
+*	a Central struct and its methods
+* 	reusable code for extracting/loading/viewing configuration variables.
+*
+*	There is a central struct EnvConfig which holds all possible variable
+*	used by the services. There are some overlaps in need therefore we have
+* 	only 1 wholesome type.
+*
+*	Perhaps in the future we can divide into more atomic configuration structs...
+*	works for now.
+*
 *
 * */
 
@@ -20,55 +29,83 @@ import (
 )
 
 type EnvConfig struct {
-	ConfigPath string
+	ConfigPath string // path of the .conf file
 
-	API_CERT_FILE     string
-	API_KEY_FILE      string
-	API_LOGS_PATH     string
-	API_LOGS_MAX_SIZE string
-	API_PORT          string
-	API_ADDRESS       string
+	// ###################################
+	// API CONFS
+	// api as a general api (used for uspace)
+	IP                string
+	ISSUER            string
+	API_GIN_MODE      string
+	API_CERT_FILE     string // path to a cert file
+	API_KEY_FILE      string // path to a key file
+	API_LOGS_PATH     string // path to logs dir
+	API_LOGS_MAX_SIZE string // max logs size (in MB)
+	API_PORT          string // main service port
+	API_ADDRESS       string // main service address name (default IP)
+	FRONT_PORT        string
+	FRONT_ADDRESS     string
+	AUTH_PORT         string
+	AUTH_ADDRESS      string
+	// front as in the frontend app  // frontend app itself should use api vars
+	// auth as in an authentication app // if an auth app uses this configuration, it should reference api port as itself
 
-	FRONT_PORT    string
-	FRONT_ADDRESS string
+	// service (main) authentication info
+	JWKS               string // used by (minioth)
+	JWT_VALIDITY_HOURS int
+	JWTSecretKey       []byte
+	JWTRefreshKey      []byte
+	ServiceSecret      []byte
+	AllowedOrigins     []string
+	AllowedHeaders     []string
+	AllowedMethods     []string
+	HASH_COST          string // used by (minioth) //bcrypt
 
-	AUTH_PORT    string
-	AUTH_ADDRESS string
+	AS_OPERATOR bool   // not used rn
+	NAMESPACE   string // kubernetes namespace deployment
 
-	IP string
+	// ###################################
+	// storage/jobs
+	// ###################################
+	STORAGE_SYSTEM string // a storage system the service might use
 
-	STORAGE_SYSTEM string
+	// 1. can use fslite
+	// fslite conf
+	DB_FSL                string // name of the database
+	DB_FSL_PATH           string // path of the database
+	DB_FSL_DRIVER         string // type of database driver, either duckdb or sqlite3
+	DB_FSL_MAX_OPEN_CONNS string // maximum allowed simutanious open connections
+	DB_FSL_MAX_IDLE_CONNS string // maximum allowed idle connections
+	DB_FSL_MAX_LIFETIME   string // lifetime of an idle connection
+	FSL_ACCESS_KEY        string // "root" or admin username for authentication
+	FSL_SECRET_KEY        string // "root" or admin password for authentication
 
-	DB_FSL                string
-	DB_FSL_DRIVER         string
-	DB_FSL_PATH           string
-	DB_FSL_MAX_OPEN_CONNS string
-	DB_FSL_MAX_IDLE_CONNS string
-	DB_FSL_MAX_LIFETIME   string
-	FSL_ACCESS_KEY        string
-	FSL_SECRET_KEY        string
+	// fslite uses a local data directory for storage
+	LOCAL_VOLUMES_DEFAULT_PATH     string  // path to the data directory
+	LOCAL_VOLUMES_DEFAULT_CAPACITY float64 // default capacity of the storage
 
-	LOCAL_VOLUMES_DEFAULT_PATH     string
-	LOCAL_VOLUMES_DEFAULT_CAPACITY string
+	// 2. can use minio
+	// minio conf
+	MINIO_ACCESS_KEY      string // "root" or admin username for authentication
+	MINIO_SECRET_KEY      string // "root" or admin password for authentication
+	MINIO_ENDPOINT        string // minio API endpoint
+	MINIO_USE_SSL         string // boolean (if https or not)
+	MINIO_DEFAULT_BUCKET  string // default bucket name
+	MINIO_OBJECT_LOCKING  bool   // boolean (object locking)
+	OBJECT_SHARED         bool   // boolean (object sharing)
+	OBJECT_SHARE_EXPIRE   string // expriation date
+	ONLY_PRESIGNED_UPLOAD bool   // upload only via presigned urls
+	OBJECT_SIZE_THRESHOLD string // object size
 
-	MINIO_ACCESS_KEY      string
-	MINIO_SECRET_KEY      string
-	MINIO_ENDPOINT        string
-	MINIO_USE_SSL         string
-	MINIO_DEFAULT_BUCKET  string
-	MINIO_OBJECT_LOCKING  bool
-	OBJECT_SHARED         bool
-	OBJECT_SHARE_EXPIRE   string
-	ONLY_PRESIGNED_UPLOAD bool
-	OBJECT_SIZE_THRESHOLD string
-
+	// Main api (uspace) is using a manager/dispatcher/scheduler mechanism
+	// configuration here.
 	J_DISPATCHER   string
 	J_QUEUE_SIZE   string
 	J_MAX_WORKERS  string
 	J_EXECUTOR     string
 	J_WS_ADDRESS   string
 	J_WS_LOGS_PATH string
-
+	// database storage of the jobs
 	DB_JOBS                string
 	DB_JOBS_DRIVER         string
 	DB_JOBS_PATH           string
@@ -76,20 +113,16 @@ type EnvConfig struct {
 	DB_JOBS_MAX_IDLE_CONNS string
 	DB_JOBS_MAX_LIFETIME   string
 
-	JWTSecretKey  []byte
-	JWTRefreshKey []byte
-
-	ServiceSecret []byte
-
-	JWKS string
-
-	AllowedOrigins []string
-	AllowedHeaders []string
-	AllowedMethods []string
-
-	AS_OPERATOR bool
-
-	NAMESPACE string
+	// ###################################
+	// authentication (minioth),
+	// 	- uses a storage handler rather than a storage system
+	// ###################################
+	MINIOTH_ACCESS_KEY string
+	MINIOTH_SECRET_KEY string
+	MINIOTH_DB         string // a path + name of the database
+	MINIOTH_HANDLER    string // either database/db or plain/text
+	MINIOTH_LOGS       string
+	MINIOTH_AUDIT_LOGS string
 }
 
 func LoadConfig(path string) EnvConfig {
@@ -108,20 +141,19 @@ func LoadConfig(path string) EnvConfig {
 		API_KEY_FILE:      getEnv("API_KEY_FILE", "localhost-key.pem"),
 		API_LOGS_PATH:     getEnv("API_J_LOGS_PATH", "data/logs/jobs/job.log"),
 		API_LOGS_MAX_SIZE: getEnv("API_J_LOGS_MAX_SIZE", "10"),
+		API_GIN_MODE:      getEnv("API_GIN_MODE", "debug"),
+		STORAGE_SYSTEM:    getEnv("STORAGE_SYSTEM", "local"),
 
-		STORAGE_SYSTEM: getEnv("STORAGE_SYSTEM", "local"),
-
-		LOCAL_VOLUMES_DEFAULT_PATH:     getEnv("V_LOCAL_PATH", "data/volumes"),
-		LOCAL_VOLUMES_DEFAULT_CAPACITY: getEnv("V_LOCAL_CAPACITY", "20"),
-
-		DB_FSL:                getEnv("DB_FSL", "database.db"),
-		DB_FSL_DRIVER:         getEnv("DB_FSL_DRIVER", "duckdb"),
-		DB_FSL_PATH:           getEnv("DB_FSL_PATH", "data/db/uspace"),
-		DB_FSL_MAX_OPEN_CONNS: getEnv("DB_FSL_MAX_OPEN_CONNS", "50"),
-		DB_FSL_MAX_IDLE_CONNS: getEnv("DB_FSL_MAX_IDLE_CONNS", "10"),
-		DB_FSL_MAX_LIFETIME:   getEnv("DB_FSL_MAX_LIFETIME", "10"),
-		FSL_ACCESS_KEY:        getEnv("FSL_ACCESS_KEY", "fsladmin"),
-		FSL_SECRET_KEY:        getEnv("FSL_SECRET_KEY", "fsladmin"),
+		DB_FSL:                         getEnv("DB_FSL", "database.db"),
+		DB_FSL_DRIVER:                  getEnv("DB_FSL_DRIVER", "duckdb"),
+		DB_FSL_PATH:                    getEnv("DB_FSL_PATH", "data/db/fslite"),
+		DB_FSL_MAX_OPEN_CONNS:          getEnv("DB_FSL_MAX_OPEN_CONNS", "50"),
+		DB_FSL_MAX_IDLE_CONNS:          getEnv("DB_FSL_MAX_IDLE_CONNS", "10"),
+		DB_FSL_MAX_LIFETIME:            getEnv("DB_FSL_MAX_LIFETIME", "10"),
+		FSL_ACCESS_KEY:                 getEnv("FSL_ACCESS_KEY", "fsladmin"),
+		FSL_SECRET_KEY:                 getEnv("FSL_SECRET_KEY", "fsladmin"),
+		LOCAL_VOLUMES_DEFAULT_CAPACITY: getFloatEnv("V_LOCAL_CAPACITY", 20),
+		LOCAL_VOLUMES_DEFAULT_PATH:     getEnv("V_LOCAL_PATH", "data/volumes/fslite"),
 
 		MINIO_ACCESS_KEY:      getEnv("MINIO_ACCESS_KEY", "minioadmin"),
 		MINIO_SECRET_KEY:      getEnv("MINIO_SECRET_KEY", "minioadmin"),
@@ -148,24 +180,31 @@ func LoadConfig(path string) EnvConfig {
 		DB_JOBS_MAX_IDLE_CONNS: getEnv("DB_JOBS_MAX_IDLE_CONNS", "10"),
 		DB_JOBS_MAX_LIFETIME:   getEnv("DB_JOBS_MAX_LIFETIME", "10"),
 
-		FRONT_PORT:    getEnv("FRONT_PORT", "8080"),
-		FRONT_ADDRESS: getEnv("FRONT_ADDRESS", "localhost"),
-		AUTH_PORT:     getEnv("AUTH_PORT", "9090"),
-		AUTH_ADDRESS:  getEnv("AUTH_ADDRESS", "localhost"),
-
-		IP:             getEnv("IP", "0.0.0.0"),
-		AllowedOrigins: getEnvs("ALLOWED_ORIGINS", []string{"None"}),
-		AllowedHeaders: getEnvs("ALLOWED_HEADERS", nil),
-		AllowedMethods: getEnvs("ALLOWED_METHODS", nil),
-
-		JWTSecretKey:  getSecretKey("JWT_SECRET_KEY"),
-		JWTRefreshKey: getSecretKey("JWT_REFRESH_KEY"),
-		ServiceSecret: getSecretKey("SERVICE_SECRET"),
-		JWKS:          getEnv("JWKS", "data/jwks/jwks.json"),
+		IP:                 getEnv("IP", "0.0.0.0"),
+		FRONT_PORT:         getEnv("FRONT_PORT", "8080"),
+		FRONT_ADDRESS:      getEnv("FRONT_ADDRESS", "localhost"),
+		AUTH_PORT:          getEnv("AUTH_PORT", "9090"),
+		AUTH_ADDRESS:       getEnv("AUTH_ADDRESS", "localhost"),
+		AllowedOrigins:     getEnvs("ALLOWED_ORIGINS", []string{"None"}),
+		AllowedHeaders:     getEnvs("ALLOWED_HEADERS", nil),
+		AllowedMethods:     getEnvs("ALLOWED_METHODS", nil),
+		ISSUER:             getEnv("ISSUER", "http://localhost:9090"),
+		JWTSecretKey:       getSecretKey("JWT_SECRET_KEY"),
+		JWTRefreshKey:      getSecretKey("JWT_REFRESH_KEY"),
+		JWT_VALIDITY_HOURS: int(getInt64Env("JWT_VALIDITY_HOURS", 1)),
+		ServiceSecret:      getSecretKey("SERVICE_SECRET"),
+		JWKS:               getEnv("JWKS", "data/jwks/jwks.json"),
+		HASH_COST:          getEnv("HASH_COST", "4"),
 
 		AS_OPERATOR: getBoolEnv("AS_OPERATOR", "false"),
+		NAMESPACE:   getEnv("NAMESPACE", "default"),
 
-		NAMESPACE: getEnv("NAMESPACE", "default"),
+		MINIOTH_ACCESS_KEY: getEnv("MINIOTH_ACCESS_KEY", "root"),
+		MINIOTH_SECRET_KEY: getEnv("MINIOTH_SECRET_KEY", "root"),
+		MINIOTH_DB:         getEnv("MINIOTH_DB", "data/db/minioth/minioth.db"),
+		MINIOTH_HANDLER:    getEnv("MINIOTH_HANDLER", "database"),
+		MINIOTH_LOGS:       getEnv("MINIOTH_LOGS", "data/logs/minioth/minioth.logs"),
+		MINIOTH_AUDIT_LOGS: getEnv("MINIOTH_AUDIT_LOGS", "data/logs/minioth/audit.logs"),
 	}
 
 	log.Print(config.ToString())
@@ -185,6 +224,26 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func getInt64Env(key string, fallback int64) int64 {
+	key = getEnv(key, "")
+	key_int, err := strconv.ParseInt(key, 10, 64)
+	if err != nil {
+		log.Printf("failed to parse int64 from var: %v\nfalling back to %v", err, fallback)
+		return fallback
+	}
+	return key_int
+}
+
+func getFloatEnv(key string, fallback float64) float64 {
+	key = getEnv(key, "")
+	key_float, err := strconv.ParseFloat(key, 64)
+	if err != nil {
+		log.Printf("failed to parse float64 from variable: %v\nfalling back... to %v", err, fallback)
+		return fallback
+	}
+	return key_float
 }
 
 func getBoolEnv(key, fallback string) bool {

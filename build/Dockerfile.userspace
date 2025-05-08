@@ -5,7 +5,6 @@ RUN go mod download
 COPY ./internal/userspace/ ./internal/userspace/
 COPY ./internal/utils/ ./internal/utils/
 COPY ./cmd/userspace/ ./cmd/userspace/ 
-RUN go env -w GONOSUMDB=github.com/kyri56xcaesar/minioth
 RUN GOOS=linux go build -o ./cmd/userspace/userspace ./cmd/userspace/main.go 
 
 FROM debian:bookworm-slim

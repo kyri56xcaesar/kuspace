@@ -86,20 +86,37 @@ func ToFloat64(value any) float64 {
 }
 
 // helper function to determine if a value is empty
-func IsEmpty(v reflect.Value) bool {
+func isZeroValue(v reflect.Value) bool {
 	switch v.Kind() {
 	case reflect.String:
 		return v.String() == ""
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return v.Int() == 0
-	case reflect.Map:
+	case reflect.Array, reflect.Slice, reflect.Map:
 		return v.Len() == 0
-	case reflect.Array:
-		return v.Len() == 0
+	case reflect.Bool:
+		return !v.Bool()
+	case reflect.Ptr, reflect.Interface:
+		return v.IsNil()
+	case reflect.Struct:
+		// Recursively check each field
+		for i := 0; i < v.NumField(); i++ {
+			if !isZeroValue(v.Field(i)) {
+				return false
+			}
+		}
+		return true
 	default:
 		return v.IsZero() // general case for other types
 		// this might not work for everything
 	}
+}
+
+func IsEmpty(val any) bool {
+	if val == nil {
+		return true
+	}
+	return isZeroValue(reflect.ValueOf(val))
 }
 
 func MakeMapFrom(names []string, values []any) map[string]any {
@@ -247,4 +264,27 @@ var time_format string = "2006-01-02 15:04:05-07:00"
 
 func CurrentTime() string {
 	return time.Now().UTC().Format(time_format)
+}
+
+// Security related utils
+func IsNumeric(s string) bool {
+	re := regexp.MustCompile(`^[0-9]+$`)
+	return re.MatchString(s)
+}
+
+func IsAlphanumeric(s string) bool {
+	re := regexp.MustCompile(`^[a-zA-Z0-9]+$`)
+	return re.MatchString(s)
+}
+
+func IsAlphanumericPlus(s string) bool {
+	re := regexp.MustCompile(`^[a-zA-Z0-9@_]+$`)
+	return re.MatchString(s)
+}
+
+func IsValidUTF8String(s string) bool {
+	// Updated regex to include space (\s) and new line (\n) characters
+	re := regexp.MustCompile(`^[\p{L}\p{N}\s\n!@#\$%\^&\*\(\):\?><\.\-]+$`)
+
+	return re.MatchString(s)
 }

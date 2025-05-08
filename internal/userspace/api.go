@@ -7,20 +7,21 @@ import (
 	"log"
 	"net/http"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
+	_ "kyri56xcaesar/myThesis/api/userspace"
+	ut "kyri56xcaesar/myThesis/internal/utils"
+
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	_ "kyri56xcaesar/myThesis/docs/userspace"
-	ut "kyri56xcaesar/myThesis/internal/utils"
 )
 
 const (
-	VERSION = "/v1"
+	VERSION                     = "/v1"
+	MAX_DEFAULT_VOLUME_CAPACITY = 100
 )
 
 /*
@@ -69,6 +70,7 @@ func NewUService(conf string) UService {
 	// configuration
 	cfg := ut.LoadConfig(conf)
 
+	setGinMode(cfg.API_GIN_MODE)
 	// service
 	srv := UService{
 		Engine: gin.Default(),
@@ -264,11 +266,8 @@ func syncUsers(srv *UService) error {
 		return fmt.Errorf("failed to retrieve actual users")
 	}
 
-	capacity, err := strconv.ParseFloat(srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY, 64)
-	if err != nil {
-		log.Printf("failed to parse env var VCapacity: %v", err)
-		return err
-	}
+	capacity := min(srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY, MAX_DEFAULT_VOLUME_CAPACITY)
+
 	// we retrieved the users, lets add the users volume claims and the corresponding primary group claims
 	for _, group := range reqR.Content {
 		if group.Groupname == "admin" || group.Groupname == "user" || group.Groupname == "mod" {
@@ -302,4 +301,19 @@ func syncUsers(srv *UService) error {
 		}
 	}
 	return nil
+}
+
+func setGinMode(mode string) {
+	switch strings.ToLower(mode) {
+	case "release":
+		gin.SetMode(gin.ReleaseMode)
+	case "debug":
+		gin.SetMode(gin.DebugMode)
+	case "envgin":
+		gin.SetMode(gin.EnvGinMode)
+	case "test":
+		gin.SetMode(gin.TestMode)
+	default:
+		gin.SetMode(gin.DebugMode)
+	}
 }

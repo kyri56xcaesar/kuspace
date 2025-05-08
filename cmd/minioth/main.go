@@ -1,11 +1,10 @@
 package main
 
 import (
-	"github.com/kyri56xcaesar/minioth"
+	"kyri56xcaesar/myThesis/pkg/minioth"
 )
 
 func main() {
-	m := minioth.NewMinioth("root", true, "data/db/minioth/minioth.db")
-	srv := minioth.NewMSerivce(&m, "configs/minioth.conf")
-	srv.ServeHTTP()
+	m := minioth.NewMinioth("configs/minioth.conf")
+	m.Service.ServeHTTP()
 }

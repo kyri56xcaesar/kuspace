@@ -10,7 +10,6 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/joho/godotenv v1.5.1
-	github.com/kyri56xcaesar/minioth v1.0.2
 	github.com/marcboeker/go-duckdb v1.8.4
 	github.com/minio/minio-go/v7 v7.0.90
 	github.com/swaggo/files v1.0.1
@@ -26,9 +25,6 @@ require (
 	k8s.io/client-go v0.32.3
 )
 
-replace github.com/kyri56xcaesar/minioth => github.com/kyri56xcaesar/minioth v1.0.4
-
-// replace github.com/kyri56xcaesar/minioth v1.0.2 => ../minioth
 
 require (
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect

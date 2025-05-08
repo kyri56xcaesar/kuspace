@@ -3,8 +3,9 @@ FROM golang:1.23.4 AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
+COPY ./internal/utils/ ./internal/utils/
+COPY ./pkg/minioth/ ./pkg/minioth/
 COPY ./cmd/minioth/ ./cmd/minioth/ 
-RUN go env -w GONOSUMDB=github.com/kyri56xcaesar/minioth
 RUN GOOS=linux go build -o ./cmd/minioth/minioth ./cmd/minioth/main.go 
 
 FROM debian:bookworm-slim

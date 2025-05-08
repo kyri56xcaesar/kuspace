@@ -25,13 +25,14 @@ func insertResource(db *sql.DB, resource ut.Resource) error {
       resources (rid, uid, gid, vid, vname, size, links, perms, name, path, type, created_at, updated_at, accessed_at)
 	VALUES (nextval('seq_resourceid'), ?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,?, ?, ?);  
 	`
+	resource.Accessed_at = ut.CurrentTime()
+	resource.Created_at = ut.CurrentTime()
+	resource.Updated_at = ut.CurrentTime()
 	_, err := db.Exec(query, resource.FieldsNoId()...)
 	if err != nil {
 		log.Printf("failed to insert the resource: %v", err)
 		return err
 	}
-
-	log.Printf("inserting resource...: %+v", resource)
 	return nil
 }
 
@@ -51,6 +52,9 @@ func insertResourceUniqueName(db *sql.DB, resource ut.Resource) error {
 		return err
 	}
 
+	resource.Accessed_at = ut.CurrentTime()
+	resource.Created_at = ut.CurrentTime()
+	resource.Updated_at = ut.CurrentTime()
 	// Insert the resource if no duplicate was found
 	queryInsert := `
     INSERT INTO 
@@ -88,6 +92,9 @@ func insertResources(db *sql.DB, resources []ut.Resource) error {
 	defer stmt.Close()
 
 	for _, r := range resources {
+		r.Accessed_at = ut.CurrentTime()
+		r.Created_at = ut.CurrentTime()
+		r.Updated_at = ut.CurrentTime()
 		_, err = stmt.Exec(r.FieldsNoId()...)
 		if err != nil {
 			log.Printf("error executing transaction: %v", err)
@@ -95,6 +102,71 @@ func insertResources(db *sql.DB, resources []ut.Resource) error {
 		}
 	}
 
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("failed to commit transaction: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func insertResourcesUniqueName(db *sql.DB, resources []ut.Resource) error {
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("failed to begin transaction: %v", err)
+		return err
+	}
+
+	// Prepare the SELECT query to check if the resource exists
+	queryCheck := `SELECT 1 FROM resources WHERE name = ? LIMIT 1;`
+	stmtCheck, err := tx.Prepare(queryCheck)
+	if err != nil {
+		log.Printf("error preparing uniqueness check statement: %v", err)
+		return err
+	}
+	defer stmtCheck.Close()
+
+	// Prepare the INSERT statement
+	queryInsert := `
+    INSERT INTO 
+      resources (rid, uid, gid, vid, vname, size, links, perms, name, path, type, created_at, updated_at, accessed_at)
+	VALUES (nextval('seq_resourceid'), ?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,?, ?, ?);
+	`
+	stmtInsert, err := tx.Prepare(queryInsert)
+	if err != nil {
+		log.Printf("error preparing insert statement: %v", err)
+		return err
+	}
+	defer stmtInsert.Close()
+
+	for _, r := range resources {
+		var exists int
+
+		log.Printf("resource: %+v", r)
+		// Check if the resource already exists
+		err = stmtCheck.QueryRow(r.Name).Scan(&exists)
+		if err == nil {
+			log.Printf("resource with name '%s' already exists", r.Name)
+			return fmt.Errorf("resource with name '%s' already exists", r.Name)
+		} else if err != sql.ErrNoRows {
+			// If any other error occurs during the query, return it
+			log.Printf("error checking name uniqueness: %v", err)
+			return err
+		}
+
+		// If the resource doesn't exist, insert it
+		r.Accessed_at = ut.CurrentTime()
+		r.Created_at = ut.CurrentTime()
+		r.Updated_at = ut.CurrentTime()
+		_, err = stmtInsert.Exec(r.FieldsNoId()...)
+		if err != nil {
+			log.Printf("error executing insert: %v", err)
+			return err
+		}
+	}
+
+	// Commit the transaction
 	err = tx.Commit()
 	if err != nil {
 		log.Printf("failed to commit transaction: %v", err)
@@ -158,6 +230,10 @@ func getAllResources(db *sql.DB) ([]ut.Resource, error) {
 		resources = append(resources, r)
 	}
 
+	if ut.IsEmpty(resources) {
+		return nil, ut.NewInfo("empty")
+	}
+
 	return resources, nil
 }
 
@@ -195,6 +271,11 @@ func getResourcesByIds(db *sql.DB, rids []int) ([]ut.Resource, error) {
 
 		resources = append(resources, r)
 	}
+
+	if ut.IsEmpty(resources) {
+		return nil, ut.NewInfo("empty")
+	}
+
 	return resources, nil
 }
 
@@ -210,66 +291,37 @@ func getResourceByName(db *sql.DB, name string) (ut.Resource, error) {
 	return resource, nil
 }
 
-func insertResourcesUniqueName(db *sql.DB, resources []ut.Resource) error {
-	tx, err := db.Begin()
+func getResourcesByNameLike(db *sql.DB, name string) ([]ut.Resource, error) {
+	rows, err := db.Query(`
+    SELECT
+      	*
+    FROM 
+      	resources
+	WHERE
+		name LIKE ?`, "%"+name+"%")
 	if err != nil {
-		log.Printf("failed to begin transaction: %v", err)
-		return err
+		log.Printf("error querying db: %v", err)
+		return nil, err
 	}
+	defer rows.Close()
 
-	// Prepare the SELECT query to check if the resource exists
-	queryCheck := `SELECT 1 FROM resources WHERE name = ? LIMIT 1;`
-	stmtCheck, err := tx.Prepare(queryCheck)
-	if err != nil {
-		log.Printf("error preparing uniqueness check statement: %v", err)
-		return err
-	}
-	defer stmtCheck.Close()
-
-	// Prepare the INSERT statement
-	queryInsert := `
-    INSERT INTO 
-      resources (rid, uid, gid, vid, vname, size, links, perms, name, path, type, created_at, updated_at, accessed_at)
-	VALUES (nextval('seq_resourceid'), ?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,?, ?, ?);
-	`
-	stmtInsert, err := tx.Prepare(queryInsert)
-	if err != nil {
-		log.Printf("error preparing insert statement: %v", err)
-		return err
-	}
-	defer stmtInsert.Close()
-
-	for _, r := range resources {
-		var exists int
-
-		log.Printf("resource: %+v", r)
-		// Check if the resource already exists
-		err = stmtCheck.QueryRow(r.Name).Scan(&exists)
-		if err == nil {
-			log.Printf("resource with name '%s' already exists", r.Name)
-			return fmt.Errorf("resource with name '%s' already exists", r.Name)
-		} else if err != sql.ErrNoRows {
-			// If any other error occurs during the query, return it
-			log.Printf("error checking name uniqueness: %v", err)
-			return err
-		}
-
-		// If the resource doesn't exist, insert it
-		_, err = stmtInsert.Exec(r.FieldsNoId()...)
+	var resources []ut.Resource
+	for rows.Next() {
+		var r ut.Resource
+		err = rows.Scan(r.PtrFields()...)
 		if err != nil {
-			log.Printf("error executing insert: %v", err)
-			return err
+			log.Printf("error scanning row: %v", err)
+			return nil, err
 		}
+
+		resources = append(resources, r)
 	}
 
-	// Commit the transaction
-	err = tx.Commit()
-	if err != nil {
-		log.Printf("failed to commit transaction: %v", err)
-		return err
+	if ut.IsEmpty(resources) {
+		return nil, ut.NewInfo("empty")
 	}
 
-	return nil
+	return resources, nil
 }
 
 func deleteResourcesByIds(db *sql.DB, rids []string) (int64, error) {
@@ -376,12 +428,12 @@ func updateResourceNameById(db *sql.DB, rid, name string) error {
     UPDATE 
       resources 
     SET 
-      name = ?
+      name = ?, updated_at = ?, accessed_at = ?
     WHERE 
       rid = ?;
   `
 
-	res, err := tx.Exec(query, name, rid)
+	res, err := tx.Exec(query, name, ut.CurrentTime(), ut.CurrentTime(), rid)
 	if err != nil {
 		log.Printf("error executing query: %v", err)
 		return err
@@ -413,12 +465,12 @@ func updateResourcePermsById(db *sql.DB, rid, perms string) error {
     UPDATE 
       resources 
     SET 
-      perms = ?
+      perms = ?, accessed_at = ?, updated_at = ?
     WHERE 
       rid = ?;
   `
 
-	res, err := tx.Exec(query, perms, rid)
+	res, err := tx.Exec(query, perms, ut.CurrentTime(), ut.CurrentTime(), rid)
 	if err != nil {
 		log.Printf("error executing query: %v", err)
 		return err
@@ -450,12 +502,12 @@ func updateResourceOwnerById(db *sql.DB, rid, uid int) error {
     UPDATE 
       resources 
     SET 
-      uid = ?
+      uid = ?, accessed_at = ?, updated_at = ?
     WHERE 
       rid = ?;
   `
 
-	res, err := tx.Exec(query, uid, rid)
+	res, err := tx.Exec(query, uid, ut.CurrentTime(), ut.CurrentTime(), rid)
 	if err != nil {
 		log.Printf("error executing query: %v", err)
 		return err
@@ -487,12 +539,12 @@ func updateResourceGroupById(db *sql.DB, rid, gid int) error {
     UPDATE 
       resources 
     SET 
-      gid = ?
+      gid = ?, accessed_at = ?, updated_at = ?
     WHERE 
       rid = ?;
   `
 
-	res, err := tx.Exec(query, gid, rid)
+	res, err := tx.Exec(query, gid, ut.CurrentTime(), ut.CurrentTime(), rid)
 	if err != nil {
 		log.Printf("error executing query: %v", err)
 		return err
@@ -514,7 +566,6 @@ func updateResourceGroupById(db *sql.DB, rid, gid int) error {
 }
 
 // updated, better, more inclusive funcs
-
 func getResources(db *sql.DB, sel, table, by, byvalue string, limit int) ([]any, error) {
 	if sel == "" {
 		sel = "*"

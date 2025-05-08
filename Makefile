@@ -5,40 +5,40 @@
 # ####
 
 
-
+# variables, only change these.
 ### services 
 TARGET_API 		:= cmd/userspace/
-API_OUT				:= userspace
+API_OUT			:= userspace
 
 TARGET_J_WS		:= cmd/userspace/jobs_feedback_ws/
-J_WS_OUT			:= j_ws 
+J_WS_OUT		:= j_ws 
 
 TARGET_F_APP	:= cmd/frontendapp/
-F_APP_OUT			:= frontendapp
+F_APP_OUT		:= frontendapp
 
-TARGET_WS			:= cmd/frontendapp/ws/
-WS_OUT				:= ws_server 
+TARGET_WS		:= cmd/frontendapp/ws/
+WS_OUT			:= ws_server 
 
 TARGET_AUTH		:= cmd/minioth/
-AUTH_OUT			:= minioth
-
-TARGET_SHELL	:= cmd/shell/
-SHELL_OUT			:= gshell
-
+AUTH_OUT		:= minioth
 
 
 # documantation related
-DOCS_DIR 							:= docs/
-DOCS_USPACE_TARGET 		:= internal/userspace/api.go
-DOCS_FRONTAPP_TARGET 	:= internal/frontendapp/api.go
+# godoc
+DOCS_DIR 				:= docs/
+
+#Api docs (swagger)
+API_DOCS_DIR :=api/
+API_DOCS_USPACE_TARGET 		:= internal/userspace/api.go
+API_DOCS_FRONTAPP_TARGET 	:= internal/frontendapp/api.go
+API_DOCS_MINIOTH_TARGET 	:= pkg/minioth/minioth_server.go
 
 
-.PHONY: gen-docs
-gen-docs:
-	swag init -g ${DOCS_USPACE_TARGET} --output ${DOCS_DIR}${API_OUT} --parseDependency --parseInternal
-	swag init -g ${DOCS_FRONTAPP_TARGET} --output ${DOCS_DIR}${F_APP_OUT} --parseDependency --parseInternal
-
-
+.PHONY: api-docs
+api-docs:
+	swag init -g ${API_DOCS_USPACE_TARGET} --output ${API_DOCS_DIR}${API_OUT} --parseDependency --parseInternal
+	swag init -g ${API_DOCS_FRONTAPP_TARGET} --output ${API_DOCS_DIR}${F_APP_OUT} --parseDependency --parseInternal
+	swag init -g ${API_DOCS_MINIOTH_TARGET} --output ${API_DOCS_DIR}${AUTH_OUT} --parseDependency --parseInternal
 
 # utility
 .PHONY: clean
@@ -109,10 +109,4 @@ front-ws:
 minioth:
 	go build -o ${TARGET_AUTH}${AUTH_OUT} ${TARGET_AUTH}main.go
 	./${TARGET_AUTH}${AUTH_OUT} 
-
-.PHONY: shell
-shell:
-	go build -o ${TARGET_SHELL}${SHELL_OUT} ${TARGET_SHELL}main.go
-	./${TARGET_SHELL}${SHELL_OUT}
-
 

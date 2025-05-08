@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -16,22 +17,22 @@ const (
 	version string = "/"
 )
 
-var (
-	max_idle_cons  string = "10"
-	conn_lifetime  string = "10"
-	max_open_conns string = "50"
-)
-
 func (fsl *FsLite) ListenAndServe() {
 	srv := fsl.engine
 
+	srv.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "alive"})
+	})
 	api := srv.Group(version)
 	{
 		api.POST("/login", fsl.loginHandler)
 	}
 
 	admin := api.Group("/admin")
-	admin.Use(authmiddleware(fsl.config))
+	// have authentication only on release
+	if strings.ToLower(fsl.config.API_GIN_MODE) != "debug" {
+		admin.Use(authmiddleware(fsl.config))
+	}
 	{
 		admin.POST("/register", fsl.registerHandler)
 
@@ -47,7 +48,7 @@ func (fsl *FsLite) ListenAndServe() {
 		admin.POST("/resource/upload", fsl.uploadResourceHandler)
 		admin.GET("/resource/download", fsl.downloadResourceHandler)
 
-		admin.GET("/resource/share", fsl.shareResourceHandler)
+		// admin.GET("/resource/share", fsl.shareResourceHandler)
 	}
 
 	server := &http.Server{
@@ -129,5 +130,20 @@ func authmiddleware(cfg ut.EnvConfig) gin.HandlerFunc {
 		}
 
 		c.Next()
+	}
+}
+
+func setGinMode(mode string) {
+	switch strings.ToLower(mode) {
+	case "release":
+		gin.SetMode(gin.ReleaseMode)
+	case "debug":
+		gin.SetMode(gin.DebugMode)
+	case "envgin":
+		gin.SetMode(gin.EnvGinMode)
+	case "test":
+		gin.SetMode(gin.TestMode)
+	default:
+		gin.SetMode(gin.DebugMode)
 	}
 }

@@ -156,12 +156,17 @@ func (fsl *FsLite) getResourceHandler(c *gin.Context) {
 
 	resources, err := fsl.SelectObjects(map[string]any{"name": name, "rids": rids})
 	if err != nil {
+		if strings.Contains(err.Error(), "empty") {
+			c.JSON(http.StatusNotFound, gin.H{"status": "empty"})
+			return
+		}
 		log.Printf("failed to get resource: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
 		})
 		return
 	}
+
 	c.JSON(http.StatusOK, resources)
 }
 
@@ -177,17 +182,27 @@ func (fsl *FsLite) deleteResourceHandler(c *gin.Context) {
 			})
 			return
 		}
+		vname := c.Request.URL.Query().Get("volume")
+		if vname == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "must provide a volume name",
+			})
+			return
+		}
 		resource.Name = name
+		resource.Vname = vname
 	}
 
 	err = fsl.Remove(resource)
 	if err != nil {
 		log.Printf("failed to delete resource: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": "failed to delete the resource",
 		})
 		return
 	}
+
+	c.JSON(http.StatusOK, gin.H{"status": resource.Vname + "/" + resource.Name + " deleted"})
 }
 
 func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
@@ -216,37 +231,36 @@ func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
 	}
 
 	for _, fileHeader := range c.Request.MultipartForm.File["files"] {
-
 		file, err := fileHeader.Open()
 		if err != nil {
 			log.Printf("failed to read uploaded file: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "fatal, failed to read uploaded files"})
 			return
 		}
-		defer file.Close()
 		/* Insert the appropriate metadata as a resource */
 		resource := ut.Resource{
 			Vname:  vname,
 			Name:   fileHeader.Filename,
 			Type:   "file",
 			Reader: file,
-
-			Created_at:  ut.CurrentTime(),
-			Updated_at:  ut.CurrentTime(),
-			Accessed_at: ut.CurrentTime(),
-			Perms:       "rw-r--r--",
-			Uid:         uid,
-			Gid:         uid,
-			Size:        int64(fileHeader.Size),
+			Perms:  "rw-r--r--",
+			Uid:    uid,
+			Gid:    uid,
+			Size:   int64(fileHeader.Size),
 		}
 
-		cancelFn, err := fsl.Insert(resource)
-		defer cancelFn()
+		_, err = fsl.Insert(resource)
+		file.Close()
 		if err != nil {
+			if strings.Contains(err.Error(), "already exists") {
+				c.JSON(400, gin.H{"error": err.Error()})
+				return
+			}
 			log.Printf("failed to insert resources: %v", err)
 			c.JSON(422, gin.H{"error": "failed to insert resources"})
 			return
 		}
+		log.Printf("inserted resource: %+v", resource)
 	}
 	c.JSON(200, gin.H{
 		"message": "file/s uploaded.",
@@ -255,7 +269,6 @@ func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
 
 func (fsl *FsLite) downloadResourceHandler(c *gin.Context) {
 	rsrc := c.Request.URL.Query().Get("resource")
-
 	if rsrc == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide args"})
 		return
@@ -267,7 +280,6 @@ func (fsl *FsLite) downloadResourceHandler(c *gin.Context) {
 	}
 	resource_vname := parts[0]
 	resource_name := parts[1]
-
 	if resource_vname == "" || resource_name == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "inv source format <volume_name>/<object_name>"})
 		return

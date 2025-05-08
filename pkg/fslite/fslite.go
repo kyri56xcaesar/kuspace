@@ -78,12 +78,13 @@ type FsLite struct {
 }
 
 func NewFsLite(cfg ut.EnvConfig) FsLite {
+	setGinMode(cfg.API_GIN_MODE)
 	fsl := FsLite{
 		config: cfg,
 		dbh:    ut.NewDBHandler(cfg.DB_FSL, cfg.DB_FSL_PATH, cfg.DB_FSL_DRIVER),
 		engine: gin.Default(),
 	}
-	fsl.dbh.Init(InitSql, max_open_conns, max_idle_cons, conn_lifetime)
+	fsl.dbh.Init(InitSql, cfg.DB_FSL_MAX_OPEN_CONNS, cfg.DB_FSL_MAX_IDLE_CONNS, cfg.DB_FSL_MAX_LIFETIME)
 	if _, err := fsl.insertAdmin(cfg.FSL_ACCESS_KEY, cfg.FSL_SECRET_KEY); err != nil {
 		log.Fatalf("error inserting main user, fatal...: %v", err)
 	}
@@ -91,14 +92,17 @@ func NewFsLite(cfg ut.EnvConfig) FsLite {
 	if err != nil {
 		log.Fatalf("failed to get working directory: %v", err)
 	}
-	fslite_data_path = wd + "/" + fslite_data_path
+	fslite_data_path = wd + "/" + cfg.LOCAL_VOLUMES_DEFAULT_PATH
 	if err := os.MkdirAll(fslite_data_path, 0o644); err != nil {
 		log.Fatalf("failed to create main volume storage path: %v", err)
 	}
-
+	default_volume_cap = min(default_volume_cap, max_volume_cap)
 	err = fsl.CreateVolume(ut.Volume{Name: default_volume_name, Path: fslite_data_path + "/" + default_volume_name, Capacity: default_volume_cap})
 	if err != nil {
-		log.Fatalf("failed to create default volume: %v", err)
+		if !strings.Contains(err.Error(), "already exists") {
+			log.Fatalf("failed to create default volume: %v", err)
+		}
+		log.Print(err)
 	}
 
 	return fsl
@@ -118,6 +122,11 @@ func (fsl *FsLite) CreateVolume(v any) error {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
 		return fmt.Errorf("failed to get the database connection")
+	}
+
+	// should check if name exists.
+	if _, err = getVolumeByName(db, volume.Name); err == nil { // if err is nil, it exists
+		return ut.NewInfo("%s volume already exists", volume.Name)
 	}
 
 	err = os.MkdirAll(fslite_data_path+"/"+volume.Name, 0o644)
@@ -174,7 +183,7 @@ func (fsl *FsLite) SelectVolumes(how map[string]any) (any, error) {
 	// limit := how["limit"]
 
 	vname, ok := how["name"]
-	if ok {
+	if ok && vname != "" {
 		name, ok := vname.(string)
 		if ok {
 			return getVolumeByName(db, name)
@@ -182,7 +191,7 @@ func (fsl *FsLite) SelectVolumes(how map[string]any) (any, error) {
 	}
 
 	vid, ok := how["vid"]
-	if ok {
+	if ok && vid != "" {
 		vid, err := strconv.Atoi(vid.(string))
 		if err == nil {
 			return getVolumeByVid(db, vid)
@@ -206,8 +215,15 @@ func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 			log.Printf("failed to get the db conn: %v", err)
 			return nil, err
 		}
+
+		// should check if already exists (in database).
+		if _, err = getResourceByName(db, resource.Name); err == nil { // if err is nil, it exists
+			return nil, ut.NewInfo("%s object already exists", resource.Name)
+		}
+
 		outFile, err := os.Create(fslite_data_path + "/" + resource.Vname + "/" + resource.Name)
 		if err != nil {
+			log.Printf("failed to create a new output file (to save)")
 			return nil, err
 		}
 		defer outFile.Close()
@@ -215,6 +231,7 @@ func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 		// Copy from the reader to the file
 		_, err = io.Copy(outFile, resource.Reader)
 		if err != nil {
+			log.Printf("failed to copy to output file")
 			return nil, err
 		}
 
@@ -293,15 +310,15 @@ func (fsl *FsLite) SelectObjects(how map[string]any) (any, error) {
 	// limit := how["limit"]
 
 	name, ok := how["name"]
-	if ok {
+	if ok && name != "" {
 		name, ok := name.(string)
 		if ok {
-			return getResourceByName(db, name)
+			return getResourcesByNameLike(db, name)
 		}
 	}
 
 	rids, ok := how["rids"]
-	if ok {
+	if ok && rids != "" {
 		rids, err := ut.SplitToInt(rids.(string), ",")
 		if err == nil {
 			return getResourcesByIds(db, rids)
@@ -351,23 +368,24 @@ func (fsl *FsLite) Update(t any) error {
 
 func (fsl *FsLite) Download(t *any) (context.CancelFunc, error) {
 	v := *t
-	resource, ok := v.(*ut.Resource)
+	resource, ok := v.(ut.Resource)
 	if !ok {
-		log.Printf("failed to cast to designated struct")
-		return nil, fmt.Errorf("failed to cast to designated struct")
+		log.Printf("failed to cast to ut.Resource")
+		return nil, fmt.Errorf("failed to cast to ut.Resource")
 	}
+	resourcePtr := &resource
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
 		log.Printf("failed to retrieve database connection: %v", err)
 		return nil, err
 	}
 
-	_, err = getResourceByName(db, resource.Name)
+	_, err = getResourceByName(db, resourcePtr.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	file, err := os.Open(fslite_data_path + "/" + resource.Vname + "/" + resource.Name)
+	file, err := os.Open(fslite_data_path + "/" + resourcePtr.Vname + "/" + resourcePtr.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -375,8 +393,10 @@ func (fsl *FsLite) Download(t *any) (context.CancelFunc, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get file stats: %v", err)
 	}
-	resource.Size = stat.Size()
-	resource.Reader = file
+	resourcePtr.Size = stat.Size()
+	resourcePtr.Reader = file
+
+	*t = *resourcePtr
 
 	return nil, nil
 }

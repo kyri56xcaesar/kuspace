@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os/signal"
 	"reflect"
+	"strings"
 	"syscall"
 	"time"
 
@@ -41,8 +42,9 @@ type HTTPService struct {
 * Structs */
 func NewService(conf string) HTTPService {
 	service := HTTPService{}
-	service.Engine = gin.Default()
 	service.Config = ut.LoadConfig(conf)
+	setGinMode(service.Config.API_GIN_MODE)
+	service.Engine = gin.Default()
 
 	authServiceURL = fmt.Sprintf("http://%s:%s", service.Config.AUTH_ADDRESS, service.Config.AUTH_PORT)
 	apiServiceURL = fmt.Sprintf("http://%s:%s", service.Config.API_ADDRESS, service.Config.API_PORT)
@@ -276,4 +278,19 @@ func (srv *HTTPService) ServeHTTP() {
 	}
 
 	log.Println("Server exiting")
+}
+
+func setGinMode(mode string) {
+	switch strings.ToLower(mode) {
+	case "release":
+		gin.SetMode(gin.ReleaseMode)
+	case "debug":
+		gin.SetMode(gin.DebugMode)
+	case "envgin":
+		gin.SetMode(gin.EnvGinMode)
+	case "test":
+		gin.SetMode(gin.TestMode)
+	default:
+		gin.SetMode(gin.DebugMode)
+	}
 }

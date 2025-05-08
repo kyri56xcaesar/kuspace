@@ -2,8 +2,8 @@ package userspace
 
 import (
 	"context"
-	"kyri56xcaesar/myThesis/internal/userspace/fslite"
 	"kyri56xcaesar/myThesis/internal/userspace/minio"
+	"kyri56xcaesar/myThesis/pkg/fslite"
 	"log"
 )
 

@@ -329,21 +329,34 @@ func (gv *GroupVolume) Fields() []any {
 	return []any{gv.Vid, gv.Gid, gv.Usage, gv.Quota, gv.Updated_at}
 }
 
-/* This service will handle requests
-*  according to given uid and his gids
-*  (who the user is and in which groups he belongs to)
+/* Header information the service needs to handle requests.
+*  given uid, gids, volume_name/vid, resource_name
+*  (who the user is and in which groups he belongs to and what he seeks)
 * */
+// AccessClaim carries user and volume access context.
 type AccessClaim struct {
-	Uid  string `json:"user_id"`   // owner id
-	Gids string `json:"group_ids"` // owner group ids
+	// Uid is the user ID.
+	// @example 1001
+	Uid string `json:"user_id" example:"1001"`
 
-	Vid   string `json:"volume_id"` // volume target
-	Vname string `json:"volume_name"`
-	// keyword, is a mechanism to specify a target
-	// more like a set of "instructions"
-	// comms establishment @look at the header parser
-	HasKeyword bool   `json:"haskeyword,omitempty"` // used keyword ($)?
-	Target     string `json:"target"`               // target
+	// Gids is a comma-separated string of group IDs.
+	// @example 2001,2002
+	Gids string `json:"group_ids" example:"2001,2002"`
+
+	// Vid is the volume ID.
+	// @example 1
+	Vid string `json:"volume_id" example:"1"`
+
+	// Vname is the name of the volume.
+	// @example default
+	Vname string `json:"volume_name" example:"default"`
+
+	// HasKeyword indicates if the user used a special keyword in the request.
+	HasKeyword bool `json:"haskeyword,omitempty"`
+
+	// Target is the requested resource or path.
+	// @example /data/reports
+	Target string `json:"target" example:"/data/reports"`
 }
 
 func (ac *AccessClaim) Filter() AccessClaim {
@@ -367,31 +380,86 @@ func (ac *AccessClaim) Validate() error {
 	return nil
 }
 
+// User represents a system user.
+// @Description Contains user metadata, credentials, and group memberships.
 type User struct {
-	Username string   `json:"username"`
-	Info     string   `json:"info"`
-	Home     string   `json:"home"`
-	Shell    string   `json:"shell"`
+	// Username is the unique login name of the user.
+	// @example johndoe
+	Username string `json:"username" example:"johndoe"`
+
+	// Info is optional user metadata or notes.
+	Info string `json:"info,omitempty" example:"researcher in group A"`
+
+	// Home is the user’s home directory path.
+	Home string `json:"home,omitempty" example:"/home/johndoe"`
+
+	// Shell is the user’s default shell.
+	Shell string `json:"shell,omitempty" example:"/bin/bash"`
+
+	// Password contains the user’s password settings and hash.
 	Password Password `json:"password"`
-	Groups   []Group  `json:"groups"`
-	Uid      int      `json:"uid"`
-	Pgroup   int      `json:"pgroup"`
+
+	// Groups is a list of groups the user belongs to.
+	Groups []Group `json:"groups,omitempty"`
+
+	// Uid is the user’s numeric ID.
+	Uid int `json:"uid,omitempty" example:"1001"`
+
+	// Pgroup is the user’s primary group ID.
+	Pgroup int `json:"pgroup,omitempty" example:"2001"`
 }
 
+// Password represents user password data and policies.
 type Password struct {
-	Hashpass           string `json:"hashpass"`
-	LastPasswordChange string `json:"lastPasswordChange"`
-	MinimumPasswordAge string `json:"minimumPasswordAge"`
-	MaximumPasswordAge string `json:"maxiumPasswordAge"`
-	WarningPeriod      string `json:"warningPeriod"`
-	InactivityPeriod   string `json:"inactivityPeriod"`
-	ExpirationDate     string `json:"expirationDate"`
+	// Hashpass is the hashed password.
+	// @example $2a$10$7s5YfF7...
+	Hashpass string `json:"hashpass" example:"$2a$10$7s5YfF7..."`
+
+	// LastPasswordChange is the last time the password was changed.
+	LastPasswordChange string `json:"lastPasswordChange,omitempty"`
+
+	MinimumPasswordAge string `json:"minimumPasswordAge,omitempty"`
+	MaximumPasswordAge string `json:"maxiumPasswordAge,omitempty"`
+	WarningPeriod      string `json:"warningPeriod,omitempty"`
+	InactivityPeriod   string `json:"inactivityPeriod,omitempty"`
+	ExpirationDate     string `json:"expirationDate,omitempty"`
 }
 
+/* check password fields for allowed values...*/
+func (p *Password) ValidatePassword() error {
+	// Validate Password Length
+	if len(p.Hashpass) < 4 {
+		return NewError("password length '%d' is too short: minimum required length is 4 characters", len(p.Hashpass))
+	}
+
+	// Validate Hashpass
+	if p.Hashpass == "" {
+		return NewError("hashpass cannot be empty")
+	}
+
+	return nil
+}
+
+// Group represents a group of users in the system.
 type Group struct {
-	Groupname string `json:"groupname"`
-	Users     []User `json:"users"`
-	Gid       int    `json:"gid"`
+	// Groupname is the name of the group.
+	// @example researchers
+	Groupname string `json:"groupname" example:"researchers"`
+
+	// Users is an optional list of users in the group.
+	Users []User `json:"users,omitempty" swaggerignore:"true"`
+
+	// Gid is the numeric group ID.
+	// @example 3001
+	Gid int `json:"gid" example:"3001"`
+}
+
+func (g *Group) PtrFields() []any {
+	return []any{&g.Groupname, &g.Gid}
+}
+
+func (g *Group) ToString() string {
+	return fmt.Sprintf("%v", g.Groupname)
 }
 
 type Job struct {

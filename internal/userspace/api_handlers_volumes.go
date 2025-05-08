@@ -219,7 +219,7 @@ func (srv *UService) HandleGroupVolumes(c *gin.Context) {
 				return
 			}
 
-			if capacity, _ := strconv.ParseFloat(srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY, 64); int(groupVolume.Quota) == 0 || groupVolume.Quota > float64(capacity) {
+			if capacity := min(srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY, MAX_DEFAULT_VOLUME_CAPACITY); int(groupVolume.Quota) == 0 || groupVolume.Quota > float64(capacity) {
 				log.Printf("inserted")
 				groupVolume.Quota = float64(capacity)
 			}
