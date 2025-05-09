@@ -2,9 +2,13 @@
     "uid":0,
     "description":"testing if basic duckdb query job works",
     "input_format":"csv",
-    "input":"test/small_csv_out.csv",
-    "output":"kate.csv",
+    "input":"test-bucket-1/small_random.csv",
+    "output":"test-bucket-1/j_res.csv",
     "output_format":"csv",
     "logic":"application/duckdb:v1",
-    "logic_body":"SELECT \"header-kimch\" FROM #% LIMIT 2"
+    "logic_body":"SELECT \"header-qIQ\" FROM #% LIMIT 2",
+    "memory_request":"0.5Gi",
+    "memory_limit":"1Gi",
+    "cpu_request":"0.5",
+    "cpu_limit":"1"
 }

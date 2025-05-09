@@ -1,13 +1,13 @@
 # do
-- response Model (for my apis)
+- response Model (for my apis) (minor)
+- finish fslite (uservolumes/groupvolumes) (minor)
 
-- go doc  (comment all public functions)
+- go doc  (comment all public functions) (medium)
+- create a installation/uninstallation tool (medium)
+- automate tests (medium)
+- secure check, proof check the System! (medium)
 
-- automate tests
 
-- finish fslite (uservolumes/groupvolumes)
-
-- update frontapp
-
-- update resource/volume management with minio
+- update frontapp (major)
+- update resource/volume management with minio + security aspect (major)
 
