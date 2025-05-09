@@ -5,6 +5,9 @@ RUN go mod download
 COPY ./internal/userspace/ ./internal/userspace/
 COPY ./internal/utils/ ./internal/utils/
 COPY ./cmd/userspace/ ./cmd/userspace/ 
+COPY ./api/userspace/ ./api/userspace/
+COPY ./pkg/fslite/ ./pkg/fslite/
+
 RUN GOOS=linux go build -o ./cmd/userspace/userspace ./cmd/userspace/main.go 
 
 FROM debian:bookworm-slim

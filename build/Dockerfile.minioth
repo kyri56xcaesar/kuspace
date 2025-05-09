@@ -6,6 +6,7 @@ RUN go mod download
 COPY ./internal/utils/ ./internal/utils/
 COPY ./pkg/minioth/ ./pkg/minioth/
 COPY ./cmd/minioth/ ./cmd/minioth/ 
+COPY ./api/minioth/ ./api/minioth/
 RUN GOOS=linux go build -o ./cmd/minioth/minioth ./cmd/minioth/main.go 
 
 FROM debian:bookworm-slim

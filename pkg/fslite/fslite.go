@@ -59,13 +59,6 @@ const (
 			quota FLOAT,
 			updated_at DATETIME
 		);
-  		CREATE TABLE IF NOT EXISTS groupVolume(
-  		  vid INTEGER,
-  		  gid INTEGER,
-  		  usage FLOAT,
-  		  quota FLOAT,
-  		  updated_at DATETIME
-  		);
     	CREATE SEQUENCE IF NOT EXISTS seq_resourceid START 1;
     	CREATE SEQUENCE IF NOT EXISTS seq_volumeid START 1; 
     `
@@ -278,26 +271,6 @@ func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 		return nil, err
 	}
 
-	gv, ok := t.(ut.GroupVolume)
-	if ok {
-		db, err := fsl.dbh.GetConn()
-		if err != nil {
-			log.Printf("failed to get the db conn: %v", err)
-			return nil, err
-		}
-		err = insertGroupVolume(db, gv)
-		return nil, err
-	}
-	gvs, ok := t.([]ut.GroupVolume)
-	if ok {
-		db, err := fsl.dbh.GetConn()
-		if err != nil {
-			log.Printf("failed to get the db conn: %v", err)
-			return nil, err
-		}
-		err = insertGroupVolumes(db, gvs)
-		return nil, err
-	}
 	return nil, fmt.Errorf("failed to cast all types")
 }
 
@@ -452,10 +425,6 @@ func (fsl *FsLite) Share(method string, t any) (any, error) {
 	return nil, nil
 }
 
-func sizeInGb(s int64) float64 {
-	return float64(s) / 1000000000
-}
-
 func (fsl *FsLite) claimVolumeSpace(size int64, volumeName, uid string) error {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
@@ -467,7 +436,7 @@ func (fsl *FsLite) claimVolumeSpace(size int64, volumeName, uid string) error {
 	if err != nil {
 		return err
 	}
-	size_inGB := sizeInGb(size)
+	size_inGB := ut.SizeInGb(size)
 	// check for current volume usage.
 	new_usage_inGB := volume.Usage + size_inGB
 	if new_usage_inGB > volume.Capacity {
@@ -480,26 +449,16 @@ func (fsl *FsLite) claimVolumeSpace(size int64, volumeName, uid string) error {
 	if err != nil {
 		return err
 	}
+	// if it doesn't exist, create it
 	uv, err := getUserVolumeByUid(db, iuid)
 	if err != nil {
-		return err
+		err = insertUserVolume(db, ut.UserVolume{Updated_at: ut.CurrentTime()})
 	}
 
-	res, err := getGroupVolumesByGroupIds(db, []string{uid})
-	if err != nil {
-		return err
-	}
-	gvs, ok := res.([]ut.GroupVolume)
-	if !ok {
-		return fmt.Errorf("failed to cast")
-	}
 	// update all usages
 	// volume
 	// volume claims user/group
 	uv.Usage += size_inGB
-	for _, gv := range gvs {
-		gv.Usage += size_inGB
-	}
 	volume.Usage = new_usage_inGB
 
 	err = updateVolume(db, volume)
@@ -512,63 +471,51 @@ func (fsl *FsLite) claimVolumeSpace(size int64, volumeName, uid string) error {
 		log.Printf("failed to update user volume usages: %v", err)
 		return err
 	}
-	err = updateGroupVolumes(db, gvs)
-	if err != nil {
-		log.Printf("failed to update group volume usages: %v", err)
-		return err
-	}
 
 	return nil
 }
 
-func (fsl *FsLite) releaseVolumeSpace(size int64, ac ut.AccessClaim) error {
+func (fsl *FsLite) releaseVolumeSpace(size int64, volumeName, uid string) error {
+	db, err := fsl.dbh.GetConn()
+	if err != nil {
+		log.Printf("failed to retrieve database connection: %v", err)
+		return err
+	}
 
-	res, err := fsl.SelectOne("", "volumes", "vid", "1")
+	volume, err := getVolumeByName(db, volumeName)
 	if err != nil {
 		log.Printf("could not retrieve volume: %v", err)
 		return fmt.Errorf("could not retrieve volume: %w", err)
 	}
-	volume := res.(ut.Volume)
 
-	size_inGB := sizeInGb(size)
+	size_inGB := ut.SizeInGb(size)
 	new_usage_inGB := max(volume.Usage-size_inGB, 0)
 
-	res, err = fsl.SelectOne("", "userVolume", "uid", ac.Uid)
+	iuid, err := strconv.Atoi(uid)
 	if err != nil {
-		log.Printf("failed to retrieve user volume: %v", err)
 		return err
 	}
-	uv := res.(ut.UserVolume)
-
-	res, err = fsl.SelectOne("", "groupVolume", "gid", strings.Split(strings.TrimSpace(ac.Gids), ",")[0])
+	uv, err := getUserVolumeByUid(db, iuid)
 	if err != nil {
-		log.Printf("failed to retrieve group volume: %v", err)
 		return err
 	}
-	gv := res.(ut.GroupVolume)
 
 	// update all usages
 	// volume
 	// volume claims user/group
 	uv.Usage -= size_inGB
-	gv.Usage -= size_inGB
 	volume.Usage = new_usage_inGB
 
-	// err = srv.storage.UpdateVolume(volume)
-	// if err != nil {
-	// 	log.Printf("failed to update volume usages: %v", err)
-	// 	return err
-	// }
-	// err = srv.storage.UpdateUserVolume(uv)
-	// if err != nil {
-	// 	log.Printf("failed to update user volume usages: %v", err)
-	// 	return err
-	// }
-	// err = srv.storage.UpdateGroupVolume(gv)
-	// if err != nil {
-	// 	log.Printf("failed to update group volume usages: %v", err)
-	// 	return err
-	// }
+	err = updateVolume(db, volume)
+	if err != nil {
+		log.Printf("failed to update volume usages: %v", err)
+		return err
+	}
+	err = updateUserVolume(db, uv)
+	if err != nil {
+		log.Printf("failed to update user volume usages: %v", err)
+		return err
+	}
 
 	return nil
 }
@@ -622,7 +569,43 @@ func determinePhysicalStorage(target string, fileSize int64) (string, error) {
 	return target, nil
 }
 
-func (fsl *FsLite) Select(sel, table, by, byvalue string, limit int) ([]any, error) {
+func (fsl *FsLite) selectUserVolumes(how map[string]any) (any, error) {
+	db, err := fsl.dbh.GetConn()
+	if err != nil {
+		log.Printf("failed to get the db conn: %v", err)
+		return nil, err
+	}
+	// limit := how["limit"]
+
+	uids, ok1 := how["uids"]
+	vids, ok2 := how["vids"]
+	if ok1 && vids != "" && ok2 && uids != "" {
+		vids, ok1 := vids.(string)
+		uids, ok2 := uids.(string)
+		if ok1 && ok2 {
+			return getUserVolumesByUidsAndVids(db, strings.Split(uids, ","), strings.Split(vids, ","))
+		}
+
+	} else if ok1 && vids != "" {
+		vids, ok := vids.(string)
+		if ok {
+			return getUserVolumesByVolumeIds(db, strings.Split(vids, ","))
+		}
+	} else if ok2 && uids != "" {
+		uids, ok := uids.(string)
+		if ok {
+			return getUserVolumesByUserIds(db, strings.Split(uids, ","))
+		}
+	} else {
+		return getAllUserVolumes(db)
+	}
+
+	return nil, err
+
+}
+
+/* playground functions... working on it... i don't like them */
+func (fsl *FsLite) sel(sel, table, by, byvalue string, limit int) ([]any, error) {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
 		// log.Printf("failed to get the db conn: %v", err)
@@ -636,7 +619,7 @@ func (fsl *FsLite) Select(sel, table, by, byvalue string, limit int) ([]any, err
 	return results, nil
 
 }
-func (fsl *FsLite) SelectOne(sel, table, by, byvalue string) (any, error) {
+func (fsl *FsLite) selectOne(sel, table, by, byvalue string) (any, error) {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
 		// log.Printf("failed to get the db conn: %v", err)
@@ -664,13 +647,7 @@ func (fsl *FsLite) SelectOne(sel, table, by, byvalue string) (any, error) {
 			return nil, err
 		}
 		return result, nil
-	case "groupVolume":
-		result, err := getGroupVolume(db, sel, table, by, byvalue)
-		if err != nil {
-			// log.Printf("failed to get the desired data: %v", err)
-			return nil, err
-		}
-		return result, nil
+
 	default:
 		return nil, ut.NewError("invalid table name, not supported: %s", table)
 	}

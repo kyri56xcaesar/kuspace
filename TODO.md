@@ -5,7 +5,7 @@
 
 - automate tests
 
-- finish fslite
+- finish fslite (uservolumes/groupvolumes)
 
 - update frontapp
 

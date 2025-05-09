@@ -230,6 +230,8 @@ func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
 		totalUploadSize += fileHeader.Size
 	}
 
+	// claim userVolume, check if allowed!
+
 	for _, fileHeader := range c.Request.MultipartForm.File["files"] {
 		file, err := fileHeader.Open()
 		if err != nil {
@@ -341,4 +343,28 @@ func (fsl *FsLite) copyResourceHandler(c *gin.Context) {
 
 func (fsl *FsLite) shareResourceHandler(c *gin.Context) {
 
+}
+
+func (fsl *FsLite) handleUserVolumes(c *gin.Context) {
+	// limit, err := strconv.Atoi(c.Request.URL.Query().Get("limit"))
+	// if err != nil {
+	// 	limit = 0
+	// }
+	uids := c.Request.URL.Query().Get("uids")
+	rids := c.Request.URL.Query().Get("vids")
+
+	switch c.Request.Method {
+	case http.MethodGet:
+		res, err := fsl.selectUserVolumes(map[string]any{"uids": uids, "rids": rids})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user volumes"})
+		} else {
+			c.JSON(http.StatusOK, gin.H{"content": res})
+		}
+	case http.MethodPatch:
+	case http.MethodDelete:
+
+	default:
+		c.JSON(http.StatusForbidden, gin.H{"error": "method not allowed"})
+	}
 }
