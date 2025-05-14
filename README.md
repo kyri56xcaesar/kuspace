@@ -1,4 +1,4 @@
-# ######################################################
+# Modular Batch Processing Platform
 
 ## A system platform that provides modular batch processing applications for users to run on an end system
 
@@ -12,8 +12,7 @@
 >
 >> - integrated shell as cli/webcli
 
-
-# ######################################################
+## Development Instructions
 
 [DEV]
 Run locally:
@@ -21,29 +20,29 @@ Run locally:
 >
     make all 
 
-# ######################################################
+## Brief Description
 
 [BriefDescription]
 
 ## A SOA
 
-- identity/storage provision <br>
-- central API for submitting "jobs" <br>
-  - user defined orchestration <br>
-  - code as jobs execution <br>
-  - builtin applications (modular) <br>
-- websocket streaming for logs/resuls/output <br>
-- frontend application for i/o + management <br>
+- identity/storage provision  
+- central API for submitting "jobs"  
+  - user defined orchestration  
+  - code as jobs execution  
+  - builtin applications (modular)  
+- websocket streaming for logs/resuls/output  
+- frontend application for i/o + management  
 
-# ######################################################
+## Detailed Information
 
 [Details]
 
 - storage provider (configurable)
-  - minio <br>
-            (defaults creds for its builtin management gateway)<br>
-            - minioadmin <br>
-            - minioadmin <br>
+  - minio  
+            (defaults creds for its builtin management gateway)  
+            - minioadmin  
+            - minioadmin  
     or
   - fslite [custom implementation]
             (a pretty basic fs storing mechanism, with an api and a database holding file metadata)

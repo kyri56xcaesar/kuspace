@@ -1,5 +1,4 @@
-## Todo
-
+# Todo
 
 > 1. [ ] response Model (for my apis)
 >
@@ -20,4 +19,3 @@
 > 9. [ ] installation/uninstallation method
 >
 > 10. [ ] go doc  (comment all public functions)
-
