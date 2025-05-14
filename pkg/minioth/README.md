@@ -1,6 +1,6 @@
 # minioth
 
-## an **_Auth_** service aspiring to become an identity provider!
+## an **_Auth_** service aspiring to become an identity provider
 
 > - stores users/groups
 >
@@ -9,9 +9,9 @@
 > - JWT - RS256/HS256, (choose by setting header: X-Auth-Signing-Alg)
 >
 > - storage handler
->> 1. local database sqlite3/duckdb
->> <br>or
+>>
+>> 1. local database sqlite3/duckdb  
+>> or  
 >> 2. txt files: passwd/groups/shadow (unix style)
-
 
 ### **! can be used serverless, to connect to a different service !**
