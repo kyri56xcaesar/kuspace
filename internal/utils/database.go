@@ -1,7 +1,7 @@
 package utils
 
 /*
-	Initialization and general database handling code for the UserspaceAPI
+	initialization and general database handling code
 */
 
 import (
@@ -14,20 +14,6 @@ import (
 	_ "github.com/marcboeker/go-duckdb"
 )
 
-/*
-	 In this API we have 4 types of data that we handle
-
-		each data type is handled by a corresponding handler
-			- Resources
-			- Volumes
-			- UserVolumes
-			- GroupVolumes
-*/
-
-// well this is somewhat suboptimal, since not all db calls can be used from a handler
-// but for now we will keep it as is
-// should be refactored
-// one should choose which database calls he needs for his database connection
 type DBHandler struct {
 	db        *sql.DB
 	db_driver string

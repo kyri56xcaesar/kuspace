@@ -1,3 +1,9 @@
+// @title           Uspace API
+// @version         1.0
+// @description     API for submitting/monitoring jobs to/from an execution machine
+// @host            localhost:8079
+// @BasePath        /api/v1
+// @schemes         http
 package userspace
 
 import (
@@ -146,7 +152,7 @@ func (srv *UService) Serve() {
 	* */
 	apiV1 := srv.Engine.Group("/api" + VERSION)
 	// apiV1.Use(serviceAuth(srv)) //, bindHeadersMiddleware())
-	apiV1.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	apiV1.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.InstanceName("userspacedocs")))
 
 	apiV1.Use(bindHeadersMiddleware())
 	{

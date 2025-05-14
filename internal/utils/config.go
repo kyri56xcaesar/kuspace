@@ -34,27 +34,28 @@ type EnvConfig struct {
 	// ###################################
 	// API CONFS
 	// api as a general api (used for uspace)
-	IP                string
-	ISSUER            string
-	API_GIN_MODE      string
-	API_CERT_FILE     string // path to a cert file
-	API_KEY_FILE      string // path to a key file
-	API_LOGS_PATH     string // path to logs dir
-	API_LOGS_MAX_SIZE string // max logs size (in MB)
-	API_PORT          string // main service port
-	API_ADDRESS       string // main service address name (default IP)
-	FRONT_PORT        string
-	FRONT_ADDRESS     string
-	AUTH_PORT         string
-	AUTH_ADDRESS      string
+	IP            string
+	ISSUER        string
+	API_USE_TLS   bool
+	API_CERT_FILE string // path to a cert file
+	API_KEY_FILE  string // path to a key file
+
+	API_GIN_MODE       string
+	API_LOGS_PATH      string // path to logs dir
+	API_LOGS_MAX_FETCH int    // max logs size (in MB)
+	API_PORT           string // main service port
+	API_ADDRESS        string // main service address name (default IP)
+	FRONT_PORT         string
+	FRONT_ADDRESS      string
+	AUTH_PORT          string
+	AUTH_ADDRESS       string
 	// front as in the frontend app  // frontend app itself should use api vars
 	// auth as in an authentication app // if an auth app uses this configuration, it should reference api port as itself
 
 	// service (main) authentication info
 	JWKS               string // used by (minioth)
-	JWT_VALIDITY_HOURS int
+	JWT_VALIDITY_HOURS float64
 	JWTSecretKey       []byte
-	JWTRefreshKey      []byte
 	ServiceSecret      []byte
 	AllowedOrigins     []string
 	AllowedHeaders     []string
@@ -79,6 +80,7 @@ type EnvConfig struct {
 	DB_FSL_MAX_LIFETIME   string // lifetime of an idle connection
 	FSL_ACCESS_KEY        string // "root" or admin username for authentication
 	FSL_SECRET_KEY        string // "root" or admin password for authentication
+	FSL_SERVER            bool
 
 	// fslite uses a local data directory for storage
 	LOCAL_VOLUMES_DEFAULT_PATH     string  // path to the data directory
@@ -117,12 +119,13 @@ type EnvConfig struct {
 	// authentication (minioth),
 	// 	- uses a storage handler rather than a storage system
 	// ###################################
-	MINIOTH_ACCESS_KEY string
-	MINIOTH_SECRET_KEY string
-	MINIOTH_DB         string // a path + name of the database
-	MINIOTH_HANDLER    string // either database/db or plain/text
-	MINIOTH_LOGS       string
-	MINIOTH_AUDIT_LOGS string
+	MINIOTH_ACCESS_KEY           string
+	MINIOTH_SECRET_KEY           string
+	MINIOTH_DB                   string // a path + name of the database
+	MINIOTH_DB_DRIVER            string
+	MINIOTH_HANDLER              string // either database/db or plain/text
+	MINIOTH_AUDIT_LOGS           string
+	MINIOTH_AUDIT_LOGS_MAX_FETCH int
 }
 
 func LoadConfig(path string) EnvConfig {
@@ -135,15 +138,17 @@ func LoadConfig(path string) EnvConfig {
 	config := EnvConfig{
 		ConfigPath: split[len(split)-1],
 
-		API_PORT:          getEnv("API_PORT", "8079"),
-		API_ADDRESS:       getEnv("API_ADDRESS", "localhost"),
-		API_CERT_FILE:     getEnv("API_CERT_FILE", "localhost.pem"),
-		API_KEY_FILE:      getEnv("API_KEY_FILE", "localhost-key.pem"),
-		API_LOGS_PATH:     getEnv("API_J_LOGS_PATH", "data/logs/jobs/job.log"),
-		API_LOGS_MAX_SIZE: getEnv("API_J_LOGS_MAX_SIZE", "10"),
-		API_GIN_MODE:      getEnv("API_GIN_MODE", "debug"),
-		STORAGE_SYSTEM:    getEnv("STORAGE_SYSTEM", "local"),
+		API_PORT:           getEnv("API_PORT", "8079"),
+		API_ADDRESS:        getEnv("API_ADDRESS", "localhost"),
+		API_USE_TLS:        getBoolEnv("API_USE_TLS", "false"),
+		API_CERT_FILE:      getEnv("API_CERT_FILE", "localhost.pem"),
+		API_KEY_FILE:       getEnv("API_KEY_FILE", "localhost-key.pem"),
+		API_LOGS_PATH:      getEnv("API_LOGS_PATH", "data/logs/jobs/job.log"),
+		API_LOGS_MAX_FETCH: int(getInt64Env("API_LOGS_MAX_FETCH", 100)),
+		API_GIN_MODE:       getEnv("API_GIN_MODE", "debug"),
+		STORAGE_SYSTEM:     getEnv("STORAGE_SYSTEM", "local"),
 
+		FSL_SERVER:                     getBoolEnv("FSL_SERVER", "true"),
 		DB_FSL:                         getEnv("DB_FSL", "database.db"),
 		DB_FSL_DRIVER:                  getEnv("DB_FSL_DRIVER", "duckdb"),
 		DB_FSL_PATH:                    getEnv("DB_FSL_PATH", "data/db/fslite"),
@@ -152,8 +157,8 @@ func LoadConfig(path string) EnvConfig {
 		DB_FSL_MAX_LIFETIME:            getEnv("DB_FSL_MAX_LIFETIME", "10"),
 		FSL_ACCESS_KEY:                 getEnv("FSL_ACCESS_KEY", "fsladmin"),
 		FSL_SECRET_KEY:                 getEnv("FSL_SECRET_KEY", "fsladmin"),
-		LOCAL_VOLUMES_DEFAULT_CAPACITY: getFloatEnv("V_LOCAL_CAPACITY", 20),
-		LOCAL_VOLUMES_DEFAULT_PATH:     getEnv("V_LOCAL_PATH", "data/volumes/fslite"),
+		LOCAL_VOLUMES_DEFAULT_CAPACITY: getFloatEnv("LOCAL_VOLUMES_DEFAULT_CAPACITY", 20),
+		LOCAL_VOLUMES_DEFAULT_PATH:     getEnv("LOCAL_VOLUMES_DEFAULT_PATH", "data/volumes/fslite"),
 
 		MINIO_ACCESS_KEY:      getEnv("MINIO_ACCESS_KEY", "minioadmin"),
 		MINIO_SECRET_KEY:      getEnv("MINIO_SECRET_KEY", "minioadmin"),
@@ -190,8 +195,7 @@ func LoadConfig(path string) EnvConfig {
 		AllowedMethods:     getEnvs("ALLOWED_METHODS", nil),
 		ISSUER:             getEnv("ISSUER", "http://localhost:9090"),
 		JWTSecretKey:       getSecretKey("JWT_SECRET_KEY"),
-		JWTRefreshKey:      getSecretKey("JWT_REFRESH_KEY"),
-		JWT_VALIDITY_HOURS: int(getInt64Env("JWT_VALIDITY_HOURS", 1)),
+		JWT_VALIDITY_HOURS: getFloatEnv("JWT_VALIDITY_HOURS", 1),
 		ServiceSecret:      getSecretKey("SERVICE_SECRET"),
 		JWKS:               getEnv("JWKS", "data/jwks/jwks.json"),
 		HASH_COST:          getEnv("HASH_COST", "4"),
@@ -199,12 +203,13 @@ func LoadConfig(path string) EnvConfig {
 		AS_OPERATOR: getBoolEnv("AS_OPERATOR", "false"),
 		NAMESPACE:   getEnv("NAMESPACE", "default"),
 
-		MINIOTH_ACCESS_KEY: getEnv("MINIOTH_ACCESS_KEY", "root"),
-		MINIOTH_SECRET_KEY: getEnv("MINIOTH_SECRET_KEY", "root"),
-		MINIOTH_DB:         getEnv("MINIOTH_DB", "data/db/minioth/minioth.db"),
-		MINIOTH_HANDLER:    getEnv("MINIOTH_HANDLER", "database"),
-		MINIOTH_LOGS:       getEnv("MINIOTH_LOGS", "data/logs/minioth/minioth.logs"),
-		MINIOTH_AUDIT_LOGS: getEnv("MINIOTH_AUDIT_LOGS", "data/logs/minioth/audit.logs"),
+		MINIOTH_ACCESS_KEY:           getEnv("MINIOTH_ACCESS_KEY", "root"),
+		MINIOTH_SECRET_KEY:           getEnv("MINIOTH_SECRET_KEY", "root"),
+		MINIOTH_DB:                   getEnv("MINIOTH_DB", "data/db/minioth/minioth.db"),
+		MINIOTH_DB_DRIVER:            getEnv("MINIOTH_DB_DRIVER", "duckdb"),
+		MINIOTH_HANDLER:              getEnv("MINIOTH_HANDLER", "database"),
+		MINIOTH_AUDIT_LOGS:           getEnv("MINIOTH_AUDIT_LOGS", "data/logs/minioth/audit.logs"),
+		MINIOTH_AUDIT_LOGS_MAX_FETCH: int(getInt64Env("MINIOTH_AUDIT_LOGS_MAX_FETCH", 100)),
 	}
 
 	log.Print(config.ToString())
@@ -230,7 +235,7 @@ func getInt64Env(key string, fallback int64) int64 {
 	key = getEnv(key, "")
 	key_int, err := strconv.ParseInt(key, 10, 64)
 	if err != nil {
-		log.Printf("failed to parse int64 from var: %v\nfalling back to %v", err, fallback)
+		log.Printf("failed to parse int64 from var %v: %v\nfalling back to %v", key, err, fallback)
 		return fallback
 	}
 	return key_int
@@ -240,7 +245,7 @@ func getFloatEnv(key string, fallback float64) float64 {
 	key = getEnv(key, "")
 	key_float, err := strconv.ParseFloat(key, 64)
 	if err != nil {
-		log.Printf("failed to parse float64 from variable: %v\nfalling back... to %v", err, fallback)
+		log.Printf("failed to parse float64 from variable %v: %v\nfalling back... to %v", key, err, fallback)
 		return fallback
 	}
 	return key_float

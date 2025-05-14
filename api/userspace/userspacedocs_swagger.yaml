@@ -1,3 +1,4 @@
+basePath: /api/v1
 definitions:
   kyri56xcaesar_myThesis_internal_utils.Job:
     properties:
@@ -77,8 +78,12 @@ definitions:
       vid:
         type: integer
     type: object
+host: localhost:8079
 info:
   contact: {}
+  description: API for submitting/monitoring jobs to/from an execution machine
+  title: Uspace API
+  version: "1.0"
 paths:
   /job:
     get:
@@ -791,4 +796,6 @@ paths:
       summary: Manage volumes
       tags:
       - volumes
+schemes:
+- http
 swagger: "2.0"

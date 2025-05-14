@@ -14,7 +14,19 @@ import (
  */
 
 /* hash cost for bcrypt hash function, reconfigurable from config*/
-var HASH_COST int = 16
+/*
+*
+* Variables */
+var (
+	audit_log_path           = "data/logs/minioth/audit.log"
+	log_path                 = "data/logs/minioth/minioth.log"
+	forbidden_names []string = []string{
+		"root",
+		"kubernetes",
+		"k8s",
+	}
+	HASH_COST int = 16
+)
 
 /*
 *
@@ -40,9 +52,9 @@ type MiniothHandler interface {
 	Groupmod(group ut.Group) error
 	Grouppatch(gid string, fields map[string]any) error
 
-	Select(id string) []any
+	Select(id string) any
 	Passwd(username, password string) error
-	Authenticate(username, password string) (*ut.User, error)
+	Authenticate(username, password string) (ut.User, error)
 
 	Close()
 }
@@ -50,19 +62,27 @@ type MiniothHandler interface {
 /* "constructor"
 * Use this function to create an instance of minioth. */
 func NewMinioth(cfgPath string) Minioth {
-	log.Print("Creating new minioth...")
+	log.Print("[INIT]Creating new minioth...")
 	newM := Minioth{
 		Config: ut.LoadConfig(cfgPath),
 	}
-	newM.handler = handlerFactory(&newM)
-	newM.Service = NewMSerivce(&newM)
-	newM.handler.Init()
 
 	var err error
 	HASH_COST, err = strconv.Atoi(newM.Config.HASH_COST)
 	if err != nil {
 		log.Fatalf("failed to atoi hash_cost var: %v", err)
 	}
+
+	audit_log_path = newM.Config.MINIOTH_AUDIT_LOGS
+	log_path = newM.Config.API_LOGS_PATH
+
+	log.Printf("[INIT]setting log path to: %s", log_path)
+	log.Printf("[INIT]setting audit log path to: %s", audit_log_path)
+	log.Printf("[INIT]setting hashcost to: HASH_COST=%v", HASH_COST)
+
+	newM.handler = handlerFactory(&newM)
+	newM.Service = NewMSerivce(&newM)
+	newM.handler.Init()
 
 	return newM
 }
@@ -71,8 +91,8 @@ func handlerFactory(minioth *Minioth) MiniothHandler {
 	switch minioth.Config.MINIOTH_HANDLER {
 	case "db", "database":
 		return &DBHandler{DBpath: minioth.Config.MINIOTH_DB, minioth: minioth}
-	case "plain", "text", "txt":
-		return &PlainHandler{}
+	case "plain", "text", "file":
+		return &PlainHandler{minioth: minioth}
 	default:
 		log.Fatal("not a valid handler, cannot operate")
 		return nil
@@ -118,11 +138,11 @@ func (m *Minioth) Passwd(username, password string) error {
 	return m.handler.Passwd(username, password)
 }
 
-func (m *Minioth) Select(id string) []interface{} {
+func (m *Minioth) Select(id string) any {
 	return m.handler.Select(id)
 }
 
-func (m *Minioth) Authenticate(username, password string) (*ut.User, error) {
+func (m *Minioth) Authenticate(username, password string) (ut.User, error) {
 	return m.handler.Authenticate(username, password)
 }
 

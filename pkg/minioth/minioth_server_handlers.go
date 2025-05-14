@@ -1,15 +1,16 @@
 package minioth
 
 import (
+	"encoding/json"
 	"fmt"
 	ut "kyri56xcaesar/myThesis/internal/utils"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 // @Summary Register a new user
@@ -21,7 +22,7 @@ import (
 // @Success 200 {object} map[string]any "registration successful"
 // @Failure 400 {object} map[string]string "Invalid input or failed to register"
 // @Failure 403 {object} map[string]string "User already exists"
-// @Router /v1/register [post]
+// @Router /register [post]
 func (srv *MService) handleRegister(c *gin.Context) {
 	var uclaim RegisterClaim
 	err := c.BindJSON(&uclaim)
@@ -56,8 +57,12 @@ func (srv *MService) handleRegister(c *gin.Context) {
 		}
 		return
 	}
-	// TODO: should insta "pseudo" login issue a token for registration.
-	// can I redirect to login?
+
+	username, ok := c.Get("username")
+	if !ok {
+		username = "[debug]admin"
+	}
+	logAudit("registration", username.(string), fmt.Sprintf("%+v", uclaim), "success", "admin", c.ClientIP())
 	c.JSON(200, gin.H{
 		"message":   "registration successful.",
 		"uid":       uid,
@@ -75,10 +80,10 @@ func (srv *MService) handleRegister(c *gin.Context) {
 // @Success 200 {object} map[string]any "login successful"
 // @Failure 400 {object} map[string]string "Validation or auth failure"
 // @Failure 404 {object} map[string]string "User not found"
-// @Router /v1/login [post]
+// @Router /login [post]
 func (srv *MService) handleLogin(c *gin.Context) {
-	var lclaim LoginClaim
-	err := c.BindJSON(&lclaim)
+	var login_claim LoginClaim
+	err := c.BindJSON(&login_claim)
 	if err != nil {
 		log.Printf("error binding request body to struct: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "binding error"})
@@ -86,7 +91,7 @@ func (srv *MService) handleLogin(c *gin.Context) {
 	}
 
 	// Verify user credentials
-	err = lclaim.validateClaim()
+	err = login_claim.validateClaim()
 	if err != nil {
 		log.Printf("failed to validate: %v", err)
 		c.JSON(400, gin.H{
@@ -95,7 +100,7 @@ func (srv *MService) handleLogin(c *gin.Context) {
 		return
 	}
 
-	user, err := srv.Minioth.Authenticate(lclaim.Username, lclaim.Password)
+	user, err := srv.Minioth.Authenticate(login_claim.Username, login_claim.Password)
 	if err != nil {
 		log.Printf("error: %v", err)
 		if strings.Contains(err.Error(), "not found") {
@@ -108,8 +113,8 @@ func (srv *MService) handleLogin(c *gin.Context) {
 		return
 	}
 
-	strGroups := groupsToString(user.Groups)
-	strGids := gidsToString(user.Groups)
+	strGroups := ut.GroupsToString(user.Groups)
+	strGids := ut.GidsToString(user.Groups)
 
 	var pgroup int
 	for _, group := range user.Groups {
@@ -117,29 +122,39 @@ func (srv *MService) handleLogin(c *gin.Context) {
 			pgroup = group.Gid
 		}
 	}
-	// TODO: should upgrde the way I create users.. need to be able to create admins as well...
-	// or perhaps make the root admin be able to "promote" a user
-	token, err := GenerateAccessJWT(strconv.Itoa(user.Uid), lclaim.Username, strGroups, strGids)
-	if err != nil {
-		log.Fatalf("failed generating jwt token: %v", err)
+	signingAlg := c.GetHeader("X-Auth-Signing-Alg")
+	if signingAlg == "" {
+		signingAlg = "HS256" // default
 	}
 
-	refreshToken, err := GenerateRefreshJWT(lclaim.Username)
+	var token string
+	switch signingAlg {
+	case "RS256":
+		token, err = GenerateAccessRS256JWT(strconv.Itoa(user.Uid), login_claim.Username, strGroups, strGids)
+	default:
+		token, err = GenerateAccessHS256JWT(strconv.Itoa(user.Uid), login_claim.Username, strGroups, strGids)
+	}
 	if err != nil {
-		log.Fatalf("failed to generate refresh token: %v", err)
+		log.Printf("failed to generate jwt: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "token generation failed"})
+		return
 	}
 
+	username, ok := c.Get("username")
+	if !ok {
+		username = "[debug]admin"
+	}
+	logAudit("login", username.(string), fmt.Sprintf("%+v", login_claim), "success", "admin", c.ClientIP())
 	// for now return detailed information so that frontend is accomodated
 	// and followup authorization is provided (ids needed)
 	// NOTE: use Authorization header for now.
 	c.JSON(200, gin.H{
-		"username":      lclaim.Username,
-		"user_id":       user.Uid,
-		"groups":        strGroups,
-		"group_ids":     strGids,
-		"pgroup":        pgroup,
-		"access_token":  token,
-		"refresh_token": refreshToken,
+		"username":     login_claim.Username,
+		"user_id":      user.Uid,
+		"groups":       strGroups,
+		"group_ids":    strGids,
+		"pgroup":       pgroup,
+		"access_token": token,
 	})
 }
 
@@ -155,24 +170,17 @@ func (srv *MService) handleLogin(c *gin.Context) {
 // @Router       /token/refresh [post]
 func handleTokenRefresh(c *gin.Context) {
 	var requestBody struct {
-		RefreshToken string `json:"refresh_token" binding:"required"`
+		Token string `json:"access_token" binding:"required"`
 	}
 
 	if err := c.BindJSON(&requestBody); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "refresh_token required",
+			"error": "access_token required",
 		})
 		return
 	}
 
-	refreshToken := requestBody.RefreshToken
-	token, err := jwt.ParseWithClaims(refreshToken, &CustomClaims{}, func(token *jwt.Token) (any, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); ok {
-			return nil, fmt.Errorf("unexpected signing method")
-		}
-		return jwtRefreshKey, nil
-	})
-
+	token, err := ParseJWT(requestBody.Token)
 	if err != nil || !token.Valid {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error": "invalid refresh token",
@@ -187,27 +195,42 @@ func handleTokenRefresh(c *gin.Context) {
 		})
 		return
 	}
-	newAccessToken, err := GenerateAccessJWT(claims.UserID, claims.Username, claims.Groups, claims.GroupIDS)
-	if err != nil {
-		log.Printf("error generating new access token: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "error generating access_token",
-		})
-		return
-	}
 
-	newRefreshToken, err := GenerateRefreshJWT(claims.UserID)
-	if err != nil {
-		log.Printf("error generating new refresh token: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "error generating refresh_token",
-		})
+	username, ok := c.Get("username")
+	if !ok {
+		username = "[debug]admin"
+	}
+	logAudit("token_regeneration", username.(string), fmt.Sprintf("%+v", requestBody), "success", "admin", c.ClientIP())
+
+	var newAccessToken string
+	switch token.Header["alg"].(string) {
+	case "HS256":
+		newAccessToken, err = GenerateAccessHS256JWT(claims.UserID, claims.Username, claims.Groups, claims.GroupIDS)
+		if err != nil {
+			log.Printf("error generating new hs access token: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "error generating access_token",
+			})
+			return
+		}
+	case "RS256":
+		newAccessToken, err = GenerateAccessRS256JWT(claims.UserID, claims.Username, claims.Groups, claims.GroupIDS)
+		if err != nil {
+			log.Printf("error generating new rs access token: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "error generating access_token",
+			})
+			return
+		}
+	default:
+		log.Printf("invalid alg value")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid alg value (parse or token)"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"access_token":  newAccessToken,
-		"refresh_token": newRefreshToken,
+		"message":      "new access token generated",
+		"access_token": newAccessToken,
 	})
 }
 
@@ -242,21 +265,7 @@ func handleTokenInfo(c *gin.Context) {
 	}
 
 	// Parse and validate the token
-	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (any, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return jwtSecretKey, nil
-	})
-
-	if err != nil || !token.Valid {
-		token, err = jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (any, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-			}
-			return jwtRefreshKey, nil
-		})
-	}
+	token, err := ParseJWT(tokenString)
 
 	if err != nil {
 		log.Printf("%v token, exiting", token)
@@ -322,22 +331,7 @@ func (srv *MService) handleTokenUserInfo(c *gin.Context) {
 	}
 
 	// Parse and validate the token
-	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (any, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return jwtSecretKey, nil
-	})
-
-	if err != nil || !token.Valid {
-		token, err = jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (any, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-			}
-			return jwtRefreshKey, nil
-		})
-	}
-
+	token, err := ParseJWT(tokenString)
 	if err != nil {
 		log.Printf("%v token, exiting", token)
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -355,11 +349,11 @@ func (srv *MService) handleTokenUserInfo(c *gin.Context) {
 
 	user := srv.Minioth.Select("users?uid=" + claims.UserID)
 
-	if len(user) != 1 {
+	if user == nil {
 		c.JSON(http.StatusNotFound, gin.H{"status": "not found"})
 		return
 	} else {
-		c.JSON(http.StatusOK, user[0])
+		c.JSON(http.StatusOK, user)
 	}
 }
 
@@ -381,6 +375,19 @@ func (srv *MService) handlePasswd(c *gin.Context) {
 		log.Printf("error binding request body to struct: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "binding error"})
 		return
+	}
+	// password change should be used only byourselves or admin, get username by middleware
+	username, ok := c.Get("username")
+	if !ok {
+		log.Printf("failed to authenticate")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "didn't parse bearer token"})
+		return
+	} else if username != lclaim.Username {
+		if groups, _ := c.Get("groups"); !strings.Contains(groups.(string), "admin") {
+			log.Printf("not admin trying to change password of another user")
+			c.JSON(http.StatusForbidden, gin.H{"error": "not allowed"})
+			return
+		}
 	}
 
 	pass := ut.Password{
@@ -406,16 +413,34 @@ func (srv *MService) handlePasswd(c *gin.Context) {
 		return
 	}
 
+	logAudit("user_password_change", username.(string), fmt.Sprintf("%+v", lclaim), "success", "admin", c.ClientIP())
 	c.JSON(200, gin.H{"status": "password changed successfully"})
 }
 
 // @Summary      Get audit logs
-// @Description  Retrieves audit logs. (Currently not implemented.)
+// @Description  Retrieves recent audit logs from the server. Optional query param 'max' specifies the max number of bytes to read.
 // @Tags         admin
+// @Accept       json
 // @Produce      json
-// @Success      200  {object}  map[string]any
+// @Param        max  query     int  false  "Maximum number of bytes to fetch from the audit log"
+// @Success      200  {object}  map[string]any  "Audit logs returned successfully"
+// @Failure      400  {object}  map[string]string  "Invalid request parameters"
+// @Failure      500  {object}  map[string]string  "Failed to read or open audit log"
 // @Router       /admin/audit/logs [get]
 func handleAuditLogs(c *gin.Context) {
+	mx, err := strconv.Atoi(c.Query("max"))
+	if err != nil || mx <= 0 {
+		mx = audit_log_max_fetch
+	}
+
+	lines, err := ut.TailFileLines(audit_log_path, mx)
+	if err != nil {
+		log.Printf("failed to read audit logs: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read audit log"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"logs": lines})
 }
 
 // just a login with no token issueing
@@ -460,6 +485,11 @@ func (srv *MService) handleVerifyPassword(c *gin.Context) {
 		}
 		return
 	}
+	username, ok := c.Get("username")
+	if !ok {
+		username = "[debug]admin"
+	}
+	logAudit("user_authentication", username.(string), fmt.Sprintf("%+v", lclaim), "success", "admin", c.ClientIP())
 	c.JSON(http.StatusOK, gin.H{"status": "valid"})
 
 }
@@ -564,6 +594,11 @@ func (srv *MService) handleUseradd(c *gin.Context) {
 		return
 	}
 
+	username, ok := c.Get("username")
+	if !ok {
+		username = "[debug]admin"
+	}
+	logAudit("user_add", username.(string), "user: "+uclaim.User.ToString(), "success", "admin", c.ClientIP())
 	// TODO: should insta "pseudo" login issue a token for registration.
 	// can I redirect to login?
 	c.JSON(200, gin.H{
@@ -600,6 +635,11 @@ func (srv *MService) handleUserdel(c *gin.Context) {
 		return
 	}
 
+	username, ok := c.Get("username")
+	if !ok {
+		username = "[debug]admin"
+	}
+	logAudit("user_del", username.(string), "user: "+uid, "success", "admin", c.ClientIP())
 	c.JSON(http.StatusOK, gin.H{"message": "user deleted successfully"})
 }
 
@@ -661,6 +701,11 @@ func (srv *MService) handleUserpatch(c *gin.Context) {
 		return
 	}
 
+	username, ok := c.Get("username")
+	if !ok {
+		username = "[debug]admin"
+	}
+	logAudit("user_patch", username.(string), "user: "+uid, "success", "admin", c.ClientIP())
 	c.JSON(http.StatusOK, gin.H{"message": "user patched successfully"})
 }
 
@@ -691,6 +736,11 @@ func (srv *MService) handleUsermod(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user"})
 		return
 	}
+	username, ok := c.Get("username")
+	if !ok {
+		username = "[debug]admin"
+	}
+	logAudit("user_mod", username.(string), "user: "+ruser.User.ToString(), "success", "admin", c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"message": "User updated successfully"})
 }
@@ -716,6 +766,11 @@ func (srv *MService) handleGroupadd(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add group"})
 		return
 	}
+	username, ok := c.Get("username")
+	if !ok {
+		username = "[debug]admin"
+	}
+	logAudit("group_mod", username.(string), "group: "+group.ToString(), "success", "admin", c.ClientIP())
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Group added successfully"})
 }
@@ -750,6 +805,12 @@ func (srv *MService) handleGrouppatch(c *gin.Context) {
 		return
 	}
 
+	username, ok := c.Get("username")
+	if !ok {
+		username = "[debug]admin"
+	}
+	logAudit("group_patch", username.(string), "group: "+payload.Gid, "success", "admin", c.ClientIP())
+
 	c.JSON(http.StatusOK, gin.H{"message": "Group patched successfully"})
 }
 
@@ -780,6 +841,12 @@ func (srv *MService) handleGroupmod(c *gin.Context) {
 		return
 	}
 
+	username, ok := c.Get("username")
+	if !ok {
+		username = "[debug]admin"
+	}
+	logAudit("group_mod", username.(string), "group: "+group.ToString(), "success", "admin", c.ClientIP())
+
 	c.JSON(http.StatusOK, gin.H{"message": "Group modified successfully"})
 }
 
@@ -802,6 +869,28 @@ func (srv *MService) handleGroupdel(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete group"})
 		return
 	}
-
+	username, ok := c.Get("username")
+	if !ok {
+		username = "[debug]admin"
+	}
+	logAudit("group_delete", username.(string), "group: "+gid, "success", "removed by admin", c.ClientIP())
 	c.JSON(http.StatusOK, gin.H{"message": "Group deleted successfully"})
+}
+
+func logAudit(action, actor, target, status, details, source string) {
+	mu.Lock()
+	defer mu.Unlock()
+	entry := map[string]any{
+		"timestamp": ut.CurrentTime(),
+		"action":    action,
+		"actor":     actor,
+		"target":    target,
+		"status":    status,
+		"source_ip": source,
+		"details":   details,
+	}
+	data, _ := json.Marshal(entry)
+	f, _ := os.OpenFile(audit_log_path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	defer f.Close()
+	f.Write(append(data, '\n'))
 }

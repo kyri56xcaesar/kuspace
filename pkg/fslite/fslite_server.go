@@ -11,6 +11,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+
+	_ "kyri56xcaesar/myThesis/api/fslite"
+
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 const (
@@ -25,6 +30,8 @@ func (fsl *FsLite) ListenAndServe() {
 	})
 	api := srv.Group(version)
 	{
+		api.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.InstanceName("fslitedocs")))
+
 		api.POST("/login", fsl.loginHandler)
 	}
 

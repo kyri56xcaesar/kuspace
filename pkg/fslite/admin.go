@@ -18,13 +18,15 @@ const (
 )
 
 var (
-	HASH_COST          = 4
-	JWT_VALIDITY_HOURS = 4
-	jwtSecretKey       = "r4nd0m"
-	usernameRegex      = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
-	passwordRegex      = regexp.MustCompile(`^[a-zA-Z0-9!@#\$%\^&\*]+$`)
+	HASH_COST        int     = 4
+	jwtValidityHours float64 = 4
+	jwtSecretKey     string  = "r4nd0m"
+	usernameRegex            = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
+	passwordRegex            = regexp.MustCompile(`^[a-zA-Z0-9!@#\$%\^&\*]+$`)
 )
 
+// Admin represents an admin login or registration object.
+// @Description Admin login/registration payload
 type Admin struct {
 	ID       uuid.UUID `db:"id" json:"id,omitempty"`
 	Username string    `db:"username" json:"username"`
@@ -153,7 +155,7 @@ func generateAccessJWT(userID, username string) (string, error) {
 		Username: username,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "fslite",
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * time.Duration(JWT_VALIDITY_HOURS))),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * time.Duration(jwtValidityHours))),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Subject:   userID,
 		},

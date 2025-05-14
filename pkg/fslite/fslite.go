@@ -72,10 +72,14 @@ type FsLite struct {
 
 func NewFsLite(cfg ut.EnvConfig) FsLite {
 	setGinMode(cfg.API_GIN_MODE)
+	var gin_engine *gin.Engine
+	if cfg.FSL_SERVER {
+		gin_engine = gin.Default()
+	}
 	fsl := FsLite{
 		config: cfg,
 		dbh:    ut.NewDBHandler(cfg.DB_FSL, cfg.DB_FSL_PATH, cfg.DB_FSL_DRIVER),
-		engine: gin.Default(),
+		engine: gin_engine,
 	}
 	fsl.dbh.Init(InitSql, cfg.DB_FSL_MAX_OPEN_CONNS, cfg.DB_FSL_MAX_IDLE_CONNS, cfg.DB_FSL_MAX_LIFETIME)
 	if _, err := fsl.insertAdmin(cfg.FSL_ACCESS_KEY, cfg.FSL_SECRET_KEY); err != nil {
@@ -97,6 +101,7 @@ func NewFsLite(cfg ut.EnvConfig) FsLite {
 		}
 		log.Print(err)
 	}
+	jwtValidityHours = cfg.JWT_VALIDITY_HOURS
 
 	return fsl
 }
@@ -120,6 +125,8 @@ func (fsl *FsLite) CreateVolume(v any) error {
 	// should check if name exists.
 	if _, err = getVolumeByName(db, volume.Name); err == nil { // if err is nil, it exists
 		return ut.NewInfo("%s volume already exists", volume.Name)
+	} else if err.Error() != "empty" {
+		return err
 	}
 
 	err = os.MkdirAll(fslite_data_path+"/"+volume.Name, 0o644)
@@ -227,7 +234,6 @@ func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 			log.Printf("failed to copy to output file")
 			return nil, err
 		}
-
 		err = insertResource(db, resource)
 		if err != nil {
 			log.Printf("failed to insert resources in the db: %v", err)
@@ -452,7 +458,11 @@ func (fsl *FsLite) claimVolumeSpace(size int64, volumeName, uid string) error {
 	// if it doesn't exist, create it
 	uv, err := getUserVolumeByUid(db, iuid)
 	if err != nil {
-		err = insertUserVolume(db, ut.UserVolume{Updated_at: ut.CurrentTime()})
+		err = insertUserVolume(db, ut.UserVolume{Updated_at: ut.CurrentTime(), Vid: volume.Vid, Uid: iuid, Usage: size_inGB})
+		if err != nil {
+			log.Printf("failed to insert uv ")
+			return err
+		}
 	}
 
 	// update all usages
@@ -503,7 +513,7 @@ func (fsl *FsLite) releaseVolumeSpace(size int64, volumeName, uid string) error 
 	// update all usages
 	// volume
 	// volume claims user/group
-	uv.Usage -= size_inGB
+	uv.Usage = max(0, uv.Usage-size_inGB)
 	volume.Usage = new_usage_inGB
 
 	err = updateVolume(db, volume)
@@ -577,30 +587,24 @@ func (fsl *FsLite) selectUserVolumes(how map[string]any) (any, error) {
 	}
 	// limit := how["limit"]
 
-	uids, ok1 := how["uids"]
-	vids, ok2 := how["vids"]
+	uids, ok1 := how["uids"].(string)
+	vids, ok2 := how["vids"].(string)
 	if ok1 && vids != "" && ok2 && uids != "" {
-		vids, ok1 := vids.(string)
-		uids, ok2 := uids.(string)
-		if ok1 && ok2 {
-			return getUserVolumesByUidsAndVids(db, strings.Split(uids, ","), strings.Split(vids, ","))
-		}
+		// log.Printf("selecting all uvs by uids and vids")
+		return getUserVolumesByUidsAndVids(db, strings.Split(uids, ","), strings.Split(vids, ","))
 
 	} else if ok1 && vids != "" {
-		vids, ok := vids.(string)
-		if ok {
-			return getUserVolumesByVolumeIds(db, strings.Split(vids, ","))
-		}
+		// log.Printf("selecting uvs by vids: %v", vids)
+		return getUserVolumesByVolumeIds(db, strings.Split(vids, ","))
+
 	} else if ok2 && uids != "" {
-		uids, ok := uids.(string)
-		if ok {
-			return getUserVolumesByUserIds(db, strings.Split(uids, ","))
-		}
+		// log.Printf("selecting uvs by uids")
+		return getUserVolumesByUserIds(db, strings.Split(uids, ","))
+
 	} else {
+		// log.Printf("selecting all uvs")
 		return getAllUserVolumes(db)
 	}
-
-	return nil, err
 
 }
 

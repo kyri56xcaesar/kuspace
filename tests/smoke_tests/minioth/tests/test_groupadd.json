@@ -1,5 +1,5 @@
 {
-  "groupname": "docker",
+  "groupname": "dockerv3",
   "users": [
     { "uid": 1000 }
   ]

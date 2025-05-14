@@ -10,16 +10,14 @@ package minioth
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -28,7 +26,6 @@ import (
 	_ "kyri56xcaesar/myThesis/api/minioth"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
@@ -40,22 +37,10 @@ const (
 	VERSION = "v1"
 )
 
-/*
-*
-* Variables */
 var (
-	audit_log_path     = "data/logs/minioth/audit.log"
-	log_path           = "data/logs/minioth/minioth.log"
-	jwtSecretKey       = []byte("default_placeholder_key")
-	jwtRefreshKey      = []byte("default_refresh_placeholder_key")
-	jwksFilePath       = "jwks.json"
-	JWT_VALIDITY_HOURS = 1
-
-	forbidden_names []string = []string{
-		"root",
-		"kubernetes",
-		"k8s",
-	}
+	mu                  = sync.Mutex{}
+	log_max_fetch       = 1000
+	audit_log_max_fetch = 1000
 )
 
 /*
@@ -83,16 +68,38 @@ func NewMSerivce(m *Minioth) MService {
 		Engine:  gin.Default(),
 	}
 	jwtSecretKey = srv.Minioth.Config.JWTSecretKey
-	jwtRefreshKey = srv.Minioth.Config.JWTRefreshKey
 	jwksFilePath = srv.Minioth.Config.JWKS
-	audit_log_path = srv.Minioth.Config.MINIOTH_AUDIT_LOGS
-	log_path = srv.Minioth.Config.MINIOTH_LOGS
+	jwtValidityHours = srv.Minioth.Config.JWT_VALIDITY_HOURS
+	issuer = srv.Minioth.Config.ISSUER
 
-	log.Printf("updating jwt key...: %s", jwtSecretKey)
-	log.Printf("updating jwt refresh key...: %s", jwtRefreshKey)
-	log.Printf("setting hashcost to: HASH_COST=%v", HASH_COST)
-	log.Printf("setting audit log to: %s", audit_log_path)
-	log.Printf("setting logs to: %s", log_path)
+	audit_log_max_fetch = srv.Minioth.Config.MINIOTH_AUDIT_LOGS_MAX_FETCH
+	log_max_fetch = srv.Minioth.Config.API_LOGS_MAX_FETCH
+	_, err := os.Stat(audit_log_path)
+	if err != nil {
+		p := strings.Split(audit_log_path, "/")
+		if len(p) < 2 {
+			log.Fatalf("bad audit logs path")
+		}
+		err = os.MkdirAll(strings.Join(p[:len(p)-1], "/"), 0o644)
+		if err != nil {
+			log.Fatalf("couldn't make path directory: %v", err)
+		}
+		f, err := os.Create(audit_log_path)
+		if err != nil {
+			log.Fatalf("failed to touch the audit log file")
+		}
+		f.WriteString("==> minioth - audit logs <==\n")
+		defer f.Close()
+	}
+
+	log.Printf("[INIT]updating jwt key...: %s", jwtSecretKey)
+	log.Printf("[INIT]updating jwks path...: %s", jwksFilePath)
+	log.Printf("[INIT]setting issuer to: %s", issuer)
+	log.Printf("[INIT]setting audit max fetch...: %d", audit_log_max_fetch)
+	log.Printf("[INIT]setting log max fetch...: %d", log_max_fetch)
+
+	rotateKey()
+	log.Printf("[INIT]rotating to new key: %v", signingKeys[currentKID])
 
 	return srv
 }
@@ -104,84 +111,8 @@ func NewMSerivce(m *Minioth) MService {
  * /audit/logs, /admin/users, /admin/users
  */
 func (srv *MService) ServeHTTP() {
-	apiV1 := srv.Engine.Group("/" + VERSION)
-	apiV1.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-	{
-		apiV1.POST("/register", srv.handleRegister)
-		apiV1.POST("/login", srv.handleLogin)
-		apiV1.GET("/user/me", srv.handleTokenUserInfo)
-		apiV1.POST("/passwd", srv.handlePasswd)
-		apiV1.POST("/token/refresh", handleTokenRefresh)
-		apiV1.GET("/user/token", handleTokenInfo)
-	}
 
-	/* admin endpoints */
-	admin := apiV1.Group("/admin")
-	admin.Use(AuthMiddleware("admin", srv))
-	{
-		admin.GET("/audit/logs", handleAuditLogs)
-		admin.POST("/hasher", handleHasher)
-
-		admin.POST("/verify-password", srv.handleVerifyPassword)
-		admin.GET("/users", srv.handleUsers)
-		admin.GET("/groups", srv.handleGroups)
-		admin.POST("/useradd", srv.handleUseradd)
-		admin.DELETE("/userdel", srv.handleUserdel)
-		admin.PATCH("/userpatch", srv.handleUserpatch)
-		admin.PUT("/usermod", srv.handleUsermod)
-		admin.POST("/groupadd", srv.handleGroupadd)
-		admin.PATCH("/grouppatch", srv.handleGrouppatch)
-		admin.PUT("/groupmod", srv.handleGroupmod)
-		admin.DELETE("/groupdel", srv.handleGroupdel)
-	}
-
-	// these endpoints are not fully functional yet since our sign method is HS256 (no key needed)
-	// TODO: yet (provide "identity" openid standard)
-	wellknown := apiV1.Group("/.well-known")
-	{
-		wellknown.GET("/minioth", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{
-				"version": "0.0.1",
-				"status":  "alive",
-			})
-		})
-		wellknown.GET("/openid-configuration", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{
-				"issuer":   srv.Minioth.Config.ISSUER,
-				"jwks_uri": fmt.Sprintf("%s/.well-known/jwks.json", srv.Minioth.Config.ISSUER),
-				// "authorization_endpoint":                fmt.Sprintf("%s/%s/login", srv.Config.ISSUER, VERSION),
-				"token_endpoint":                        fmt.Sprintf("%s/%s/login", srv.Minioth.Config.ISSUER, VERSION),
-				"userinfo_endpoint":                     fmt.Sprintf("%s/%s/user/me", srv.Minioth.Config.ISSUER, VERSION),
-				"id_token_signing_alg_values_supported": "HS256",
-			})
-		})
-
-		wellknown.GET("/jwks.json", func(c *gin.Context) {
-			jwksFile, err := os.Open(jwksFilePath)
-			if err != nil {
-				log.Printf("failed to open jwks.json file: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load JWKS"})
-				return
-			}
-			defer jwksFile.Close()
-
-			jwksData, err := io.ReadAll(jwksFile)
-			if err != nil {
-				log.Printf("failed to read jwks.json file: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read JWKS"})
-				return
-			}
-
-			var jwks map[string]any
-			if err := json.Unmarshal(jwksData, &jwks); err != nil {
-				log.Printf("failed to parse jwks.json file: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse JWKS"})
-				return
-			}
-
-			c.JSON(http.StatusOK, jwks)
-		})
-	}
+	srv.RegisterRoutes()
 
 	server := &http.Server{
 		Addr:              srv.Minioth.Config.Addr(srv.Minioth.Config.API_PORT),
@@ -193,9 +124,16 @@ func (srv *MService) ServeHTTP() {
 	defer stop()
 
 	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("listen: %s\n", err)
+		if srv.Minioth.Config.API_USE_TLS {
+			if err := server.ListenAndServeTLS(srv.Minioth.Config.API_CERT_FILE, srv.Minioth.Config.API_KEY_FILE); err != nil && err != http.ErrServerClosed {
+				log.Fatalf("listen: %s\n", err)
+			}
+		} else {
+			if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Fatalf("listen: %s\n", err)
+			}
 		}
+
 	}()
 	<-ctx.Done()
 
@@ -214,69 +152,52 @@ func (srv *MService) ServeHTTP() {
 	log.Println("Server exiting")
 }
 
-/* For this service, authorization is required only for admin role. */
-func AuthMiddleware(role string, srv *MService) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// if service secret exists and validated, grant access
-		if s_secret_claim := c.GetHeader("X-Service-Secret"); s_secret_claim != "" {
-			if s_secret_claim == string(srv.Minioth.Config.ServiceSecret) {
-				log.Printf("service secret accepted. access granted.")
-				c.Next()
-				return
-			} else {
-				log.Printf("service secret invalid. access not granted")
-				c.Abort()
-				return
-			}
-		}
+func (srv *MService) RegisterRoutes() {
+	apiV1 := srv.Engine.Group("/" + VERSION)
+	apiV1.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.InstanceName("miniothdocs")))
+	{
+		apiV1.POST("/register", srv.handleRegister)
+		apiV1.POST("/login", srv.handleLogin)
+		apiV1.POST("/passwd", AuthMiddleware("admin,user", srv), srv.handlePasswd)
+		apiV1.GET("/user/me", srv.handleTokenUserInfo)
+		apiV1.GET("/user/token", handleTokenInfo)
+		apiV1.GET("/user/refresh-token", handleTokenRefresh)
+	}
 
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is required"})
-			c.Abort()
-			return
-		}
+	/* admin endpoints */
+	admin := apiV1.Group("/admin")
+	if strings.ToLower(srv.Minioth.Config.API_GIN_MODE) != "debug" {
+		admin.Use(AuthMiddleware("admin", srv))
+	}
+	{
+		admin.GET("/audit/logs", handleAuditLogs)
+		admin.POST("/hasher", handleHasher)
 
-		// Extract the token from the Authorization header
-		tokenString := authHeader[len("Bearer "):]
-		if tokenString == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Bearer token is required"})
-			c.Abort()
-			return
-		}
+		admin.POST("/verify-password", srv.handleVerifyPassword)
+		admin.GET("/users", srv.handleUsers)
+		admin.GET("/groups", srv.handleGroups)
+		admin.POST("/useradd", srv.handleUseradd)
+		admin.DELETE("/userdel", srv.handleUserdel)
+		admin.PATCH("/userpatch", srv.handleUserpatch)
+		admin.PUT("/usermod", srv.handleUsermod)
+		admin.POST("/groupadd", srv.handleGroupadd)
+		admin.PATCH("/grouppatch", srv.handleGrouppatch)
+		admin.PUT("/groupmod", srv.handleGroupmod)
+		admin.DELETE("/groupdel", srv.handleGroupdel)
 
-		// Parse and validate the token
-		token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-			}
-			return jwtSecretKey, nil
+		admin.POST("/rotate", func(c *gin.Context) {
+			rotateKey()
+			c.JSON(http.StatusOK, gin.H{"message": "key rotated"})
 		})
+	}
 
-		if err != nil || !token.Valid {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-			c.Abort()
-			return
-		}
-
-		// Set claims in the context for further use
-		if claims, ok := token.Claims.(*CustomClaims); ok {
-			if !strings.Contains(claims.Groups, role) {
-				c.JSON(http.StatusUnauthorized, gin.H{
-					"error": "invalid user",
-				})
-				c.Abort()
-				return
-			}
-			c.Set("username", claims.UserID)
-			c.Set("groups", claims.Groups)
-		} else {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
-			c.Abort()
-			return
-		}
-
-		c.Next()
+	// these endpoints are not fully functional yet since our sign method is HS256 (no key needed)
+	// TODO: yet (provide "identity" openid standard)
+	wellknown := apiV1.Group("/.well-known")
+	{
+		wellknown.GET("/minioth", health)
+		wellknown.GET("/openid-configuration", srv.openid_configuration)
+		wellknown.GET("/jwks.json", jwks_handler)
 	}
 }
 
@@ -342,98 +263,6 @@ func offLimits(str string) bool {
 	return false
 }
 
-// jwt
-func GenerateAccessJWT(userID, username, groups, gids string) (string, error) {
-	// Set the claims for the token
-	claims := CustomClaims{
-		UserID:   userID,
-		Username: username,
-		Groups:   groups,
-		GroupIDS: gids,
-		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    "minioth",
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * time.Duration(JWT_VALIDITY_HOURS))),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Subject:   userID,
-		},
-	}
-
-	// Create the token using the HS256 signing method
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	// Sign the token using the secret key
-	tokenString, err := token.SignedString(jwtSecretKey)
-	if err != nil {
-		return "", fmt.Errorf("failed to sign token: %w", err)
-	}
-
-	return tokenString, nil
-}
-
-func DecodeJWT(tokenString string) (bool, *CustomClaims, error) {
-	// Parse and validate the token
-	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return jwtSecretKey, nil
-	})
-
-	if err != nil || !token.Valid {
-		token, err = jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-			}
-			return jwtRefreshKey, nil
-		})
-	}
-
-	if err != nil {
-		log.Printf("%v token, exiting", token)
-		return false, nil, err
-	}
-
-	claims, ok := token.Claims.(*CustomClaims)
-	if !ok {
-		log.Printf("not okay when retrieving claims")
-		return false, nil, errors.New("invalid claims")
-	}
-
-	return true, claims, nil
-}
-
-func GenerateRefreshJWT(userID string) (string, error) {
-	claims := CustomClaims{
-		UserID: userID,
-		Groups: "not-needed",
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 72)), // Token expiration time (24 hours)
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtRefreshKey)
-}
-
-func groupsToString(groups []ut.Group) string {
-	var res []string
-
-	for _, group := range groups {
-		res = append(res, group.ToString())
-	}
-
-	return strings.Join(res, ",")
-}
-
-func gidsToString(groups []ut.Group) string {
-	var res []string
-	for _, group := range groups {
-		res = append(res, strconv.Itoa(group.Gid))
-	}
-	return strings.Join(res, ",")
-}
-
 /* Incoming Register and Login requests binding structs */
 type RegisterClaim struct {
 	User ut.User `json:"user"`
@@ -447,13 +276,6 @@ type LoginClaim struct {
 /* JWT token signed claims.
 * what information the jwt will contain.
 * */
-type CustomClaims struct {
-	UserID   string `json:"user_id"`
-	Username string `json:"username"`
-	Groups   string `json:"groups"`
-	GroupIDS string `json:"group_ids"`
-	jwt.RegisteredClaims
-}
 
 func setGinMode(mode string) {
 	switch strings.ToLower(mode) {

@@ -1,13 +1,17 @@
 # minioth
 
-!iN Construction!
+## an **_Auth_** service aspiring to become an identity provider!
 
-a basic auth service, 
-JWT tokens,
-unix style
+> - stores users/groups
+>
+> - bcrypt hashed passwords
+>
+> - JWT - RS256/HS256, (choose by setting header: X-Auth-Signing-Alg)
+>
+> - storage handler
+>> 1. local database sqlite3/duckdb
+>> <br>or
+>> 2. txt files: passwd/groups/shadow (unix style)
 
 
-supports plain texts or duckdb
-
-currently working:
-basic login, register
+### **! can be used serverless, to connect to a different service !**

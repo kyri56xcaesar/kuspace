@@ -409,6 +409,23 @@ type User struct {
 	Pgroup int `json:"pgroup,omitempty" example:"2001"`
 }
 
+func (u *User) ToString() string {
+	return fmt.Sprintf(`
+		Name: %s, Uid: %d
+	`, u.Username, u.Uid,
+	)
+}
+
+func UsersToString(users []User) string {
+	var res []string
+
+	for _, user := range users {
+		res = append(res, user.Username)
+	}
+
+	return strings.Join(res, ",")
+}
+
 // Password represents user password data and policies.
 type Password struct {
 	// Hashpass is the hashed password.
@@ -460,6 +477,24 @@ func (g *Group) PtrFields() []any {
 
 func (g *Group) ToString() string {
 	return fmt.Sprintf("%v", g.Groupname)
+}
+
+func GroupsToString(groups []Group) string {
+	var res []string
+
+	for _, group := range groups {
+		res = append(res, group.ToString())
+	}
+
+	return strings.Join(res, ",")
+}
+
+func GidsToString(groups []Group) string {
+	var res []string
+	for _, group := range groups {
+		res = append(res, strconv.Itoa(group.Gid))
+	}
+	return strings.Join(res, ",")
 }
 
 type Job struct {

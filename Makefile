@@ -30,15 +30,13 @@ DOCS_DIR 				:= docs/
 #Api docs (swagger)
 API_DOCS_DIR :=api/
 API_DOCS_USPACE_TARGET 		:= internal/userspace/api.go
-API_DOCS_FRONTAPP_TARGET 	:= internal/frontendapp/api.go
 API_DOCS_MINIOTH_TARGET 	:= pkg/minioth/minioth_server.go
-
+API_DOCS_FSLITE_TARGET 		:= pkg/fslite/fslite_server.go
 
 .PHONY: api-docs
 api-docs:
-	swag init -g ${API_DOCS_USPACE_TARGET} --output ${API_DOCS_DIR}${API_OUT} --parseDependency --parseInternal
-	swag init -g ${API_DOCS_FRONTAPP_TARGET} --output ${API_DOCS_DIR}${F_APP_OUT} --parseDependency --parseInternal
-	swag init -g ${API_DOCS_MINIOTH_TARGET} --output ${API_DOCS_DIR}${AUTH_OUT} --parseDependency --parseInternal
+	swag init -g ${API_DOCS_USPACE_TARGET} -o ${API_DOCS_DIR}${API_OUT} --instanceName userspacedocs --exclude pkg/fslite,pkg/minioth --parseDependency --parseInternal
+	swag init -g ${API_DOCS_MINIOTH_TARGET} -o ${API_DOCS_DIR}${AUTH_OUT} --instanceName miniothdocs --exclude pkg/fslite,internal/userspace --parseDependency --parseInternal
 
 # utility
 .PHONY: clean

@@ -9,6 +9,7 @@ package fslite
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -58,7 +59,9 @@ func getVolumeByVid(db *sql.DB, vid int) (ut.Volume, error) {
 func getVolumeByName(db *sql.DB, name string) (ut.Volume, error) {
 	var volume ut.Volume
 	err := db.QueryRow(`SELECT * FROM volumes WHERE name = ?`, name).Scan(volume.PtrFields()...)
-	if err != nil {
+	if errors.Is(err, sql.ErrNoRows) {
+		return ut.Volume{}, errors.New("empty") // or return a custom error
+	} else if err != nil {
 		log.Printf("failed to scan result query: %v", err)
 		return ut.Volume{}, err
 	}
@@ -389,7 +392,7 @@ func updateUserVolumeQuotaAndUsageByUid(db *sql.DB, usage, quota float32, uid in
 	return nil
 }
 
-func getAllUserVolumes(db *sql.DB) (interface{}, error) {
+func getAllUserVolumes(db *sql.DB) (any, error) {
 	query := `SELECT * FROM userVolume`
 
 	rows, err := db.Query(query, nil)
@@ -426,7 +429,7 @@ func getUserVolumeByUid(db *sql.DB, uid int) (ut.UserVolume, error) {
 	return userVolume, nil
 }
 
-func getUserVolumesByUserIds(db *sql.DB, uids []string) (interface{}, error) {
+func getUserVolumesByUserIds(db *sql.DB, uids []string) (any, error) {
 
 	query := `
 			SELECT * FROM userVolume WHERE uid IN (?` + strings.Repeat(",?", len(uids)-1) + `)
@@ -436,7 +439,7 @@ func getUserVolumesByUserIds(db *sql.DB, uids []string) (interface{}, error) {
 		query = `SELECT * FROM userVolume;`
 	}
 
-	args := make([]interface{}, len(uids))
+	args := make([]any, len(uids))
 	for i, uid := range uids {
 		args[i] = uid
 	}
@@ -464,7 +467,7 @@ func getUserVolumesByUserIds(db *sql.DB, uids []string) (interface{}, error) {
 	return userVolumes, nil
 }
 
-func getUserVolumesByVolumeIds(db *sql.DB, vids []string) (interface{}, error) {
+func getUserVolumesByVolumeIds(db *sql.DB, vids []string) (any, error) {
 	query := `
 			SELECT * FROM userVolume WHERE vid IN (?` + strings.Repeat(",?", len(vids)-1) + `)
 		`
@@ -472,7 +475,7 @@ func getUserVolumesByVolumeIds(db *sql.DB, vids []string) (interface{}, error) {
 		query = `SELECT * FROM userVolume;`
 	}
 
-	args := make([]interface{}, len(vids))
+	args := make([]any, len(vids))
 	for i, uid := range vids {
 		args[i] = uid
 	}
@@ -500,7 +503,7 @@ func getUserVolumesByVolumeIds(db *sql.DB, vids []string) (interface{}, error) {
 	return userVolumes, nil
 }
 
-func getUserVolumesByUidsAndVids(db *sql.DB, uids, vids []string) (interface{}, error) {
+func getUserVolumesByUidsAndVids(db *sql.DB, uids, vids []string) (any, error) {
 	query := `
 		SELECT 
       * 
@@ -513,7 +516,7 @@ func getUserVolumesByUidsAndVids(db *sql.DB, uids, vids []string) (interface{}, 
 	  	
   `
 
-	args := make([]interface{}, len(vids))
+	args := make([]any, len(vids))
 	for i, uid := range vids {
 		args[i] = uid
 	}
@@ -704,7 +707,7 @@ func updateGroupVolumesUsageByGids(db *sql.DB, gids []string) error {
     WHERE gid IN (?
     ` + strings.Repeat(", ?", len(gids)-1) + `)`
 
-	args := make([]interface{}, len(gids))
+	args := make([]any, len(gids))
 	for i, v := range gids {
 		args[i] = v
 	}
@@ -805,7 +808,7 @@ func updateGroupVolumeQuotaAndUsageByUid(db *sql.DB, usage, quota float32, gid i
 	return nil
 }
 
-func getAllGroupVolumes(db *sql.DB) (interface{}, error) {
+func getAllGroupVolumes(db *sql.DB) (any, error) {
 
 	query := `SELECT * FROM groupVolume`
 
@@ -853,7 +856,7 @@ func getGroupVolumesByGroupIds(db *sql.DB, gids []string) (any, error) {
 		query = `SELECT * FROM groupVolume;`
 	}
 
-	args := make([]interface{}, len(gids))
+	args := make([]any, len(gids))
 	for i, uid := range gids {
 		args[i] = uid
 	}
@@ -881,7 +884,7 @@ func getGroupVolumesByGroupIds(db *sql.DB, gids []string) (any, error) {
 	return groupVolumes, nil
 }
 
-func getGroupVolumesByVolumeIds(db *sql.DB, vids []string) (interface{}, error) {
+func getGroupVolumesByVolumeIds(db *sql.DB, vids []string) (any, error) {
 	query := `
 			SELECT * FROM groupVolume WHERE vid IN (?` + strings.Repeat(",?", len(vids)-1) + `)
 		`
@@ -889,7 +892,7 @@ func getGroupVolumesByVolumeIds(db *sql.DB, vids []string) (interface{}, error) 
 	if len(vids) == 1 && vids[0] == "*" {
 		query = `SELECT * FROM groupVolume;`
 	}
-	args := make([]interface{}, len(vids))
+	args := make([]any, len(vids))
 	for i, uid := range vids {
 		args[i] = uid
 	}
@@ -930,7 +933,7 @@ func getGroupVolumesByVidsAndGids(db *sql.DB, vids, gids []string) (any, error) 
       gid IN (?` + strings.Repeat(",?", len(gids)-1) + `)
 	`
 
-	args := make([]interface{}, len(vids))
+	args := make([]any, len(vids))
 	for i, uid := range vids {
 		args[i] = uid
 	}

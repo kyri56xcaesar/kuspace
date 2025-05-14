@@ -1,63 +1,63 @@
 # ######################################################
-A system platform that provides modular batch processing applications for users to run on an end system. 
 
-[goals]
-> - ease of access to an end system
-> 
-> - sense of user environment
+## A system platform that provides modular batch processing applications for users to run on an end system
 
-[future_goals]
-> - integrated shell as cli/webcli
-> 
-> - ... 
+> **[goals]**
+>>
+>> - ease of access to an end system
+>>
+>> - sense of user environment
+>
+> **[future_goals]**
+>
+>> - integrated shell as cli/webcli
 
 
 # ######################################################
+
 [DEV]
 Run locally:
 > either build and run each service as follows:
-> 
+>
     make all 
 
-
-
 # ######################################################
+
 [BriefDescription]
-# A SOA 
 
-+ identity/storage provision 
-+ central API for submitting "jobs"
-    + user defined orchestration
-    + code as jobs execution
-    + builtin applications (modular)
-+ websocket streaming for logs/resuls/output
-+ frontend application for i/o + management
+## A SOA
 
+- identity/storage provision <br>
+- central API for submitting "jobs" <br>
+  - user defined orchestration <br>
+  - code as jobs execution <br>
+  - builtin applications (modular) <br>
+- websocket streaming for logs/resuls/output <br>
+- frontend application for i/o + management <br>
 
 # ######################################################
+
 [Details]
+
 - storage provider (configurable)
-     - minio
-            *(perhaps you need to kubectl port-forward its ports)*
-            defaults creds for its builtin management gateway: 
-            - minioadmin
-            - minioadmin
+  - minio <br>
+            (defaults creds for its builtin management gateway)<br>
+            - minioadmin <br>
+            - minioadmin <br>
     or
-     - fslite [custom implementation]
+  - fslite [custom implementation]
             (a pretty basic fs storing mechanism, with an api and a database holding file metadata)
             (*NOT FULLY FUNCTIONAL YET*)
             (would be nice to use redis or sth ram oriented for this)
 
 - identity provider
       - minioth
-        by "https://github.com/kyri56xcaesar/minioth"
-        default creds for admin: 
-        - root
-        - root
+        default creds for admin:
+        - miniothadmin
+        - miniothadmin
 
 - job scheduling mechanism (modular/configurable)
       - simple queue (default)
-
 
 - job execution system (modular/configurable)
       - kubernetes

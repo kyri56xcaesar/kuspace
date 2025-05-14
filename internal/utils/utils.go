@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -9,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 /*
@@ -291,4 +294,63 @@ func IsValidUTF8String(s string) bool {
 
 func SizeInGb(s int64) float64 {
 	return float64(s) / 1000000000
+}
+
+func TailFileLines(path string, n int) ([]string, error) {
+	const readBlockSize = 4096
+
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		fileSize  = stat.Size()
+		buffer    bytes.Buffer
+		lineCount = 0
+		offset    int64
+		tmp       = make([]byte, readBlockSize)
+	)
+
+	for offset = fileSize; offset > 0 && lineCount <= n; {
+		blockSize := int64(readBlockSize)
+		if offset < blockSize {
+			blockSize = offset
+		}
+		offset -= blockSize
+		_, err := file.Seek(offset, io.SeekStart)
+		if err != nil {
+			return nil, err
+		}
+		readBytes := tmp[:blockSize]
+		nr, err := file.Read(readBytes)
+		if err != nil {
+			return nil, err
+		}
+
+		buffer.Write(readBytes[:nr])
+		lineCount += bytes.Count(readBytes[:nr], []byte{'\n'})
+	}
+
+	content := buffer.Bytes()
+	lines := make([]string, 0, n)
+	scanner := bufio.NewScanner(bytes.NewReader(content))
+	for scanner.Scan() {
+		text := scanner.Text()
+		if utf8.ValidString(text) {
+			lines = append(lines, text)
+		} else {
+			lines = append(lines, string(bytes.Runes([]byte(text))))
+		}
+	}
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	return lines, nil
 }

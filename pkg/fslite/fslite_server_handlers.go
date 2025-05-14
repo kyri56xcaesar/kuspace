@@ -1,3 +1,9 @@
+// @title           Fslite API
+// @version         1.0
+// @description     http server API for basic volume/object management (on filesystem) with user claim provisioning.
+// @host            localhost:7070 (config)
+// @BasePath        /
+// @schemes         http
 package fslite
 
 import (
@@ -10,6 +16,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// @Summary Admin login
+// @Description Authenticates an admin user and returns a token for access.
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param username query string false "Admin username (optional if provided in body)"
+// @Param password query string false "Admin password (optional if provided in body)"
+// @Param admin body Admin false "Admin credentials in request body (optional)"
+// @Success 200 {object} map[string]string "Token returned on successful authentication"
+// @Failure 400 {object} map[string]string "Missing or invalid input"
+// @Failure 403 {object} map[string]string "Authentication failed"
+// @Router /login [post]
 func (fsl *FsLite) loginHandler(c *gin.Context) {
 	username := c.Request.URL.Query().Get("username")
 	password := c.Request.URL.Query().Get("password")
@@ -35,6 +53,18 @@ func (fsl *FsLite) loginHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"token": token})
 }
 
+// @Summary Admin registration
+// @Description Registers a new admin user into the system.
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param username query string false "Admin username (optional if provided in body)"
+// @Param password query string false "Admin password (optional if provided in body)"
+// @Param admin body Admin false "Admin registration data in body (optional)"
+// @Success 201 {object} map[string]interface{} "Admin registered successfully"
+// @Failure 400 {object} map[string]string "Missing or invalid input"
+// @Failure 500 {object} map[string]string "Server error during registration"
+// @Router /admin/register [post]
 func (fsl *FsLite) registerHandler(c *gin.Context) {
 	username := c.Request.URL.Query().Get("username")
 	password := c.Request.URL.Query().Get("password")
@@ -60,6 +90,15 @@ func (fsl *FsLite) registerHandler(c *gin.Context) {
 
 }
 
+// @Summary Create a new volume
+// @Description Registers a new volume with specified metadata.
+// @Tags volume
+// @Accept json
+// @Produce json
+// @Param volume body ut.Volume true "Volume object"
+// @Success 200 {object} map[string]string "volume created"
+// @Failure 400 {object} map[string]string "binding or creation error"
+// @Router /admin/volume/new [post]
 func (fsl *FsLite) newVolumeHandler(c *gin.Context) {
 	volume := ut.Volume{}
 	err := c.BindJSON(&volume)
@@ -82,6 +121,16 @@ func (fsl *FsLite) newVolumeHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "volume created"})
 }
 
+// @Summary Delete a volume
+// @Description Deletes a volume either from JSON body or query param `name`.
+// @Tags volume
+// @Accept json
+// @Produce json
+// @Param volume body ut.Volume false "Volume object"
+// @Param name query string false "Volume name"
+// @Success 200 {object} map[string]string "volume deleted"
+// @Failure 400 {object} map[string]string "deletion error or invalid input"
+// @Router /admin/volume/delete [delete]
 func (fsl *FsLite) deleteVolumeHandler(c *gin.Context) {
 	volume := ut.Volume{}
 	err := c.BindJSON(&volume)
@@ -108,6 +157,15 @@ func (fsl *FsLite) deleteVolumeHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "volume deleted"})
 }
 
+// @Summary Get volume information
+// @Description Retrieves volume details using query parameters.
+// @Tags volume
+// @Produce json
+// @Param name query string false "Volume name"
+// @Param vid query string false "Volume ID"
+// @Success 200 {object} []ut.Volume "volume info"
+// @Failure 400 {object} map[string]string "retrieval error"
+// @Router /admin/volume/get [get]
 func (fsl *FsLite) getVolumeHandler(c *gin.Context) {
 	vname := c.Request.URL.Query().Get("name")
 	vid := c.Request.URL.Query().Get("vid")
@@ -124,6 +182,15 @@ func (fsl *FsLite) getVolumeHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, volumes)
 }
 
+// @Summary Get metadata of a resource
+// @Description Retrieves the metadata of a specific resource using its volume and name.
+// @Tags resource
+// @Produce json
+// @Param resource query string true "Format: <volume_name>/<object_name>"
+// @Success 200 {object} map[string]interface{} "Resource metadata"
+// @Failure 400 {object} map[string]string "Invalid input or formatting"
+// @Failure 500 {object} map[string]string "Server error during stat"
+// @Router /admin/resource/stat [get]
 func (fsl *FsLite) statResourceHandler(c *gin.Context) {
 	resource := c.Request.URL.Query().Get("resource")
 
@@ -149,6 +216,16 @@ func (fsl *FsLite) statResourceHandler(c *gin.Context) {
 
 }
 
+// @Summary Get one or more resources
+// @Description Retrieves resources using name or resource IDs (rids).
+// @Tags resource
+// @Produce json
+// @Param name query string false "Resource name to search"
+// @Param rids query string false "Comma-separated list of resource IDs"
+// @Success 200 {array} ut.Resource "List of resources"
+// @Failure 400 {object} map[string]string "Query or processing error"
+// @Failure 404 {object} map[string]string "No matching resources found"
+// @Router /admin/resource/get [get]
 func (fsl *FsLite) getResourceHandler(c *gin.Context) {
 	name := c.Request.URL.Query().Get("name")
 	rids := c.Request.URL.Query().Get("rids")
@@ -170,7 +247,32 @@ func (fsl *FsLite) getResourceHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, resources)
 }
 
+// @Summary Delete a resource
+// @Description Deletes a resource by JSON body or query params (name & volume).
+// @Tags resource
+// @Accept json
+// @Produce json
+// @Param resource body ut.Resource false "Resource to delete"
+// @Param name query string false "Name of the resource"
+// @Param volume query string false "Volume name of the resource"
+// @Success 200 {object} map[string]string "Successful deletion"
+// @Failure 400 {object} map[string]string "Bad request or invalid input"
+// @Failure 500 {object} map[string]string "Server error or internal failure"
+// @Router /admin/resource/delete [delete]
 func (fsl *FsLite) deleteResourceHandler(c *gin.Context) {
+	id, ok := c.Get("uid")
+	uid, ok2 := id.(string)
+	if !ok || !ok2 {
+		log.Printf("uid wasn't set properly.")
+		if strings.ToLower(fsl.config.API_GIN_MODE) == "debug" {
+			log.Printf("mode = [debug], entering default uid")
+			uid = "0"
+			id = "0"
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "middleware failed to authenticate"})
+			return
+		}
+	}
 	resource := ut.Resource{}
 	err := c.BindJSON(&resource)
 	if err != nil || resource.Name == "" {
@@ -192,6 +294,20 @@ func (fsl *FsLite) deleteResourceHandler(c *gin.Context) {
 		resource.Name = name
 		resource.Vname = vname
 	}
+	res, err := fsl.SelectObjects(map[string]any{"name": resource.Name})
+	resources, ok := res.([]ut.Resource)
+	if err != nil || !ok || len(resources) != 1 {
+		log.Printf("failed to retrieve info for the specified object")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the object info"})
+		return
+	}
+
+	err = fsl.releaseVolumeSpace(resources[0].Size, resource.Vname, uid)
+	if err != nil {
+		log.Printf("failed to release the volume claim due to deletion: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to release volume claim"})
+		return
+	}
 
 	err = fsl.Remove(resource)
 	if err != nil {
@@ -201,16 +317,36 @@ func (fsl *FsLite) deleteResourceHandler(c *gin.Context) {
 		})
 		return
 	}
+	// release volume claim
 
 	c.JSON(http.StatusOK, gin.H{"status": resource.Vname + "/" + resource.Name + " deleted"})
 }
 
+// @Summary Upload one or more files to a volume
+// @Description Uploads multiple files to the specified volume. Requires authentication.
+// @Tags resource
+// @Accept multipart/form-data
+// @Produce json
+// @Param volume query string true "Volume name"
+// @Param files formData file true "Files to upload" multiple
+// @Success 200 {object} map[string]string "Files uploaded successfully"
+// @Failure 400 {object} map[string]string "Bad request or parse failure"
+// @Failure 422 {object} map[string]string "Failed to insert resource"
+// @Router /admin/resource/upload [post]
 func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
-	id := c.Request.URL.Query().Get("uid")
-	uid, err := strconv.Atoi(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad uid, must specify"})
-		return
+	id, ok := c.Get("uid")
+	uid_str, ok2 := id.(string)
+	uid, err := strconv.Atoi(uid_str)
+	if !ok || !ok2 || err != nil {
+		log.Printf("uid wasn't set properly.")
+		if strings.ToLower(fsl.config.API_GIN_MODE) == "debug" {
+			log.Printf("mode = [debug], entering default uid")
+			uid = 0
+			uid_str = "0"
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "middleware failed to authenticate"})
+			return
+		}
 	}
 	vname := c.Request.URL.Query().Get("volume")
 	if vname == "" {
@@ -251,6 +387,14 @@ func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
 			Size:   int64(fileHeader.Size),
 		}
 
+		err = fsl.claimVolumeSpace(resource.Size, resource.Vname, uid_str)
+		if err != nil {
+			file.Close()
+			log.Printf("failed to claim volume space.: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "volume claim denied"})
+			return
+		}
+
 		_, err = fsl.Insert(resource)
 		file.Close()
 		if err != nil {
@@ -269,6 +413,16 @@ func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
 	})
 }
 
+// @Summary Download a resource
+// @Description Downloads a resource from a specified volume by filename.
+// @Tags resource
+// @Produce application/octet-stream
+// @Param resource query string true "Format: <volume_name>/<object_name>"
+// @Success 200 {file} file "File stream for download"
+// @Failure 400 {object} map[string]string "Invalid request format"
+// @Failure 404 {object} map[string]string "Resource not found"
+// @Failure 500 {object} map[string]string "Server error"
+// @Router /admin/resource/download [get]
 func (fsl *FsLite) downloadResourceHandler(c *gin.Context) {
 	rsrc := c.Request.URL.Query().Get("resource")
 	if rsrc == "" {
@@ -309,6 +463,16 @@ func (fsl *FsLite) downloadResourceHandler(c *gin.Context) {
 	})
 }
 
+// @Summary Copy a resource
+// @Description Copies a resource from one location to another within the system.
+// @Tags resource
+// @Produce json
+// @Param source query string true "Source resource in format <volume_name>/<object_name>"
+// @Param dest query string true "Destination resource in format <volume_name>/<object_name>"
+// @Success 200 {object} map[string]string "Copy successful"
+// @Failure 400 {object} map[string]string "Invalid format or missing arguments"
+// @Failure 500 {object} map[string]string "Server error"
+// @Router /admin/resource/copy [post]
 func (fsl *FsLite) copyResourceHandler(c *gin.Context) {
 	src := c.Request.URL.Query().Get("source")
 	dst := c.Request.URL.Query().Get("dest")
@@ -345,17 +509,27 @@ func (fsl *FsLite) shareResourceHandler(c *gin.Context) {
 
 }
 
+// @Summary Manage user volume claims
+// @Description Fetch user-to-volume mappings. (Currently only GET is implemented. PATCH/DELETE placeholders.)
+// @Tags volume
+// @Produce json
+// @Param uids query string false "Comma-separated user IDs to filter"
+// @Param vids query string false "Comma-separated volume IDs to filter"
+// @Success 200 {object} map[string]any "User volume claims retrieved"
+// @Failure 500 {object} map[string]string "Server error"
+// @Failure 403 {object} map[string]string "Method not allowed"
+// @Router /admin/uservolumes [get]
 func (fsl *FsLite) handleUserVolumes(c *gin.Context) {
 	// limit, err := strconv.Atoi(c.Request.URL.Query().Get("limit"))
 	// if err != nil {
 	// 	limit = 0
 	// }
 	uids := c.Request.URL.Query().Get("uids")
-	rids := c.Request.URL.Query().Get("vids")
+	vids := c.Request.URL.Query().Get("vids")
 
 	switch c.Request.Method {
 	case http.MethodGet:
-		res, err := fsl.selectUserVolumes(map[string]any{"uids": uids, "rids": rids})
+		res, err := fsl.selectUserVolumes(map[string]any{"uids": uids, "vids": vids})
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user volumes"})
 		} else {

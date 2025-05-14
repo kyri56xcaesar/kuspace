@@ -55,7 +55,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/utils.Group"
+                            "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Group"
                         }
                     }
                 ],
@@ -155,7 +155,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/utils.Group"
+                            "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Group"
                         }
                     }
                 ],
@@ -277,7 +277,7 @@ const docTemplate = `{
                                             "content": {
                                                 "type": "array",
                                                 "items": {
-                                                    "$ref": "#/definitions/utils.Group"
+                                                    "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Group"
                                                 }
                                             }
                                         }
@@ -374,7 +374,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/minioth.RegisterClaim"
+                            "$ref": "#/definitions/pkg_minioth.RegisterClaim"
                         }
                     }
                 ],
@@ -481,7 +481,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/minioth.RegisterClaim"
+                            "$ref": "#/definitions/pkg_minioth.RegisterClaim"
                         }
                     }
                 ],
@@ -612,7 +612,7 @@ const docTemplate = `{
                                             "content": {
                                                 "type": "array",
                                                 "items": {
-                                                    "$ref": "#/definitions/utils.User"
+                                                    "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.User"
                                                 }
                                             }
                                         }
@@ -950,7 +950,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/minioth.LoginClaim"
+                            "$ref": "#/definitions/pkg_minioth.LoginClaim"
                         }
                     }
                 ],
@@ -1003,7 +1003,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/minioth.RegisterClaim"
+                            "$ref": "#/definitions/pkg_minioth.RegisterClaim"
                         }
                     }
                 ],
@@ -1038,26 +1038,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "minioth.LoginClaim": {
-            "type": "object",
-            "properties": {
-                "password": {
-                    "type": "string"
-                },
-                "username": {
-                    "type": "string"
-                }
-            }
-        },
-        "minioth.RegisterClaim": {
-            "type": "object",
-            "properties": {
-                "user": {
-                    "$ref": "#/definitions/utils.User"
-                }
-            }
-        },
-        "utils.Group": {
+        "kyri56xcaesar_myThesis_internal_utils.Group": {
             "type": "object",
             "properties": {
                 "gid": {
@@ -1069,17 +1050,10 @@ const docTemplate = `{
                     "description": "Groupname is the name of the group.\n@example researchers",
                     "type": "string",
                     "example": "researchers"
-                },
-                "users": {
-                    "description": "Users is an optional list of users in the group.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/utils.User"
-                    }
                 }
             }
         },
-        "utils.Password": {
+        "kyri56xcaesar_myThesis_internal_utils.Password": {
             "type": "object",
             "properties": {
                 "expirationDate": {
@@ -1108,7 +1082,7 @@ const docTemplate = `{
                 }
             }
         },
-        "utils.User": {
+        "kyri56xcaesar_myThesis_internal_utils.User": {
             "description": "Contains user metadata, credentials, and group memberships.",
             "type": "object",
             "properties": {
@@ -1116,7 +1090,7 @@ const docTemplate = `{
                     "description": "Groups is a list of groups the user belongs to.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/utils.Group"
+                        "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Group"
                     }
                 },
                 "home": {
@@ -1133,7 +1107,7 @@ const docTemplate = `{
                     "description": "Password contains the user’s password settings and hash.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/utils.Password"
+                            "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Password"
                         }
                     ]
                 },
@@ -1156,6 +1130,25 @@ const docTemplate = `{
                     "description": "Username is the unique login name of the user.\n@example johndoe",
                     "type": "string",
                     "example": "johndoe"
+                }
+            }
+        },
+        "pkg_minioth.LoginClaim": {
+            "type": "object",
+            "properties": {
+                "password": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "pkg_minioth.RegisterClaim": {
+            "type": "object",
+            "properties": {
+                "user": {
+                    "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.User"
                 }
             }
         }
