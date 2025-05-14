@@ -1,5 +1,5 @@
 {
-    "name":"this-is-a-test-volume-1",
+    "name":"test-bucket-1",
     "path":"idk_which_path_to_put",
     "vid":0,
     "dynamic":true,
