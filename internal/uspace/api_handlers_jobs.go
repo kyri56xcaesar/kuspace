@@ -1,7 +1,7 @@
-package userspace
+package uspace
 
 /*
-	http api handlers for the userspace service
+	http api handlers for the uspace service
 	"job" related endpoints
 
 	@connected to:
@@ -16,7 +16,7 @@ import (
 	"net/http"
 	"strconv"
 
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )

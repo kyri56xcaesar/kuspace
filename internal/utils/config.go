@@ -81,6 +81,7 @@ type EnvConfig struct {
 	FSL_ACCESS_KEY        string // "root" or admin username for authentication
 	FSL_SECRET_KEY        string // "root" or admin password for authentication
 	FSL_SERVER            bool
+	FSL_LOCALITY          bool
 
 	// fslite uses a local data directory for storage
 	LOCAL_VOLUMES_DEFAULT_PATH     string  // path to the data directory
@@ -98,6 +99,7 @@ type EnvConfig struct {
 	OBJECT_SHARE_EXPIRE   string // expriation date
 	ONLY_PRESIGNED_UPLOAD bool   // upload only via presigned urls
 	OBJECT_SIZE_THRESHOLD string // object size
+	MINIO_FETCH_STAT      bool
 
 	// Main api (uspace) is using a manager/dispatcher/scheduler mechanism
 	// configuration here.
@@ -149,6 +151,7 @@ func LoadConfig(path string) EnvConfig {
 		STORAGE_SYSTEM:     getEnv("STORAGE_SYSTEM", "local"),
 
 		FSL_SERVER:                     getBoolEnv("FSL_SERVER", "true"),
+		FSL_LOCALITY:                   getBoolEnv("FSL_LOCALITY", "true"),
 		DB_FSL:                         getEnv("DB_FSL", "database.db"),
 		DB_FSL_DRIVER:                  getEnv("DB_FSL_DRIVER", "duckdb"),
 		DB_FSL_PATH:                    getEnv("DB_FSL_PATH", "data/db/fslite"),
@@ -170,6 +173,7 @@ func LoadConfig(path string) EnvConfig {
 		OBJECT_SHARE_EXPIRE:   getEnv("OBJECT_SHARE_EXPIRE", "1440"),
 		ONLY_PRESIGNED_UPLOAD: getBoolEnv("ONLY_PRESIGNED_UPLOAD", "false"),
 		OBJECT_SIZE_THRESHOLD: getEnv("OBJECT_SIZE_THRESHOLD", "400000000"),
+		MINIO_FETCH_STAT:      getBoolEnv("MINIO_FETCH_STAT", "false"),
 
 		J_DISPATCHER:   getEnv("J_DISPATCHER", "default"),
 		J_EXECUTOR:     getEnv("J_EXECUTOR", "docker"),

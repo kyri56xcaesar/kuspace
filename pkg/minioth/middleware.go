@@ -59,7 +59,7 @@ func AuthMiddleware(role string, srv *MService) gin.HandlerFunc {
 			ok = false
 			for _, r := range rg {
 				if strings.Contains(claims.Groups, r) {
-					c.Set("uid", claims.UserID)
+					c.Set("uid", claims.Subject)
 					c.Set("username", claims.Username)
 					c.Set("groups", claims.Groups)
 					c.Set("gids", claims.GroupIDS)

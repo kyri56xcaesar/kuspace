@@ -1,6 +1,6 @@
-package userspace
+package uspace
 
-import ut "kyri56xcaesar/myThesis/internal/utils"
+import ut "kyri56xcaesar/kuspace/internal/utils"
 
 type JobExecutor interface {
 	ExecuteJob(job ut.Job) error

@@ -1,4 +1,4 @@
-package userspace
+package uspace
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
 /* A custom HTTP header parser

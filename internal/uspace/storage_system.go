@@ -1,9 +1,9 @@
-package userspace
+package uspace
 
 import (
 	"context"
-	"kyri56xcaesar/myThesis/internal/userspace/minio"
-	"kyri56xcaesar/myThesis/pkg/fslite"
+	"kyri56xcaesar/kuspace/internal/uspace/minio"
+	"kyri56xcaesar/kuspace/pkg/fslite"
 	"log"
 )
 
@@ -22,7 +22,7 @@ type StorageSystem interface {
 	Insert(t any) (context.CancelFunc, error)
 	Download(t *any) (context.CancelFunc, error)
 
-	Stat(t any, fetchAndCheck bool) (any, error)
+	Stat(t any) (any, error)
 
 	Remove(t any) error
 	RemoveVolume(t any) error

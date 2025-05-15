@@ -56,7 +56,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Job"
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Job"
                         }
                     },
                     {
@@ -67,7 +67,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Job"
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Job"
                             }
                         }
                     }
@@ -152,7 +152,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Job"
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Job"
                         }
                     },
                     {
@@ -163,7 +163,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Job"
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Job"
                             }
                         }
                     }
@@ -558,7 +558,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume"
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
                         }
                     },
                     {
@@ -569,7 +569,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume"
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
                             }
                         }
                     }
@@ -666,7 +666,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume"
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
                         }
                     },
                     {
@@ -677,7 +677,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume"
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
                             }
                         }
                     }
@@ -774,7 +774,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume"
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
                         }
                     },
                     {
@@ -785,7 +785,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume"
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
                             }
                         }
                     }
@@ -882,7 +882,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume"
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
                         }
                     },
                     {
@@ -893,7 +893,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume"
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
                             }
                         }
                     }
@@ -990,7 +990,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume"
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
                         }
                     },
                     {
@@ -1001,7 +1001,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume"
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
                             }
                         }
                     }
@@ -1064,7 +1064,7 @@
         }
     },
     "definitions": {
-        "kyri56xcaesar_myThesis_internal_utils.Job": {
+        "kyri56xcaesar_kuspace_internal_utils.Job": {
             "type": "object",
             "properties": {
                 "completed": {
@@ -1155,7 +1155,7 @@
                 }
             }
         },
-        "kyri56xcaesar_myThesis_internal_utils.Volume": {
+        "kyri56xcaesar_kuspace_internal_utils.Volume": {
             "type": "object",
             "properties": {
                 "capacity": {

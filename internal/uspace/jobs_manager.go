@@ -1,4 +1,4 @@
-package userspace
+package uspace
 
 import (
 	"bufio"
@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"github.com/gorilla/websocket"
 )

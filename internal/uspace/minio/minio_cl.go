@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -33,7 +33,8 @@ var (
 	OBJECT_SIZE_THRESHOLD        int64 = 400_000_000
 	DEFALT_OBJECT_SIZE_THRESHOLD int64 = 400_000_000
 
-	ONLY_PRESIGNED_UPLOAD = false
+	ONLY_PRESIGNED_UPLOAD bool = false
+	FETCHSTAT             bool = false
 )
 
 type MinioClient struct {
@@ -53,6 +54,7 @@ type MinioClient struct {
 func NewMinioClient(cfg ut.EnvConfig) MinioClient {
 	var err error
 	ONLY_PRESIGNED_UPLOAD = cfg.ONLY_PRESIGNED_UPLOAD
+	FETCHSTAT = cfg.MINIO_FETCH_STAT
 	OBJECT_SIZE_THRESHOLD, err = strconv.ParseInt(cfg.OBJECT_SIZE_THRESHOLD, 10, 64)
 	if err != nil {
 		log.Printf("failed to parse object threshold, fallingthrough to default")
@@ -232,7 +234,7 @@ func (mc *MinioClient) SelectObjects(which map[string]any) (any, error) {
 }
 
 // ✅
-func (mc *MinioClient) Stat(t any, fetchAndCheck bool) (any, error) {
+func (mc *MinioClient) Stat(t any) (any, error) {
 	object, ok := t.(ut.Resource)
 	if !ok {
 		return nil, ut.NewError("failed to cast")
@@ -249,9 +251,7 @@ func (mc *MinioClient) Stat(t any, fetchAndCheck bool) (any, error) {
 		return nil, fmt.Errorf("error checking file existence: %v", err)
 	}
 
-	log.Printf("fetch ? %v", fetchAndCheck)
-
-	if fetchAndCheck {
+	if FETCHSTAT {
 		cancel, err := mc.fGetObject(object.Vname, object.Name, mc.default_local_space_path+object.Name)
 		if err != nil {
 			log.Printf("failed to get object from minio: %v", err)

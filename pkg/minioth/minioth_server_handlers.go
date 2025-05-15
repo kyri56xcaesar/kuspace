@@ -3,7 +3,7 @@ package minioth
 import (
 	"encoding/json"
 	"fmt"
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 	"log"
 	"net/http"
 	"os"
@@ -205,7 +205,7 @@ func handleTokenRefresh(c *gin.Context) {
 	var newAccessToken string
 	switch token.Header["alg"].(string) {
 	case "HS256":
-		newAccessToken, err = GenerateAccessHS256JWT(claims.UserID, claims.Username, claims.Groups, claims.GroupIDS)
+		newAccessToken, err = GenerateAccessHS256JWT(claims.Subject, claims.Username, claims.Groups, claims.GroupIDS)
 		if err != nil {
 			log.Printf("error generating new hs access token: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -214,7 +214,7 @@ func handleTokenRefresh(c *gin.Context) {
 			return
 		}
 	case "RS256":
-		newAccessToken, err = GenerateAccessRS256JWT(claims.UserID, claims.Username, claims.Groups, claims.GroupIDS)
+		newAccessToken, err = GenerateAccessRS256JWT(claims.Subject, claims.Username, claims.Groups, claims.GroupIDS)
 		if err != nil {
 			log.Printf("error generating new rs access token: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -284,7 +284,7 @@ func handleTokenInfo(c *gin.Context) {
 
 	response := make(map[string]string)
 	response["valid"] = strconv.FormatBool(token.Valid)
-	response["user_id"] = claims.UserID
+	response["user_id"] = claims.Subject
 	response["username"] = claims.Username
 	response["groups"] = claims.Groups
 	response["group_ids"] = claims.GroupIDS
@@ -347,7 +347,7 @@ func (srv *MService) handleTokenUserInfo(c *gin.Context) {
 		return
 	}
 
-	user := srv.Minioth.Select("users?uid=" + claims.UserID)
+	user := srv.Minioth.Select("users?uid=" + claims.Subject)
 
 	if user == nil {
 		c.JSON(http.StatusNotFound, gin.H{"status": "not found"})

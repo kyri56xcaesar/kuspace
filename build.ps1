@@ -7,11 +7,11 @@ param (
 )
 
 # Variables
-$TARGET_API = "cmd/userspace/"
-$API_OUT = "userspace"
+$TARGET_API = "cmd/uspace/"
+$API_OUT = "uspace"
 $API_MAIN = "main.go"
 
-$TARGET_J_WS = "cmd/userspace/jobs_feedback_ws/"
+$TARGET_J_WS = "cmd/uspace/jobs_feedback_ws/"
 $J_WS_OUT = "j_ws"
 $J_WS_MAIN = "main.go"
 
@@ -59,7 +59,7 @@ function Stop {
     Get-Process -Name $AUTH_OUT, $WS_OUT, $API_OUT, $AUTH_OUT, $J_WS_OUT, $F_APP_OUT -ErrorAction SilentlyContinue | Stop-Process
 }
 
-function Userspace {
+function uspace {
     go build -o "$($TARGET_API)$($API_OUT).exe" "$($TARGET_API)$($API_MAIN)"
     & "$($TARGET_API)$($API_OUT).exe"
 }
@@ -99,12 +99,12 @@ switch ($Task) {
     "build" { Build }
     "run" { Run }
     "stop" { Stop }
-    "userspace" { Userspace }
+    "uspace" { uspace }
     "j_ws" { J_ws }
     "front" { Front }
     "front-ws" { Front_ws }
     "minioth" { Minioth }
     "shell" { Shell }
     "clean" { Clean }
-    default { Write-Output "Available tasks: mod, build, run, stop, userspace, j_ws, front, front-ws, minioth, shell, clean" }
+    default { Write-Output "Available tasks: mod, build, run, stop, uspace, j_ws, front, front-ws, minioth, shell, clean" }
 }

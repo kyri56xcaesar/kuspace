@@ -1,6 +1,6 @@
 basePath: /api/v1
 definitions:
-  kyri56xcaesar_myThesis_internal_utils.Job:
+  kyri56xcaesar_kuspace_internal_utils.Job:
     properties:
       completed:
         type: boolean
@@ -61,7 +61,7 @@ definitions:
       uid:
         type: integer
     type: object
-  kyri56xcaesar_myThesis_internal_utils.Volume:
+  kyri56xcaesar_kuspace_internal_utils.Volume:
     properties:
       capacity:
         type: number
@@ -113,14 +113,14 @@ paths:
         name: job
         required: true
         schema:
-          $ref: '#/definitions/kyri56xcaesar_myThesis_internal_utils.Job'
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Job'
       - description: Multiple jobs
         in: body
         name: jobs
         required: true
         schema:
           items:
-            $ref: '#/definitions/kyri56xcaesar_myThesis_internal_utils.Job'
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Job'
           type: array
       produces:
       - application/json
@@ -178,14 +178,14 @@ paths:
         name: job
         required: true
         schema:
-          $ref: '#/definitions/kyri56xcaesar_myThesis_internal_utils.Job'
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Job'
       - description: Multiple jobs
         in: body
         name: jobs
         required: true
         schema:
           items:
-            $ref: '#/definitions/kyri56xcaesar_myThesis_internal_utils.Job'
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Job'
           type: array
       produces:
       - application/json
@@ -454,14 +454,14 @@ paths:
         name: volume
         required: true
         schema:
-          $ref: '#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume'
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
       - description: Array of volume objects
         in: body
         name: volumes
         required: true
         schema:
           items:
-            $ref: '#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume'
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
           type: array
       produces:
       - application/json
@@ -527,14 +527,14 @@ paths:
         name: volume
         required: true
         schema:
-          $ref: '#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume'
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
       - description: Array of volume objects
         in: body
         name: volumes
         required: true
         schema:
           items:
-            $ref: '#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume'
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
           type: array
       produces:
       - application/json
@@ -600,14 +600,14 @@ paths:
         name: volume
         required: true
         schema:
-          $ref: '#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume'
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
       - description: Array of volume objects
         in: body
         name: volumes
         required: true
         schema:
           items:
-            $ref: '#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume'
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
           type: array
       produces:
       - application/json
@@ -673,14 +673,14 @@ paths:
         name: volume
         required: true
         schema:
-          $ref: '#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume'
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
       - description: Array of volume objects
         in: body
         name: volumes
         required: true
         schema:
           items:
-            $ref: '#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume'
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
           type: array
       produces:
       - application/json
@@ -746,14 +746,14 @@ paths:
         name: volume
         required: true
         schema:
-          $ref: '#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume'
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
       - description: Array of volume objects
         in: body
         name: volumes
         required: true
         schema:
           items:
-            $ref: '#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume'
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
           type: array
       produces:
       - application/json

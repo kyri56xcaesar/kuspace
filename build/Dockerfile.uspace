@@ -1,0 +1,21 @@
+FROM golang:1.23.4 AS builder 
+WORKDIR /app
+COPY go.mod go.sum ./ 
+RUN go mod download 
+COPY ./internal/uspace/ ./internal/uspace/
+COPY ./internal/utils/ ./internal/utils/
+COPY ./cmd/uspace/ ./cmd/uspace/ 
+COPY ./api/uspace/ ./api/uspace/
+COPY ./pkg/fslite/ ./pkg/fslite/
+
+RUN GOOS=linux go build -o ./cmd/uspace/uspace ./cmd/uspace/main.go 
+
+FROM debian:bookworm-slim
+WORKDIR /root/
+RUN apt-get update && apt-get install -y libstdc++6 
+COPY --from=builder /app/cmd/uspace/uspace .
+COPY ./configs/uspace.conf ./configs/ 
+
+RUN chmod +x /root/uspace
+CMD ["./uspace"]
+

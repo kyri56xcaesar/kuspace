@@ -1,4 +1,4 @@
-package userspace
+package uspace
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
 var (
@@ -122,7 +122,7 @@ func (je JDockerExecutor) ExecuteJob(job ut.Job) error {
 		asResource.Name = job.Input
 	}
 
-	_, err := je.jm.srv.storage.Stat(asResource, true)
+	_, err := je.jm.srv.storage.Stat(asResource)
 	if err != nil {
 		log.Printf("failed to find input resource: %v", err)
 		return err

@@ -2,7 +2,7 @@ package fslite
 
 /*
 	database call handlers for "resources"
-	"userspace.db"
+	"uspace.db"
 
 	@used by the api
 */
@@ -13,7 +13,7 @@ import (
 	"log"
 	"strings"
 
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
 type ScanFunc[T any] func(*sql.Rows) (T, error)

@@ -7,7 +7,7 @@
 package fslite
 
 import (
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 	"log"
 	"net/http"
 	"strconv"
@@ -206,7 +206,7 @@ func (fsl *FsLite) statResourceHandler(c *gin.Context) {
 	resource_vname := parts[0]
 	resource_name := parts[1]
 
-	res, err := fsl.Stat(ut.Resource{Vname: resource_vname, Name: resource_name}, false)
+	res, err := fsl.Stat(ut.Resource{Vname: resource_vname, Name: resource_name})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to stat"})
 		return

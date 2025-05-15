@@ -1,7 +1,7 @@
-package userspace
+package uspace
 
 /*
-	http api handlers for the userspace service
+	http api handlers for the uspace service
 	"resource" related endpoints
 */
 
@@ -16,7 +16,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
 /* perhaps move here all the  Resource specific funcs/methods/structs/models...*/

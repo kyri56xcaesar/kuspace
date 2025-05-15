@@ -1,4 +1,4 @@
-package userspace
+package uspace
 
 /*
 	database call handlers for "jobs"
@@ -10,7 +10,7 @@ package userspace
 import (
 	"database/sql"
 	"fmt"
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 	"log"
 	"strings"
 	"time"

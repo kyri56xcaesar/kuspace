@@ -7,10 +7,10 @@
 
 # variables, only change these.
 ### services 
-TARGET_API 		:= cmd/userspace/
-API_OUT			:= userspace
+TARGET_API 		:= cmd/uspace/
+API_OUT			:= uspace
 
-TARGET_J_WS		:= cmd/userspace/jobs_feedback_ws/
+TARGET_J_WS		:= cmd/uspace/jobs_feedback_ws/
 J_WS_OUT		:= j_ws 
 
 TARGET_F_APP	:= cmd/frontendapp/
@@ -29,14 +29,14 @@ DOCS_DIR 				:= docs/
 
 #Api docs (swagger)
 API_DOCS_DIR :=api/
-API_DOCS_USPACE_TARGET 		:= internal/userspace/api.go
+API_DOCS_USPACE_TARGET 		:= internal/uspace/api.go
 API_DOCS_MINIOTH_TARGET 	:= pkg/minioth/minioth_server.go
 API_DOCS_FSLITE_TARGET 		:= pkg/fslite/fslite_server.go
 
 .PHONY: api-docs
 api-docs:
-	swag init -g ${API_DOCS_USPACE_TARGET} -o ${API_DOCS_DIR}${API_OUT} --instanceName userspacedocs --exclude pkg/fslite,pkg/minioth --parseDependency --parseInternal
-	swag init -g ${API_DOCS_MINIOTH_TARGET} -o ${API_DOCS_DIR}${AUTH_OUT} --instanceName miniothdocs --exclude pkg/fslite,internal/userspace --parseDependency --parseInternal
+	swag init -g ${API_DOCS_USPACE_TARGET} -o ${API_DOCS_DIR}${API_OUT} --instanceName uspacedocs --exclude pkg/fslite,pkg/minioth --parseDependency --parseInternal
+	swag init -g ${API_DOCS_MINIOTH_TARGET} -o ${API_DOCS_DIR}${AUTH_OUT} --instanceName miniothdocs --exclude pkg/fslite,internal/uspace --parseDependency --parseInternal
 
 # utility
 .PHONY: clean
@@ -83,8 +83,8 @@ stop-all:
 
 
 # dirty each 
-.PHONY: userspace
-userspace:
+.PHONY: uspace
+uspace:
 	go build -o ${TARGET_API}${API_OUT} ${TARGET_API}main.go
 	./${TARGET_API}${API_OUT} 
 

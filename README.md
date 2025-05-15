@@ -62,6 +62,6 @@ Run locally:
       - kubernetes
       - docker
 
-- (central) userspace API for accessing + using everything
+- (central) uspace API for accessing + using everything
 
 - frontend application

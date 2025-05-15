@@ -13,11 +13,11 @@ services:
     volumes:
       - ../data:/root/data
     
-  userspace:
+  uspace:
     build:
       context: ..
-      dockerfile: build/Dockerfile.userspace 
-    container_name: userspace 
+      dockerfile: build/Dockerfile.uspace 
+    container_name: uspace 
     networks:
       - app_network
     volumes:

@@ -20,7 +20,7 @@ cmd/minioth/minioth
 cmd/frontendapp/frontendapp
 cmd/frontendapp/frontendapp
 cmd/frontendapp/ws/ws_server
-cmd/userspace/userspace
+cmd/uspace/uspace
 
 
 vendor

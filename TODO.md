@@ -1,21 +1,21 @@
 # Todo
-
-> 1. [ ] response Model (for my apis)
 >
-> 2. [x] complete fslite
+> 1. [x] complete fslite
 >
-> 3. [x] complete plainHandlers(minioth)
+> 2. [x] complete plainHandlers(minioth)
 >
-> 4. [ ] automate tests
+> 3. [ ] automate tests
 >
-> 5. [ ] update frontapp
+> 4. [ ] update frontapp
 >
-> 6. [ ] update resource/volume management with minio
+> 5. [ ] update resource/volume management with minio
 >
-> 7. [ ] implement more apps (octave, pandas, ..more)
+> 6. [ ] implement more apps (octave, pandas, ..more)
 >
-> 8. [ ] integrate code jobs
+> 7. [ ] integrate code jobs
 >
-> 9. [ ] installation/uninstallation method
+> 8. [ ] installation/uninstallation method
 >
-> 10. [ ] go doc  (comment all public functions)
+> 9. [ ] go doc  ()
+>
+> 10. [ ] api response model

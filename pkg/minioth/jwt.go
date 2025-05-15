@@ -59,7 +59,6 @@ type RSAKey struct {
 }
 
 type CustomClaims struct {
-	UserID   string `json:"user_id"`
 	Username string `json:"username"`
 	Groups   string `json:"groups"`
 	GroupIDS string `json:"group_ids"`
@@ -88,7 +87,6 @@ func rotateKey() {
 func GenerateAccessHS256JWT(userID, username, groups, gids string) (string, error) {
 	// Set the claims for the token
 	claims := CustomClaims{
-		UserID:   userID,
 		Username: username,
 		Groups:   groups,
 		GroupIDS: gids,
@@ -114,7 +112,6 @@ func GenerateAccessHS256JWT(userID, username, groups, gids string) (string, erro
 
 func GenerateAccessRS256JWT(userID, username, groups, gids string) (string, error) {
 	claims := CustomClaims{
-		UserID:   userID,
 		Username: username,
 		Groups:   groups,
 		GroupIDS: gids,

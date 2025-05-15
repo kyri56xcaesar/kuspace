@@ -15,9 +15,88 @@ const docTemplatefslitedocs = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/.well-known/jwks.json": {
+            "get": {
+                "description": "Returns the JSON Web Key Set used to verify JWTs.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "well-known"
+                ],
+                "summary": "JWKS endpoint",
+                "responses": {
+                    "200": {
+                        "description": "JWKS keys",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to read or parse JWKS",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/.well-known/minioth": {
+            "get": {
+                "description": "Returns a basic status and version of the Minioth service.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "well-known"
+                ],
+                "summary": "Healthcheck endpoint",
+                "responses": {
+                    "200": {
+                        "description": "Service status",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/.well-known/openid-configuration": {
+            "get": {
+                "description": "Provides OIDC configuration metadata for clients.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "well-known"
+                ],
+                "summary": "OpenID Connect Discovery Document",
+                "responses": {
+                    "200": {
+                        "description": "OIDC provider metadata",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/admin/audit/logs": {
             "get": {
-                "description": "Retrieves audit logs. (Currently not implemented.)",
+                "description": "Retrieves recent audit logs from the server. Optional query param 'max' specifies the max number of bytes to read.",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -25,12 +104,38 @@ const docTemplatefslitedocs = `{
                     "admin"
                 ],
                 "summary": "Get audit logs",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of bytes to fetch from the audit log",
+                        "name": "max",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Audit logs returned successfully",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to read or open audit log",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -55,7 +160,7 @@ const docTemplatefslitedocs = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Group"
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Group"
                         }
                     }
                 ],
@@ -155,7 +260,7 @@ const docTemplatefslitedocs = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Group"
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Group"
                         }
                     }
                 ],
@@ -277,7 +382,7 @@ const docTemplatefslitedocs = `{
                                             "content": {
                                                 "type": "array",
                                                 "items": {
-                                                    "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Group"
+                                                    "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Group"
                                                 }
                                             }
                                         }
@@ -495,7 +600,7 @@ const docTemplatefslitedocs = `{
                         "name": "resource",
                         "in": "body",
                         "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Resource"
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Resource"
                         }
                     },
                     {
@@ -628,7 +733,7 @@ const docTemplatefslitedocs = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Resource"
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Resource"
                             }
                         }
                     },
@@ -1018,7 +1123,7 @@ const docTemplatefslitedocs = `{
                                             "content": {
                                                 "type": "array",
                                                 "items": {
-                                                    "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.User"
+                                                    "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.User"
                                                 }
                                             }
                                         }
@@ -1165,7 +1270,7 @@ const docTemplatefslitedocs = `{
                         "name": "volume",
                         "in": "body",
                         "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume"
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
                         }
                     },
                     {
@@ -1227,7 +1332,7 @@ const docTemplatefslitedocs = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume"
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
                             }
                         }
                     },
@@ -1263,7 +1368,7 @@ const docTemplatefslitedocs = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume"
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
                         }
                     }
                 ],
@@ -1333,7 +1438,7 @@ const docTemplatefslitedocs = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Job"
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Job"
                         }
                     },
                     {
@@ -1344,7 +1449,7 @@ const docTemplatefslitedocs = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Job"
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Job"
                             }
                         }
                     }
@@ -1429,7 +1534,7 @@ const docTemplatefslitedocs = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Job"
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Job"
                         }
                     },
                     {
@@ -1440,7 +1545,7 @@ const docTemplatefslitedocs = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Job"
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Job"
                             }
                         }
                     }
@@ -1485,7 +1590,7 @@ const docTemplatefslitedocs = `{
         },
         "/login": {
             "post": {
-                "description": "Authenticates an admin user and returns a token for access.",
+                "description": "Authenticates a user and returns access and refresh tokens.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1495,41 +1600,28 @@ const docTemplatefslitedocs = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "Admin login",
+                "summary": "Login a user",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "Admin username (optional if provided in body)",
-                        "name": "username",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Admin password (optional if provided in body)",
-                        "name": "password",
-                        "in": "query"
-                    },
-                    {
-                        "description": "Admin credentials in request body (optional)",
-                        "name": "admin",
+                        "description": "User login credentials",
+                        "name": "request",
                         "in": "body",
+                        "required": true,
                         "schema": {
-                            "$ref": "#/definitions/pkg_fslite.Admin"
+                            "$ref": "#/definitions/minioth.LoginClaim"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Token returned on successful authentication",
+                        "description": "login successful",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "additionalProperties": true
                         }
                     },
                     "400": {
-                        "description": "Missing or invalid input",
+                        "description": "Validation or auth failure",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1537,8 +1629,8 @@ const docTemplatefslitedocs = `{
                             }
                         }
                     },
-                    "403": {
-                        "description": "Authentication failed",
+                    "404": {
+                        "description": "User not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1602,6 +1694,59 @@ const docTemplatefslitedocs = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/register": {
+            "post": {
+                "description": "Registers a new user with provided credentials and returns UID and primary group.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Register a new user",
+                "parameters": [
+                    {
+                        "description": "User registration payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/minioth.RegisterClaim"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "registration successful",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid input or failed to register",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "User already exists",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -2106,112 +2251,6 @@ const docTemplatefslitedocs = `{
                 }
             }
         },
-        "/v1/login": {
-            "post": {
-                "description": "Authenticates a user and returns access and refresh tokens.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "auth"
-                ],
-                "summary": "Login a user",
-                "parameters": [
-                    {
-                        "description": "User login credentials",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/minioth.LoginClaim"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "login successful",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Validation or auth failure",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "User not found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/register": {
-            "post": {
-                "description": "Registers a new user with provided credentials and returns UID and primary group.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "auth"
-                ],
-                "summary": "Register a new user",
-                "parameters": [
-                    {
-                        "description": "User registration payload",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/minioth.RegisterClaim"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "registration successful",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid input or failed to register",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "User already exists",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/volumes": {
             "get": {
                 "description": "GET to list volumes, POST to create one or more, DELETE to remove by vid",
@@ -2250,7 +2289,7 @@ const docTemplatefslitedocs = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume"
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
                         }
                     },
                     {
@@ -2261,7 +2300,7 @@ const docTemplatefslitedocs = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume"
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
                             }
                         }
                     }
@@ -2358,7 +2397,7 @@ const docTemplatefslitedocs = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume"
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
                         }
                     },
                     {
@@ -2369,7 +2408,7 @@ const docTemplatefslitedocs = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume"
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
                             }
                         }
                     }
@@ -2466,7 +2505,7 @@ const docTemplatefslitedocs = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume"
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
                         }
                     },
                     {
@@ -2477,7 +2516,7 @@ const docTemplatefslitedocs = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume"
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
                             }
                         }
                     }
@@ -2574,7 +2613,7 @@ const docTemplatefslitedocs = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume"
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
                         }
                     },
                     {
@@ -2585,7 +2624,7 @@ const docTemplatefslitedocs = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume"
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
                             }
                         }
                     }
@@ -2682,7 +2721,7 @@ const docTemplatefslitedocs = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume"
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
                         }
                     },
                     {
@@ -2693,7 +2732,7 @@ const docTemplatefslitedocs = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Volume"
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
                             }
                         }
                     }
@@ -2756,7 +2795,7 @@ const docTemplatefslitedocs = `{
         }
     },
     "definitions": {
-        "kyri56xcaesar_myThesis_internal_utils.Group": {
+        "kyri56xcaesar_kuspace_internal_utils.Group": {
             "type": "object",
             "properties": {
                 "gid": {
@@ -2771,7 +2810,7 @@ const docTemplatefslitedocs = `{
                 }
             }
         },
-        "kyri56xcaesar_myThesis_internal_utils.Job": {
+        "kyri56xcaesar_kuspace_internal_utils.Job": {
             "type": "object",
             "properties": {
                 "completed": {
@@ -2862,7 +2901,7 @@ const docTemplatefslitedocs = `{
                 }
             }
         },
-        "kyri56xcaesar_myThesis_internal_utils.Password": {
+        "kyri56xcaesar_kuspace_internal_utils.Password": {
             "type": "object",
             "properties": {
                 "expirationDate": {
@@ -2891,7 +2930,7 @@ const docTemplatefslitedocs = `{
                 }
             }
         },
-        "kyri56xcaesar_myThesis_internal_utils.Resource": {
+        "kyri56xcaesar_kuspace_internal_utils.Resource": {
             "type": "object",
             "properties": {
                 "accessed_at": {
@@ -2941,7 +2980,7 @@ const docTemplatefslitedocs = `{
                 }
             }
         },
-        "kyri56xcaesar_myThesis_internal_utils.User": {
+        "kyri56xcaesar_kuspace_internal_utils.User": {
             "description": "Contains user metadata, credentials, and group memberships.",
             "type": "object",
             "properties": {
@@ -2949,7 +2988,7 @@ const docTemplatefslitedocs = `{
                     "description": "Groups is a list of groups the user belongs to.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Group"
+                        "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Group"
                     }
                 },
                 "home": {
@@ -2966,7 +3005,7 @@ const docTemplatefslitedocs = `{
                     "description": "Password contains the user’s password settings and hash.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.Password"
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Password"
                         }
                     ]
                 },
@@ -2992,7 +3031,7 @@ const docTemplatefslitedocs = `{
                 }
             }
         },
-        "kyri56xcaesar_myThesis_internal_utils.Volume": {
+        "kyri56xcaesar_kuspace_internal_utils.Volume": {
             "type": "object",
             "properties": {
                 "capacity": {
@@ -3033,7 +3072,7 @@ const docTemplatefslitedocs = `{
             "type": "object",
             "properties": {
                 "user": {
-                    "$ref": "#/definitions/kyri56xcaesar_myThesis_internal_utils.User"
+                    "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.User"
                 }
             }
         },

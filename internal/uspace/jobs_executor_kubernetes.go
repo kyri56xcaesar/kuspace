@@ -1,4 +1,4 @@
-package userspace
+package uspace
 
 import (
 	"bytes"
@@ -7,8 +7,8 @@ import (
 	"log"
 	"strings"
 
-	k "kyri56xcaesar/myThesis/internal/userspace/kubernetes"
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	k "kyri56xcaesar/kuspace/internal/uspace/kubernetes"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"

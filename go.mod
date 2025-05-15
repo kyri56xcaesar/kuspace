@@ -1,4 +1,4 @@
-module kyri56xcaesar/myThesis
+module kyri56xcaesar/kuspace
 
 go 1.23.4
 
@@ -24,7 +24,6 @@ require (
 	k8s.io/apimachinery v0.32.3
 	k8s.io/client-go v0.32.3
 )
-
 
 require (
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect

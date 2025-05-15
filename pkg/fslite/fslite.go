@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 	"log"
 	"os"
 	"strconv"
@@ -85,16 +85,18 @@ func NewFsLite(cfg ut.EnvConfig) FsLite {
 	if _, err := fsl.insertAdmin(cfg.FSL_ACCESS_KEY, cfg.FSL_SECRET_KEY); err != nil {
 		log.Fatalf("error inserting main user, fatal...: %v", err)
 	}
-	wd, err := os.Getwd()
-	if err != nil {
-		log.Fatalf("failed to get working directory: %v", err)
-	}
-	fslite_data_path = wd + "/" + cfg.LOCAL_VOLUMES_DEFAULT_PATH
-	if err := os.MkdirAll(fslite_data_path, 0o644); err != nil {
-		log.Fatalf("failed to create main volume storage path: %v", err)
+	if fsl.config.FSL_LOCALITY {
+		wd, err := os.Getwd()
+		if err != nil {
+			log.Fatalf("failed to get working directory: %v", err)
+		}
+		fslite_data_path = wd + "/" + cfg.LOCAL_VOLUMES_DEFAULT_PATH
+		if err := os.MkdirAll(fslite_data_path, 0o644); err != nil {
+			log.Fatalf("failed to create main volume storage path: %v", err)
+		}
 	}
 	default_volume_cap = min(default_volume_cap, max_volume_cap)
-	err = fsl.CreateVolume(ut.Volume{Name: default_volume_name, Path: fslite_data_path + "/" + default_volume_name, Capacity: default_volume_cap})
+	err := fsl.CreateVolume(ut.Volume{Name: default_volume_name, Path: fslite_data_path + "/" + default_volume_name, Capacity: default_volume_cap})
 	if err != nil {
 		if !strings.Contains(err.Error(), "already exists") {
 			log.Fatalf("failed to create default volume: %v", err)
@@ -129,9 +131,11 @@ func (fsl *FsLite) CreateVolume(v any) error {
 		return err
 	}
 
-	err = os.MkdirAll(fslite_data_path+"/"+volume.Name, 0o644)
-	if err != nil {
-		return err
+	if fsl.config.FSL_LOCALITY {
+		err = os.MkdirAll(fslite_data_path+"/"+volume.Name, 0o644)
+		if err != nil {
+			return err
+		}
 	}
 
 	volume.CreationDate = ut.CurrentTime()
@@ -168,7 +172,7 @@ func (fsl *FsLite) RemoveVolume(t any) error {
 		err = deleteVolume(db, volume.Vid)
 	}
 
-	if err == nil {
+	if err == nil && fsl.config.FSL_LOCALITY {
 		err = os.RemoveAll(fslite_data_path + "/" + volume.Name)
 	}
 	return err
@@ -221,19 +225,22 @@ func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 			return nil, ut.NewInfo("%s object already exists", resource.Name)
 		}
 
-		outFile, err := os.Create(fslite_data_path + "/" + resource.Vname + "/" + resource.Name)
-		if err != nil {
-			log.Printf("failed to create a new output file (to save)")
-			return nil, err
-		}
-		defer outFile.Close()
+		if fsl.config.FSL_LOCALITY {
+			outFile, err := os.Create(fslite_data_path + "/" + resource.Vname + "/" + resource.Name)
+			if err != nil {
+				log.Printf("failed to create a new output file (to save)")
+				return nil, err
+			}
+			defer outFile.Close()
 
-		// Copy from the reader to the file
-		_, err = io.Copy(outFile, resource.Reader)
-		if err != nil {
-			log.Printf("failed to copy to output file")
-			return nil, err
+			// Copy from the reader to the file
+			_, err = io.Copy(outFile, resource.Reader)
+			if err != nil {
+				log.Printf("failed to copy to output file")
+				return nil, err
+			}
 		}
+		// db
 		err = insertResource(db, resource)
 		if err != nil {
 			log.Printf("failed to insert resources in the db: %v", err)
@@ -308,7 +315,10 @@ func (fsl *FsLite) SelectObjects(how map[string]any) (any, error) {
 	return getAllResources(db)
 }
 
-func (fsl *FsLite) Stat(t any, locally bool) (any, error) {
+func (fsl *FsLite) Stat(t any) (any, error) {
+	if fsl.config.FSL_LOCALITY {
+		return nil, fmt.Errorf("cannot use stat if locality is turned off")
+	}
 	resource, ok := t.(ut.Resource)
 	if !ok {
 		log.Printf("failed to cast to designated struct")
@@ -333,11 +343,15 @@ func (fsl *FsLite) Remove(t any) error {
 	if err != nil {
 		return err
 	}
-	err = os.Remove(fslite_data_path + "/" + resource.Vname + "/" + resource.Name)
-	if err != nil {
-		log.Printf("failed to remove file from local fs")
-		return err
+
+	if fsl.config.FSL_LOCALITY {
+		err = os.Remove(fslite_data_path + "/" + resource.Vname + "/" + resource.Name)
+		if err != nil {
+			log.Printf("failed to remove file from local fs")
+			return err
+		}
 	}
+
 	return nil
 }
 
@@ -346,6 +360,9 @@ func (fsl *FsLite) Update(t any) error {
 }
 
 func (fsl *FsLite) Download(t *any) (context.CancelFunc, error) {
+	if fsl.config.FSL_LOCALITY {
+		return nil, fmt.Errorf("cannot download if locality is off")
+	}
 	v := *t
 	resource, ok := v.(ut.Resource)
 	if !ok {
@@ -395,28 +412,30 @@ func (fsl *FsLite) Copy(s, d any) error {
 		return err
 	}
 
-	sr, err := os.Open(fslite_data_path + "/" + src.Vname + "/" + src.Name)
-	if err != nil {
-		log.Printf("failed to read the src file")
-		return err
-	}
-	defer sr.Close()
-	sr1, err := io.ReadAll(sr)
-	if err != nil {
-		log.Printf("failed to read the src file to a buffer")
-		return err
-	}
+	if fsl.config.FSL_LOCALITY {
+		sr, err := os.Open(fslite_data_path + "/" + src.Vname + "/" + src.Name)
+		if err != nil {
+			log.Printf("failed to read the src file")
+			return err
+		}
+		defer sr.Close()
+		sr1, err := io.ReadAll(sr)
+		if err != nil {
+			log.Printf("failed to read the src file to a buffer")
+			return err
+		}
 
-	ds, err := os.OpenFile(fslite_data_path+"/"+dst.Vname+"/"+dst.Name, os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		log.Printf("failed to open the dst file")
-		return err
-	}
-	defer ds.Close()
+		ds, err := os.OpenFile(fslite_data_path+"/"+dst.Vname+"/"+dst.Name, os.O_CREATE|os.O_WRONLY, 0o644)
+		if err != nil {
+			log.Printf("failed to open the dst file")
+			return err
+		}
+		defer ds.Close()
 
-	_, err = ds.Write(sr1)
-	if err != nil {
-		log.Printf("failed to write to output file")
+		_, err = ds.Write(sr1)
+		if err != nil {
+			log.Printf("failed to write to output file")
+		}
 	}
 
 	// update db

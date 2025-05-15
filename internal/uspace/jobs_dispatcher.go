@@ -1,7 +1,7 @@
-package userspace
+package uspace
 
 import (
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
 /*
@@ -11,7 +11,7 @@ import (
 */
 
 /*
-	Userspace API needs a Job dispatcher.
+	uspace API needs a Job dispatcher.
 
 # This is the interface a dispatcher must implement
 

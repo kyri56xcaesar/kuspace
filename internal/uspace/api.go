@@ -4,7 +4,7 @@
 // @host            localhost:8079
 // @BasePath        /api/v1
 // @schemes         http
-package userspace
+package uspace
 
 import (
 	"context"
@@ -17,8 +17,9 @@ import (
 	"syscall"
 	"time"
 
-	_ "kyri56xcaesar/myThesis/api/userspace"
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	_ "kyri56xcaesar/kuspace/api/uspace"
+	ut "kyri56xcaesar/kuspace/internal/utils"
+	"kyri56xcaesar/kuspace/pkg/fslite"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -58,6 +59,10 @@ type UService struct {
 
 	/* database call handlers for the Jobs db*/
 	jdbh ut.DBHandler
+
+	// a database related to files
+	// to enforce security on ownerships
+	fsl fslite.FsLite
 
 	/* a job dispatcher: a scheduling/setup/preparation system for runming jobs*/
 	/* it is directly associated to other objects, JobManager, JobExecutor that
@@ -100,38 +105,12 @@ func NewUService(conf string) UService {
 		panic(fmt.Errorf("jobs socket address is empty"))
 	}
 	srv.jdp = jdp
-	jdp.Start()
+	jdp.Start() // start "master" worker (the one that spawns other workers)
 
 	// database (init)
 	jdbh := ut.NewDBHandler(cfg.DB_JOBS, cfg.DB_JOBS_PATH, cfg.DB_JOBS_DRIVER)
 	srv.jdbh = jdbh
 	srv.jdbh.Init(initSqlJobs, cfg.DB_JOBS_MAX_OPEN_CONNS, cfg.DB_JOBS_MAX_IDLE_CONNS, cfg.DB_JOBS_MAX_LIFETIME)
-
-	// srv.dbh.Init(initSql, cfg.DB_RV_Path, cfg.DB_RV_MAX_OPEN_CONNS, cfg.DB_RV_MAX_IDLE_CONNS, cfg.DB_RV_MAX_LIFETIME)
-
-	// some specific init
-	// srv.dbh.InitResourceVolumeSpecific(cfg.DB_RV_Path, cfg.Volumes, cfg.VCapacity)
-
-	// also ensure local pv path
-	//_, err = os.Stat(cfg.Volumes)
-	//if err != nil {
-	//	err = os.Mkdir(cfg.Volumes, 0o777)
-	//	if err != nil {
-	//		panic("crucial")
-	//	}
-	//}
-
-	// we should init sync (if there are) existing users (from a different service)
-	// go func() {
-	// 	err := syncUsers(&srv)
-	// 	if err != nil && strings.Contains(err.Error(), "already exists") {
-	// 		log.Printf("users are in sync (already).")
-	// 	} else if err != nil {
-	// 		log.Printf("syncUsers failed: %v", err)
-	// 	} else {
-	// 		log.Println("users synced in userspace (uservolumes,groupvolumes claims).")
-	// 	}
-	// }()
 
 	// log.Printf("server at: %+v", srv)
 	return srv
@@ -139,6 +118,42 @@ func NewUService(conf string) UService {
 
 /* listen on http at handled endpoints */
 func (srv *UService) Serve() {
+	srv.RegisterRoutes()
+	/* context handler */
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	/* server std lib raw definition */
+	server := &http.Server{
+		Addr:              srv.config.Addr(srv.config.API_PORT),
+		Handler:           srv.Engine,
+		ReadHeaderTimeout: time.Second * 5,
+	}
+
+	/* listen in a goroutine */
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("listen: %s\n", err)
+		}
+	}()
+	<-ctx.Done()
+
+	stop()
+	log.Println("shutting down gracefully, press Ctrl+C again to force")
+
+	/* don't forgt to close the db conn */
+	srv.jdbh.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatal("Server forced to shutdown: ", err)
+	}
+
+	log.Println("Server exiting")
+}
+
+func (srv *UService) RegisterRoutes() {
 	root := srv.Engine.Group("/")
 	{
 		root.GET("/healthz", func(c *gin.Context) {
@@ -152,7 +167,7 @@ func (srv *UService) Serve() {
 	* */
 	apiV1 := srv.Engine.Group("/api" + VERSION)
 	// apiV1.Use(serviceAuth(srv)) //, bindHeadersMiddleware())
-	apiV1.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.InstanceName("userspacedocs")))
+	apiV1.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.InstanceName("uspacedocs")))
 
 	apiV1.Use(bindHeadersMiddleware())
 	{
@@ -207,42 +222,6 @@ func (srv *UService) Serve() {
 		// 	srv.HandleGroupVolumes,
 		// )
 	}
-	/* context handler */
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
-	/* server std lib raw definition */
-	server := &http.Server{
-		Addr:              srv.config.Addr(srv.config.API_PORT),
-		Handler:           srv.Engine,
-		ReadHeaderTimeout: time.Second * 5,
-	}
-
-	/* listen in a goroutine */
-	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("listen: %s\n", err)
-		}
-	}()
-
-	/* handle signals on process ..
-	*
-	* */
-	<-ctx.Done()
-
-	stop()
-	log.Println("shutting down gracefully, press Ctrl+C again to force")
-
-	/* don't forgt to close the db conn */
-	srv.jdbh.Close()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := server.Shutdown(ctx); err != nil {
-		log.Fatal("Server forced to shutdown: ", err)
-	}
-
-	log.Println("Server exiting")
 }
 
 func syncUsers(srv *UService) error {
