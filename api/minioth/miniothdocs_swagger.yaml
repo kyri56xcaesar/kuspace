@@ -1,3 +1,5 @@
+openapi: 3.0.0
+
 basePath: /v1
 definitions:
   kyri56xcaesar_kuspace_internal_utils.Group:

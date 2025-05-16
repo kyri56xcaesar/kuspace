@@ -1,7 +1,7 @@
 // @title           Minioth Auth API
 // @version         1.0
 // @description     API for user authentication and management using JWT.
-// @host            localhost:8080
+// @host            minioth.local:9090
 // @BasePath        /v1
 // @schemes         http
 package minioth

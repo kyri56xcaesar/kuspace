@@ -30,19 +30,13 @@ AUTH_OUT		:= minioth
 
 
 # documantation related
-# godoc
-DOCS_DIR 				:= docs/
-
-#Api docs (swagger)
-API_DOCS_DIR :=api/
-API_DOCS_USPACE_TARGET 		:= internal/uspace/api.go
-API_DOCS_MINIOTH_TARGET 	:= pkg/minioth/minioth_server.go
-API_DOCS_FSLITE_TARGET 		:= pkg/fslite/fslite_server.go
-
+# golds
+# swag
 .PHONY: api-docs
 api-docs:
-	swag init -g ${API_DOCS_USPACE_TARGET} -o ${API_DOCS_DIR}${API_OUT} --instanceName uspacedocs --exclude pkg/fslite,pkg/minioth --parseDependency --parseInternal
-	swag init -g ${API_DOCS_MINIOTH_TARGET} -o ${API_DOCS_DIR}${AUTH_OUT} --instanceName miniothdocs --exclude pkg/fslite,internal/uspace --parseDependency --parseInternal
+	swag init -g internal/uspace/api.go -o api/uspace --instanceName uspacedocs --exclude pkg/fslite,pkg/minioth --parseDependency --parseInternal
+	swag init -g pkg/minioth/minioth_server.go -o api/minioth --instanceName miniothdocs --exclude pkg/fslite,internal/uspace --parseDependency --parseInternal
+	swag init -g pkg/fslite/fslite_server.go -o api/fslite --instanceName fslitedocs --exclude pkg/minioth,internal/uspace --parseDependency --parseInternal
 
 .PHONY: code-docs 
 code-docs:
@@ -54,13 +48,12 @@ code-docs:
 .PHONY: clean
 clean:
 	rm -f ${TARGET_API}${API_OUT} ${TARGET_SHELL}${SHELL_OUT} ${TARGET_AUTH}${AUTH_OUT} ${TARGET_F_APP}${F_APP_OUT} ${TARGET_WS}${WS_OUT} ${TARGET_J_WS}${J_WS_OUT}
+	rm api/uspace/* api/minioth/* api/fslite/*
+	rm -rf docs/minioth/*
+	rm -rf docs/fslite/*
+	rm -rf docs/uspace/*
 	
-# perhaps useless
-.PHONY: mod
-mod:
-	go mod tidy
-
-
+	
 .PHONY: all
 all: build-all start-all
 
