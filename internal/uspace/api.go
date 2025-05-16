@@ -112,7 +112,13 @@ func NewUService(conf string) UService {
 	srv.jdbh = jdbh
 	srv.jdbh.Init(initSqlJobs, cfg.DB_JOBS_MAX_OPEN_CONNS, cfg.DB_JOBS_MAX_IDLE_CONNS, cfg.DB_JOBS_MAX_LIFETIME)
 
-	// log.Printf("server at: %+v", srv)
+	// fsl for storing and enforcing files securly
+	copy_cfg := cfg.DeepCopy()
+	copy_cfg.FSL_LOCALITY = false
+	copy_cfg.FSL_SERVER = false
+
+	srv.fsl = fslite.NewFsLite(copy_cfg)
+
 	return srv
 }
 
@@ -230,7 +236,7 @@ func syncUsers(srv *UService) error {
 		log.Printf("failed to create a request: %v", err)
 		return err
 	}
-	req.Header.Add("X-Service-Secret", string(srv.config.ServiceSecret))
+	req.Header.Add("X-Service-Secret", string(srv.config.SERVICE_SECRET_KEY))
 	var reqR struct {
 		Content []ut.Group `json:"content"`
 	}

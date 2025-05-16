@@ -55,11 +55,11 @@ type EnvConfig struct {
 	// service (main) authentication info
 	JWKS               string // used by (minioth)
 	JWT_VALIDITY_HOURS float64
-	JWTSecretKey       []byte
-	ServiceSecret      []byte
-	AllowedOrigins     []string
-	AllowedHeaders     []string
-	AllowedMethods     []string
+	JWT_SECRET_KEY     []byte
+	SERVICE_SECRET_KEY []byte
+	ALLOWED_ORIGINS    []string
+	ALLOWED_HEADERS    []string
+	ALLOWED_METHODS    []string
 	HASH_COST          string // used by (minioth) //bcrypt
 
 	AS_OPERATOR bool   // not used rn
@@ -194,13 +194,13 @@ func LoadConfig(path string) EnvConfig {
 		FRONT_ADDRESS:      getEnv("FRONT_ADDRESS", "localhost"),
 		AUTH_PORT:          getEnv("AUTH_PORT", "9090"),
 		AUTH_ADDRESS:       getEnv("AUTH_ADDRESS", "localhost"),
-		AllowedOrigins:     getEnvs("ALLOWED_ORIGINS", []string{"None"}),
-		AllowedHeaders:     getEnvs("ALLOWED_HEADERS", nil),
-		AllowedMethods:     getEnvs("ALLOWED_METHODS", nil),
+		ALLOWED_ORIGINS:    getEnvs("ALLOWED_ORIGINS", []string{"None"}),
+		ALLOWED_HEADERS:    getEnvs("ALLOWED_HEADERS", nil),
+		ALLOWED_METHODS:    getEnvs("ALLOWED_METHODS", nil),
 		ISSUER:             getEnv("ISSUER", "http://localhost:9090"),
-		JWTSecretKey:       getSecretKey("JWT_SECRET_KEY"),
+		JWT_SECRET_KEY:     getSecretKey("JWT_SECRET_KEY"),
 		JWT_VALIDITY_HOURS: getFloatEnv("JWT_VALIDITY_HOURS", 1),
-		ServiceSecret:      getSecretKey("SERVICE_SECRET"),
+		SERVICE_SECRET_KEY: getSecretKey("SERVICE_SECRET_KEY"),
 		JWKS:               getEnv("JWKS", "data/jwks/jwks.json"),
 		HASH_COST:          getEnv("HASH_COST", "4"),
 
@@ -218,6 +218,104 @@ func LoadConfig(path string) EnvConfig {
 
 	log.Print(config.ToString())
 	return config
+}
+
+func (env *EnvConfig) DeepCopy() EnvConfig {
+	// Copy all fields by value
+	if env == nil {
+		return EnvConfig{}
+	}
+
+	copied := EnvConfig{
+		ConfigPath:                     env.ConfigPath,
+		ISSUER:                         env.ISSUER,
+		API_USE_TLS:                    env.API_USE_TLS,
+		API_CERT_FILE:                  env.API_CERT_FILE,
+		API_KEY_FILE:                   env.API_KEY_FILE,
+		API_GIN_MODE:                   env.API_GIN_MODE,
+		API_LOGS_PATH:                  env.API_LOGS_PATH,
+		API_LOGS_MAX_FETCH:             env.API_LOGS_MAX_FETCH,
+		API_PORT:                       env.API_PORT,
+		API_ADDRESS:                    env.API_ADDRESS,
+		FRONT_PORT:                     env.FRONT_PORT,
+		FRONT_ADDRESS:                  env.FRONT_ADDRESS,
+		AUTH_PORT:                      env.AUTH_PORT,
+		AUTH_ADDRESS:                   env.AUTH_ADDRESS,
+		JWKS:                           env.JWKS,
+		JWT_VALIDITY_HOURS:             env.JWT_VALIDITY_HOURS,
+		HASH_COST:                      env.HASH_COST,
+		AS_OPERATOR:                    env.AS_OPERATOR,
+		NAMESPACE:                      env.NAMESPACE,
+		STORAGE_SYSTEM:                 env.STORAGE_SYSTEM,
+		DB_FSL:                         env.DB_FSL,
+		DB_FSL_PATH:                    env.DB_FSL_PATH,
+		DB_FSL_DRIVER:                  env.DB_FSL_DRIVER,
+		DB_FSL_MAX_OPEN_CONNS:          env.DB_FSL_MAX_OPEN_CONNS,
+		DB_FSL_MAX_IDLE_CONNS:          env.DB_FSL_MAX_IDLE_CONNS,
+		DB_FSL_MAX_LIFETIME:            env.DB_FSL_MAX_LIFETIME,
+		FSL_ACCESS_KEY:                 env.FSL_ACCESS_KEY,
+		FSL_SECRET_KEY:                 env.FSL_SECRET_KEY,
+		FSL_SERVER:                     env.FSL_SERVER,
+		FSL_LOCALITY:                   env.FSL_LOCALITY,
+		LOCAL_VOLUMES_DEFAULT_PATH:     env.LOCAL_VOLUMES_DEFAULT_PATH,
+		LOCAL_VOLUMES_DEFAULT_CAPACITY: env.LOCAL_VOLUMES_DEFAULT_CAPACITY,
+		MINIO_ACCESS_KEY:               env.MINIO_ACCESS_KEY,
+		MINIO_SECRET_KEY:               env.MINIO_SECRET_KEY,
+		MINIO_ENDPOINT:                 env.MINIO_ENDPOINT,
+		MINIO_USE_SSL:                  env.MINIO_USE_SSL,
+		MINIO_DEFAULT_BUCKET:           env.MINIO_DEFAULT_BUCKET,
+		MINIO_OBJECT_LOCKING:           env.MINIO_OBJECT_LOCKING,
+		OBJECT_SHARED:                  env.OBJECT_SHARED,
+		OBJECT_SHARE_EXPIRE:            env.OBJECT_SHARE_EXPIRE,
+		ONLY_PRESIGNED_UPLOAD:          env.ONLY_PRESIGNED_UPLOAD,
+		OBJECT_SIZE_THRESHOLD:          env.OBJECT_SIZE_THRESHOLD,
+		MINIO_FETCH_STAT:               env.MINIO_FETCH_STAT,
+		J_DISPATCHER:                   env.J_DISPATCHER,
+		J_QUEUE_SIZE:                   env.J_QUEUE_SIZE,
+		J_MAX_WORKERS:                  env.J_MAX_WORKERS,
+		J_EXECUTOR:                     env.J_EXECUTOR,
+		J_WS_ADDRESS:                   env.J_WS_ADDRESS,
+		J_WS_LOGS_PATH:                 env.J_WS_LOGS_PATH,
+		DB_JOBS:                        env.DB_JOBS,
+		DB_JOBS_DRIVER:                 env.DB_JOBS_DRIVER,
+		DB_JOBS_PATH:                   env.DB_JOBS_PATH,
+		DB_JOBS_MAX_OPEN_CONNS:         env.DB_JOBS_MAX_OPEN_CONNS,
+		DB_JOBS_MAX_IDLE_CONNS:         env.DB_JOBS_MAX_IDLE_CONNS,
+		DB_JOBS_MAX_LIFETIME:           env.DB_JOBS_MAX_LIFETIME,
+		MINIOTH_ACCESS_KEY:             env.MINIOTH_ACCESS_KEY,
+		MINIOTH_SECRET_KEY:             env.MINIOTH_SECRET_KEY,
+		MINIOTH_DB:                     env.MINIOTH_DB,
+		MINIOTH_DB_DRIVER:              env.MINIOTH_DB_DRIVER,
+		MINIOTH_HANDLER:                env.MINIOTH_HANDLER,
+		MINIOTH_AUDIT_LOGS:             env.MINIOTH_AUDIT_LOGS,
+		MINIOTH_AUDIT_LOGS_MAX_FETCH:   env.MINIOTH_AUDIT_LOGS_MAX_FETCH,
+	}
+
+	if env.JWT_SECRET_KEY != nil {
+		copied.JWT_SECRET_KEY = make([]byte, len(env.JWT_SECRET_KEY))
+		copy(copied.JWT_SECRET_KEY, env.JWT_SECRET_KEY)
+	}
+
+	if env.SERVICE_SECRET_KEY != nil {
+		copied.SERVICE_SECRET_KEY = make([]byte, len(env.SERVICE_SECRET_KEY))
+		copy(copied.SERVICE_SECRET_KEY, env.SERVICE_SECRET_KEY)
+	}
+
+	if env.ALLOWED_ORIGINS != nil {
+		copied.ALLOWED_ORIGINS = make([]string, len(env.ALLOWED_ORIGINS))
+		copy(copied.ALLOWED_ORIGINS, env.ALLOWED_ORIGINS)
+	}
+
+	if env.ALLOWED_HEADERS != nil {
+		copied.ALLOWED_HEADERS = make([]string, len(env.ALLOWED_HEADERS))
+		copy(copied.ALLOWED_HEADERS, env.ALLOWED_HEADERS)
+	}
+	if env.ALLOWED_METHODS != nil {
+		copied.ALLOWED_METHODS = make([]string, len(env.ALLOWED_METHODS))
+		copy(copied.ALLOWED_METHODS, env.ALLOWED_METHODS)
+	}
+
+	return copied
 }
 
 func getSecretKey(envVar string) []byte {
@@ -298,11 +396,13 @@ func (cfg *EnvConfig) ToString() string {
 		} else {
 			strBuilder.WriteString(fmt.Sprintf("%d. ", i+1))
 		}
-		if len(fieldName) < 6 {
-			strBuilder.WriteString(fmt.Sprintf("%v\t\t\t\t-> %v\n", fieldName, fieldValue))
+		if len(fieldName) <= 6 {
+			strBuilder.WriteString(fmt.Sprintf("%v\t\t\t\t\t-> %v\n", fieldName, fieldValue))
 		} else if len(fieldName) <= 14 {
+			strBuilder.WriteString(fmt.Sprintf("%v\t\t\t\t-> %v\n", fieldName, fieldValue))
+		} else if len(fieldName) <= 25 {
 			strBuilder.WriteString(fmt.Sprintf("%v\t\t\t-> %v\n", fieldName, fieldValue))
-		} else { //if len(fieldName) <= 20 {
+		} else {
 			strBuilder.WriteString(fmt.Sprintf("%v\t\t-> %v\n", fieldName, fieldValue))
 		}
 	}

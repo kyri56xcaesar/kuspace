@@ -3,8 +3,8 @@ package test
 import (
 	"testing"
 
-	u "kyri56xcaesar/myThesis/internal/userspace"
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	u "kyri56xcaesar/kuspace/internal/uspace"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"github.com/zeebo/assert"
 )

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"kyri56xcaesar/myThesis/internal/utils"
-	"kyri56xcaesar/myThesis/pkg/fslite"
+	"kyri56xcaesar/kuspace/internal/utils"
+	"kyri56xcaesar/kuspace/pkg/fslite"
 )
 
 func main() {

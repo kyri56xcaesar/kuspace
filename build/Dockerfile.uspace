@@ -7,6 +7,7 @@ COPY ./internal/utils/ ./internal/utils/
 COPY ./cmd/uspace/ ./cmd/uspace/ 
 COPY ./api/uspace/ ./api/uspace/
 COPY ./pkg/fslite/ ./pkg/fslite/
+COPY ./api/fslite/ ./api/fslite/
 
 RUN GOOS=linux go build -o ./cmd/uspace/uspace ./cmd/uspace/main.go 
 
@@ -14,7 +15,6 @@ FROM debian:bookworm-slim
 WORKDIR /root/
 RUN apt-get update && apt-get install -y libstdc++6 
 COPY --from=builder /app/cmd/uspace/uspace .
-COPY ./configs/uspace.conf ./configs/ 
 
 RUN chmod +x /root/uspace
 CMD ["./uspace"]

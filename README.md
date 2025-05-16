@@ -1,24 +1,21 @@
-# Modular Batch Processing Platform
+# Kuspace
 
-## A system platform that provides modular batch processing applications for users to run on an end system
+##
 
-> **[goals]**
->>
->> - ease of access to an end system
->>
->> - sense of user environment
->
-> **[future_goals]**
->
->> - integrated shell as cli/webcli
+### A system platform that provides modular batch processing applications for users to run on an end system
 
 ## Development Instructions
 
 [DEV]
 Run locally:
-> either build and run each service as follows:
->
+
+use the make file to debug @read Makefile
+
     make all 
+
+use scripts/kuspacectl.go to deploy/destroy/build
+
+    go run scripts/kuspacectl.go -h
 
 ## Brief Description
 
@@ -34,9 +31,9 @@ Run locally:
 - websocket streaming for logs/resuls/output  
 - frontend application for i/o + management  
 
-## Detailed Information
+## More
 
-[Details]
+### [details]
 
 - storage provider (configurable)
   - minio  
@@ -65,3 +62,30 @@ Run locally:
 - (central) uspace API for accessing + using everything
 
 - frontend application
+
+### [deps]
+
+> go mod tidy
+
+documantation
+> go install github.com/swaggo/swag/cmd/swag@latest
+>
+> go install github.com/go101/golds@latest
+
+### [docs]
+
+generate documantation using:
+
+- make code-docs
+
+- make api-docs
+
+## Goals
+
+>
+> - ease of access to an end system (kubernetes)
+>
+> - user environment
+>
+
+     TODO.md

@@ -8,9 +8,8 @@ spec:
   accessModes:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
-  storageClassName: minioth
+  storageClassName: kuspace-default
   hostPath:
-    #path: /host_mnt/c/Users/kyri/minioth-storage  # is this on my host? # windows path(wsl)
     path: /mnt/minioth
     type: DirectoryOrCreate
   volumeMode: Filesystem

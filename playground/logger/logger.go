@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	"kyri56xcaesar/myThesis/playground/shell/cosmetics"
+	"kyri56xcaesar/kuspace/playground/shell/cosmetics"
 )
 
 // Should implement LOG levels...

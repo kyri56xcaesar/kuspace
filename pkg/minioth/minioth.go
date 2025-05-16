@@ -1,7 +1,14 @@
+// Package minioth provides a core user and group management system with pluggable backends.
+// It supports operations such as adding, deleting, modifying, and authenticating users and groups.
+// The package is configurable via environment variables and supports both plain file and database handlers.
+// Passwords are securely hashed using bcrypt, with a configurable hash cost.
+// Minioth is designed to be extensible and integrates with custom utility types and configuration loading.
+//
+// WARNING: The plain handler is not recommended for production use due to security concerns.
 package minioth
 
 import (
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 	"log"
 	"os"
 	"strconv"
@@ -31,6 +38,7 @@ var (
 /*
 *
 * */
+// Minioth is the core type of this system
 type Minioth struct {
 	handler MiniothHandler
 	Service MService
@@ -40,6 +48,7 @@ type Minioth struct {
 /* each minioth instance consists of a handler which
 *  implements this interface.
 * */
+//
 type MiniothHandler interface {
 	Init()
 	Useradd(user ut.User) (uid, pgroup int, err error) /* should return the uid as well*/
@@ -61,6 +70,7 @@ type MiniothHandler interface {
 
 /* "constructor"
 * Use this function to create an instance of minioth. */
+// NewMinioth constructs a new minioth object and initializes drawing from a configuration file specified
 func NewMinioth(cfgPath string) Minioth {
 	log.Print("[INIT]Creating new minioth...")
 	newM := Minioth{
@@ -87,6 +97,7 @@ func NewMinioth(cfgPath string) Minioth {
 	return newM
 }
 
+// handlerFactory will producde the chosen "storage" system specified in the configuration
 func handlerFactory(minioth *Minioth) MiniothHandler {
 	switch minioth.Config.MINIOTH_HANDLER {
 	case "db", "database":
@@ -148,6 +159,7 @@ func (m *Minioth) Authenticate(username, password string) (ut.User, error) {
 
 /* NOTE: irrelevant atm
 * delete the 3 state files */
+// Purge (equivalent to Destrutor) is supposed to destroy the object and its deps.
 func (m *Minioth) Purge() {
 	log.Print("Purging everything...")
 
@@ -190,21 +202,25 @@ func (m *Minioth) Purge() {
 
 /* NOTE: irrelevant atm
 * This function should sync the DB state and the Plain state. TODO:*/
+// Sync is supposed to convert and check from one storage handler to another.
+// WARNING. not implemented yet
 func (m *Minioth) Sync() error {
 	return nil
 }
 
 /* UTIL functions */
 /* use bcrypt blowfish algo (and std lib) to hash a byte array */
+// hash will hash the given byte sequence using the bcrypt hash algorithm
 func hash(password []byte) ([]byte, error) {
 	return bcrypt.GenerateFromPassword(password, HASH_COST)
 }
 
+// hash_cost will hash the given byte sequence using the bcrypt algorithm with a cost parameter innit
 func hash_cost(password []byte, cost int) ([]byte, error) {
 	return bcrypt.GenerateFromPassword(password, cost)
 }
 
-/* check if a passowrd is correct */
+// verifyPass will use the bcrypt library to compare two byte sequences to match
 func verifyPass(hashedPass, password []byte) bool {
 	if err := bcrypt.CompareHashAndPassword(hashedPass, password); err == nil {
 		return true

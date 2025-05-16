@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"kyri56xcaesar/myThesis/playground/logger"
-	"kyri56xcaesar/myThesis/playground/shell/cosmetics"
+	"kyri56xcaesar/kuspace/playground/logger"
+	"kyri56xcaesar/kuspace/playground/shell/cosmetics"
 )
 
 const (

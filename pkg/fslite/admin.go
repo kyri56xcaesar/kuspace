@@ -1,3 +1,5 @@
+// Package fslite provides functionality for authentication. Only admin user management,
+// registration, authentication, password hashing, and JWT tokens issueing
 package fslite
 
 import (
@@ -18,11 +20,16 @@ const (
 )
 
 var (
-	HASH_COST        int     = 4
-	jwtValidityHours float64 = 4
-	jwtSecretKey     string  = "r4nd0m"
-	usernameRegex            = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
-	passwordRegex            = regexp.MustCompile(`^[a-zA-Z0-9!@#\$%\^&\*]+$`)
+	// HASH_COST defines the bcrypt hashing cost for password hashing.
+	HASH_COST int = 4
+	// JWT_VALIDITY_HOURS specifies the number of hours a JWT token is valid.
+	JWT_VALIDITY_HOURS float64 = 4
+	// JWT_SECRET_KEY is the secret key used for signing JWT tokens.
+	JWT_SECRET_KEY string = "r4nd0m"
+	// usernameRegex is the regular expression for validating usernames.
+	usernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
+	// passwordRegex is the regular expression for validating passwords.
+	passwordRegex = regexp.MustCompile(`^[a-zA-Z0-9!@#\$%\^&\*]+$`)
 )
 
 // Admin represents an admin login or registration object.
@@ -33,10 +40,13 @@ type Admin struct {
 	Password string    `db:"password" json:"password"`
 }
 
+// ptrFields returns pointers to the fields of the Admin struct.
+// Useful for scanning database rows into the struct.
 func (a *Admin) ptrFields() []any {
 	return []any{&a.ID, &a.Username, &a.Password}
 }
 
+// validate checks the Admin struct fields for validity, including length and allowed characters.
 func (adm *Admin) validate() error {
 	if len(adm.Username) < MINIMUM_USER_LENGTH {
 		return fmt.Errorf("username length too small")
@@ -57,6 +67,8 @@ func (adm *Admin) validate() error {
 	return nil
 }
 
+// insertAdmin creates a new admin user in the database after validating and hashing the password.
+// Returns the created Admin object and any error encountered.
 func (fsl *FsLite) insertAdmin(username, password string) (admin Admin, err error) {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
@@ -100,6 +112,8 @@ func (fsl *FsLite) insertAdmin(username, password string) (admin Admin, err erro
 	return admin, err
 }
 
+// authenticateAdmin authenticates an admin user by username and password.
+// If successful, returns a signed JWT token.
 func (fsl *FsLite) authenticateAdmin(username, password string) (token string, err error) {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
@@ -129,11 +143,13 @@ func (fsl *FsLite) authenticateAdmin(username, password string) (token string, e
 	return token, err
 }
 
+// hash generates a bcrypt hash from the provided password bytes.
 func hash(password []byte) ([]byte, error) {
 	return bcrypt.GenerateFromPassword(password, HASH_COST)
 }
 
-/* check if a passowrd is correct */
+// verifyPass compares a bcrypt hashed password with its possible plaintext equivalent.
+// Returns an error if the passwords do not match.
 func verifyPass(hashedPass, password string) error {
 	if err := bcrypt.CompareHashAndPassword([]byte(hashedPass), []byte(password)); err != nil {
 		return fmt.Errorf("fail")
@@ -142,12 +158,15 @@ func verifyPass(hashedPass, password string) error {
 }
 
 // jwt
+// CustomClaims defines the custom JWT claims used for admin authentication.
 type CustomClaims struct {
 	ID       string `json:"user_id"`
 	Username string `json:"username"`
 	jwt.RegisteredClaims
 }
 
+// generateAccessJWT creates and signs a JWT token for the given user ID and username.
+// Returns the signed token string or an error.
 func generateAccessJWT(userID, username string) (string, error) {
 	// Set the claims for the token
 	claims := CustomClaims{
@@ -155,7 +174,7 @@ func generateAccessJWT(userID, username string) (string, error) {
 		Username: username,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "fslite",
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * time.Duration(jwtValidityHours))),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * time.Duration(JWT_VALIDITY_HOURS))),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Subject:   userID,
 		},
@@ -165,7 +184,7 @@ func generateAccessJWT(userID, username string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	// Sign the token using the secret key
-	tokenString, err := token.SignedString([]byte(jwtSecretKey))
+	tokenString, err := token.SignedString([]byte(JWT_SECRET_KEY))
 	if err != nil {
 		return "", fmt.Errorf("failed to sign token: %w", err)
 	}
@@ -173,13 +192,15 @@ func generateAccessJWT(userID, username string) (string, error) {
 	return tokenString, nil
 }
 
+// decodeJWT parses and validates a JWT token string, returning the claims if valid.
+// Returns a boolean indicating validity, the claims, and any error encountered.
 func decodeJWT(tokenString string) (bool, *CustomClaims, error) {
 	// Parse and validate the token
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return []byte(jwtSecretKey), nil
+		return []byte(JWT_SECRET_KEY), nil
 	})
 
 	if err != nil {

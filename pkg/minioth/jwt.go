@@ -1,3 +1,8 @@
+// Package minioth provides JWT (JSON Web Token) utilities for authentication and authorization,
+// supporting both HS256 (HMAC) and RS256 (RSA) signing methods. It includes functionality for
+// generating, parsing, and validating JWTs, as well as managing RSA key rotation and JWKS (JSON Web Key Set)
+// for public key distribution. The package defines custom claims, handles key storage and rotation,
+// and supports both symmetric and asymmetric JWT workflows.
 package minioth
 
 import (
@@ -23,15 +28,17 @@ var (
 	jwtSecretKey     []byte  = []byte("default_placeholder_key")
 	jwksFilePath     string  = "data/jwks/jwks.json"
 	jwtValidityHours float64 = 1
+	rsa_key_ttl      float64 = 1
 )
 
 type JWK struct {
-	Kty string `json:"kty"` // Key Type
-	Alg string `json:"alg"` // Algorithm
-	Use string `json:"use"` // Public Key Use
-	Kid string `json:"kid"` // Key ID
-	N   string `json:"n"`   // Modulus
-	E   string `json:"e"`   // Exponent
+	Kty string    `json:"kty"` // Key Type
+	Alg string    `json:"alg"` // Algorithm
+	Use string    `json:"use"` // Public Key Use
+	Kid string    `json:"kid"` // Key ID
+	N   string    `json:"n"`   // Modulus
+	E   string    `json:"e"`   // Exponent
+	TTL time.Time `json:"ttl"`
 }
 
 func loadJWKS() (*JWKS, error) {
@@ -56,6 +63,7 @@ type RSAKey struct {
 	KID        string
 	PrivateKey *rsa.PrivateKey
 	PublicKey  *rsa.PublicKey
+	CreatedAt  time.Time // TTL two hours
 }
 
 type CustomClaims struct {
@@ -63,24 +71,6 @@ type CustomClaims struct {
 	Groups   string `json:"groups"`
 	GroupIDS string `json:"group_ids"`
 	jwt.RegisteredClaims
-}
-
-func rotateKey() {
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		log.Fatalf("failed to generate RSA key: %v", err)
-	}
-
-	kid := uuid.New().String()
-	signingKeys[kid] = RSAKey{
-		KID:        kid,
-		PrivateKey: privateKey,
-		PublicKey:  &privateKey.PublicKey,
-	}
-	currentKID = kid
-	log.Printf("[INIT]rotated key, new kid: %s", kid)
-
-	createJWKSFromPrivateKey(privateKey, kid, jwksFilePath)
 }
 
 // jwt
@@ -172,44 +162,57 @@ func ParseJWT(tokenStr string) (*jwt.Token, error) {
 	})
 }
 
-func createJWKSFromPrivateKey(key *rsa.PrivateKey, kid string, path string) error {
-	n := base64.RawURLEncoding.EncodeToString(key.PublicKey.N.Bytes())
-	e := base64.RawURLEncoding.EncodeToString(big.NewInt(int64(key.PublicKey.E)).Bytes())
-
-	newJWK := JWK{
-		Kty: "RSA",
-		Alg: "RS256",
-		Use: "sig",
-		Kid: kid,
-		N:   n,
-		E:   e,
+func rotateKey() {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		log.Fatalf("failed to generate RSA key: %v", err)
 	}
 
+	kid := uuid.New().String()
+	signingKeys[kid] = RSAKey{
+		KID:        kid,
+		PrivateKey: privateKey,
+		PublicKey:  &privateKey.PublicKey,
+		CreatedAt:  time.Now(),
+	}
+	currentKID = kid
+	log.Printf("[INIT]rotated key, new kid: %s", kid)
+
+	//perform a cleanup prune of old keys
+	for kid, key := range signingKeys {
+		if time.Since(key.CreatedAt) > time.Duration(rsa_key_ttl)*time.Hour {
+			delete(signingKeys, kid)
+		}
+	}
+
+	updateJWKS()
+}
+
+func updateJWKS() error {
 	var jwks JWKS
+	for kid, key := range signingKeys {
+		n := base64.RawURLEncoding.EncodeToString(key.PublicKey.N.Bytes())
+		e := base64.RawURLEncoding.EncodeToString(big.NewInt(int64(key.PublicKey.E)).Bytes())
 
-	// Check if file exists and load it
-	if data, err := os.ReadFile(path); err == nil {
-		if err := json.Unmarshal(data, &jwks); err != nil {
-			return fmt.Errorf("failed to parse existing jwks.json: %w", err)
+		newJWK := JWK{
+			Kty: "RSA",
+			Alg: "RS256",
+			Use: "sig",
+			Kid: kid,
+			N:   n,
+			E:   e,
+			TTL: key.CreatedAt.Add(time.Duration(rsa_key_ttl) * time.Hour),
 		}
+		// Append the new key
+		jwks.Keys = append(jwks.Keys, newJWK)
+
 	}
-
-	// Prevent duplicate kids
-	for _, existing := range jwks.Keys {
-		if existing.Kid == kid {
-			return fmt.Errorf("key with kid '%s' already exists in JWKS", kid)
-		}
-	}
-
-	// Append the new key
-	jwks.Keys = append(jwks.Keys, newJWK)
-
 	data, err := json.MarshalIndent(jwks, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal jwks: %w", err)
 	}
 
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(jwksFilePath, data, 0644)
 }
 
 func getRSAPublicKey(token *jwt.Token, static bool) (any, error) {

@@ -13,7 +13,7 @@ func AuthMiddleware(role string, srv *MService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// if service secret exists and validated, grant access
 		if s_secret_claim := c.GetHeader("X-Service-Secret"); s_secret_claim != "" {
-			if s_secret_claim == string(srv.Minioth.Config.ServiceSecret) {
+			if s_secret_claim == string(srv.Minioth.Config.SERVICE_SECRET_KEY) {
 				log.Printf("service secret accepted. access granted.")
 				c.Next()
 				return

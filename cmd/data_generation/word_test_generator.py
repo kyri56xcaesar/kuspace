@@ -16,7 +16,7 @@ for _ in range(num_words):
         words.append(''.join(random.choices(string.ascii_lowercase, k=word_length)))
 
 # Save to file
-file_path = "tests/input/word_files/test_words.txt"
+file_path = "tmp/input/test_words.txt"
 with open(file_path, "w") as f:
     f.write("\n".join(words))
 

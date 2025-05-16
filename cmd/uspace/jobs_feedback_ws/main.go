@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	wr "kyri56xcaesar/myThesis/internal/userspace/ws_registry"
-	"kyri56xcaesar/myThesis/internal/utils"
+	wr "kyri56xcaesar/kuspace/internal/uspace/ws_registry"
+	"kyri56xcaesar/kuspace/internal/utils"
 )
 
 func main() {

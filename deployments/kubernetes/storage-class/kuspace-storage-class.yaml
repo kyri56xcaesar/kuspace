@@ -1,0 +1,11 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: kuspace-default
+# provisioner: rancher.io/local-path  # or another provisioner you're using
+provisioner: docker.io/hostpath  # Use what your cluster supports (e.g., default on Docker Desktop)
+reclaimPolicy: Retain
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  fstype: ext4

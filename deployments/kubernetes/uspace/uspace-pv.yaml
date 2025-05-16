@@ -10,7 +10,7 @@ spec:
   accessModes:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
-  storageClassName: uspace
+  storageClassName: kuspace-default
   volumeMode: Filesystem
   hostPath:
     #path: /host_mnt/c/Users/kyri/uspace-storage # windows path (wsl)

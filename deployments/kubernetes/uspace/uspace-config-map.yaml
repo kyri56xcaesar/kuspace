@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: uspace-config
+  namespace: kuspace
+data:
+  uspace.conf: |
+    J_WS_ADDRESS=localhost:8082
+    API_LOGS_MAX_SIZE=100
+    FRONT_PORT=8080
+    DB_FSL=fsl.db
+    MINIO_ACCESS_KEY=minioadmin
+    MINIO_DEFAULT_BUCKET=uspace-default
+    DB_JOBS=jobs.db
+    DB_JOBS_MAX_OPEN_CONNS=50
+    DB_JOBS_MAX_IDLE_CONNS=10
+    AUTH_ADDRESS=minioth
+    MINIOTH_ACCESS_KEY=kuspaceadmin
+    DB_FSL_DRIVER=duckdb
+    DB_FSL_MAX_IDLE_LIFETIME=10
+    MINIO_ENDPOINT=minio:9000
+    OBJECT_SHARE_EXPIRE=1440
+    OBJECT_SIZE_THRESHOLD=400000000
+    J_QUEUE_SIZE=100 # just for the default sched
+    API_ADDRESS=uspace
+    FSL_SERVER=false
+    DB_FSL_PATH=data/db/uspace
+    DB_JOBS_MAX_IDLE_LIFETIME=10
+    IP=0.0.0.0
+    AUTH_PORT=9090
+    ALLOWED_METHODS=*
+    STORAGE_SYSTEM=local
+    DB_FSL_MAX_OPEN_CONNS=50
+    DB_FSL_MAX_IDLE_CONNS=10
+    OBJECT_SHARED=true
+    J_MAX_WORKERS=10 # just fo rhte default sched
+    J_WS_LOGS_PATH=data/logs/jobs/
+    LOCAL_VOLUMES_DEFAULT_CAPACITY=20
+    ONLY_PRESIGNED_UPLOAD=true
+    J_EXECUTOR=kubernetes
+    API_PORT=8079
+    API_LOGS_PATH=data/logs/uspace/
+    ALLOWED_HEADERS=*
+    JWT_VALIDITY_HOURS=1
+    MINIO_USE_SSL=false
+    MINIO_OBJECT_LOCKING=false
+    J_DISPATCHER=scheduler
+    DB_JOBS_PATH=data/db/uspace
+    DB_JOBS_DRIVER=duckdb
+    API_GIN_MODE=debug
+    FRONT_ADDRESS=frontapp
+    ALLOWED_ORIGINS=*
+    LOCAL_VOLUMES_DEFAULT_PATH=data/volumes

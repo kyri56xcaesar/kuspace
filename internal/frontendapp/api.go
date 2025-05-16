@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/static"
@@ -55,9 +55,9 @@ func NewService(conf string) HTTPService {
 // Serve function
 func (srv *HTTPService) ServeHTTP() {
 	corsconfig := cors.DefaultConfig()
-	corsconfig.AllowOrigins = srv.Config.AllowedOrigins
-	corsconfig.AllowMethods = srv.Config.AllowedMethods
-	corsconfig.AllowHeaders = srv.Config.AllowedHeaders
+	corsconfig.AllowOrigins = srv.Config.ALLOWED_ORIGINS
+	corsconfig.AllowMethods = srv.Config.ALLOWED_METHODS
+	corsconfig.AllowHeaders = srv.Config.ALLOWED_HEADERS
 
 	// template functions
 	funcMap := template.FuncMap{

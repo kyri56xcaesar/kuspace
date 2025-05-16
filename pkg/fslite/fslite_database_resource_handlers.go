@@ -1,3 +1,31 @@
+// Package fslite provides database handlers for managing "resources" in the uspace.db database.
+// This file contains functions for inserting, querying, updating, and deleting resource records.
+// The handlers are used by the API layer to interact with the resources table.
+//
+// Functions in this file include:
+//   - insertResource: Insert a new resource into the database.
+//   - insertResourceUniqueName: Insert a new resource only if its name is unique.
+//   - insertResources: Batch insert multiple resources.
+//   - insertResourcesUniqueName: Batch insert multiple resources, ensuring unique names.
+//   - getAllResourcesAt: Retrieve all resources at a specific path.
+//   - getAllResources: Retrieve all resources from the database.
+//   - getResourcesByIds: Retrieve resources by a list of resource IDs.
+//   - getResourceByName: Retrieve a resource by its name.
+//   - getResourcesByNameLike: Retrieve resources with names matching a pattern.
+//   - deleteResourcesByIds: Delete resources by a list of IDs and return total size deleted.
+//   - deleteResourceByName: Delete a resource by its name.
+//   - updateResourceNameById: Update the name of a resource by its ID.
+//   - updateResourcePermsById: Update the permissions of a resource by its ID.
+//   - updateResourceOwnerById: Update the owner (UID) of a resource by its ID.
+//   - updateResourceGroupById: Update the group (GID) of a resource by its ID.
+//   - getResources: Generic resource query with flexible selection and filtering.
+//   - getResource: Generic single resource query with flexible selection and filtering.
+//   - get: Generic query function with custom scan function for different table types.
+//   - scanResource, scanVolume, scanUserVolume, scanGroupVolume: Helper functions to scan rows into structs.
+//   - pickScanFn: Returns the appropriate scan function for a given table.
+//
+// All functions use parameterized queries to prevent SQL injection and handle transactions where appropriate.
+// Logging is performed for error handling and debugging purposes.
 package fslite
 
 /*

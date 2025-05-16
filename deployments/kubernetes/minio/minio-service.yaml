@@ -4,8 +4,7 @@ metadata:
   name: minio-nodeport
   labels:
     app: minio
-  namespace: default
-  #namespace: kuspace
+  namespace: ${NAMESPACE}
 spec:
   type: NodePort
   selector:

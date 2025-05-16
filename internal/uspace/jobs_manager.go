@@ -15,18 +15,21 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+/*
+	The Job manager implements the Job Dispatcher interface.
+
+	wrapped around a dispatcher
+
+	handles Job "scheduling" and "execution" logic
+
+	essentially as its role implies... it manages jobs...
+	...before...during...after execution...
+	can be thought of a "master worker"
+*/
+
 // default value
 var jobs_socket_address string = "localhost:8082"
 
-/*
-a Wrapper struct containing a Job Manager.
-
-	@look at JobManager for more details
-
-	the wrapper exists to implement the JobDispatcher interface
-	and to provide an option for future enhancements for scheduling jobs
-	or connecting to a broker
-*/
 type JobDispatcherImpl struct {
 	Manager JobManager
 }

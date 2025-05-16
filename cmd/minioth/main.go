@@ -1,7 +1,7 @@
 package main
 
 import (
-	"kyri56xcaesar/myThesis/pkg/minioth"
+	"kyri56xcaesar/kuspace/pkg/minioth"
 )
 
 func main() {

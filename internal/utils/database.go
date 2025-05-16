@@ -1,3 +1,29 @@
+// Package utils provides utility functions and types for database initialization and handling.
+//
+// This file defines the DBHandler struct and associated methods for managing SQL database connections
+// using supported drivers (SQLite3 and DuckDB). It includes routines for creating and validating
+// database paths, opening and closing connections, and initializing database schemas.
+//
+// Types:
+//   - DBHandler: Encapsulates database connection details and provides methods for connection management.
+//
+// Functions:
+//   - NewDBHandler: Constructs a new DBHandler, validating driver, path, and database name.
+//   - (*DBHandler) GetConn: Lazily opens and returns a database connection.
+//   - (*DBHandler) Close: Closes the database connection if open.
+//   - (*DBHandler) Init: Initializes the database, sets connection pool parameters, and executes
+//     initialization SQL scripts.
+//
+// Usage:
+//
+//	Use NewDBHandler to create a handler, then call Init to set up the database schema and connection pool.
+//	Use GetConn to obtain a connection for queries, and Close to release resources when done.
+//
+// Supported Drivers:
+//   - "sqlite3"
+//   - "duckdb"
+//
+// Database driver
 package utils
 
 /*
@@ -12,6 +38,7 @@ import (
 	"time"
 
 	_ "github.com/marcboeker/go-duckdb"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type DBHandler struct {

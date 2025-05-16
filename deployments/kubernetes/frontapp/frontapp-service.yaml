@@ -4,8 +4,7 @@ metadata:
   name: frontapp
   labels:
     app: frontapp
-  namespace: default 
-  #namespace: kuspace
+  namespace: ${NAMESPACE}
 spec:
   selector:
     app: frontapp

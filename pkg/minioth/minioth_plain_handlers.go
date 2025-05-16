@@ -3,7 +3,7 @@ package minioth
 import (
 	"bufio"
 	"fmt"
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 	"log"
 	"os"
 	"strconv"
@@ -572,6 +572,18 @@ func (m *PlainHandler) Select(id string) any {
 				log.Printf("failed to get entry")
 				return nil
 			}
+			g, err := os.Open(MINIOTH_GROUP)
+			if err != nil {
+				log.Printf("error reading file: %v", err)
+				return nil
+			}
+			groups, err := getUserGroups(entry.Username, g)
+			if err != nil {
+				log.Printf("error getting user groups")
+				return nil
+			}
+			entry.Groups = groups
+
 			return entry
 		} else {
 			users, err = getUserEntries(f)
@@ -667,6 +679,20 @@ func (m *PlainHandler) Authenticate(username, password string) (ut.User, error) 
 		user.Home = p[5]
 		user.Shell = p[6]
 
+		// we need to fetch his groups as well
+		gfile, err := os.Open(MINIOTH_GROUP)
+		if err != nil {
+			log.Printf("failed to open file: %v", err)
+			return user, err
+		}
+		defer gfile.Close()
+		groups, err := getUserGroups(username, gfile)
+		if err != nil {
+			log.Printf("failed to get the user groups: %v", err)
+			return user, err
+		}
+		user.Groups = groups
+
 		return user, nil
 	} else {
 		return user, fmt.Errorf("failed to authenticate, bad creds")
@@ -676,7 +702,7 @@ func (m *PlainHandler) Authenticate(username, password string) (ut.User, error) 
 func (m *PlainHandler) Passwd(username, password string) error {
 	f, err := os.OpenFile(MINIOTH_SHADOW, os.O_RDWR, 0o600)
 	if err != nil {
-		fmt.Printf("error opening file: %v", err)
+		log.Printf("error opening file: %v", err)
 		return err
 	}
 	defer f.Close()
@@ -999,6 +1025,35 @@ func getGroupEntryById(gid string, file *os.File) (ut.Group, error) {
 	}
 
 	return ut.Group{}, fmt.Errorf("not found")
+}
+
+func getUserGroups(username string, file *os.File) ([]ut.Group, error) {
+	if username == "" || file == nil {
+		return nil, fmt.Errorf("must provide parameters")
+	}
+	scanner := bufio.NewScanner(file)
+
+	var groups []ut.Group
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.SplitN(line, DEL, 3)
+		if len(parts) != 3 {
+			return nil, fmt.Errorf("invalid group format entry")
+		}
+		if strings.Contains(parts[2], username) { // we have a group where the user belongs
+			gid, err := strconv.Atoi(parts[1])
+			if err != nil {
+				return nil, fmt.Errorf("invalid group format entry")
+			}
+			group := ut.Group{
+				Groupname: parts[0],
+				Gid:       gid,
+			}
+			groups = append(groups, group)
+		}
+
+	}
+	return groups, nil
 }
 
 func syncCurrentIds() {

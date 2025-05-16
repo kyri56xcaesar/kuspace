@@ -1,7 +1,7 @@
 package main
 
 import (
-	"kyri56xcaesar/myThesis/internal/frontendapp/ws"
+	"kyri56xcaesar/kuspace/internal/frontendapp/ws"
 )
 
 func main() {

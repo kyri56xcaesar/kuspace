@@ -1,7 +1,13 @@
-# ####
+# ##### #
+# [DEV] #
+# ##### #
+#
+# Going to migrate to a Go tool for this, but for now, this is a make file to help
+#
 # A utility make file for compiling/running/generating_docs/cleaning this SOA 
+# locally.
 # 
-# runs on the system
+# runs on this system
 # ####
 
 
@@ -37,6 +43,12 @@ API_DOCS_FSLITE_TARGET 		:= pkg/fslite/fslite_server.go
 api-docs:
 	swag init -g ${API_DOCS_USPACE_TARGET} -o ${API_DOCS_DIR}${API_OUT} --instanceName uspacedocs --exclude pkg/fslite,pkg/minioth --parseDependency --parseInternal
 	swag init -g ${API_DOCS_MINIOTH_TARGET} -o ${API_DOCS_DIR}${AUTH_OUT} --instanceName miniothdocs --exclude pkg/fslite,internal/uspace --parseDependency --parseInternal
+
+.PHONY: code-docs 
+code-docs:
+	golds -gen -dir docs/minioth -compact -wdpkgs-listing solo .\pkg\minioth\
+	golds -gen -dir docs/fslite -compact -wdpkgs-listing solo .\pkg\fslite\
+	golds -gen -dir docs/uspace -compact -wdpkgs-listing solo .\internal\uspace\
 
 # utility
 .PHONY: clean

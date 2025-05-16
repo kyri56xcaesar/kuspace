@@ -122,7 +122,7 @@ authentication to service-to-service comms.
 func serviceAuth(srv *UService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if s_secret_claim := c.GetHeader("X-Service-Secret"); s_secret_claim != "" {
-			if s_secret_claim == string(srv.config.ServiceSecret) {
+			if s_secret_claim == string(srv.config.SERVICE_SECRET_KEY) {
 				c.Next()
 				return
 			}

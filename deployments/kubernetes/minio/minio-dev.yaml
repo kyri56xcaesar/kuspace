@@ -12,46 +12,45 @@
 # The `/data` directory corresponds to the `spec.containers[0].volumeMounts[0].mountPath`
 # That mount path corresponds to a Kubernetes HostPath which binds `/data` to a local drive or volume on the worker node where the pod runs
 # 
-apiVersion: v1
-kind: Pod
-metadata:
-  labels:
-    app: minio
-  name: minio
-  namespace: default 
-  #namespace: kuspace
-spec:
-  volumes:
-    - name: minio-storage
-      persistentVolumeClaim:
-        claimName: minio-pvc
-  containers:
-  - name: minio
-    image: quay.io/minio/minio:latest
-    env:
-    - name: MINIO_ROOT_USER
-      value: minioadmin # Change this value to match the MinIO root user
-    - name: MINIO_ROOT_PASSWORD
-      value: minioadmin # Change this value to match the MinIO root password
-    - name: MINIO_ALLOW_GET_HEAD
-      value: "true"
-    command:
-    - /bin/bash
-    - -c
-    args: 
-    - minio server /data --console-address :9090
-    resources:
-      limits:
-        memory: "4Gi"
-        cpu: "4000m"
-      requests:
-        memory: "2Gi"
-        cpu: "2000m"
-    volumeMounts:
-      - name: minio-storage # Corresponds to the `spec.volumes` Persistent Volume
-        mountPath: /data
-  nodeSelector:
-    kubernetes.io/hostname: minikube
+# apiVersion: v1
+# kind: Pod
+# metadata:
+#   labels:
+#     app: minio
+#   name: minio
+#   namespace: ${NAMESPACE}
+# spec:
+#   volumes:
+#     - name: minio-storage
+#       persistentVolumeClaim:
+#         claimName: minio-pvc
+#   containers:
+#   - name: minio
+#     image: quay.io/minio/minio:latest
+#     env:
+#     - name: MINIO_ROOT_USER
+#       value: minioadmin # Change this value to match the MinIO root user
+#     - name: MINIO_ROOT_PASSWORD
+#       value: minioadmin # Change this value to match the MinIO root password
+#     - name: MINIO_ALLOW_GET_HEAD
+#       value: "true"
+#     command:
+#     - /bin/bash
+#     - -c
+#     args: 
+#     - minio server /data --console-address :9090
+#     resources:
+#       limits:
+#         memory: "4Gi"
+#         cpu: "4000m"
+#       requests:
+#         memory: "2Gi"
+#         cpu: "2000m"
+#     volumeMounts:
+#       - name: minio-storage # Corresponds to the `spec.volumes` Persistent Volume
+#         mountPath: /data
+#   nodeSelector:
+#     kubernetes.io/hostname: minikube
   #  kubernetes.io/hostname: docker-desktop
   # kubernetes.io/hostname: kubealpha.local # Specify a node label associated to the Worker Node on which you want to deploy the pod.
   # volumes:

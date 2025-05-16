@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"github.com/zeebo/assert"
 )

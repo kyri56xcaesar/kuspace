@@ -1,3 +1,6 @@
+// utility package
+//
+// custom assert functions
 package utils
 
 import (

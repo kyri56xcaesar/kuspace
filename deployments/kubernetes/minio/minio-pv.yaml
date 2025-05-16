@@ -4,13 +4,14 @@ metadata:
   name: minio-pv
   labels:
     type: local
+  namespace: ${NAMESPACE}
 spec:
   capacity:
     storage: 20Gi
   accessModes:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
-  storageClassName: manual
+  storageClassName: kuspace-default
   hostPath:
     path: /var/lib/docker/volumes/minio-data/_data
     type: DirectoryOrCreate

@@ -1,3 +1,46 @@
+// Package fslite provides a lightweight file system abstraction layer with support for
+// volume management, resource (file/object) management, and user-volume quota tracking.
+// It is designed to work with both local file storage and database-backed metadata,
+// supporting operations such as creating, removing, copying, and querying volumes and resources.
+//
+// The FsLite struct is the main entry point, encapsulating configuration, database handler,
+// and optionally a Gin engine for API exposure. The package supports initialization with
+// default volumes, admin user setup, and flexible storage locality.
+//
+// Key Features:
+//   - Volume management: create, remove, query, and manage storage volumes with capacity limits.
+//   - Resource management: insert, remove, copy, and query files/objects, with optional local storage.
+//   - User-volume quota: track and enforce per-user storage usage and quotas.
+//   - Database-backed metadata: all operations are tracked in a relational database.
+//   - Locality support: optionally store files on the local filesystem, or operate in metadata-only mode.
+//   - Extensible API: designed for integration with web APIs via Gin.
+//
+// Main Types and Functions:
+//
+//   - FsLite: Core struct managing configuration, database, and API engine.
+//   - NewFsLite: Initializes a new FsLite instance, sets up database schema, admin user, and default volume.
+//   - CreateVolume, RemoveVolume, SelectVolumes: Manage storage volumes.
+//   - Insert, Remove, SelectObjects: Manage resources (files/objects).
+//   - claimVolumeSpace, releaseVolumeSpace: Track and update storage usage and quotas.
+//   - Download, Copy: Support for file download and duplication.
+//   - selectUserVolumes: Query user-volume usage and quota information.
+//   - determinePhysicalStorage: Ensures physical storage paths exist and have sufficient space.
+//
+// Usage:
+//
+//   - Instantiate FsLite with configuration using NewFsLite.
+//   - Use provided methods to manage volumes, resources, and user quotas.
+//   - Integrate with Gin for API exposure if required.
+//
+// Note: This package depends on internal utility types and functions (ut package) for
+// configuration, database handling, and common operations. Ensure these dependencies are available.
+//
+// Example:
+//
+//	cfg := ut.EnvConfig{...}
+//	fsl := fslite.NewFsLite(cfg)
+//	err := fsl.CreateVolume(ut.Volume{Name: "myvol", Capacity: 10})
+//	...
 package fslite
 
 import (
@@ -103,7 +146,7 @@ func NewFsLite(cfg ut.EnvConfig) FsLite {
 		}
 		log.Print(err)
 	}
-	jwtValidityHours = cfg.JWT_VALIDITY_HOURS
+	JWT_VALIDITY_HOURS = cfg.JWT_VALIDITY_HOURS
 
 	return fsl
 }

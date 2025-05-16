@@ -5,7 +5,12 @@ import (
 )
 
 /*
-	Dispatcher for jobs
+	Dispatcher for jobs definition
+	a system to set job execution in motion, essentially a wrapped scheduler
+
+	this "dispatcher" aspires to be able to connect to a pub/sub system
+
+	the current implementation of this uses a wait Queue and an Executor logic
 
 	@used by the api
 */

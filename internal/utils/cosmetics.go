@@ -1,3 +1,6 @@
+/*
+// cosmetics and theme related utility code
+*/
 package utils
 
 const (

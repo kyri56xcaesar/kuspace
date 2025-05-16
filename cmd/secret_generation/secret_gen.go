@@ -77,7 +77,6 @@ func generate_rsa_keypair() {
 }
 
 func generate_random_token() {
-
 	tokenbytes := make([]byte, *ltoken)
 	if _, err := io.ReadFull(rand.Reader, tokenbytes); err != nil {
 		panic(err)

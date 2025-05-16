@@ -8,7 +8,7 @@ package minioth
 import (
 	"database/sql"
 	"fmt"
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 	"log"
 	"os"
 	"strconv"
@@ -36,7 +36,7 @@ const (
 		maximumPasswordAge TEXT,
 		warningPeriod TEXT,
 		inactivityPeriod TEXT,
-		expirationDate TEXT,
+		expirationDate TEXT
 	);
 	CREATE TABLE IF NOT EXISTS groups (
 		gid INTEGER,
@@ -1043,7 +1043,7 @@ func (m *DBHandler) Authenticate(username, password string) (ut.User, error) {
 	}
 
 	if verifyPass([]byte(user.Password.Hashpass), []byte(password)) {
-		return ut.User{}, nil
+		return user, nil
 	} else {
 		return ut.User{}, fmt.Errorf("failed to authenticate bad credentials: %v", nil)
 	}
@@ -1136,6 +1136,7 @@ func getUser(username string, db *sql.DB) ut.User {
 		return ut.User{}
 	}
 	user.Password = password
+
 	return user
 }
 

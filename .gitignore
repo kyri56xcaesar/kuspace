@@ -15,12 +15,22 @@ tmp/*
 ^tmp/
 data/volumes/*
 
+# docs
+docs/uspace/*
+docs/fslite/*
+docs/minioth/*
+# api/fslite/*
+# api/uspace/*
+# api/minioth/*
+
 # binaries
 cmd/minioth/minioth
 cmd/frontendapp/frontendapp
 cmd/frontendapp/frontendapp
 cmd/frontendapp/ws/ws_server
 cmd/uspace/uspace
+
+
 
 
 vendor

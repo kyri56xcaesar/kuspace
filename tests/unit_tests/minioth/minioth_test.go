@@ -2,7 +2,7 @@ package testing
 
 import (
 	"encoding/json"
-	"kyri56xcaesar/myThesis/pkg/minioth"
+	"kyri56xcaesar/kuspace/pkg/minioth"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -12,7 +12,7 @@ import (
 )
 
 func SetupRouter() *gin.Engine {
-	srv := minioth.NewMinioth("C:/Users/kyri/Documents/myThesis/tests/unit_tests/minioth/minioth_test.conf").Service
+	srv := minioth.NewMinioth("C:/Users/kyri/Documents/kuspace/tests/unit_tests/minioth/minioth_test.conf").Service
 	srv.RegisterRoutes()
 	return srv.Engine
 }

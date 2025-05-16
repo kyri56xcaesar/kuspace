@@ -4,7 +4,7 @@ metadata:
   name: minioth
   labels:
     app: minioth
-  #namespace: kuspace
+  namespace: ${NAMESPACE}
 spec:
   selector:
     matchLabels:
@@ -18,19 +18,42 @@ spec:
     spec:
       containers:
       - name: minioth
-        image: kyri56xcaesar/kuspace/minioth:latest
+        image: kyri56xcaesar/kuspace:minioth-latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9090
           name: web
-        volumeMounts:
+        volumeMounts: # volume mount linked to a pv for database and perstent storage
         - name: database
           mountPath: /data
+        - name: config # volume mount used for configuration
+          mountPath: /root/configs/minioth.conf
+          subPath: minioth.conf
+        env: # environment variables used only for secrets
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: jwt-secret       
+              key: JWT_SECRET_KEY      
+        - name: SERVICE_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: service-secret   
+              key: SERVICE_SECRET_KEY   
+        - name: MINIOTH_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minioth-secret       
+              key: MINIOTH_SECRET_KEY
+      volumes:
+      - name: config
+        configMap:
+          name: minioth-config
   volumeClaimTemplates:
   - metadata:
       name: database
     spec:
-      storageClassName: minioth
+      storageClassName: kuspace-default
       accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:

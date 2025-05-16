@@ -6,8 +6,8 @@ import (
 	"os"
 	"os/user"
 
-	"kyri56xcaesar/myThesis/playground/logger"
-	"kyri56xcaesar/myThesis/playground/shell/cosmetics"
+	"kyri56xcaesar/kuspace/playground/logger"
+	"kyri56xcaesar/kuspace/playground/shell/cosmetics"
 )
 
 func checkIfandExecBuiltIn(cmd string) error {

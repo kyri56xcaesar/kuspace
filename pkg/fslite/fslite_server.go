@@ -2,7 +2,7 @@ package fslite
 
 import (
 	"context"
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 	"log"
 	"net/http"
 	"os/signal"
@@ -12,7 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	_ "kyri56xcaesar/myThesis/api/fslite"
+	_ "kyri56xcaesar/kuspace/api/fslite"
 
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -94,7 +94,7 @@ func (fsl *FsLite) ListenAndServe() {
 func authmiddleware(cfg ut.EnvConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if s_secret_claim := c.GetHeader("X-Service-Secret"); s_secret_claim != "" {
-			if s_secret_claim == string(cfg.ServiceSecret) {
+			if s_secret_claim == string(cfg.SERVICE_SECRET_KEY) {
 				log.Printf("service secret accepted. access granted.")
 				c.Next()
 				return

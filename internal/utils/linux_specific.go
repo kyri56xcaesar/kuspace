@@ -1,6 +1,7 @@
 //go:build linux
 // +build linux
 
+// Code specifics that run only on linux
 package utils
 
 import "syscall"

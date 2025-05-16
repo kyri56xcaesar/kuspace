@@ -4,6 +4,10 @@ package uspace
 	database call handlers for "jobs"
 	"jobs.db"
 
+	all crud operations
+
+	can be improved
+
 	@used by the api
 */
 

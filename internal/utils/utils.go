@@ -1,3 +1,42 @@
+// Package utils provides a collection of reusable utility functions and helpers
+// for use across the project. This package includes generic functional programming
+// constructs (Map, Filter, Reduce), type conversion utilities, string manipulation,
+// file operations, error formatting, and various validation helpers.
+//
+// Functional Programming Utilities:
+//   - Map, Filter, Reduce: Generic implementations for slice processing.
+//
+// Type Conversion and Reflection:
+//   - ToFloat64: Converts various numeric types to float64.
+//   - IsEmpty: Checks if a value is the zero value for its type.
+//   - MakeMapFrom: Constructs a map from two slices, omitting empty values.
+//
+// String Manipulation:
+//   - ToSnakeCase: Converts CamelCase strings to snake_case.
+//   - SplitToInt: Splits a string into a slice of integers.
+//
+// File Operations:
+//   - MergeFiles: Concatenates multiple files into a single output file.
+//   - ReadFileAt: Reads a specific byte range from a file.
+//   - TailFileLines: Reads the last N lines from a file.
+//
+// Error Formatting:
+//   - NewError, NewWarning, NewInfo: Formats error messages with severity tags.
+//
+// Slices:
+//   - Contains
+//
+// Validation Helpers:
+//   - HasInvalidCharacters: Checks for invalid characters in a string.
+//   - IsNumeric, IsAlphanumeric, IsAlphanumericPlus: Validates string content.
+//   - IsValidUTF8String: Validates if a string contains only allowed UTF-8 characters.
+//
+// Miscellaneous:
+//   - CurrentTime: Returns the current UTC time in a standard format.
+//   - SizeInGb: Converts a size in bytes to gigabytes.
+//
+// This package is intended to centralize commonly used logic and promote code reuse
+// throughout the project.
 package utils
 
 import (
@@ -353,4 +392,13 @@ func TailFileLines(path string, n int) ([]string, error) {
 		lines = lines[len(lines)-n:]
 	}
 	return lines, nil
+}
+
+func Contains(slice []string, val string) bool {
+	for _, s := range slice {
+		if s == val {
+			return true
+		}
+	}
+	return false
 }

@@ -12,7 +12,6 @@ FROM debian:bookworm-slim
 WORKDIR /root/
 RUN apt-get update && apt-get install -y libstdc++6 
 COPY --from=builder /app/cmd/frontendapp/frontendapp .
-COPY ./configs/frontapp.conf ./configs/ 
 COPY ./web/ ./web/
 
 RUN chmod +x /root/frontendapp

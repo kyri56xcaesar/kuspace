@@ -17,6 +17,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+var (
+	DUCK_IMAGE = "kyri56xcaesar/kuspace:applications-duckdb-v1"
+)
+
 type JKubernetesExecutor struct {
 	jm *JobManager
 }
@@ -153,15 +157,9 @@ func streamJobLogs(clientset *kubernetes.Clientset, jobName, namespace string, s
 func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	jobName := fmt.Sprintf("j-%d", job.Jid)
 
-	err := formatJobData(je, &job)
+	command, err := formatJobData(je, &job)
 	if err != nil {
 		log.Printf("error formatting job data: %v", err)
-		return
-	}
-
-	command, err := formatJobCommand(job.Logic, job.LogicBody)
-	if err != nil {
-		log.Printf("error formatting job command: %v", err)
 		return
 	}
 
@@ -195,7 +193,7 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	// Optional: cleanup or postprocess
 }
 
-func formatJobData(je *JKubernetesExecutor, job *ut.Job) error {
+func formatJobData(je *JKubernetesExecutor, job *ut.Job) ([]string, error) {
 	// handle some generic checks as guard statement
 	if !ut.AssertStructNotEmptyUpon(job, map[any]bool{
 		"Input":     true,
@@ -203,29 +201,19 @@ func formatJobData(je *JKubernetesExecutor, job *ut.Job) error {
 		"Logic":     true,
 		"LogicBody": true,
 	}) {
-		return ut.NewError("empty field that shouldn't be empty..")
+		return nil, ut.NewError("empty field that shouldn't be empty..")
 	}
 
 	// Assuming job.Logic is the image name and job.LogicBody is the command
 	var (
-		name, version string
 		InpAsResource ut.Resource
 		OutAsResource ut.Resource
 	)
-
-	// deduct name and version and format it
-	p := strings.Split(strings.TrimSpace(job.Logic), ":")
-	if len(p) == 2 {
-		name = p[0]
-		version = p[1]
-	} else {
-		name = p[0]
-		version = "latest"
+	command, err := formatJobCommand(job)
+	if err != nil {
+		log.Printf("error formatting job command: %v", err)
+		return nil, err
 	}
-	if name == "" || version == "" {
-		return fmt.Errorf("invalid job data")
-	}
-	job.Logic = fmt.Sprintf("%s:%s", name, version)
 
 	// create an env map
 	envMap := make(map[string]string)
@@ -294,12 +282,32 @@ func formatJobData(je *JKubernetesExecutor, job *ut.Job) error {
 	envMap["TIMEOUT"] = fmt.Sprintf("%d", job.Timeout)
 	job.Env = envMap
 
-	return nil
+	return command, nil
 }
 
-func formatJobCommand(logic, body string) ([]string, error) {
-	lang := logic[:strings.Index(logic+":", ":")]
+func formatJobCommand(job *ut.Job) ([]string, error) {
+	var name, version string
+	// deduct name and version and format it
+	p := strings.Split(strings.TrimSpace(job.Logic), ":")
+	if len(p) == 2 {
+		name = p[0]
+		version = p[1]
+	} else {
+		name = p[0]
+		version = "latest"
+	}
+	if name == "" || version == "" {
+		return nil, fmt.Errorf("invalid job data")
+	}
+	job.Logic = fmt.Sprintf("%s:%s", name, version)
+	body := job.LogicBody
+
+	lang := job.Logic[:strings.Index(job.Logic+":", ":")]
 	switch lang {
+	case "application/duckdb": // check if the given logic is a custom app
+		job.Logic = DUCK_IMAGE
+		return []string{"python", "duckdb_app.py"}, nil
+
 	case "python", "py":
 		return []string{"/bin/sh", "-c", fmt.Sprintf("python3 -c '%s'", body)}, nil
 	case "bash", "sh", "shell":
@@ -313,9 +321,6 @@ func formatJobCommand(logic, body string) ([]string, error) {
 		javac /tmp/Tmp.java && java -cp /tmp Tmp && rm /tmp/Tmp.java /tmp/Tmp.class`, body)}, nil
 	case "node", "javascript", "js":
 		return []string{"/bin/sh", "-c", fmt.Sprintf("node -e '%s'", body)}, nil
-
-	case "application/duckdb": // check if the given logic is a custom app
-		return []string{"python", "duckdb_app.py"}, nil
 
 	case "ruby":
 		return []string{"/bin/sh", "-c", fmt.Sprintf("ruby -e '%s'", body)}, nil

@@ -1,3 +1,24 @@
+// Package utils provides core data structures and utility methods for the Userspace API,
+// modeling users, groups, resources, volumes, jobs, and access control mechanisms.
+//
+// This package defines the foundational models used throughout the system, including:
+//   - Resource: Represents a file-system-like entity with permissions, ownership, and metadata.
+//   - Volume: Models a physical or logical storage volume, including capacity and usage.
+//   - User, Group: Represent system users and groups, including membership and credentials.
+//   - Job: Encapsulates computational jobs with resource requirements and execution metadata.
+//   - AccessClaim: Carries user and group context for access control decisions.
+//   - Permissions, PermTriplet: Parse and represent UNIX-like permission schemes.
+//
+// The package also provides utility methods for validation, permission checks, and
+// conversion between struct fields and generic representations, facilitating database
+// operations and API interactions.
+//
+// All models are designed to be serializable to JSON for API communication, and include
+// helper methods for common operations such as permission checking, ownership validation,
+// and string representations.
+//
+// This package is intended to be imported by higher-level application logic and API handlers
+// to enforce access control, manage resources, and maintain consistent user and group metadata.
 package utils
 
 /* every struct used in this system */

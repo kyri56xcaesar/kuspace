@@ -11,6 +11,7 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/joho/godotenv v1.5.1
 	github.com/marcboeker/go-duckdb v1.8.4
+	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/minio/minio-go/v7 v7.0.90
 	github.com/swaggo/files v1.0.1
 	github.com/swaggo/gin-swagger v1.6.0

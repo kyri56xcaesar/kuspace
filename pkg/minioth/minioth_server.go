@@ -21,9 +21,9 @@ import (
 	"syscall"
 	"time"
 
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 
-	_ "kyri56xcaesar/myThesis/api/minioth"
+	_ "kyri56xcaesar/kuspace/api/minioth"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -67,7 +67,7 @@ func NewMSerivce(m *Minioth) MService {
 		Minioth: m,
 		Engine:  gin.Default(),
 	}
-	jwtSecretKey = srv.Minioth.Config.JWTSecretKey
+	jwtSecretKey = srv.Minioth.Config.JWT_SECRET_KEY
 	jwksFilePath = srv.Minioth.Config.JWKS
 	jwtValidityHours = srv.Minioth.Config.JWT_VALIDITY_HOURS
 	issuer = srv.Minioth.Config.ISSUER

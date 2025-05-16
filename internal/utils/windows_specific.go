@@ -1,6 +1,7 @@
 //go:build windows
 // +build windows
 
+// Code specifics that run only on windows
 package utils
 
 import "golang.org/x/sys/windows"

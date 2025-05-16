@@ -4,8 +4,7 @@ metadata:
   name: frontapp
   labels:
     app: frontapp
-  namespace: default
-  #namespace: kuspace
+  namespace: ${NAMESPACE}
 spec:
   selector:
     matchLabels:
@@ -18,7 +17,7 @@ spec:
     spec:
       containers:
       - name: frontapp
-        image: kyri56xcaesar/kuspace/frontapp:latest
+        image: kyri56xcaesar/kuspace:frontapp-latest
         imagePullPolicy: IfNotPresent
         resources:
           requests:
@@ -29,3 +28,23 @@ spec:
             cpu: "500m"
         ports:
         - containerPort: 8080
+        volumeMounts: # volume mount used for configuration
+        - name: config
+          mountPath: /root/configs/frontapp.conf
+          subPath: frontapp.conf
+        env: # environment variables used only for secrets
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: jwt-secret       
+              key: JWT_SECRET_KEY      
+        - name: SERVICE_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: service-secret   
+              key: SERVICE_SECRET_KEY   
+      volumes:
+      - name: config
+        configMap:
+          name: frontapp-config
+      

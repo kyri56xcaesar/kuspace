@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -181,10 +181,10 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 		if err != nil {
 			log.Printf("failed to create a new request: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
-			req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
+			req.Header.Add("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 			return
 		}
-		req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
+		req.Header.Add("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
 		_, err = http.DefaultClient.Do(req)
 		if err != nil {
@@ -207,7 +207,7 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set gv"})
 			return
 		}
-		req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
+		req.Header.Add("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
 		_, err = http.DefaultClient.Do(req)
 		if err != nil {
@@ -541,7 +541,7 @@ func (srv *HTTPService) handleFetchResources(c *gin.Context) {
 		return
 	}
 	req.Header.Set("Access-Target", "/ 0:0")
-	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 	// req.Header.Set("Authorization", "Bearer "+acc)
 
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -621,7 +621,7 @@ func (srv *HTTPService) handleResourceUpload(c *gin.Context) {
 	}
 	req.Header.Add("Access-Target", fmt.Sprintf("/ %v:%v", uid, group_ids))
 	req.Header.Add("Authorization", c.Request.Header.Get("Authorization"))
-	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -671,7 +671,7 @@ func (srv *HTTPService) handleResourceDownload(c *gin.Context) {
 	}
 	req.Header.Add("Access-Target", fmt.Sprintf("%v %v:%v", fpath, uid, group_ids))
 	req.Header.Add("Authorization", c.Request.Header.Get("Authorization"))
-	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
 	log.Printf("%v %v:%v", fpath, uid, group_ids)
 	response, err := http.DefaultClient.Do(req)
@@ -725,7 +725,7 @@ func (srv *HTTPService) handleResourcePreview(c *gin.Context) {
 		}
 	}
 	req.Header.Add("Access-Target", fmt.Sprintf("%v %v:%v", r_name, whoami, groups))
-	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -800,7 +800,7 @@ func (srv *HTTPService) handleResourceMove(c *gin.Context) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Add("Authorization", "Bearer "+access_token)
 	req.Header.Add("Access-Target", fmt.Sprintf("%v %v:%v", r_name, user_id, gids))
-	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Printf("failed to forward request: %v", err)
@@ -847,7 +847,7 @@ func (srv *HTTPService) handleResourceDelete(c *gin.Context) {
 
 	req.Header.Add("Access-Target", fmt.Sprintf("$rids=%s %v:%v", resource_target, uid, group_ids))
 	req.Header.Add("Authorization", c.Request.Header.Get("Authorization"))
-	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
 	log.Printf("$rids=%v %v:%v", resource_target, uid, group_ids)
 
@@ -914,7 +914,7 @@ func (srv *HTTPService) handleResourceCopy(c *gin.Context) {
 
 	req.Header.Add("Authorization", "Bearer "+access_token)
 	req.Header.Add("Access-Target", fmt.Sprintf("%v %v:%v", r_name, user_id, gids))
-	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Printf("failed to forward request: %v", err)
@@ -999,7 +999,7 @@ func (srv *HTTPService) handleResourcePerms(c *gin.Context) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Access-Target", fmt.Sprintf("$rids=%s %v:%v", rid, whoami, mygroups))
 	req.Header.Set("Authorization", "Bearer "+accessToken)
-	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -1042,7 +1042,7 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 		return
 	}
 	userReq.Header.Set("Authorization", "Bearer "+accessToken)
-	userReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	userReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
 	groupReq, err := http.NewRequest(http.MethodGet, authServiceURL+authVersion+"/admin/groups", nil)
 	if err != nil {
@@ -1051,7 +1051,7 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 		return
 	}
 	groupReq.Header.Set("Authorization", "Bearer "+accessToken)
-	groupReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	groupReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
 	volumeReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/volumes", nil)
 	if err != nil {
@@ -1060,7 +1060,7 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 		return
 	}
 	volumeReq.Header.Set("Authorization", "Bearer "+accessToken)
-	volumeReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	volumeReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
 	uvReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/user/volume?uids=*", nil)
 	if err != nil {
@@ -1069,7 +1069,7 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 		return
 	}
 	uvReq.Header.Set("Authorization", "Bearer "+accessToken)
-	uvReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	uvReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
 	gvReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/group/volume?gids=*", nil)
 	if err != nil {
@@ -1078,7 +1078,7 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 		return
 	}
 	gvReq.Header.Set("Authorization", "Bearer "+accessToken)
-	gvReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	gvReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	var (
@@ -1273,7 +1273,7 @@ func (srv *HTTPService) jobsHandler(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 			return
 		}
-		jobReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+		jobReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
 		client := &http.Client{Timeout: 10 * time.Second}
 		response, err := client.Do(jobReq)
@@ -1394,7 +1394,7 @@ func (srv *HTTPService) jobsHandler(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 			return
 		}
-		jobReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+		jobReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
 		client := &http.Client{Timeout: 10 * time.Second}
 		response, err := client.Do(jobReq)
@@ -1562,10 +1562,10 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 		if err != nil {
 			log.Printf("failed to create a new request: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set gv"})
-			req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
+			req.Header.Add("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 			return
 		}
-		req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
+		req.Header.Add("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
 		_, err = http.DefaultClient.Do(req)
 		if err != nil {
@@ -1586,10 +1586,10 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 		if err != nil {
 			log.Printf("failed to create a new request: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
-			req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
+			req.Header.Add("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 			return
 		}
-		req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
+		req.Header.Add("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
 		_, err = http.DefaultClient.Do(req)
 		if err != nil {
@@ -1853,7 +1853,7 @@ func (srv *HTTPService) handleDashboard(c *gin.Context) {
 		return
 	}
 	uReq.Header.Set("Authorization", "Bearer "+accessToken)
-	uReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	uReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 	// 1) fetch user volumes
 	uvReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/user/volume?uids="+fmt.Sprintf("%v", uid), nil)
 	if err != nil {
@@ -1862,7 +1862,7 @@ func (srv *HTTPService) handleDashboard(c *gin.Context) {
 		return
 	}
 	uvReq.Header.Set("Authorization", "Bearer "+accessToken)
-	uvReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	uvReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
 	// 2) fetch group volumes
 	gvReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/group/volume?gids="+fmt.Sprintf("%v", gids), nil)
@@ -1872,7 +1872,7 @@ func (srv *HTTPService) handleDashboard(c *gin.Context) {
 		return
 	}
 	gvReq.Header.Set("Authorization", "Bearer "+accessToken)
-	gvReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	gvReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
 	// 3) fetch user jobs
 	jReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/job?uids="+fmt.Sprintf("%v", uid), nil)
@@ -1882,7 +1882,7 @@ func (srv *HTTPService) handleDashboard(c *gin.Context) {
 		return
 	}
 	jReq.Header.Set("Authorization", "Bearer "+accessToken)
-	jReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	jReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
 	// 4) fetch user resources
 
@@ -1893,7 +1893,7 @@ func (srv *HTTPService) handleDashboard(c *gin.Context) {
 		return
 	}
 	rReq.Header.Set("Authorization", "Bearer "+accessToken)
-	rReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	rReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 	rReq.Header.Set("Access-Target", fmt.Sprintf("/ %v:%v", uid, gids))
 
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -2047,7 +2047,7 @@ func (srv *HTTPService) handleDashboard(c *gin.Context) {
 	}
 
 	vReq.Header.Set("Authorization", "Bearer "+accessToken)
-	vReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	vReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 	resp, err := client.Do(vReq)
 	if err != nil {
 		rErr = err
@@ -2130,7 +2130,7 @@ func (srv *HTTPService) passwordChangeHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	checkPassReq.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
+	checkPassReq.Header.Add("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
 	resp, err := http.DefaultClient.Do(checkPassReq)
 	if err != nil {
@@ -2159,7 +2159,7 @@ func (srv *HTTPService) passwordChangeHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	passReq.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
+	passReq.Header.Add("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
 	resp2, err := http.DefaultClient.Do(passReq)
 	if err != nil {
@@ -2206,7 +2206,7 @@ func (srv *HTTPService) updateUser(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	// req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecret))
+	// req.Header.Add("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
 	resp, err := http.DefaultClient.Do(req)
@@ -2254,7 +2254,7 @@ func (srv *HTTPService) updateUser(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	newReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecret))
+	newReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 	newReq.Header.Set("Content-Type", "application/json")
 
 	log.Printf("data to be sent: %v", string(user_data))

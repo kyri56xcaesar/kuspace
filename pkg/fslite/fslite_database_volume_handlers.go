@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	ut "kyri56xcaesar/myThesis/internal/utils"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
 /* database call handlers regarding the Volume table */
