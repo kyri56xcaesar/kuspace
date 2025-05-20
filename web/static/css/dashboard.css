@@ -102,59 +102,7 @@ section {
 	gap: 10rem;
 
 
-	& :is(.info-display) {
-		position: relative;
-		& > i {
-			position: absolute;
-			margin-left: 8px;
-		}
 
-		& > i:hover {
-			cursor: pointer;
-			color:blue;
-		}
-	}
-
-	& :is(#profile-settings-section) {
-		height: 200px;
-
-		display: flex;
-		flex-direction: column;
-
-		& > div {
-			/* after profile div */
-			display: flex;
-			justify-content: space-between;
-			width: 100%;
-
-			/* the profile display */
-			& > div:nth-child(1) {
-				display: flex;
-				flex-direction: column;
-				width: 30%;
-
-				& > div {
-					display: inline-flex;
-					flex-direction: row;
-					justify-content: space-between;
-				}
-			}
-
-			
-		}
-	}
-	
-	& :is(#theme-settings-section) {
-		& > div {
-			display: flex;
-			flex-direction: column;
-			width: 35%;
-		}
-	}
- 
-	& :is(#submit_password_change_btn).focus {
-		background-color: red;
-	}
 }
 
 

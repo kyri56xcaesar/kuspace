@@ -1,16 +1,6 @@
 editor = "";
 
-function toggleHidden(targetId, className) {
-  let targetDiv = document.querySelector(targetId);
 
-  document.querySelectorAll(className).forEach((element) => {
-    if (element.id == targetDiv.id) { 
-      element.classList.remove('hidden');
-    } else {
-      element.classList.add('hidden');
-    }
-  });
-}
 
 document.addEventListener("DOMContentLoaded", () => {
     const profileMenu = document.querySelector(".profile-menu");

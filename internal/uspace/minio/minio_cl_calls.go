@@ -151,7 +151,7 @@ func (mc *MinioClient) fGetObject(bucketname, objectname, filepath string) (cont
 
 // object crud
 // stream of the object from minio, similar to FGetObject but without save
-func (mc *MinioClient) getObject(bucketname, objectname string) (io.Reader, context.CancelFunc, error) {
+func (mc *MinioClient) getObject(bucketname, objectname string) (*minio.Object, context.CancelFunc, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	object, err := mc.client.GetObject(ctx, bucketname, objectname, minio.GetObjectOptions{})
@@ -160,6 +160,7 @@ func (mc *MinioClient) getObject(bucketname, objectname string) (io.Reader, cont
 		cancel()
 		return nil, nil, err
 	}
+
 	return object, cancel, nil
 	// idk what to do with the stream yet... we'll see!
 }
@@ -208,12 +209,7 @@ func (mc *MinioClient) removeObject(bucketname, objectname string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	opts := minio.RemoveObjectOptions{
-		GovernanceBypass: true,
-		VersionID:        "v1",
-	}
-
-	err := mc.client.RemoveObject(ctx, bucketname, objectname, opts)
+	err := mc.client.RemoveObject(ctx, bucketname, objectname, minio.RemoveObjectOptions{})
 	if err != nil {
 		log.Print("failed to remove object from minio: ", err)
 	}

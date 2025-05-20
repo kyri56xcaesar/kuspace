@@ -42,6 +42,7 @@ package utils
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -401,4 +402,36 @@ func Contains(slice []string, val string) bool {
 		}
 	}
 	return false
+}
+
+func ValidateObjectName(name string) error {
+	if strings.TrimSpace(name) == "" {
+		return errors.New("object name cannot be empty")
+	}
+
+	// if strings.Contains(name, "/") {
+	// 	return errors.New("object name cannot contain slashes")
+	// }
+
+	if strings.Contains(name, "..") {
+		return errors.New("object name cannot contain '..'")
+	}
+
+	// Optional: disallow special characters (Windows-style)
+	illegalChars := regexp.MustCompile(`[\\:*?"<>|]`)
+	if illegalChars.MatchString(name) {
+		return errors.New("object name contains illegal characters")
+	}
+
+	// Optional: enforce max length
+	if len(name) > 255 {
+		return errors.New("object name is too long")
+	}
+
+	// Optional: ensure it has an extension
+	// if !strings.Contains(name, ".") {
+	// 	return errors.New("object name must include an extension (e.g., .txt)")
+	// }
+
+	return nil
 }

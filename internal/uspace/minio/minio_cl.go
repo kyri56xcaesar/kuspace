@@ -80,17 +80,6 @@ func NewMinioClient(cfg ut.EnvConfig) MinioClient {
 	}
 	mc.client = client
 
-	// lets create a default bucket
-	err = mc.createBucket(cfg.MINIO_DEFAULT_BUCKET)
-	if err != nil {
-		if strings.Contains(err.Error(), "already exists") {
-			log.Printf("already exists... continuing")
-		} else {
-			log.Fatal("failed to create the default bucket: ", err)
-		}
-	}
-	log.Printf("default bucket ready: %s", cfg.MINIO_DEFAULT_BUCKET)
-
 	return mc
 }
 
@@ -117,28 +106,40 @@ func (mc *MinioClient) Insert(t any) (context.CancelFunc, error) {
 	if !ok {
 		return nil, ut.NewError("failed to cast")
 	}
-
-	log.Printf("about to insert object: %+v", object)
-
 	// maybe use a presigned link for upload for a certain size threshold?
 	if object.Size > OBJECT_SIZE_THRESHOLD || ONLY_PRESIGNED_UPLOAD {
-		signedurl, err := mc.Share("put", t)
+		r, err := mc.Share("put", t)
 		if err != nil {
 			log.Printf("failed to get a presigned link: %v", err)
 			return nil, err
 		}
-		url, ok := signedurl.(url.URL)
-		if !ok {
-			log.Printf("failed to cast to URL")
-			return nil, fmt.Errorf("bad presigned url")
-		}
 
-		resp, err := http.DefaultClient.Post(http.MethodPut, url.String(), object.Reader)
+		url, ok := r.(*url.URL)
+		if !ok {
+			log.Printf("failed to cast to url pointer")
+			return nil, fmt.Errorf("failed to cast to url pointer")
+		}
+		req, err := http.NewRequest(http.MethodPut, url.String(), object.Reader)
+		if err != nil {
+			log.Printf("failed to create a new request: %v", err)
+			return nil, err
+		}
+		req.ContentLength = object.Size
+
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			log.Printf("failed to perform request: %v", err)
 			return nil, err
 		}
-		defer resp.Body.Close()
+
+		// respBody, err := io.ReadAll(resp.Body)
+		// if err != nil {
+		// 	log.Printf("failed to read response body: %v", err)
+		// 	return nil, err
+		// }
+		// defer resp.Body.Close()
+
+		// log.Printf("response: %v", string(respBody))
 
 		if resp.StatusCode >= 300 {
 			log.Printf("bad response")
@@ -174,8 +175,8 @@ func (mc *MinioClient) SelectVolumes(which map[string]any) (any, error) {
 	var r []any
 	for _, b := range res {
 		volume := ut.Volume{
-			Name:         b.Name,
-			CreationDate: b.CreationDate.String(),
+			Name:      b.Name,
+			CreatedAt: b.CreationDate.String(),
 		}
 		if prefix == "" {
 			r = append(r, volume)
@@ -213,7 +214,7 @@ func (mc *MinioClient) SelectObjects(which map[string]any) (any, error) {
 	}
 	defer cancel()
 
-	var objects []any
+	var objects []ut.Resource
 	for object := range objectCh {
 		if object.Err != nil {
 			fmt.Println(object.Err)
@@ -322,13 +323,20 @@ func (mc *MinioClient) Download(t *any) (context.CancelFunc, error) {
 		return nil, ut.NewError("failed to cast to *Resource")
 	}
 
-	reader, cancelFn, err := mc.getObject(resourcePtr.Vname, resourcePtr.Name)
-	if err != nil && reader == nil {
+	minioObj, cancelFn, err := mc.getObject(resourcePtr.Vname, resourcePtr.Name)
+	if err != nil && minioObj == nil {
 		log.Printf("failed to get object from minio: %v", err)
 		return nil, err
 	}
 
-	resourcePtr.Reader = reader
+	s, err := minioObj.Stat()
+	if err != nil {
+		log.Printf("failed to stat the minio object: %v", err)
+		return nil, err
+	}
+
+	resourcePtr.Size = s.Size
+	resourcePtr.Reader = minioObj
 
 	return cancelFn, err
 }
@@ -353,7 +361,7 @@ func (mc *MinioClient) Copy(s, d any) error {
 }
 
 /* find + copy + delete in this case*/
-func (mc *MinioClient) Update(t any) error {
+func (mc *MinioClient) Update(t map[string]string) error {
 	return nil
 }
 

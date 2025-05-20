@@ -61,33 +61,33 @@ func (srv *HTTPService) ServeHTTP() {
 
 	// template functions
 	funcMap := template.FuncMap{
-		"add": func(a, b interface{}) float64 {
+		"add": func(a, b any) float64 {
 			return ut.ToFloat64(a) + ut.ToFloat64(b)
 		},
-		"sub": func(a, b interface{}) float64 {
+		"sub": func(a, b any) float64 {
 			return ut.ToFloat64(a) - ut.ToFloat64(b)
 		},
-		"mul": func(a, b interface{}) float64 {
+		"mul": func(a, b any) float64 {
 			return ut.ToFloat64(a) * ut.ToFloat64(b)
 		},
-		"div": func(a, b interface{}) float64 {
+		"div": func(a, b any) float64 {
 			if ut.ToFloat64(b) == 0 {
 				return 0
 			}
 			return ut.ToFloat64(a) / ut.ToFloat64(b)
 		},
-		"typeIs": func(value interface{}, t string) bool { return reflect.TypeOf(value).Kind().String() == t },
-		"hasKey": func(value map[string]interface{}, key string) bool {
+		"typeIs": func(value any, t string) bool { return reflect.TypeOf(value).Kind().String() == t },
+		"hasKey": func(value map[string]any, key string) bool {
 			_, exists := value[key]
 			return exists
 		},
-		"lt": func(a, b interface{}) bool {
+		"lt": func(a, b any) bool {
 			return ut.ToFloat64(a) < ut.ToFloat64(b)
 		},
-		"gr": func(a, b interface{}) bool {
+		"gr": func(a, b any) bool {
 			return ut.ToFloat64(a) > ut.ToFloat64(b)
 		},
-		"index": func(m map[int]interface{}, key int) interface{} {
+		"index": func(m map[int]any, key int) any {
 			if val, ok := m[key]; ok {
 				return val
 			}
@@ -109,7 +109,7 @@ func (srv *HTTPService) ServeHTTP() {
 			}
 			return nil
 		},
-		"toJSON": func(v interface{}) template.JS {
+		"toJSON": func(v any) template.JS {
 			b, _ := json.Marshal(v)
 			return template.JS(b)
 		},
@@ -177,35 +177,28 @@ func (srv *HTTPService) ServeHTTP() {
 	}
 
 	verified := apiV1.Group("/verified")
+	verified.Use(AuthMiddleware("user,admin"))
 	{
 		// main pages after login
-		verified.GET("/admin-panel", AuthMiddleware("admin"), func(c *gin.Context) {
-			username := c.GetString("username")
-			c.HTML(http.StatusOK, "admin-panel.html", gin.H{
-				"username": username,
-				"message":  "Welcome to the Admin Panel ",
-			})
-		})
+		verified.GET("/admin-panel", srv.handleAdminPanel)
 
-		verified.POST("/passwd", AuthMiddleware("user, admin"), srv.passwordChangeHandler)
-		verified.PUT("/user-conf", AuthMiddleware("user, admin"), srv.updateUser)
-
-		verified.GET("/dashboard", AuthMiddleware("user, admin"), srv.handleDashboard)
+		// user
+		verified.POST("/passwd", srv.passwordChangeHandler)
+		verified.PUT("/user-update", srv.updateUser)
 
 		// actions for logged in users
-		verified.POST("/upload", AuthMiddleware("user, admin"), srv.handleResourceUpload)
-		verified.GET("/download", AuthMiddleware("user, admin"), srv.handleResourceDownload)
-		verified.GET("/preview", AuthMiddleware("user, admin"), srv.handleResourcePreview)
+		verified.GET("/fetch-resources", srv.handleFetchResources) // we want to allow users as well
+		verified.GET("/fetch-volumes", srv.handleFetchVolumes)
+		verified.POST("/upload", srv.handleResourceUpload)
+		verified.GET("/download", srv.handleResourceDownload)
+		verified.GET("/preview", srv.handleResourcePreview)
+		verified.PATCH("/mv", srv.handleResourceMove)
+		verified.POST("/cp", srv.handleResourceCopy)
+		verified.DELETE("/rm", srv.handleResourceDelete)
+		verified.GET("/edit-form", srv.editFormHandler)
 
-		verified.PATCH("/mv", AuthMiddleware("user, admin"), srv.handleResourceMove)
-		verified.POST("/cp", AuthMiddleware("user, admin"), srv.handleResourceCopy)
-		verified.DELETE("/rm", AuthMiddleware("user, admin"), srv.handleResourceDelete)
-
-		verified.GET("/edit-form", AuthMiddleware("user, admin"), srv.editFormHandler)
-		verified.GET("/edit-form-user", AuthMiddleware("user, admin"), srv.editFormUserHandler)
-		verified.GET("/add-symlink-form", AuthMiddleware("user, admin"), srv.addSymlinkFormHandler)
-
-		verified.GET("/gshell", AuthMiddleware("user, admin"), func(c *gin.Context) {
+		// shell (experimental)
+		verified.GET("/gshell", func(c *gin.Context) {
 			whoami, exists := c.Get("username")
 			if !exists {
 				whoami = "jondoe"
@@ -213,34 +206,34 @@ func (srv *HTTPService) ServeHTTP() {
 			c.HTML(http.StatusOK, "gshell-display.html", gin.H{"whoami": whoami})
 		})
 
-		verified.GET("/jobs", AuthMiddleware("user, admin"), srv.jobsHandler)
-		verified.POST("/jobs", AuthMiddleware("user, admin"), srv.jobsHandler)
+		// apps
+		verified.GET("/fetch-applications", srv.handleFetchApps)
+
+		// jobs
+		verified.POST("/jobs", srv.jobsHandler)
+		verified.GET("/fetch-jobs", srv.jobsHandler)
 
 		admin := verified.Group("/admin")
+		admin.PATCH("/chmod", AuthMiddleware("user,admin"), srv.handleResourcePerms)
+		admin.Use(AuthMiddleware("admin"))
 		/* minioth will verify token no need to worry here.*/
 		{
-			admin.GET("/fetch-resources", AuthMiddleware("user,admin"), srv.handleFetchResources) // we want to allow users as well
-			admin.PATCH("/chmod", AuthMiddleware("user,admin"), srv.handleResourcePerms)
-
-			admin.Use(AuthMiddleware("admin"))
-
 			admin.GET("/fetch-users", srv.handleFetchUsers)
-			admin.GET("/fetch-volumes", srv.handleFetchVolumes)
-			admin.GET("/fetch-jobs", srv.jobsHandler)
+			admin.GET("/fetch-groups", srv.handleFetchGroups)
 
 			admin.POST("/useradd", srv.handleUseradd)
 			admin.DELETE("/userdel", srv.handleUserdel)
 			admin.PATCH("/userpatch", srv.handleUserpatch)
-
-			admin.GET("/fetch-groups", srv.handleFetchGroups)
 			admin.POST("/groupadd", srv.handleGroupadd)
 			admin.DELETE("/groupdel", srv.handleGroupdel)
 			admin.PATCH("/grouppatch", srv.handleGrouppatch)
-
-			admin.POST("/hasher", srv.handleHasher)
-
 			admin.PATCH("/chown", srv.handleResourcePerms)
 			admin.PATCH("/chgroup", srv.handleResourcePerms)
+
+			admin.POST("/volumeadd", srv.handleVolumeadd)
+			admin.DELETE("/volumedel", srv.handleVolumedel)
+
+			admin.POST("/hasher", srv.handleHasher)
 		}
 	}
 

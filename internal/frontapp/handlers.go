@@ -2,6 +2,7 @@ package frontendapp
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,7 +13,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	ut "kyri56xcaesar/kuspace/internal/utils"
@@ -532,6 +532,10 @@ func (srv *HTTPService) handleFetchResources(c *gin.Context) {
 		return
 	}
 
+	volume := c.Query("volume")
+	if volume == "" {
+		volume = "*"
+	}
 	struc_type := c.DefaultQuery("struct", "list")
 
 	req, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/resources?struct="+struc_type, nil)
@@ -540,7 +544,7 @@ func (srv *HTTPService) handleFetchResources(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
 	}
-	req.Header.Set("Access-Target", "/ 0:0")
+	req.Header.Set("Access-Target", fmt.Sprintf(":%s:/ 0:0", volume))
 	req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 	// req.Header.Set("Authorization", "Bearer "+acc)
 
@@ -552,6 +556,12 @@ func (srv *HTTPService) handleFetchResources(c *gin.Context) {
 		return
 	}
 	defer response.Body.Close()
+
+	if response.StatusCode == http.StatusNotFound {
+		log.Printf("resource not found")
+		c.JSON(http.StatusNotFound, gin.H{"error": "Resource not found"})
+		return
+	}
 
 	if response.StatusCode >= 300 {
 		c.Status(http.StatusBadGateway)
@@ -606,42 +616,53 @@ func (srv *HTTPService) handleFetchResources(c *gin.Context) {
 func (srv *HTTPService) handleResourceUpload(c *gin.Context) {
 	uid, _ := c.Get("user_id")
 	group_ids, _ := c.Get("group_ids")
+	volume := c.Query("volume")
+	if volume == "" {
+		volume = c.Request.Header.Get("X-Volume-Target")
+		if volume == "" {
+			volume = srv.Config.MINIO_DEFAULT_BUCKET
+		}
+	}
 
-	req, err := http.NewRequest(http.MethodPost, apiServiceURL+"/api/v1/resource/upload", c.Request.Body)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiServiceURL+"/api/v1/resource/upload", c.Request.Body)
 	if err != nil {
 		log.Printf("failed to create a new request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
 	}
 
+	// forward headers
 	for key, values := range c.Request.Header {
 		for _, value := range values {
 			req.Header.Add(key, value)
 		}
 	}
-	req.Header.Add("Access-Target", fmt.Sprintf("/ %v:%v", uid, group_ids))
-	req.Header.Add("Authorization", c.Request.Header.Get("Authorization"))
+
+	req.Header.Set("Access-Target", fmt.Sprintf("0:%s:/ %v:%v", volume, uid, group_ids))
+	req.Header.Set("Authorization", c.Request.Header.Get("Authorization"))
 	req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
-	response, err := http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Printf("failed to forward request: %v", err)
 		c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to upload resource"})
 		return
 	}
+	defer resp.Body.Close()
 
-	defer response.Body.Close()
-
-	c.Status(response.StatusCode)
-	for key, values := range response.Header {
+	// propagate response headers and status
+	for key, values := range resp.Header {
 		for _, value := range values {
-			c.Header(key, value)
+			c.Writer.Header().Add(key, value)
 		}
 	}
-	_, err = io.Copy(c.Writer, response.Body)
-	if err != nil {
-		log.Printf("failed to write response: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write response"})
+	c.Status(resp.StatusCode)
+
+	if _, err := io.Copy(c.Writer, resp.Body); err != nil {
+		log.Printf("failed to write response body: %v", err)
 	}
 }
 
@@ -649,7 +670,6 @@ func (srv *HTTPService) handleResourceDownload(c *gin.Context) {
 	uid, _ := c.Get("user_id")
 	group_ids, _ := c.Get("group_ids")
 	fpath := c.Request.URL.Query().Get("target")
-	log.Printf("fpath: %v", fpath)
 
 	if fpath == "" {
 		log.Printf("must provide a target")
@@ -669,7 +689,12 @@ func (srv *HTTPService) handleResourceDownload(c *gin.Context) {
 			req.Header.Add(key, value)
 		}
 	}
-	req.Header.Add("Access-Target", fmt.Sprintf("%v %v:%v", fpath, uid, group_ids))
+	volume := c.Query("volume")
+	if volume == "" {
+		volume = srv.Config.MINIO_DEFAULT_BUCKET
+	}
+
+	req.Header.Add("Access-Target", fmt.Sprintf(":%s:%v %v:%v", volume, fpath, uid, group_ids))
 	req.Header.Add("Authorization", c.Request.Header.Get("Authorization"))
 	req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
@@ -724,7 +749,13 @@ func (srv *HTTPService) handleResourcePreview(c *gin.Context) {
 			req.Header.Add(key, value)
 		}
 	}
-	req.Header.Add("Access-Target", fmt.Sprintf("%v %v:%v", r_name, whoami, groups))
+
+	volume := c.Query("volume")
+	if volume == "" {
+		volume = srv.Config.MINIO_DEFAULT_BUCKET
+	}
+
+	req.Header.Add("Access-Target", fmt.Sprintf(":%s:%v %v:%v", volume, r_name, whoami, groups))
 	req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
 	response, err := http.DefaultClient.Do(req)
@@ -759,30 +790,27 @@ func (srv *HTTPService) handleResourcePreview(c *gin.Context) {
 }
 
 func (srv *HTTPService) handleResourceMove(c *gin.Context) {
-	access_token, err := c.Cookie("access_token")
-	if err != nil {
-		log.Printf("failed to retrieve access token cookie: %v", err)
-		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
-		return
-	}
 
-	rid := c.Request.URL.Query().Get("rid")
-	r_name := c.Request.URL.Query().Get("resourcename")
-	if r_name == "" || rid == "" {
+	r_name := c.Query("resourcename")
+	if r_name == "" {
 		log.Printf("must provide resource name")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide resource name"})
 		return
 	}
 
-	// should filter input
-	//if err := utils.allowedFileName(filename); err != nil {
-	//log.Printf("bad resource name: %v", err)
-	//c.JSON(http.StatusBadRequest, gin.H{"error":"bad resource name"})
-	//return
-	//}
-	// form value:
+	volume := c.Query("volume")
+	if volume == "" {
+		volume = srv.Config.MINIO_DEFAULT_BUCKET
+	}
 
-	req, err := http.NewRequest(http.MethodPatch, apiServiceURL+"/api/v1/resource/mv?rid="+rid, c.Request.Body)
+	newName := c.PostForm("resourcename")
+	if err := ut.ValidateObjectName(newName); err != nil { // should check for name validity as well!
+		log.Printf("invalid name: %s: %v", newName, err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "should provide a proper new name"})
+		return
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, apiServiceURL+"/api/v1/resource/mv?dest="+volume+"/"+newName, nil)
 	if err != nil {
 		log.Printf("error creating a new request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failure"})
@@ -797,9 +825,7 @@ func (srv *HTTPService) handleResourceMove(c *gin.Context) {
 		return
 	}
 
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Add("Authorization", "Bearer "+access_token)
-	req.Header.Add("Access-Target", fmt.Sprintf("%v %v:%v", r_name, user_id, gids))
+	req.Header.Set("Access-Target", fmt.Sprintf(":%s:%v %v:%v", volume, r_name, user_id, gids))
 	req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -844,8 +870,12 @@ func (srv *HTTPService) handleResourceDelete(c *gin.Context) {
 			req.Header.Add(key, value)
 		}
 	}
+	volume := c.Query("volume")
+	if volume == "" {
+		volume = srv.Config.MINIO_DEFAULT_BUCKET
+	}
 
-	req.Header.Add("Access-Target", fmt.Sprintf("$rids=%s %v:%v", resource_target, uid, group_ids))
+	req.Header.Add("Access-Target", fmt.Sprintf(":%s:$rids=%s %v:%v", volume, resource_target, uid, group_ids))
 	req.Header.Add("Authorization", c.Request.Header.Get("Authorization"))
 	req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
@@ -911,9 +941,13 @@ func (srv *HTTPService) handleResourceCopy(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "bad auth"})
 		return
 	}
+	volume := c.Query("volume")
+	if volume == "" {
+		volume = srv.Config.MINIO_DEFAULT_BUCKET
+	}
 
 	req.Header.Add("Authorization", "Bearer "+access_token)
-	req.Header.Add("Access-Target", fmt.Sprintf("%v %v:%v", r_name, user_id, gids))
+	req.Header.Add("Access-Target", fmt.Sprintf(":%s:%v %v:%v", volume, r_name, user_id, gids))
 	req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -995,9 +1029,13 @@ func (srv *HTTPService) handleResourcePerms(c *gin.Context) {
 		c.JSON(http.StatusInsufficientStorage, gin.H{"error": "failed auth"})
 		return
 	}
+	volume := c.Query("volume")
+	if volume == "" {
+		volume = srv.Config.MINIO_DEFAULT_BUCKET
+	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Access-Target", fmt.Sprintf("$rids=%s %v:%v", rid, whoami, mygroups))
+	req.Header.Set("Access-Target", fmt.Sprintf(":%s:$rids=%s %v:%v", volume, rid, whoami, mygroups))
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
@@ -1028,6 +1066,82 @@ func (srv *HTTPService) handleResourcePerms(c *gin.Context) {
 *   Volumes
 * */
 func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
+	volumeReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/volumes", nil)
+	if err != nil {
+		log.Printf("failed to create request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	var volumeResp struct {
+		Content []ut.Volume `json:"content"`
+	}
+
+	response, err := client.Do(volumeReq)
+	if err != nil {
+		log.Printf("failed to make request: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch jobs"})
+		return
+	}
+	defer response.Body.Close()
+
+	if err := json.NewDecoder(response.Body).Decode(&volumeResp); err != nil {
+		log.Printf("volume request error: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch volumes"})
+		return
+	}
+	combinedData := gin.H{
+		"volumes": volumeResp.Content,
+	}
+
+	format := c.Request.URL.Query().Get("format")
+
+	// Render the HTML template
+	respondInFormat(c, format, combinedData, "volumes_template.html")
+}
+
+func (srv *HTTPService) handleVolumeadd(c *gin.Context) {
+	accessToken, err := c.Cookie("access_token")
+	if err != nil {
+		log.Printf("missing access_token cookie: %v", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	var req ut.Volume
+	if err := c.ShouldBind(&req); err != nil {
+		log.Printf("failed to bind request: %v", err)
+		c.JSON(400, gin.H{"error": "bad binding"})
+		return
+	}
+
+	/* forward login request to the auth service */
+	resp, err := jsonPostRequest(apiServiceURL+"/api/v1/admin/volumes", accessToken, req)
+	if err != nil {
+		log.Printf("Error forwarding register request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "forwarding fail"})
+		return
+
+	}
+	defer resp.Body.Close()
+
+	// Check the response status from the auth service
+	if resp.StatusCode != http.StatusOK {
+		var ErrResp struct {
+			Error string `json:"error"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&ErrResp); err != nil {
+			log.Printf("Error decoding auth err response: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "serious"})
+			return
+		}
+
+		c.JSON(resp.StatusCode, ErrResp)
+		return
+	}
+}
+
+func (srv *HTTPService) handleVolumedel(c *gin.Context) {
 	accessToken, err := c.Cookie("access_token")
 	if err != nil {
 		log.Printf("missing access_token cookie: %v", err)
@@ -1035,228 +1149,48 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 		return
 	}
 
-	userReq, err := http.NewRequest(http.MethodGet, authServiceURL+authVersion+"/admin/users", nil)
-	if err != nil {
-		log.Printf("failed to create request: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+	vname := c.Query("volume")
+	if vname == "" {
+		log.Printf("missing vname parameter, must provide...")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing vname param"})
 		return
 	}
-	userReq.Header.Set("Authorization", "Bearer "+accessToken)
-	userReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
-
-	groupReq, err := http.NewRequest(http.MethodGet, authServiceURL+authVersion+"/admin/groups", nil)
+	req, err := http.NewRequest(http.MethodDelete, apiServiceURL+"/api/v1/admin/volumes?volume="+vname, nil)
 	if err != nil {
 		log.Printf("failed to create request: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	groupReq.Header.Set("Authorization", "Bearer "+accessToken)
-	groupReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
-
-	volumeReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/volumes", nil)
-	if err != nil {
-		log.Printf("failed to create request: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
-		return
-	}
-	volumeReq.Header.Set("Authorization", "Bearer "+accessToken)
-	volumeReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
-
-	uvReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/user/volume?uids=*", nil)
-	if err != nil {
-		log.Printf("failed to create request: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
-		return
-	}
-	uvReq.Header.Set("Authorization", "Bearer "+accessToken)
-	uvReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
-
-	gvReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/group/volume?gids=*", nil)
-	if err != nil {
-		log.Printf("failed to create request: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
-		return
-	}
-	gvReq.Header.Set("Authorization", "Bearer "+accessToken)
-	gvReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+	req.Header.Set("Authorization", "Bearer "+accessToken)
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	var (
-		userResp struct {
-			Content []ut.User `json:"content"`
-		}
-		groupResp struct {
-			Content []ut.Group `json:"content"`
-		}
-		volumeResp struct {
-			Content []ut.Volume `json:"content"`
-		}
-		userVolumesResp struct {
-			Content []ut.UserVolume `json:"content"`
-		}
-		groupVolumesResp struct {
-			Content []ut.GroupVolume `json:"content"`
-		}
-	)
-
-	var userErr, groupErr, volumeErr, uvError, gvError error
-
-	var wg sync.WaitGroup
-	wg.Add(5)
-
-	// 1) fetch Users
-	go func() {
-		defer wg.Done() // signals that this goroutine is finished
-		resp, err := client.Do(userReq)
-		if err != nil {
-			userErr = err
-			return
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			userErr = fmt.Errorf("failed to fetch users; status: %d", resp.StatusCode)
-			return
-		}
-
-		if err := json.NewDecoder(resp.Body).Decode(&userResp); err != nil {
-			userErr = fmt.Errorf("failed to decode users response: %v", err)
-			return
-		}
-	}()
-
-	// 2) fetch Groups
-	go func() {
-		defer wg.Done()
-		resp, err := client.Do(groupReq)
-		if err != nil {
-			groupErr = err
-			return
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			groupErr = fmt.Errorf("failed to fetch groups; status: %d", resp.StatusCode)
-			return
-		}
-
-		if err := json.NewDecoder(resp.Body).Decode(&groupResp); err != nil {
-			groupErr = fmt.Errorf("failed to decode groups response: %v", err)
-			return
-		}
-	}()
-
-	// 3) fetch Volumes
-	go func() {
-		defer wg.Done()
-		resp, err := client.Do(volumeReq)
-		if err != nil {
-			volumeErr = err
-			return
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			volumeErr = fmt.Errorf("failed to fetch volumes; status: %d", resp.StatusCode)
-			return
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&volumeResp); err != nil {
-			volumeErr = fmt.Errorf("failed to decode volume response: %v", err)
-			return
-		}
-	}()
-
-	// 4) fetch userVolumes
-	go func() {
-		defer wg.Done()
-		resp, err := client.Do(uvReq)
-		if err != nil {
-			uvError = err
-			return
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			uvError = fmt.Errorf("failed to fetch user volumes; status: %d", resp.StatusCode)
-			return
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&userVolumesResp); err != nil {
-			uvError = fmt.Errorf("failed to decode user volume response: %v", err)
-			return
-		}
-	}()
-
-	// 5) fetch groupVolumes
-	go func() {
-		defer wg.Done()
-		resp, err := client.Do(gvReq)
-		if err != nil {
-			gvError = err
-			return
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			gvError = fmt.Errorf("failed to fetch group volumes; status: %d", resp.StatusCode)
-			return
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&groupVolumesResp); err != nil {
-			gvError = fmt.Errorf("failed to decode group volume response: %v", err)
-			return
-		}
-	}()
-
-	wg.Wait()
-
-	if userErr != nil {
-		log.Printf("user request error: %v", userErr)
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch users"})
+	response, err := client.Do(req)
+	if err != nil {
+		log.Printf("failed to make request: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to delete user"})
 		return
 	}
-	if groupErr != nil {
-		log.Printf("group request error: %v", groupErr)
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch groups"})
+	defer response.Body.Close()
+
+	var resp struct {
+		Message string `json:"message"`
+	}
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Printf("failed to read response body: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
 		return
 	}
 
-	if volumeErr != nil {
-		log.Printf("volume request error: %v", volumeErr)
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch volumes"})
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		log.Printf("failed to unmarshal response: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
 		return
 	}
 
-	if uvError != nil {
-		log.Printf("user volume request error: %v", uvError)
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch user volumes"})
-		return
-	}
-
-	if gvError != nil {
-		log.Printf("group volume request error: %v", gvError)
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch group volumes"})
-		return
-	}
-
-	sort.Slice(userResp.Content, func(i, j int) bool {
-		return userResp.Content[i].Uid < userResp.Content[j].Uid
-	})
-
-	sort.Slice(groupResp.Content, func(i, j int) bool {
-		return groupResp.Content[i].Gid < groupResp.Content[j].Gid
-	})
-
-	combinedData := gin.H{
-		"users":         userResp.Content,
-		"groups":        groupResp.Content,
-		"volumes":       volumeResp.Content,
-		"user_volumes":  userVolumesResp.Content,
-		"group_volumes": groupVolumesResp.Content,
-	}
-
-	format := c.Request.URL.Query().Get("format")
-
-	// Render the HTML template
-	respondInFormat(c, format, combinedData, "volumes_template.html")
+	c.String(response.StatusCode, "%v", resp.Message)
 }
 
 /*
@@ -1274,6 +1208,7 @@ func (srv *HTTPService) jobsHandler(c *gin.Context) {
 			return
 		}
 		jobReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+		jobReq.Header.Set("Access-Target", "0::/ 0:0")
 
 		client := &http.Client{Timeout: 10 * time.Second}
 		response, err := client.Do(jobReq)
@@ -1294,8 +1229,6 @@ func (srv *HTTPService) jobsHandler(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
 			return
 		}
-
-		// log.Printf("resp body: %+v", string(body))
 
 		err = json.Unmarshal(body, &jobResp)
 		if err != nil {
@@ -1425,6 +1358,18 @@ func (srv *HTTPService) jobsHandler(c *gin.Context) {
 
 /*
 *********************************************************************
+*   Apps
+* */
+
+func (srv *HTTPService) handleFetchApps(c *gin.Context) {
+	// fetch apps...
+
+	// render template
+	c.HTML(http.StatusOK, "apps_display_template.html", gin.H{})
+}
+
+/*
+*********************************************************************
 *   Partial HTML
 * */
 func (srv *HTTPService) handleLogin(c *gin.Context) {
@@ -1466,10 +1411,8 @@ func (srv *HTTPService) handleLogin(c *gin.Context) {
 
 	// Parse the response from the auth service
 	var authResponse struct {
-		AccessToken  string `json:"access_token"`
-		RefreshToken string `json:"refresh_token"`
-		Username     string `json:"username"`
-		Groups       string `json:"groups"`
+		AccessToken string  `json:"access_token"`
+		User        ut.User `json:"user"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&authResponse); err != nil {
 		log.Printf("Error decoding auth service response: %v", err)
@@ -1478,13 +1421,9 @@ func (srv *HTTPService) handleLogin(c *gin.Context) {
 	}
 
 	c.SetCookie("access_token", authResponse.AccessToken, 3600, "/api/v1/", "", false, true)
-	c.SetCookie("refresh_token", authResponse.RefreshToken, 3600, "/api/v1/", "", false, true)
 
-	if strings.Contains(authResponse.Groups, "admin") {
-		c.Redirect(http.StatusSeeOther, "/api/v1/verified/admin-panel")
-	} else {
-		c.Redirect(http.StatusSeeOther, "/api/v1/verified/dashboard")
-	}
+	c.Redirect(http.StatusSeeOther, "/api/v1/verified/admin-panel?info="+authResponse.User.Info)
+
 }
 
 func (srv *HTTPService) handleRegister(c *gin.Context) {
@@ -1607,11 +1546,31 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 }
 
 func (srv *HTTPService) editFormHandler(c *gin.Context) {
-	resourcename := c.Request.URL.Query().Get("resourcename")
-	rid := c.Request.URL.Query().Get("rid")
-	owner := c.Request.URL.Query().Get("owner")
-	group := c.Request.URL.Query().Get("group")
-	perms := c.Request.URL.Query().Get("perms")
+	volume := c.Query("volume")
+	resourcename := c.Query("resourcename")
+	rid := c.Query("rid")
+	owner := c.Query("owner")
+	group := c.Query("group")
+	perms := c.Query("perms")
+	mygroups, exists := c.Get("groups")
+	if !exists {
+		c.JSON(http.StatusForbidden, gin.H{"error": "user groups were not set correctly"})
+		return
+	}
+
+	var (
+		groupsResp struct {
+			Content []ut.Group `json:"content"`
+		}
+		usersResp struct {
+			Content []ut.User `json:"content"`
+		}
+		admin bool
+	)
+
+	if strings.Contains(mygroups.(string), "admin") {
+		admin = true
+	}
 
 	if resourcename == "" || owner == "" || group == "" || perms == "" || rid == "" {
 		log.Printf("must provide args")
@@ -1619,82 +1578,75 @@ func (srv *HTTPService) editFormHandler(c *gin.Context) {
 		return
 	}
 
-	// need to request for all the users and all the groups... again..
-	// should implement a caching mechanism asap...
-	accessToken, err := c.Cookie("access_token")
-	if err != nil {
-		log.Printf("missing access_token cookie: %v", err)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
+	if admin {
+		accessToken, err := c.Cookie("access_token")
+		if err != nil {
+			log.Printf("missing access_token cookie: %v", err)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
 
-	usersReq, err := http.NewRequest(http.MethodGet, authServiceURL+authVersion+"/admin/users", nil)
-	if err != nil {
-		log.Printf("failed to create request: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
-		return
-	}
-	usersReq.Header.Set("Authorization", "Bearer "+accessToken)
+		usersReq, err := http.NewRequest(http.MethodGet, authServiceURL+authVersion+"/admin/users", nil)
+		if err != nil {
+			log.Printf("failed to create request: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			return
+		}
+		usersReq.Header.Set("Authorization", "Bearer "+accessToken)
 
-	client := &http.Client{Timeout: 10 * time.Second}
-	response, err := client.Do(usersReq)
-	if err != nil {
-		log.Printf("failed to make request: %v", err)
-		c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to fetch users"})
-		return
-	}
-	defer response.Body.Close()
+		client := &http.Client{Timeout: 10 * time.Second}
+		response, err := client.Do(usersReq)
+		if err != nil {
+			log.Printf("failed to make request: %v", err)
+			c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to fetch users"})
+			return
+		}
+		defer response.Body.Close()
 
-	var usersResp struct {
-		Content []ut.User `json:"content"`
-	}
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			log.Printf("failed to read response body: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
+			return
+		}
 
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		log.Printf("failed to read response body: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
-		return
-	}
+		err = json.Unmarshal(body, &usersResp)
+		if err != nil {
+			log.Printf("failed to unmarshal response: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
+			return
+		}
 
-	err = json.Unmarshal(body, &usersResp)
-	if err != nil {
-		log.Printf("failed to unmarshal response: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
-		return
-	}
+		groupsReq, err := http.NewRequest(http.MethodGet, authServiceURL+authVersion+"/admin/groups", nil)
+		if err != nil {
+			log.Printf("failed to create request: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			return
+		}
+		groupsReq.Header.Set("Authorization", "Bearer "+accessToken)
 
-	groupsReq, err := http.NewRequest(http.MethodGet, authServiceURL+authVersion+"/admin/groups", nil)
-	if err != nil {
-		log.Printf("failed to create request: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
-		return
-	}
-	groupsReq.Header.Set("Authorization", "Bearer "+accessToken)
+		response, err = client.Do(groupsReq)
+		if err != nil {
+			log.Printf("failed to make request: %v", err)
+			c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to fetch users"})
+			return
+		}
+		defer response.Body.Close()
 
-	response, err = client.Do(groupsReq)
-	if err != nil {
-		log.Printf("failed to make request: %v", err)
-		c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to fetch users"})
-		return
-	}
-	defer response.Body.Close()
+		body, err = io.ReadAll(response.Body)
+		if err != nil {
+			log.Printf("failed to read response body: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
+			return
+		}
 
-	var groupsResp struct {
-		Content []ut.Group `json:"content"`
-	}
+		err = json.Unmarshal(body, &groupsResp)
+		if err != nil {
+			log.Printf("failed to unmarshal response: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
+			return
+		}
 
-	body, err = io.ReadAll(response.Body)
-	if err != nil {
-		log.Printf("failed to read response body: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
-		return
-	}
-
-	err = json.Unmarshal(body, &groupsResp)
-	if err != nil {
-		log.Printf("failed to unmarshal response: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
-		return
 	}
 
 	owner_int, err := strconv.Atoi(owner)
@@ -1711,6 +1663,8 @@ func (srv *HTTPService) editFormHandler(c *gin.Context) {
 	}
 
 	c.HTML(200, "edit-form.html", gin.H{
+		"admin":        admin,
+		"volume":       volume,
 		"resourcename": resourcename,
 		"rid":          rid,
 		"owner":        owner_int,
@@ -1718,41 +1672,6 @@ func (srv *HTTPService) editFormHandler(c *gin.Context) {
 		"perms":        parsePermissionsString(perms),
 		"users":        usersResp.Content,
 		"groups":       groupsResp.Content,
-	})
-}
-
-func (srv *HTTPService) editFormUserHandler(c *gin.Context) {
-	resourcename := c.Request.URL.Query().Get("resourcename")
-	rid := c.Request.URL.Query().Get("rid")
-	owner := c.Request.URL.Query().Get("owner")
-	group := c.Request.URL.Query().Get("group")
-	perms := c.Request.URL.Query().Get("perms")
-
-	if resourcename == "" || owner == "" || group == "" || perms == "" || rid == "" {
-		log.Printf("must provide args")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide information"})
-		return
-	}
-
-	owner_int, err := strconv.Atoi(owner)
-	if err != nil {
-		log.Printf("failed to atoi owner: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad owner value"})
-		return
-	}
-	group_int, err := strconv.Atoi(group)
-	if err != nil {
-		log.Printf("failed to atoi group: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad group value"})
-		return
-	}
-
-	c.HTML(200, "edit-form-user.html", gin.H{
-		"resourcename": resourcename,
-		"rid":          rid,
-		"owner":        owner_int,
-		"group":        group_int,
-		"perms":        parsePermissionsString(perms),
 	})
 }
 
@@ -1828,15 +1747,11 @@ func (srv *HTTPService) handleHasher(c *gin.Context) {
 	c.String(http.StatusOK, "%v", resp.Result)
 }
 
-func (srv *HTTPService) addSymlinkFormHandler(c *gin.Context) {
-	c.HTML(200, "add-symlink-forhtml", nil)
-}
-
 func (srv *HTTPService) handleDashboard(c *gin.Context) {
 	uid, _ := c.Get("user_id")
 	username, _ := c.Get("username")
-	gids, _ := c.Get("group_ids")
-	group_names, _ := c.Get("groups")
+	// gids, _ := c.Get("group_ids")
+	// group_names, _ := c.Get("groups")
 	accessToken, err := c.Cookie("access_token")
 	if err != nil {
 		log.Printf("missing access_token cookie: %v", err)
@@ -1855,234 +1770,234 @@ func (srv *HTTPService) handleDashboard(c *gin.Context) {
 	uReq.Header.Set("Authorization", "Bearer "+accessToken)
 	uReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 	// 1) fetch user volumes
-	uvReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/user/volume?uids="+fmt.Sprintf("%v", uid), nil)
-	if err != nil {
-		log.Printf("failed to create request: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
-		return
-	}
-	uvReq.Header.Set("Authorization", "Bearer "+accessToken)
-	uvReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+	// uvReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/user/volume?uids="+fmt.Sprintf("%v", uid), nil)
+	// if err != nil {
+	// 	log.Printf("failed to create request: %v", err)
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+	// 	return
+	// }
+	// uvReq.Header.Set("Authorization", "Bearer "+accessToken)
+	// uvReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
-	// 2) fetch group volumes
-	gvReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/group/volume?gids="+fmt.Sprintf("%v", gids), nil)
-	if err != nil {
-		log.Printf("failed to create request: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
-		return
-	}
-	gvReq.Header.Set("Authorization", "Bearer "+accessToken)
-	gvReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+	// // 2) fetch group volumes
+	// gvReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/group/volume?gids="+fmt.Sprintf("%v", gids), nil)
+	// if err != nil {
+	// 	log.Printf("failed to create request: %v", err)
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+	// 	return
+	// }
+	// gvReq.Header.Set("Authorization", "Bearer "+accessToken)
+	// gvReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
-	// 3) fetch user jobs
-	jReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/job?uids="+fmt.Sprintf("%v", uid), nil)
-	if err != nil {
-		log.Printf("failed to create request: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
-		return
-	}
-	jReq.Header.Set("Authorization", "Bearer "+accessToken)
-	jReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+	// // 3) fetch user jobs
+	// jReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/job?uids="+fmt.Sprintf("%v", uid), nil)
+	// if err != nil {
+	// 	log.Printf("failed to create request: %v", err)
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+	// 	return
+	// }
+	// jReq.Header.Set("Authorization", "Bearer "+accessToken)
+	// jReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
-	// 4) fetch user resources
+	// // 4) fetch user resources
 
-	rReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/resources?struct=content", nil)
-	if err != nil {
-		log.Printf("failed to create request: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
-		return
-	}
-	rReq.Header.Set("Authorization", "Bearer "+accessToken)
-	rReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
-	rReq.Header.Set("Access-Target", fmt.Sprintf("/ %v:%v", uid, gids))
+	// rReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/resources?struct=content", nil)
+	// if err != nil {
+	// 	log.Printf("failed to create request: %v", err)
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+	// 	return
+	// }
+	// rReq.Header.Set("Authorization", "Bearer "+accessToken)
+	// rReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+	// rReq.Header.Set("Access-Target", fmt.Sprintf("/ %v:%v", uid, gids))
 
-	client := &http.Client{Timeout: 10 * time.Second}
-	var (
-		uResp struct {
-			Content []ut.User `json:"content"`
-		}
-		uvResp struct {
-			Content []ut.UserVolume `json:"content"`
-		}
-		gvResp struct {
-			Content []ut.GroupVolume `json:"content"`
-		}
-		jResp struct {
-			Content []ut.Job `json:"content"`
-		}
-		rResp struct {
-			Content []ut.Resource `json:"content"`
-		}
-		vResp struct {
-			Content []ut.Volume `json:"content"`
-		}
-		uErr, uvErr, gvErr, jErr, rErr error
-	)
+	// client := &http.Client{Timeout: 10 * time.Second}
+	// var (
+	// 	uResp struct {
+	// 		Content []ut.User `json:"content"`
+	// 	}
+	// 	uvResp struct {
+	// 		Content []ut.UserVolume `json:"content"`
+	// 	}
+	// 	gvResp struct {
+	// 		Content []ut.GroupVolume `json:"content"`
+	// 	}
+	// 	jResp struct {
+	// 		Content []ut.Job `json:"content"`
+	// 	}
+	// 	rResp struct {
+	// 		Content []ut.Resource `json:"content"`
+	// 	}
+	// 	vResp struct {
+	// 		Content []ut.Volume `json:"content"`
+	// 	}
+	// 	uErr, uvErr, gvErr, jErr, rErr error
+	// )
 
-	wg := sync.WaitGroup{}
-	wg.Add(5)
+	// wg := sync.WaitGroup{}
+	// wg.Add(5)
 
-	// do the requests as goroutines
-	go func() {
-		defer wg.Done()
-		resp, err := client.Do(uReq)
-		if err != nil {
-			uErr = err
-			return
-		}
+	// // do the requests as goroutines
+	// go func() {
+	// 	defer wg.Done()
+	// 	resp, err := client.Do(uReq)
+	// 	if err != nil {
+	// 		uErr = err
+	// 		return
+	// 	}
 
-		if resp.StatusCode != http.StatusOK {
-			uErr = fmt.Errorf("failed to fetch user ; status: %d", resp.StatusCode)
-			return
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&uResp); err != nil {
-			uErr = fmt.Errorf("failed to decode user  response: %v", err)
-			return
-		}
-	}()
+	// 	if resp.StatusCode != http.StatusOK {
+	// 		uErr = fmt.Errorf("failed to fetch user ; status: %d", resp.StatusCode)
+	// 		return
+	// 	}
+	// 	if err := json.NewDecoder(resp.Body).Decode(&uResp); err != nil {
+	// 		uErr = fmt.Errorf("failed to decode user  response: %v", err)
+	// 		return
+	// 	}
+	// }()
 
-	go func() {
-		defer wg.Done()
-		resp, err := client.Do(uvReq)
-		if err != nil {
-			uvErr = err
-			return
-		}
-		defer resp.Body.Close()
+	// go func() {
+	// 	defer wg.Done()
+	// 	resp, err := client.Do(uvReq)
+	// 	if err != nil {
+	// 		uvErr = err
+	// 		return
+	// 	}
+	// 	defer resp.Body.Close()
 
-		if resp.StatusCode != http.StatusOK {
-			uvErr = fmt.Errorf("failed to fetch user volumes; status: %d", resp.StatusCode)
-			return
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&uvResp); err != nil {
-			uvErr = fmt.Errorf("failed to decode user volume response: %v", err)
-			return
-		}
-	}()
+	// 	if resp.StatusCode != http.StatusOK {
+	// 		uvErr = fmt.Errorf("failed to fetch user volumes; status: %d", resp.StatusCode)
+	// 		return
+	// 	}
+	// 	if err := json.NewDecoder(resp.Body).Decode(&uvResp); err != nil {
+	// 		uvErr = fmt.Errorf("failed to decode user volume response: %v", err)
+	// 		return
+	// 	}
+	// }()
 
-	go func() {
-		defer wg.Done()
-		resp, err := client.Do(gvReq)
-		if err != nil {
-			gvErr = err
-			return
-		}
-		defer resp.Body.Close()
+	// go func() {
+	// 	defer wg.Done()
+	// 	resp, err := client.Do(gvReq)
+	// 	if err != nil {
+	// 		gvErr = err
+	// 		return
+	// 	}
+	// 	defer resp.Body.Close()
 
-		if resp.StatusCode != http.StatusOK {
-			gvErr = fmt.Errorf("failed to fetch group volumes; status: %d", resp.StatusCode)
-			return
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&gvResp); err != nil {
-			gvErr = fmt.Errorf("failed to decode group volume response: %v", err)
-			return
-		}
-	}()
+	// 	if resp.StatusCode != http.StatusOK {
+	// 		gvErr = fmt.Errorf("failed to fetch group volumes; status: %d", resp.StatusCode)
+	// 		return
+	// 	}
+	// 	if err := json.NewDecoder(resp.Body).Decode(&gvResp); err != nil {
+	// 		gvErr = fmt.Errorf("failed to decode group volume response: %v", err)
+	// 		return
+	// 	}
+	// }()
 
-	go func() {
-		defer wg.Done()
-		resp, err := client.Do(jReq)
-		if err != nil {
-			jErr = err
-			return
-		}
-		defer resp.Body.Close()
+	// go func() {
+	// 	defer wg.Done()
+	// 	resp, err := client.Do(jReq)
+	// 	if err != nil {
+	// 		jErr = err
+	// 		return
+	// 	}
+	// 	defer resp.Body.Close()
 
-		if resp.StatusCode != http.StatusOK {
-			jErr = fmt.Errorf("failed to fetch jobs; status: %d", resp.StatusCode)
-			return
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&jResp); err != nil {
-			jErr = fmt.Errorf("failed to decode jobs response: %v", err)
-			return
-		}
-	}()
+	// 	if resp.StatusCode != http.StatusOK {
+	// 		jErr = fmt.Errorf("failed to fetch jobs; status: %d", resp.StatusCode)
+	// 		return
+	// 	}
+	// 	if err := json.NewDecoder(resp.Body).Decode(&jResp); err != nil {
+	// 		jErr = fmt.Errorf("failed to decode jobs response: %v", err)
+	// 		return
+	// 	}
+	// }()
 
-	go func() {
-		defer wg.Done()
-		resp, err := client.Do(rReq)
-		if err != nil {
-			rErr = err
-			return
-		}
-		defer resp.Body.Close()
+	// go func() {
+	// 	defer wg.Done()
+	// 	resp, err := client.Do(rReq)
+	// 	if err != nil {
+	// 		rErr = err
+	// 		return
+	// 	}
+	// 	defer resp.Body.Close()
 
-		if resp.StatusCode != http.StatusOK {
-			rErr = fmt.Errorf("failed to fetch resources; status: %d", resp.StatusCode)
-			return
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&rResp); err != nil {
-			rErr = fmt.Errorf("failed to decode resources response: %v", err)
-			return
-		}
-	}()
-	wg.Wait()
+	// 	if resp.StatusCode != http.StatusOK {
+	// 		rErr = fmt.Errorf("failed to fetch resources; status: %d", resp.StatusCode)
+	// 		return
+	// 	}
+	// 	if err := json.NewDecoder(resp.Body).Decode(&rResp); err != nil {
+	// 		rErr = fmt.Errorf("failed to decode resources response: %v", err)
+	// 		return
+	// 	}
+	// }()
+	// wg.Wait()
 
-	if uErr != nil || uvErr != nil || gvErr != nil || jErr != nil || rErr != nil {
-		log.Printf("failed to fetch data: %v %v, %v, %v, %v", uErr, uvErr, gvErr, jErr, rErr)
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch data"})
-		return
-	}
+	// if uErr != nil || uvErr != nil || gvErr != nil || jErr != nil || rErr != nil {
+	// 	log.Printf("failed to fetch data: %v %v, %v, %v, %v", uErr, uvErr, gvErr, jErr, rErr)
+	// 	c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch data"})
+	// 	return
+	// }
 
-	// we need to fetch also the volumes we are eating from,
-	var vids_map map[int]bool = make(map[int]bool)
-	for _, uv := range uvResp.Content {
-		vids_map[uv.Vid] = true
-	}
-	for _, gv := range gvResp.Content {
-		vids_map[gv.Vid] = true
-	}
+	// // we need to fetch also the volumes we are eating from,
+	// var vids_map map[int]bool = make(map[int]bool)
+	// for _, uv := range uvResp.Content {
+	// 	vids_map[uv.Vid] = true
+	// }
+	// for _, gv := range gvResp.Content {
+	// 	vids_map[gv.Vid] = true
+	// }
 
-	vids := make([]int, 0, len(vids_map))
-	for vid, is := range vids_map {
-		if is {
-			vids = append(vids, vid)
-		}
-	}
-	vReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/volumes?vids="+strings.Trim(strings.Join(strings.Fields(fmt.Sprint(vids)), ","), "[]"), nil)
-	if err != nil {
-		log.Printf("failed to create request: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
-		return
-	}
+	// vids := make([]int, 0, len(vids_map))
+	// for vid, is := range vids_map {
+	// 	if is {
+	// 		vids = append(vids, vid)
+	// 	}
+	// }
+	// vReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/volumes?vids="+strings.Trim(strings.Join(strings.Fields(fmt.Sprint(vids)), ","), "[]"), nil)
+	// if err != nil {
+	// 	log.Printf("failed to create request: %v", err)
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+	// 	return
+	// }
 
-	vReq.Header.Set("Authorization", "Bearer "+accessToken)
-	vReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
-	resp, err := client.Do(vReq)
-	if err != nil {
-		rErr = err
-		return
-	}
-	defer resp.Body.Close()
+	// vReq.Header.Set("Authorization", "Bearer "+accessToken)
+	// vReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+	// resp, err := client.Do(vReq)
+	// if err != nil {
+	// 	rErr = err
+	// 	return
+	// }
+	// defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		rErr = fmt.Errorf("failed to fetch volumes; status: %d", resp.StatusCode)
-		return
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&vResp); err != nil {
-		rErr = fmt.Errorf("failed to decode volumes response: %v", err)
-		return
-	}
+	// if resp.StatusCode != http.StatusOK {
+	// 	rErr = fmt.Errorf("failed to fetch volumes; status: %d", resp.StatusCode)
+	// 	return
+	// }
+	// if err := json.NewDecoder(resp.Body).Decode(&vResp); err != nil {
+	// 	rErr = fmt.Errorf("failed to decode volumes response: %v", err)
+	// 	return
+	// }
 
-	log.Printf("User Volumes Response: %+v", uvResp.Content)
-	log.Printf("Group Volumes Response: %+v", gvResp.Content)
-	// log.Printf("Jobs Response: %+v", jResp.Content)
-	// log.Printf("Resources Response: %+v", rResp.Content)
-	// log.Printf("Volumes Response: %+v", vResp.Content)
+	// log.Printf("User Volumes Response: %+v", uvResp.Content)
+	// log.Printf("Group Volumes Response: %+v", gvResp.Content)
+	// // log.Printf("Jobs Response: %+v", jResp.Content)
+	// // log.Printf("Resources Response: %+v", rResp.Content)
+	// // log.Printf("Volumes Response: %+v", vResp.Content)
 
 	// Render the HTML template
 	c.HTML(http.StatusOK, "dashboard.html", gin.H{
-		"message":         "Welcome to your dashboard, ",
-		"username":        username,
-		"groups":          group_names,
-		"info":            uResp.Content[0].Info,
-		"home":            uResp.Content[0].Home,
-		"jobs":            jResp.Content,
-		"total_jobs":      len(jResp.Content),
-		"resources":       rResp.Content,
-		"total_resources": len(rResp.Content),
-		"user_volume":     uvResp.Content[0],
-		"groups_volume":   gvResp.Content,
+		"message":  "Welcome to your dashboard, ",
+		"username": username,
+		// 	"groups":          group_names,
+		// 	"info":            uResp.Content[0].Info,
+		// 	"home":            uResp.Content[0].Home,
+		// 	"jobs":            jResp.Content,
+		// 	"total_jobs":      len(jResp.Content),
+		// 	"resources":       rResp.Content,
+		// 	"total_resources": len(rResp.Content),
+		// 	"user_volume":     uvResp.Content[0],
+		// 	"groups_volume":   gvResp.Content,
 	})
 
 }
@@ -2093,6 +2008,12 @@ func (srv *HTTPService) passwordChangeHandler(c *gin.Context) {
 	if !exists {
 		log.Printf("username doesn't exist, can't continue")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "couldn't authenticate user"})
+		return
+	}
+	access_token, exists := c.Get("access_token")
+	if !exists {
+		log.Printf("access_token was not set, unauthorized")
+		c.JSON(http.StatusForbidden, gin.H{"error": "failed to retrieve access_token"})
 		return
 	}
 
@@ -2159,7 +2080,8 @@ func (srv *HTTPService) passwordChangeHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	passReq.Header.Add("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+	// passReq.Header.Add("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+	passReq.Header.Add("Authorization", fmt.Sprintf("Bearer %s", access_token))
 
 	resp2, err := http.DefaultClient.Do(passReq)
 	if err != nil {
@@ -2223,23 +2145,25 @@ func (srv *HTTPService) updateUser(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
+	log.Printf("body returned: %+v", string(body))
 
-	var user ut.User
-	err = json.Unmarshal(body, &user)
-	if err != nil {
+	var users []ut.User
+	err = json.Unmarshal(body, &users)
+	if err != nil && len(users) != 1 {
 		log.Printf("error, failed to unmarshal the body: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
 	// apply change
-	user.Info = email
 	// log.Printf("user updated: %+v", user)
 
 	var userFormat struct {
-		User ut.User `json:"user"`
+		Uid  int    `json:"uid"`
+		Info string `json:"info"`
 	}
-	userFormat.User = user
+	userFormat.Uid = users[0].Uid
+	userFormat.Info = email
 
 	user_data, err := json.Marshal(userFormat)
 	if err != nil {
@@ -2248,7 +2172,7 @@ func (srv *HTTPService) updateUser(c *gin.Context) {
 		return
 	}
 	// save change (forward to update)
-	newReq, err := http.NewRequest(http.MethodPut, authServiceURL+authVersion+"/admin/usermod", bytes.NewBuffer(user_data))
+	newReq, err := http.NewRequest(http.MethodPatch, authServiceURL+authVersion+"/admin/userpatch", bytes.NewBuffer(user_data))
 	if err != nil {
 		log.Printf("failed to create a new request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -2256,8 +2180,6 @@ func (srv *HTTPService) updateUser(c *gin.Context) {
 	}
 	newReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 	newReq.Header.Set("Content-Type", "application/json")
-
-	log.Printf("data to be sent: %v", string(user_data))
 
 	resp2, err := http.DefaultClient.Do(newReq)
 	if err != nil {
@@ -2280,6 +2202,17 @@ func (srv *HTTPService) updateUser(c *gin.Context) {
 		log.Printf("failed to write response: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to write response"})
 	}
+}
+
+func (srv *HTTPService) handleAdminPanel(c *gin.Context) {
+	username := c.GetString("username")
+	info := c.Query("info")
+	c.HTML(http.StatusOK, "admin-panel.html", gin.H{
+		"username": username,
+		"message":  "Welcome to the Admin Panel ",
+		"info":     info,
+	})
+
 }
 
 /*
@@ -2340,7 +2273,7 @@ func isFileNode(data map[string]interface{}) bool {
 	return hasName && hasType
 }
 
-func respondInFormat(c *gin.Context, format string, data interface{}, template_name string) {
+func respondInFormat(c *gin.Context, format string, data any, template_name string) {
 	switch format {
 	case "json":
 		c.JSON(http.StatusOK, data)

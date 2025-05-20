@@ -5,14 +5,14 @@ metadata:
   namespace: kuspace
 data:
   frontapp.conf: |
-    AUTH_PORT=9090
-    ALLOWED_ORIGINS=*
-    API_PORT=8079
+    IP=0.0.0.0
+    API_ADDRESS=uspace.local
     API_GIN_MODE=debug
-    AUTH_ADDRESS=minioth
+    AUTH_PORT=80
+    AUTH_ADDRESS=minioth.local
+    ALLOWED_ORIGINS=*
     ALLOWED_METHODS=GET,POST
     ALLOWED_HEADERS=Origin,Content-Type,Authorization,Access-Control-Allow-Origin
-    IP=0.0.0.0
-    API_ADDRESS=uspace
+    API_PORT=80
     FRONT_PORT=8080
     FRONT_ADDRESS=frontapp

@@ -151,6 +151,10 @@ func NewFsLite(cfg ut.EnvConfig) FsLite {
 	return fsl
 }
 
+func (fsl *FsLite) Close() {
+	fsl.dbh.Close()
+}
+
 // volume related
 func (fsl *FsLite) CreateVolume(v any) error {
 	volume, ok1 := v.(ut.Volume)
@@ -181,7 +185,7 @@ func (fsl *FsLite) CreateVolume(v any) error {
 		}
 	}
 
-	volume.CreationDate = ut.CurrentTime()
+	volume.CreatedAt = ut.CurrentTime()
 	err = insertVolume(db, volume)
 	if err != nil {
 		os.RemoveAll(fslite_data_path + "/" + volume.Name)
@@ -338,7 +342,7 @@ func (fsl *FsLite) SelectObjects(how map[string]any) (any, error) {
 	}
 	// limit := how["limit"]
 
-	name, ok := how["name"]
+	name, ok := how["prefix"]
 	if ok && name != "" {
 		name, ok := name.(string)
 		if ok {
@@ -398,8 +402,62 @@ func (fsl *FsLite) Remove(t any) error {
 	return nil
 }
 
-func (fsl *FsLite) Update(t any) error {
-	return nil
+func (fsl *FsLite) Update(t map[string]string) error {
+	if t == nil {
+		return fmt.Errorf("empty argument")
+	}
+	db, err := fsl.dbh.GetConn()
+	if err != nil {
+		log.Printf("failed to retrieve database connection: %v", err)
+		return err
+	}
+	rid, exists := t["rid"]
+	if exists {
+		// either perms/owner/group
+		perms, ok := t["perms"]
+		if ok {
+			return updateResourcePermsById(db, rid, perms)
+		}
+
+		owner, ok := t["owner"]
+		if ok {
+			// atoi
+			rid_int, err := strconv.Atoi(rid)
+			if err != nil {
+				return fmt.Errorf("failed to atoi rid")
+			}
+			owner_int, err := strconv.Atoi(owner)
+			if err != nil {
+				return fmt.Errorf("failed to atoi uid")
+			}
+
+			return updateResourceOwnerById(db, rid_int, owner_int)
+		}
+
+		group, ok := t["group"]
+		if ok {
+			// atoi
+			rid_int, err := strconv.Atoi(rid)
+			if err != nil {
+				return fmt.Errorf("failed to atoi rid")
+			}
+			group_int, err := strconv.Atoi(group)
+			if err != nil {
+				return fmt.Errorf("failed to atoi gid")
+			}
+
+			return updateResourceGroupById(db, rid_int, group_int)
+		}
+	}
+
+	name, ok1 := t["name"]
+	newname, ok2 := t["newname"]
+	volume, ok3 := t["volume"]
+	if ok1 && ok2 && ok3 {
+		return updateResourceNameAndVolByName(db, name, newname, volume)
+	}
+
+	return fmt.Errorf("must specify what to update")
 }
 
 func (fsl *FsLite) Download(t *any) (context.CancelFunc, error) {

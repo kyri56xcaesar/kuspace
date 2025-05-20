@@ -75,13 +75,21 @@ function toggleDarkMode() {
 }
 
 function toggleCollapses() {
-  const collapsibleElmnts = document.querySelectorAll(".collapsible");
+  const collapsibleElmnts = document.querySelectorAll(".collapsible, .fading");
   collapsibleElmnts.forEach((el) => {
     if (el.tagName === "BUTTON") {
       el.click();
     } else {
       el.classList.toggle("collapsed");
     }
+
+    // make is to that  it hides all
+    // el.classList.toggle("fade-out");
+    // setTimeout(()=>{
+    //   el.classList.toggle("hidden");
+    // }, 1000);
+
+    el.classList.toggle("hidden");
   });
 }
 
@@ -125,6 +133,17 @@ function hide(container) {
   } 
 }
 
+function toggleHidden(targetId, className) {
+  let targetDiv = document.querySelector(targetId);
+
+  document.querySelectorAll(className).forEach((element) => {
+    if (element.id == targetDiv.id) { 
+      element.classList.remove('hidden');
+    } else {
+      element.classList.add('hidden');
+    }
+  });
+}
 
 function copyToClipboard(selector, copyBtnId) {
   const element = document.querySelector(selector);
@@ -160,7 +179,6 @@ function downloadResource(filename) {
   document.body.removeChild(link);
 }
 
-
 // "resource" file editting, permissions..
 function updatePermissionString() {
   // We assume 9 bits: owner r/w/x, group r/w/x, other r/w/x
@@ -189,11 +207,8 @@ function updatePermissionString() {
   }
 }
 
-
-
 var previewBytes = 4095;
 var previewIndex = 0;
-
 function getPreviewWindow(inc) {
   // direction must be either +1 or -1
   if (inc < -1 || inc > 1) {
@@ -228,7 +243,6 @@ function getPreviewWindow(inc) {
   return start.toString() + "-" + end.toString();
 
 }
-
 
 // htmx events handling
 document.addEventListener('htmx:afterSettle', function(event) {
@@ -280,6 +294,8 @@ document.addEventListener('htmx:afterSwap', function (event) {
   const triggeringElement = event.detail.elt;
   const triggeringElementId = triggeringElement.id;
 
+  // console.log(triggeringElementId);
+
   if (triggeringElementId === 'hasher-verify-btn') {
     const verifyResultElement = document.getElementById('verify-result');
     if (verifyResultElement) {
@@ -296,8 +312,62 @@ document.addEventListener('htmx:afterSwap', function (event) {
   } else if (triggeringElementId === "fetch-jobs-div" || triggeringElementId === "job-search-by-select") {
     cacheJobResultsLi = document.getElementById("fetch-jobs-div").querySelectorAll("li");
     // console.log(cacheJobResultsLi);
-  }
+  } else if (triggeringElementId === "volumes-target") {
+    cacheVolumeResults = document.getElementById("volumes-target").querySelectorAll(".v-body");
+    // console.log(cacheVolumeResults);
+    // vol upload file
+
+    cacheVolumeResults.forEach((volume) => {
+      let uploadBtn = volume.querySelector("#uploadButton");
+      let finp = volume.querySelector("#fileInput");
   
+      uploadBtn.addEventListener("click", () => {
+        finp.click(); // open the file dialog
+      });
+      
+      finp.addEventListener("change", async () => {
+        const vname = volume.querySelector(".name").innerText;
+        const files = finp.files;
+
+        console.log("v: ", vname);
+        console.log("files: ", files);
+        if (!files.length) return;
+
+        const formData = new FormData();
+        for (let file of files) {
+          formData.append("files", file); // keep 'files' plural to match backend
+        }
+      
+        try {
+          const response = await fetch("/api/v1/verified/upload", {
+            method: "POST",
+            headers: {
+              "X-Volume-Target": vname 
+            },
+            body: formData
+          });
+        
+          const result = await response.text(); // or response.json()
+          // document.getElementById("uploadResult").innerText = result;
+        } catch (err) {
+          console.error("Upload error:", err);
+          // document.getElementById("uploadResult").innerText = "Upload failed";
+        }
+      });
+
+    });
+
+
+  } else if (triggeringElementId === "resources-main") {
+    let parent = document.querySelector("#resource-list-table > tbody");
+    if (parent) {
+      cacheResourceResults = parent.querySelectorAll("tr");
+      // console.log(cacheResourceResults);
+    }
+    // populte eventListeners and edit logic
+    addResourceListListeners()
+  } 
+
 });
 
 document.addEventListener('htmx:beforeRequest', function(event) {
@@ -342,7 +412,7 @@ document.addEventListener('htmx:afterRequest', function (event) {
 
     }
   
-  }  else if (triggeringElement.id === 'reload-btn') {
+  } else if (triggeringElement.id === 'reload-btn') {
   
   } else if (triggeringElement.id === 'add-user-form') {
     // new user creation (from admin)
@@ -414,7 +484,7 @@ document.addEventListener('htmx:afterRequest', function (event) {
         }, 2000);
       }
       document.getElementById('reload-btn').dispatchEvent(new Event('click'));
-    }else if (event.detail.xhr.status >= 500 || event.detail.xhr.status == 400){
+    } else if (event.detail.xhr.status >= 500 || event.detail.xhr.status == 400){
       const row = triggeringElement.closest('tr');
       if (row) {
         row.classList.add('error-highlight');
@@ -500,9 +570,6 @@ document.addEventListener('htmx:afterRequest', function (event) {
           feedback.style.color = "black";
           p.textContent = "Browse File to upload or drag & drop!";
         }, 10000);  
-        // reload resources
-        // document.querySelector("#fetch-resources-form").requestSubmit();
-        // document.getElementById("fetch-resources-form").scrollTo({ top: 0, behavior: "smooth"});
 
       } else if (event.detail.xhr.status >= 300) {
         const feedback = document.querySelector(".fupload-header > svg");
@@ -659,6 +726,24 @@ document.addEventListener('htmx:afterRequest', function (event) {
         });
       }, 2000);
     }
+  } else if (triggeringElement.id === 'delete-volume-btn') {
+    if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+      document.getElementById('fetch-volumes-btn').dispatchEvent(new Event('click'));
+    } else if (event.detail.xhr.status < 400) {
+      //todo
+    } else if (event.detail.xhr.status < 500) {
+      //todo
+    }
+  } else if (triggeringElement.id === 'create-volume-form') {
+    if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+      document.getElementById('create-volume-modal').classList.add("hidden");
+      document.getElementById('fetch-volumes-btn').dispatchEvent(new Event('click'));
+      triggeringElement.reset();
+    } else if (event.detail.xhr.status < 400) {
+      //todo
+    } else if (event.detail.xhr.status < 500) {
+      //todo
+    }
   }
 });
 
@@ -684,6 +769,18 @@ document.addEventListener('htmx:responseError', function(event) {
       // alert('Your session has expired. Redirecting to login...');
       window.location.href = "http://"+IP+":"+PORT+"/api/v1/login";
     }
+});
+
+document.addEventListener("htmx:configRequest", function(evt) {
+  const triggerEl = evt.detail.elt;
+  const triggeringElementId = triggerEl.id;
+
+  // Only apply this to the upload form
+  if (triggeringElementId === "upload-files-form-dash") {
+    const spanVal = document.getElementById("selected-volume").textContent;
+    evt.detail.headers['X-Volume-Target'] = spanVal;
+  }
+
 });
 
 

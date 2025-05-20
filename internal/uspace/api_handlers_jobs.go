@@ -45,7 +45,7 @@ import (
 //
 // @Router      /job [get]
 // @Router      /job [post]
-func (srv *UService) HandleJob(c *gin.Context) {
+func (srv *UService) handleJob(c *gin.Context) {
 	var (
 		job  ut.Job
 		jobs []ut.Job
@@ -173,7 +173,7 @@ func (srv *UService) HandleJob(c *gin.Context) {
 	}
 }
 
-func (srv *UService) HandleJobAdmin(c *gin.Context) {
+func (srv *UService) handleJobAdmin(c *gin.Context) {
 	switch c.Request.Method {
 	case http.MethodGet:
 		uids, _ := c.GetQuery("uids")

@@ -312,7 +312,7 @@ func getResourceByName(db *sql.DB, name string) (ut.Resource, error) {
 
 	err := db.QueryRow("SELECT * FROM resources WHERE name = ?", name).Scan(resource.PtrFields()...)
 	if err != nil {
-		log.Printf("error scanning resource: %v", err)
+		// log.Printf("error scanning resource: %v", err)
 		return resource, err
 	}
 
@@ -462,6 +462,43 @@ func updateResourceNameById(db *sql.DB, rid, name string) error {
   `
 
 	res, err := tx.Exec(query, name, ut.CurrentTime(), ut.CurrentTime(), rid)
+	if err != nil {
+		log.Printf("error executing query: %v", err)
+		return err
+	}
+
+	rAff, err := res.RowsAffected()
+	if err != nil {
+		log.Printf("failed to get rows affected")
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("error committing transaction: %v", err)
+		return err
+	}
+	log.Printf("updated %v rows", rAff)
+
+	return nil
+}
+
+func updateResourceNameAndVolByName(db *sql.DB, name, newname, vol string) error {
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("error starting transaction: %v", err)
+		return err
+	}
+
+	query := `
+    UPDATE 
+      resources 
+    SET 
+      name = ?, vname = ?, updated_at = ?, accessed_at = ?
+    WHERE 
+      name = ?;
+  `
+
+	res, err := tx.Exec(query, newname, vol, ut.CurrentTime(), ut.CurrentTime(), name)
 	if err != nil {
 		log.Printf("error executing query: %v", err)
 		return err

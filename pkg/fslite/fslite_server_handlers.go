@@ -231,7 +231,7 @@ func (fsl *FsLite) getResourceHandler(c *gin.Context) {
 	rids := c.Request.URL.Query().Get("rids")
 	// format := c.Request.URL.Query().Get("format")
 
-	resources, err := fsl.SelectObjects(map[string]any{"name": name, "rids": rids})
+	resources, err := fsl.SelectObjects(map[string]any{"prefix": name, "rids": rids})
 	if err != nil {
 		if strings.Contains(err.Error(), "empty") {
 			c.JSON(http.StatusNotFound, gin.H{"status": "empty"})

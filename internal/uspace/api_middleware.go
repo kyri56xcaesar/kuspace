@@ -133,161 +133,193 @@ func serviceAuth(srv *UService) gin.HandlerFunc {
 }
 
 // these funcs should work for multiple incoming data
-// func isOwner(srv *UService) gin.HandlerFunc {
-// 	return func(c *gin.Context) {
-// 		ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
-// 		if err != nil {
-// 			log.Printf("failed to bind access-target: %v", err)
-// 			c.JSON(http.StatusBadRequest, gin.H{"error": "missing Access-Target header"})
-// 			c.Abort()
-// 			return
-// 		}
+func isOwner(srv *UService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
+		if err != nil {
+			log.Printf("failed to bind access-target: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "missing Access-Target header"})
+			c.Abort()
+			return
+		}
 
-// 		log.Printf("ac binded: %+v", ac)
+		// root user is owner and father of all
+		if ac.Uid == "0" {
+			c.Next()
+			return
+		}
 
-// 		// root user is owner of all
-// 		if ac.Uid == "0" {
-// 			return
-// 		}
+		if ac.HasKeyword {
+			res, err := srv.storage.SelectObjects(map[string]any{"rids": ac.Target})
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+				c.Abort()
+				return
+			}
+			resources, ok := res.([]any)
+			if !ok {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to cast"})
+				c.Abort()
+				return
+			}
 
-// 		if ac.HasKeyword {
-// 			resources, err := srv.storage.Select("", "resources", "rid IN", ac.Target, 0)
-// 			if err != nil {
-// 				c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-// 				c.Abort()
-// 				return
-// 			}
+			for _, resource := range resources {
+				res := resource.(ut.Resource)
+				if !res.IsOwner(ac) {
+					c.JSON(http.StatusForbidden, gin.H{"error": "user does not own this file"})
+					c.Abort()
+					return
+				}
+			}
+		} else {
+			// lets grab the resource existing permissions:
+			res, err := srv.storage.SelectObjects(map[string]any{"prefix": ac.Target})
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+				c.Abort()
+				return
+			}
+			resources, ok := res.([]any)
+			if !ok {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to cast"})
+				c.Abort()
+				return
+			}
 
-// 			for _, resource := range resources {
-// 				res := resource.(ut.Resource)
-// 				if !res.IsOwner(ac) {
-// 					c.JSON(http.StatusForbidden, gin.H{"error": "user does not own this file"})
-// 					c.Abort()
-// 					return
-// 				}
-// 			}
-// 		} else {
-// 			// lets grab the resource existing permissions:
-// 			resource, err := srv.storage.SelectOne("", "resources", "name = ", ac.Target)
-// 			if err != nil {
-// 				log.Printf("error retrieving resource: %v", err)
-// 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve resouce"})
-// 				c.Abort()
-// 				return
-// 			}
-// 			res := resource.(ut.Resource)
+			for _, resource := range resources {
+				res := resource.(ut.Resource)
+				if !res.IsOwner(ac) {
+					c.JSON(http.StatusForbidden, gin.H{"error": "user does not own this file"})
+					c.Abort()
+					return
+				}
+			}
+		}
 
-// 			if !res.IsOwner(ac) {
-// 				c.JSON(http.StatusForbidden, gin.H{"error": "user does not own this file"})
-// 				c.Abort()
-// 				return
-// 			}
-// 		}
-
-// 	}
-// }
+	}
+}
 
 /* This middleware should precheck if a user can claim access according
 *  to the destined mode() on a resource
 *
 * mode should be read/write/execute
  */
-// func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
-// 	return func(c *gin.Context) {
+func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
+	return func(c *gin.Context) {
 
-// 		// get header
-// 		ac_h, exists := c.Get("accessTarget")
-// 		if !exists {
-// 			log.Printf("access target header was not set properly")
-// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
-// 			return
-// 		}
-// 		ac := ac_h.(ut.AccessClaim)
+		// get header
+		ac_h, exists := c.Get("accessTarget")
+		if !exists {
+			log.Printf("access target header was not set properly")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
+			c.Abort()
+			return
+		}
+		ac := ac_h.(ut.AccessClaim)
 
-// 		// root user has access to all
-// 		if ac.Uid == "0" {
-// 			return
-// 		}
+		// root user has access to all
+		if ac.Uid == "0" {
+			c.Next()
+			return
+		}
 
-// 		if ac.HasKeyword {
+		if ac.HasKeyword {
+			res, err := srv.storage.SelectObjects(map[string]any{"rids": ac.Target})
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+				c.Abort()
+				return
+			}
+			resources, ok := res.([]any)
+			if !ok {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to cast"})
+				c.Abort()
+				return
+			}
 
-// 			resources, err := srv.storage.Select("", "resources", "rid IN", ac.Target, 0)
-// 			if err != nil {
-// 				c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-// 				c.Abort()
-// 				return
-// 			}
+			for _, resource := range resources {
+				res := resource.(ut.Resource)
+				switch mode {
+				case "r":
+					if !res.HasAccess(ac) {
+						log.Printf("user has no read access upon this resource")
+						c.JSON(http.StatusForbidden, gin.H{"error": "not allowed read access on resource"})
+						c.Abort()
+						return
+					}
+				case "w":
+					if !res.HasWriteAccess(ac) {
+						log.Printf("user has no write access upon this resource")
+						c.JSON(http.StatusForbidden, gin.H{"error": "not allowed write access on resource"})
+						c.Abort()
+						return
+					}
+				case "x":
+					if !res.HasExecutionAccess(ac) {
+						log.Printf("user has no execution access upon this resource")
+						c.JSON(http.StatusForbidden, gin.H{"error": "not allowed execution access on resource"})
+						c.Abort()
+						return
+					}
 
-// 			for _, resource := range resources {
-// 				res := resource.(ut.Resource)
-// 				switch mode {
-// 				case "r":
-// 					if !res.HasAccess(ac) {
-// 						log.Printf("user has no read access upon this resource")
-// 						c.JSON(http.StatusForbidden, gin.H{"error": "not allowed read access on resource"})
-// 						c.Abort()
-// 						return
-// 					}
-// 				case "w":
-// 					if !res.HasWriteAccess(ac) {
-// 						log.Printf("user has no write access upon this resource")
-// 						c.JSON(http.StatusForbidden, gin.H{"error": "not allowed write access on resource"})
-// 						c.Abort()
-// 						return
-// 					}
-// 				case "x":
-// 					if !res.HasExecutionAccess(ac) {
-// 						log.Printf("user has no execution access upon this resource")
-// 						c.JSON(http.StatusForbidden, gin.H{"error": "not allowed execution access on resource"})
-// 						c.Abort()
-// 						return
-// 					}
+				default:
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "bad settup"})
+					return
+				}
+			}
+		} else {
+			// lets grab the resource existing permissions:
+			res, err := srv.storage.SelectObjects(map[string]any{"prefix": ac.Target})
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+				c.Abort()
+				return
+			}
+			resources, ok := res.([]any)
+			if !ok {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to cast"})
+				c.Abort()
+				return
+			}
 
-// 				default:
-// 					c.JSON(http.StatusInternalServerError, gin.H{"error": "bad settup"})
-// 					return
-// 				}
-// 			}
-// 		} else {
-// 			// lets grab the resource existing permissions:
-// 			resource, err := srv.storage.SelectOne("", "resources", "name = ", ac.Target)
-// 			if err != nil {
-// 				log.Printf("error retrieving resource: %v", err)
-// 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve resouce"})
-// 				c.Abort()
-// 				return
-// 			}
+			for _, resource := range resources {
+				res := resource.(ut.Resource)
+				if !res.IsOwner(ac) {
+					c.JSON(http.StatusForbidden, gin.H{"error": "user does not own this file"})
+					c.Abort()
+					return
+				}
+				switch mode {
+				case "r":
+					if !res.HasAccess(ac) {
+						log.Printf("user has no read access upon this resource")
+						c.JSON(http.StatusForbidden, gin.H{"error": "not allowed read access on resource"})
+						c.Abort()
+						return
+					}
+				case "w":
+					if !res.HasWriteAccess(ac) {
+						log.Printf("user has no write access upon this resource")
+						c.JSON(http.StatusForbidden, gin.H{"error": "not allowed write access on resource"})
+						c.Abort()
+						return
+					}
+				case "x":
+					if !res.HasExecutionAccess(ac) {
+						log.Printf("user has no execution access upon this resource")
+						c.JSON(http.StatusForbidden, gin.H{"error": "not allowed execution access on resource"})
+						c.Abort()
+						return
+					}
 
-// 			res := resource.(ut.Resource)
+				default:
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "bad settup"})
+					c.Abort()
+					return
+				}
+			}
 
-// 			switch mode {
-// 			case "r":
-// 				if !res.HasAccess(ac) {
-// 					log.Printf("user has no read access upon this resource")
-// 					c.JSON(http.StatusForbidden, gin.H{"error": "not allowed read access on resource"})
-// 					c.Abort()
-// 					return
-// 				}
-// 			case "w":
-// 				if !res.HasWriteAccess(ac) {
-// 					log.Printf("user has no write access upon this resource")
-// 					c.JSON(http.StatusForbidden, gin.H{"error": "not allowed write access on resource"})
-// 					c.Abort()
-// 					return
-// 				}
-// 			case "x":
-// 				if !res.HasExecutionAccess(ac) {
-// 					log.Printf("user has no execution access upon this resource")
-// 					c.JSON(http.StatusForbidden, gin.H{"error": "not allowed execution access on resource"})
-// 					c.Abort()
-// 					return
-// 				}
+		}
 
-// 			default:
-// 				c.JSON(http.StatusInternalServerError, gin.H{"error": "bad settup"})
-// 				return
-// 			}
-// 		}
-
-// 	}
-// }
+	}
+}

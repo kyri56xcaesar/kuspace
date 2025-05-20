@@ -59,29 +59,42 @@ func (srv *UService) getResourcesHandler(c *gin.Context) {
 	}
 	ac := ac_h.(ut.AccessClaim)
 
-	r, err := srv.storage.SelectObjects(
+	// this is direct from storage
+	// res, err := srv.storage.SelectObjects(
+	// 	map[string]any{
+	// 		"vname":  ac.Vname,
+	// 		"prefix": ac.Target,
+	// 		"limit":  limit,
+	// 	},
+	// )
+
+	// prefer to get from db // must be ensure its in sync
+	res, err := srv.fsl.SelectObjects(
 		map[string]any{
 			"vname":  ac.Vname,
 			"prefix": ac.Target,
 			"limit":  limit,
 		},
 	)
-	resources, ok := r.([]ut.Resource)
-	// log.Printf("ac: %+v\nresources: %+v", ac, resources)
-	if err != nil || !ok {
-		log.Printf("error retrieving resource: %v", err)
-		if strings.Contains(err.Error(), "scan") {
+	if err != nil {
+		if strings.Contains(err.Error(), "scan") || strings.Contains(err.Error(), "empty") {
 			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 		} else {
+			log.Printf("failed to retrieve objects from storage system: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "fatal"})
 		}
+		return
+	}
+
+	resources, ok := res.([]ut.Resource)
+	if !ok {
+		log.Printf("error retrieving resource: %v", res)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "bad format"})
 		return
 	} else if resources == nil {
 		c.JSON(http.StatusNotFound, gin.H{"status": "no objects found"})
 		return
 	}
-
-	// as?
 
 	// we should determine the structure to be returned.
 	// this is given as uri argument
@@ -96,7 +109,6 @@ func (srv *UService) getResourcesHandler(c *gin.Context) {
 		// need to parse all the resources
 		tree := make(map[string]any)
 		for _, resource := range resources {
-			// buildTreeRec(tree, strings.Split(strings.TrimPrefix(resource.Name, "/"), "/"), resource)
 			buildTreeRec(tree, append([]string{"/"}, strings.Split(strings.TrimPrefix(resource.Name, "/"), "/")...), resource)
 		}
 
@@ -119,6 +131,7 @@ func (srv *UService) getResourcesHandler(c *gin.Context) {
 //
 // @Router      /resource/rm [delete]
 func (srv *UService) rmResourceHandler(c *gin.Context) {
+	// its assumed that the user is privelleged to download (from middleware) (write)
 	// get header
 	ac_h, exists := c.Get("accessTarget")
 	if !exists {
@@ -129,6 +142,16 @@ func (srv *UService) rmResourceHandler(c *gin.Context) {
 	ac := ac_h.(ut.AccessClaim)
 	log.Printf("binded access claim: %+v", ac)
 
+	if err := srv.fsl.Remove(ut.Resource{
+		Name:  ac.Target,
+		Vname: ac.Vname,
+	}); err != nil {
+		log.Printf("error when removing object from fsl: %v", err) // perhaps specify exact details of error
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete obj"})
+		return
+	}
+
+	// if this fails perhaps we need to delete the db entry...
 	if err := srv.storage.Remove(ut.Resource{
 		Name:  ac.Target,
 		Vname: ac.Vname,
@@ -157,6 +180,7 @@ func (srv *UService) rmResourceHandler(c *gin.Context) {
 //
 // @Router      /resource/mv [post]
 func (srv *UService) mvResourcesHandler(c *gin.Context) {
+	// its assumed that the user is privelleged to download (from middleware) (write)
 	// get header
 	ac_h, exists := c.Get("accessTarget")
 	if !exists {
@@ -169,15 +193,26 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 
 	dest := c.Request.URL.Query().Get("dest")
 	if dest == "" {
+		log.Printf("request doesn't provide 'dest'")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "must specify destination 'dest'"})
 		return
 	}
 
 	parts := strings.SplitN(dest, "/", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		log.Printf("dest is in bad format")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad destination format 'bucket/object'"})
 		return
 	}
+
+	//database
+	err := srv.fsl.Update(map[string]string{"newname": parts[1], "volume": parts[0], "name": ac.Target})
+	if err != nil {
+		log.Printf("failed to update inner fsl: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update file in local db"})
+		return
+	}
+
 	if err := srv.storage.Copy(
 		ut.Resource{
 			Name:  ac.Target,
@@ -188,6 +223,7 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 			Vname: parts[0],
 		},
 	); err != nil {
+		log.Printf("failed to make actual copy: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to copy object"})
 		return
 	}
@@ -198,6 +234,7 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 			Vname: ac.Vname,
 		},
 	); err != nil {
+		log.Printf("failed to delete the actual old file: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete original"})
 		return
 	}
@@ -221,6 +258,7 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 //
 // @Router      /resource/cp [post]
 func (srv *UService) cpResourceHandler(c *gin.Context) {
+	// its assumed that the user is privelleged to download (from middleware) read
 	// get header
 	ac_h, exists := c.Get("accessTarget")
 	if !exists {
@@ -242,6 +280,21 @@ func (srv *UService) cpResourceHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad destination format 'bucket/object'"})
 		return
 	} // destV := parts[0] //destN := parts[1]
+
+	// database
+	if err := srv.fsl.Copy(
+		ut.Resource{
+			Name:  ac.Target,
+			Vname: ac.Vname,
+		},
+		ut.Resource{
+			Name:  parts[1],
+			Vname: parts[0],
+		},
+	); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to copy object"})
+		return
+	}
 
 	if err := srv.storage.Copy(
 		ut.Resource{
@@ -273,6 +326,7 @@ func (srv *UService) cpResourceHandler(c *gin.Context) {
 //
 // @Router      /resource/download [get]
 func (srv *UService) handleDownload(c *gin.Context) {
+	// its assumed that the user is privelleged to download (from middleware)
 	/* 1]: parse location from header*/
 	// get header
 	ac_h, exists := c.Get("accessTarget")
@@ -310,12 +364,12 @@ func (srv *UService) handleDownload(c *gin.Context) {
 	var a_r any = resource
 
 	cancelFn, err := srv.storage.Download(&a_r)
-	defer cancelFn()
 	if err != nil {
 		log.Printf("failed to retrieve resource: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to retrieve resource"})
 		return
 	}
+	defer cancelFn()
 
 	if resource.Reader == nil {
 		log.Printf("resource reader is nil")
@@ -427,10 +481,16 @@ func (srv *UService) handleUpload(c *gin.Context) {
 			Size:        int64(fileHeader.Size),
 		}
 
-		cancelFn, err := srv.storage.Insert(resource)
-		defer cancelFn()
+		_, err = srv.storage.Insert(resource)
 		if err != nil {
 			log.Printf("failed to insert resources: %v", err)
+			c.JSON(422, gin.H{"error": "failed to insert resources"})
+			return
+		}
+		// defer cancelFn()
+		_, err = srv.fsl.Insert(resource)
+		if err != nil {
+			log.Printf("failed to insert resources to db: %v", err)
 			c.JSON(422, gin.H{"error": "failed to insert resources"})
 			return
 		}
@@ -441,6 +501,8 @@ func (srv *UService) handleUpload(c *gin.Context) {
 }
 
 func (srv *UService) handlePreview(c *gin.Context) {
+	// its assumed that the user is privelleged to download (from middleware) (read)
+
 	// parse resource target header:
 	// get header
 	ac_h, exists := c.Get("accessTarget")
@@ -452,17 +514,24 @@ func (srv *UService) handlePreview(c *gin.Context) {
 	ac := ac_h.(ut.AccessClaim)
 
 	// get the resource info
-	resource := ut.Resource{
+	resource := &ut.Resource{
 		Name:  ac.Target,
 		Vname: ac.Vname,
 	}
-	ar := any(resource)
+	var ar any = resource
 	cancel, err := srv.storage.Download(&ar)
-	defer cancel()
 	if err != nil {
+		log.Printf("error getting the download stream: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get download stream"})
+		return
 	}
-	// read the actual file to a buffer
+	defer cancel()
+
+	if resource.Reader == nil {
+		log.Printf("resource reader is nil")
+		c.JSON(http.StatusNotFound, gin.H{"error": "resource not found"})
+		return
+	}
 
 	// parse byte range header
 	var start, end, totalLength int64
@@ -509,7 +578,6 @@ func (srv *UService) handlePreview(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read resource"})
 		return
 	}
-
 	c.Header("Content-Range", "bytes "+strconv.FormatInt(start, 10)+"-"+strconv.FormatInt(end, 10)+"/"+strconv.FormatInt(totalLength, 10))
 	c.Header("Accept-Ranges", "bytes")
 	c.Header("Content-Length", strconv.Itoa(len(pContent)))
@@ -536,7 +604,6 @@ func (srv *UService) chmodResourceHandler(c *gin.Context) {
 		return
 	}
 	newPerms := c.PostForm("permissions")
-	log.Printf("perms: %v", newPerms)
 	if newPerms == "" {
 		log.Printf("empty perms, not allowed")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide perms as formvalue"})
@@ -544,12 +611,12 @@ func (srv *UService) chmodResourceHandler(c *gin.Context) {
 	}
 
 	// update resource name
-	// err := srv.storage.Update(rid, newPerms)
-	// if err != nil {
-	// 	log.Printf("error updating resource perms: %v", err)
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
-	// 	return
-	// }
+	err := srv.fsl.Update(map[string]string{"rid": rid, "perms": newPerms})
+	if err != nil {
+		log.Printf("error updating resource perms: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
+		return
+	}
 
 	c.JSON(200, gin.H{
 		"message": "resource updated successfully",
@@ -571,24 +638,13 @@ func (srv *UService) chownResourceHandler(c *gin.Context) {
 		return
 	}
 
-	// rid_int, err := strconv.Atoi(rid)
-	// if err != nil {
-	// 	log.Printf("failed to atoi rid: %v", err)
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "bad request format"})
-	// 	return
-	// }
-	// newOwner_int, err := strconv.Atoi(newOwner)
-	// if err != nil {
-	// 	log.Printf("failed to atoi ids: %v", err)
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "bad request format"})
-	// }
 	// update resource name
-	// err = srv.storage.Update(rid_int, newOwner_int)
-	// if err != nil {
-	// 	log.Printf("error updating resource uid: %v", err)
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
-	// 	return
-	// }
+	err := srv.fsl.Update(map[string]string{"rid": rid, "owner": newOwner})
+	if err != nil {
+		log.Printf("error updating resource uid: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
+		return
+	}
 
 	c.JSON(200, gin.H{
 		"message": "resource updated successfully",
@@ -611,23 +667,12 @@ func (srv *UService) chgroupResourceHandler(c *gin.Context) {
 	}
 
 	// update resource name
-	// rid_int, err := strconv.Atoi(rid)
-	// if err != nil {
-	// 	log.Printf("failed to atoi rid: %v", err)
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "bad request format"})
-	// 	return
-	// }
-	// newGroup_int, err := strconv.Atoi(newGroup)
-	// if err != nil {
-	// 	log.Printf("failed to atoi ids: %v", err)
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "bad request format"})
-	// }
-	// err = srv.storage.Update(rid_int, newGroup_int)
-	// if err != nil {
-	// 	log.Printf("error updating resource group: %v", err)
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
-	// 	return
-	// }
+	err := srv.fsl.Update(map[string]string{"rid": rid, "group": newGroup})
+	if err != nil {
+		log.Printf("error updating resource group: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
+		return
+	}
 
 	c.JSON(200, gin.H{
 		"message": "resource updated successfully",

@@ -44,7 +44,7 @@ import (
 // @Router      /volumes [delete]
 // @Router      /volumes [patch]
 // @Router      /volumes [put]
-func (srv *UService) HandleVolumes(c *gin.Context) {
+func (srv *UService) handleVolumes(c *gin.Context) {
 	switch c.Request.Method {
 	case http.MethodGet:
 		vid := c.Request.URL.Query().Get("vid")
@@ -59,11 +59,10 @@ func (srv *UService) HandleVolumes(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"content": volumes})
-
 	case http.MethodDelete:
-		vid := c.Request.URL.Query().Get("vid")
+		vid := c.Query("volume")
 		if vid == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "must provide vid"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a volume name"})
 			return
 		}
 		err := srv.storage.RemoveVolume(vid)
@@ -94,7 +93,9 @@ func (srv *UService) HandleVolumes(c *gin.Context) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 				return
 			}
-			err = volume.Validate(0, 0)
+			log.Printf("volume parse: %+v", volume)
+
+			err = volume.Validate(srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY, srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY)
 			if err != nil {
 				log.Printf("failed to validate the volume info: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -111,7 +112,7 @@ func (srv *UService) HandleVolumes(c *gin.Context) {
 		// array of volumes
 		// insert them iteratevly
 		for _, volume := range volumes {
-			err = volume.Validate(0, 0)
+			err = volume.Validate(srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY, srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY)
 			if err != nil {
 				log.Printf("failed to validate the volume info: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -135,7 +136,7 @@ func (srv *UService) HandleVolumes(c *gin.Context) {
 	}
 }
 
-func (srv *UService) HandleUserVolumes(c *gin.Context) {
+func (srv *UService) handleUserVolumes(c *gin.Context) {
 	switch c.Request.Method {
 	case http.MethodPost:
 		var (
@@ -184,7 +185,6 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusCreated, gin.H{"status": "inserted user volumes"})
-
 	case http.MethodDelete:
 	case http.MethodPatch:
 
@@ -193,7 +193,7 @@ func (srv *UService) HandleUserVolumes(c *gin.Context) {
 	}
 }
 
-func (srv *UService) HandleGroupVolumes(c *gin.Context) {
+func (srv *UService) handleGroupVolumes(c *gin.Context) {
 	switch c.Request.Method {
 	case http.MethodPost:
 		var (

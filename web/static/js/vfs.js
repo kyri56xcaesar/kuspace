@@ -104,7 +104,7 @@ function displaySelectedResource(resourcePath) {
               
             <button 
               class="r-btn-edit"
-              hx-get="/api/v1/verified/edit-form-user?resourcename=${resourceTarget.name}&owner=${resourceTarget.uid}&group=${resourceTarget.gid}&perms=${resourceTarget.perms}&rid=${resourceTarget.rid}"
+              hx-get="/api/v1/verified/edit-form?resourcename=${resourceTarget.name}&owner=${resourceTarget.uid}&group=${resourceTarget.gid}&perms=${resourceTarget.perms}&rid=${resourceTarget.rid}&volume=${resourceTarget.vname}"
               hx-swap="innerHTML"
               hx-trigger="click"
               hx-target="#edit-modal"

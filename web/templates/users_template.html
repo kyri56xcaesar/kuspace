@@ -7,7 +7,7 @@
       hx-get="/api/v1/verified/admin/fetch-users" 
       hx-target="#fetch-users-results" 
       hx-swap="innerHTML"
-    >Reload</button>
+    ><i class="fas fa-redo"></i></button>
   </div>
   <div id="table-container" style="overflow-x: auto; white-space: nowrap;">
     <table class="darkened" id="all-users-table" border="1" style="width: 100%; border-collapse: collapse;">
@@ -18,7 +18,6 @@
           <th>Password</th>
           <th>Email</th>
           <th>Home</th>
-          <th>Shell</th>
           <th>Group ID</th>
           <th>Groups</th>
           <th>Actions</th>
@@ -32,7 +31,6 @@
           <td>{{ $user.Password.Hashpass }}</td>
           <td>{{ $user.Info}}</td>
           <td>{{ $user.Home }}</td>
-          <td>{{ $user.Shell }}</td>
           <td>{{ $user.Pgroup }}</td>
           <td>
             {{ $total := len $user.Groups }}

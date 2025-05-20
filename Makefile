@@ -19,10 +19,10 @@ API_OUT			:= uspace
 TARGET_J_WS		:= cmd/uspace/jobs_feedback_ws/
 J_WS_OUT		:= j_ws 
 
-TARGET_F_APP	:= cmd/frontendapp/
-F_APP_OUT		:= frontendapp
+TARGET_F_APP	:= cmd/frontapp/
+F_APP_OUT		:= frontapp
 
-TARGET_WS		:= cmd/frontendapp/ws/
+TARGET_WS		:= cmd/frontapp/ws/
 WS_OUT			:= ws_server 
 
 TARGET_AUTH		:= cmd/minioth/

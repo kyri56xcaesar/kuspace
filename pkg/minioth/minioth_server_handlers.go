@@ -116,12 +116,6 @@ func (srv *MService) handleLogin(c *gin.Context) {
 	strGroups := ut.GroupsToString(user.Groups)
 	strGids := ut.GidsToString(user.Groups)
 
-	var pgroup int
-	for _, group := range user.Groups {
-		if group.Groupname == user.Username {
-			pgroup = group.Gid
-		}
-	}
 	signingAlg := c.GetHeader("X-Auth-Signing-Alg")
 	if signingAlg == "" {
 		signingAlg = "HS256" // default
@@ -149,11 +143,7 @@ func (srv *MService) handleLogin(c *gin.Context) {
 	// and followup authorization is provided (ids needed)
 	// NOTE: use Authorization header for now.
 	c.JSON(200, gin.H{
-		"username":     login_claim.Username,
-		"user_id":      user.Uid,
-		"groups":       strGroups,
-		"group_ids":    strGids,
-		"pgroup":       pgroup,
+		"user":         user,
 		"access_token": token,
 	})
 }

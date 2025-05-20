@@ -14,7 +14,7 @@ import (
 type StorageSystem interface {
 	DefaultVolume(local bool) string
 
-	CreateVolume(volumeId any) error
+	CreateVolume(volume any) error
 
 	SelectVolumes(how map[string]any) (any, error)
 	SelectObjects(how map[string]any) (any, error)
@@ -27,7 +27,7 @@ type StorageSystem interface {
 	Remove(t any) error
 	RemoveVolume(t any) error
 
-	Update(t any) error
+	Update(t map[string]string) error
 	Copy(s, d any) error
 
 	Share(method string, t any) (any, error)

@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 const (
@@ -166,11 +167,9 @@ func main() {
 				}
 
 				if strings.Contains(path, "system-ingress") {
-					fmt.Println("⏳ Waiting for ingress controller to be ready...")
-					if err := run("kubectl", "wait", "--namespace", "ingress-nginx", "--for=condition=Available", "deployment/ingress-nginx-controller", "--timeout=60s"); err != nil {
-						fmt.Fprintf(os.Stderr, "⚠️ Warning: wait failed for ingress: %v\n", err)
-					}
-
+					fmt.Println("⏳ Waiting for ingress controller deployment to be ready...")
+					time.Sleep(time.Second * 6)
+					run("kubectl", "wait", "--namespace", "ingress-nginx", "--for=condition=Ready", "pod", "-l", "app.kubernetes.io/component=controller", "--timeout=60s")
 				}
 
 				yamlStr := string(content)

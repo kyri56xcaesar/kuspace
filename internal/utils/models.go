@@ -270,30 +270,31 @@ func (pt *PermTriplet) ToString() string {
 
 /* This will represent the physical volumes provides by Kubernetes and supervised by the controller */
 type Volume struct {
-	Name         string  `json:"name" form:"name"`
-	Path         string  `json:"path,omitempty" form:"path,omitempty"`
-	Vid          int     `json:"vid,omitempty" form:"vid,omitempty"`
-	Dynamic      bool    `json:"dynamic,omitempty" form:"dynamic,omitempty"`
-	Capacity     float64 `json:"capacity,omitempty" form:"capacity,omitempty"`
-	Usage        float64 `json:"usage,omitempty" form:"usage,omitempty"`
-	CreationDate string  `json:"created_at,omitempty" form:"created_at,omitempty"`
+	Name        string  `json:"name" form:"name"`
+	Path        string  `json:"path,omitempty" form:"path,omitempty"`
+	Vid         int     `json:"vid,omitempty" form:"vid,omitempty"`
+	Dynamic     bool    `json:"dynamic,omitempty" form:"dynamic,omitempty"`
+	Capacity    float64 `json:"capacity,omitempty" form:"capacity,omitempty"`
+	Usage       float64 `json:"usage,omitempty" form:"usage,omitempty"`
+	CreatedAt   string  `json:"created_at,omitempty" form:"created_at,omitempty"`
+	ObjectCount int     `json:"object_count,omitempty" form:"object_count,omitempty"`
 }
 
 /* fields and ptr fields for "volume" struct helper methods*/
 func (v *Volume) Fields() []any {
-	return []any{v.Vid, v.Name, v.Path, v.Dynamic, v.Capacity, v.Usage, v.CreationDate}
+	return []any{v.Vid, v.Name, v.Path, v.Dynamic, v.Capacity, v.Usage, v.CreatedAt}
 }
 
 func (v *Volume) PtrFields() []any {
-	return []any{&v.Vid, &v.Name, &v.Path, &v.Dynamic, &v.Capacity, &v.Usage, &v.CreationDate}
+	return []any{&v.Vid, &v.Name, &v.Path, &v.Dynamic, &v.Capacity, &v.Usage, &v.CreatedAt}
 }
 
 func (v *Volume) FieldsNoId() []any {
-	return []any{v.Name, v.Path, v.Dynamic, v.Capacity, v.Usage, v.CreationDate}
+	return []any{v.Name, v.Path, v.Dynamic, v.Capacity, v.Usage, v.CreatedAt}
 }
 
 func (v *Volume) PtrFieldsNoId() []any {
-	return []any{&v.Name, &v.Path, &v.Dynamic, &v.Capacity, &v.Usage, &v.CreationDate}
+	return []any{&v.Name, &v.Path, &v.Dynamic, &v.Capacity, &v.Usage, &v.CreatedAt}
 }
 
 func (v *Volume) Validate(max_capacity, fallback_capacity float64) error {
@@ -309,7 +310,7 @@ func (v *Volume) Validate(max_capacity, fallback_capacity float64) error {
 		return fmt.Errorf("invalid characters in the name. (^*|\\/&\"_,;) not allowed")
 	}
 
-	if v.Capacity > max_capacity {
+	if max_capacity > 0 && v.Capacity > max_capacity {
 		v.Capacity = fallback_capacity
 	}
 
@@ -558,17 +559,23 @@ type Job struct {
 }
 
 func (j *Job) PtrFields() []any {
-	return []any{&j.Jid, &j.Uid, &j.Description, &j.Duration, &j.Input, &j.InputFormat, &j.Output, &j.OutputFormat, &j.Logic, &j.LogicBody, &j.LogicHeaders, &j.Params, &j.Status, &j.Completed, &j.Completed_at, &j.Created_at, &j.Parallelism, &j.Priority}
+	return []any{&j.Jid, &j.Uid, &j.Description, &j.Duration, &j.Input, &j.InputFormat, &j.Output, &j.OutputFormat, &j.Logic, &j.LogicBody, &j.LogicHeaders, &j.Params, &j.Status, &j.Completed, &j.Completed_at, &j.Created_at, &j.Parallelism, &j.Priority, &j.MemoryRequest, &j.CpuRequest, &j.MemoryLimit, &j.CpuLimit, &j.EphimeralStorageRequest, &j.EphimeralStorageLimit}
 }
 
 func (j *Job) Fields() []any {
-	return []any{j.Jid, j.Uid, j.Description, j.Duration, j.Input, j.InputFormat, j.Output, j.OutputFormat, j.Logic, j.LogicBody, j.LogicHeaders, j.Params, j.Status, j.Completed, j.Completed_at, j.Created_at, j.Parallelism, j.Priority}
+	return []any{j.Jid, j.Uid, j.Description, j.Duration, j.Input, j.InputFormat, j.Output, j.OutputFormat, j.Logic, j.LogicBody, j.LogicHeaders, j.Params, j.Status, j.Completed, j.Completed_at, j.Created_at, j.Parallelism, j.Priority, j.MemoryRequest, j.CpuRequest, j.MemoryLimit, j.CpuLimit, j.EphimeralStorageRequest, j.EphimeralStorageLimit}
 }
 
 func (j *Job) PtrFieldsNoId() []any {
-	return []any{&j.Uid, &j.Description, &j.Duration, &j.Input, &j.InputFormat, &j.Output, &j.OutputFormat, &j.Logic, &j.LogicBody, &j.LogicHeaders, &j.Params, &j.Status, &j.Completed, &j.Completed_at, &j.Created_at, &j.Parallelism, &j.Priority}
+	return []any{&j.Uid, &j.Description, &j.Duration, &j.Input, &j.InputFormat, &j.Output, &j.OutputFormat, &j.Logic, &j.LogicBody, &j.LogicHeaders, &j.Params, &j.Status, &j.Completed, &j.Completed_at, &j.Created_at, &j.Parallelism, &j.Priority, &j.MemoryRequest, &j.CpuRequest, &j.MemoryLimit, &j.CpuLimit, &j.EphimeralStorageRequest, &j.EphimeralStorageLimit}
 }
 
 func (j *Job) FieldsNoId() []any {
-	return []any{j.Uid, j.Description, j.Duration, j.Input, j.InputFormat, j.Output, j.OutputFormat, j.Logic, j.LogicBody, j.LogicHeaders, j.Params, j.Status, j.Completed, j.Completed_at, j.Created_at, j.Parallelism, j.Priority}
+	return []any{j.Uid, j.Description, j.Duration, j.Input, j.InputFormat, j.Output, j.OutputFormat, j.Logic, j.LogicBody, j.LogicHeaders, j.Params, j.Status, j.Completed, j.Completed_at, j.Created_at, j.Parallelism, j.Priority, j.MemoryRequest, j.CpuRequest, j.MemoryLimit, j.CpuLimit, j.EphimeralStorageRequest, j.EphimeralStorageLimit}
+}
+
+type APIResponse[T any] struct {
+	Status  string `json:"status"`  // e.g., "success", "error"
+	Message string `json:"message"` // e.g., "Operation successful"
+	Data    T      `json:"data"`    // Any data payload
 }

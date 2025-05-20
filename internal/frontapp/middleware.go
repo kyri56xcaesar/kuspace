@@ -28,6 +28,10 @@ func securityMiddleWare(c *gin.Context) {
 
 func autoLogin() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if c.Request.Method != http.MethodGet || c.Request.URL.Path != "/login" {
+			c.Next()
+			return
+		}
 		log.Print("Auto Login middleware...")
 		access_token, err := c.Cookie("access_token")
 		if err != nil || access_token == "" {
@@ -86,11 +90,8 @@ func autoLogin() gin.HandlerFunc {
 		}
 
 		// forward directly inside
-		if strings.Contains(info.Info.Groups, "admin") {
-			c.Redirect(http.StatusSeeOther, "/api/v1/verified/admin-panel")
-		} else {
-			c.Redirect(http.StatusSeeOther, "/api/v1/verified/dashboard")
-		}
+		c.Redirect(http.StatusSeeOther, "/api/v1/verified/admin-panel")
+
 	}
 }
 
@@ -170,6 +171,7 @@ func AuthMiddleware(group string) gin.HandlerFunc {
 				c.Set("user_id", info.Info.UserID)
 				c.Set("groups", info.Info.Groups)
 				c.Set("group_ids", info.Info.GroupIDS)
+				c.Set("access_token", accessToken)
 				return
 			}
 		}

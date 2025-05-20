@@ -92,7 +92,6 @@ func NewUService(conf string) UService {
 	// storage system (constructing)
 	storage := StorageShipment(strings.ToLower(cfg.STORAGE_SYSTEM), &srv)
 	// storage shipment will panic if its not working
-
 	srv.storage = storage
 
 	// dispatcher system (constructing)
@@ -118,6 +117,28 @@ func NewUService(conf string) UService {
 	copy_cfg.FSL_SERVER = false
 
 	srv.fsl = fslite.NewFsLite(copy_cfg)
+
+	// lets create a default bucket
+	default_volume := ut.Volume{Name: cfg.MINIO_DEFAULT_BUCKET, CreatedAt: ut.CurrentTime()}
+	err = storage.CreateVolume(default_volume)
+	if err != nil {
+		if strings.Contains(err.Error(), "already exists") {
+			log.Printf("already exists... continuing")
+		} else {
+			log.Fatal("failed to create the default bucket: ", err)
+		}
+	}
+	log.Printf("default bucket ready: %s", cfg.MINIO_DEFAULT_BUCKET)
+
+	// store it in local db as well
+	err = srv.fsl.CreateVolume(default_volume)
+	if err != nil {
+		if strings.Contains(err.Error(), "already exists") {
+			log.Printf("already exists in database... continueing")
+		} else {
+			log.Fatalf("failed to save to local fsl db: %v", err)
+		}
+	}
 
 	return srv
 }
@@ -149,6 +170,7 @@ func (srv *UService) Serve() {
 
 	/* don't forgt to close the db conn */
 	srv.jdbh.Close()
+	srv.fsl.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -177,59 +199,58 @@ func (srv *UService) RegisterRoutes() {
 
 	apiV1.Use(bindHeadersMiddleware())
 	{
-		/* equivalent to "ls", will return the resources, from the given path*/
-		apiV1.GET("/resources", srv.getResourcesHandler)
-
-		apiV1.POST("/resource/upload", srv.handleUpload)
-		apiV1.GET("/resource/download", srv.handleDownload)
-		apiV1.GET("/resource/preview", srv.handlePreview)
-		// apiV1.GET("/resource/download", hasAccessMiddleware("r", srv), srv.handleDownload)
-
-		// apiV1.DELETE("/resource/rm", hasAccessMiddleware("w", srv), srv.rmResourceHandler)
-		// apiV1.PATCH("/resource/mv", hasAccessMiddleware("w", srv), srv.mvResourcesHandler)
-		// apiV1.POST("/resource/cp", hasAccessMiddleware("r", srv), srv.cpResourceHandler)
-		apiV1.DELETE("/resource/rm", srv.rmResourceHandler)
-		apiV1.PATCH("/resource/mv", srv.mvResourcesHandler)
-		apiV1.POST("/resource/cp", srv.cpResourceHandler)
-
-		// apiV1.PATCH("/resource/permissions", isOwner(srv), srv.chmodResourceHandler)
-		// apiV1.PATCH("/resource/ownership", isOwner(srv), srv.chownResourceHandler)
-		// apiV1.PATCH("/resource/group", isOwner(srv), srv.chgroupResourceHandler)
-
+		// jobs can be run from anyone
 		// job related
 		apiV1.Match(
 			[]string{"GET", "POST"},
 			"/job",
-			srv.HandleJob,
+			srv.handleJob,
 		)
+		/* equivalent to "ls", will return the resources, from the given path*/
+		apiV1.GET("/resources", srv.getResourcesHandler)
+		apiV1.POST("/resource/upload", srv.handleUpload)
+
+		// these endpoints need privelleges
+		apiV1.GET("/resource/preview", hasAccessMiddleware("r", srv), srv.handlePreview)
+		apiV1.GET("/resource/download", hasAccessMiddleware("r", srv), srv.handleDownload)
+		apiV1.DELETE("/resource/rm", hasAccessMiddleware("w", srv), srv.rmResourceHandler)
+		apiV1.POST("/resource/cp", hasAccessMiddleware("r", srv), srv.cpResourceHandler)
+		apiV1.PATCH("/resource/mv", hasAccessMiddleware("w", srv), srv.mvResourcesHandler)
+		apiV1.PATCH("/resource/permissions", isOwner(srv), srv.chmodResourceHandler)
+		apiV1.PATCH("/resource/ownership", isOwner(srv), srv.chownResourceHandler)
+		apiV1.PATCH("/resource/group", isOwner(srv), srv.chgroupResourceHandler)
 	}
 
 	admin := srv.Engine.Group("/api" + VERSION + "/admin")
-	// admin.Use(serviceAuth(srv)) //, bindHeadersMiddleware())
+
+	if strings.ToLower(srv.config.API_GIN_MODE) != "debug" {
+		admin.Use(serviceAuth(srv), bindHeadersMiddleware())
+	}
 	{
 		admin.Match(
 			[]string{"GET", "POST", "PUT", "DELETE", "PATCH"},
 			"/volumes",
-			srv.HandleVolumes,
+			srv.handleVolumes,
 		)
 		admin.Match(
 			[]string{"DELETE", "PUT"},
 			"/job",
-			srv.HandleJobAdmin,
+			srv.handleJobAdmin,
+		)
+		admin.Match(
+			[]string{"GET", "POST", "PATCH", "DELETE"},
+			"/user/volume",
+			srv.handleUserVolumes,
 		)
 		// admin.Match(
 		// 	[]string{"GET", "POST", "PATCH", "DELETE"},
-		// 	"/user/volume",
-		// 	srv.HandleUserVolumes,
-		// )
-		// admin.Match(
-		// 	[]string{"GET", "POST", "PATCH", "DELETE"},
 		// 	"/group/volume",
-		// 	srv.HandleGroupVolumes,
+		// 	srv.handleGroupVolumes,
 		// )
 	}
 }
 
+// this should propably sync users/data from minio or other storage providers.
 func syncUsers(srv *UService) error {
 	req, err := http.NewRequest(http.MethodGet, "http://"+srv.config.AUTH_ADDRESS+":"+srv.config.AUTH_PORT+"/v1/admin/groups", nil)
 	if err != nil {

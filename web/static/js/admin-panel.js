@@ -23,6 +23,8 @@ function editUser(uid, index) {
 
   const originalValues = {};
 
+  console.log(cells)
+
   for (let i = 0; i < cells.length - 1; i++) {
     const cell = cells[i];
     const originalText = cell.textContent.trim();
@@ -33,7 +35,7 @@ function editUser(uid, index) {
       continue;
     }
 
-    if (i == 6) {
+    if (i == 5) {
       continue;
     }
 
@@ -74,16 +76,14 @@ function getUserPatchValues(uid) {
   let ed2 = document.getElementById("edit-input-"+uid+"-2");
   let ed3 = document.getElementById("edit-input-"+uid+"-3");
   let ed4 = document.getElementById("edit-input-"+uid+"-4")
-  let ed5 = document.getElementById("edit-input-"+uid+"-5");
-  let ed7 = document.getElementById("edit-input-"+uid+"-7");
+  let ed6 = document.getElementById("edit-input-"+uid+"-6");
   r = {
     uid: uid,
     username : ed1.value,
     password : ed2.value,
     info : ed3.value,
     home: ed4.value,
-    shell: ed5.value,
-    groups: ed7.value
+    groups: ed6.value
   };
 
   return r
@@ -120,17 +120,6 @@ function cancelEdit(index, originalValues) {
 }
 
 
-// enable dynamic quota checkbox functionality
-function toggleDynamicQuota(checkbox) {
-  const ranges = document.querySelectorAll('.quota-range');
-  ranges.forEach(range => {
-      if (checkbox.checked) {
-          range.classList.add('disabled');
-      } else {
-          range.classList.remove('disabled');
-      }
-  });
-}
 
 
 /**************************************************************************/
@@ -140,7 +129,7 @@ function toggleDynamicQuota(checkbox) {
 // actions to do when everything is loaded
 document.addEventListener("DOMContentLoaded", () => {
   /**************************************************************************/
-  // sidebar
+  // side-bar
   /**************************************************************************/
   // give functionality to the sider bad of the admin panel
   const sidebar = document.getElementById('sidebar');
@@ -162,7 +151,6 @@ document.addEventListener("DOMContentLoaded", () => {
   /**************************************************************************/
   // files
   /**************************************************************************/
-
   // functionality of file upload via drag
   const dropZone = document.getElementById("drop-zone");
   const fileInput = document.getElementById("file");
@@ -182,10 +170,9 @@ document.addEventListener("DOMContentLoaded", () => {
   /**************************************************************************/
   // job setup 
   /**************************************************************************/
-  
   // Job history functionalities
   // set to what we want to search by
-  searchBy = "created_at";
+  let searchBy = "created_at";
   const jobSearchSelector = document.getElementById("job-search-by-select");
   jobSearchSelector.value = searchBy;
   jobSearchSelector.addEventListener("input", (event) => {
@@ -267,11 +254,266 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  setupJobSubmitter(document.querySelector('#new-job-container'));
+  setupJobSubmitter(document.querySelector('#job-create-setup'));
   
   /**************************************************************************/
   /**************************************************************************/
+  // access profile
+  /**************************************************************************/
+  /**************************************************************************/
+
+
+
+
+
+
+  /**************************************************************************/
+  /**************************************************************************/
+  // Volumes
+  /**************************************************************************/
+  /**************************************************************************/
+  const vSearch = document.getElementById("volume-search");
+  vSearch.value = "";
+  vSearch.addEventListener("input", function() {
+    if (cacheVolumeResults.length == 0) {// empty cache, must fetch 
+      
+    }
+    searchValue = vSearch.value;
+    // console.log("searching by " + searchBy + " at " + searchValue);
+    // do search and display
+        cacheVolumeResults.forEach((li) => {
+          if (!li.querySelector(".name").innerText.includes(searchValue)) {
+            li.classList.add("hidden");
+          } else {
+            li.classList.remove("hidden");
+          }
+        });
+
+
+    
+  });
+
+  document.getElementById("cancel-modal-btn").addEventListener("click", () => {
+    document.getElementById("create-volume-modal").classList.add("hidden");
+  });
+
+  // for choosing a volume when upload
+  document.getElementById("select-volume-btn").addEventListener("click", () => {
+    const modal = document.getElementById("volume-modal");
+    const volumeList = document.getElementById("volume-list");
+
+    // Clear existing list
+    volumeList.innerHTML = "";
+
+    // Grab all volumes from the page
+    document.querySelectorAll(".v-body h3").forEach((h3) => {
+      const volumeName = h3.textContent.trim();
+
+      const button = document.createElement("button");
+      button.textContent = volumeName;
+      button.addEventListener("click", () => {
+        document.getElementById("selected-volume").textContent = volumeName;
+        modal.classList.add("hidden");
+      });
+
+      volumeList.appendChild(button);
+    });
+
+    modal.classList.remove("hidden");
+  });
+
+  document.getElementById("cancel-volume-select").addEventListener("click", () => {
+    document.getElementById("volume-modal").classList.add("hidden");
+  });
+
+
+
+  /**************************************************************************/
+  /**************************************************************************/
+  // Resources
+  /**************************************************************************/
+  /**************************************************************************/
+  const rSearch = document.getElementById("resource-search");
+  rSearch.value = "";
+  rSearch.addEventListener("input", function() {
+    if (cacheResourceResults.length == 0) {// empty cache, must fetch 
+      
+    }
+    searchValue = rSearch.value;
+    // console.log("searching by " + searchBy + " at " + searchValue);
+    // do search and display
+    let r_dets = document.getElementById("resource-details");
+    cacheResourceResults.forEach((li) => {
+      if (!li.querySelector(".name").innerText.includes(searchValue)) {
+        li.classList.add("hidden");
+      } else {
+        li.classList.remove("hidden");
+        parseAndInjectRTableRowdata(li, r_dets);
+      }
+    });
+
+
+    
+  });
+
 
 });
 
 
+function addResourceListListeners() {
+  tableRows = document.querySelectorAll("#resource-list-table tbody tr");
+  resourceDetails = document.getElementById("resource-details");
+
+  tableRows.forEach((row) => {
+    row.addEventListener("click", () => {
+      // Remove 'selected' class from all rows
+      tableRows.forEach((r) => r.classList.remove("selected"));
+      // Add 'selected' class to the clicked row
+      row.classList.add("selected");
+      // Extract resource information from the row
+
+      parseAndInjectRTableRowdata(row, resourceDetails);
+      
+      const btns = document.querySelectorAll(".r-btn-download, .r-btn-edit, .r-btn-delete, #preview-resource-btn, #next-arrow-right, #next-arrow-left");
+      btns.forEach(button => {
+        htmx.process(button);
+      });
+
+    });
+  });
+}
+
+function parseAndInjectRTableRowdata(tr, injectTarget) {
+  if (!tr || tr.cells.length != 13 || !injectTarget) {
+    return
+  }
+
+  const resource = {
+    id: tr.cells[0].innerText,
+    name: tr.cells[1].innerText,
+    path: tr.cells[2].innerText,
+    volume: tr.cells[3].innerText,
+    type: tr.cells[4].innerText,
+    size: tr.cells[5].innerText,
+    perms: tr.cells[6].innerText,
+    createdAt: tr.cells[7].innerText,
+    updatedAt: tr.cells[8].innerText,
+    accessedAt: tr.cells[9].innerText,
+    owner: tr.cells[10].innerText,
+    group: tr.cells[11].innerText,
+    vid: tr.cells[12].innerText,
+  };
+  
+  // injection
+  injectTarget.innerHTML = `
+      <div class="resource-details-headers">
+        <h3>Resource Details</h3>
+        <div class="resource-options">
+          <div id="resource-options-inner">
+            <a 
+              href="/api/v1/verified/download?target=${resource.name}&volume=${resource.volume}"
+              download
+              class="r-btn-download"
+            >
+              Download
+            </a>
+            <button 
+              class="r-btn-edit"
+              hx-get="/api/v1/verified/edit-form?resourcename=${resource.name}&owner=${resource.owner}&group=${resource.group}&perms=${resource.perms}&rid=${resource.id}&volume=${resource.volume}"
+              hx-swap="innerHTML"
+              hx-trigger="click"
+              hx-target="#edit-modal"
+              hx-on::after-request="show(document.getElementById('edit-modal'))"
+              >
+              Edit
+            </button>
+            <button 
+              class="r-btn-delete"
+              hx-delete="/api/v1/verified/rm?rids=${resource.id}&volume=${resource.volume}"
+              hx-trigger="click"
+              hx-swap="none"
+              hx-confirm="Are you sure you want to delete resource ${resource.volume}/${resource.name}?"
+              hx-on::before-request="show(document.querySelector('.r-loader'))"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+      <hr>
+      <div class="resource-details-main">
+        <div class="resource-details-inner">
+          <p><strong>Rid:</strong> ${resource.id}</p>
+          <p><strong>Name:</strong> ${resource.name}</p>
+          <p><strong>Path:</strong> ${resource.path}</p>
+          <p><strong>Volume:</strong> ${resource.volume}</p>
+          <p><strong>Type:</strong> ${resource.type}</p>
+          <p><strong>Size:</strong> ${resource.size}</p>
+          <p><strong>Permissions:</strong> ${resource.perms}</p>
+          <p><strong>Created At:</strong> ${resource.createdAt}</p>
+          <p><strong>Updated At:</strong> ${resource.updatedAt}</p>
+          <p><strong>Accessed At:</strong> ${resource.accessedAt}</p>
+          <p><strong>Owner:</strong> ${resource.owner}</p>
+          <p><strong>Group:</strong> ${resource.group}</p>
+          <p><strong>Volume:</strong> ${resource.volume}</p>
+        </div>
+        <div id="resource-preview" class="resource-preview-window">
+          <button
+            id="preview-resource-btn"
+            hx-target="#resource-preview-content"
+            hx-trigger="click"
+            hx-swap="innerHTML"
+            hx-get="/api/v1/verified/preview?rid=${resource.id}&resourcename=${resource.name}&volume=${resource.volume}"
+            hx-headers='js:{"Range": "bytes=" + getPreviewWindow(0)}'  
+          >Preview</button>
+          <div class="resource-preview-main blurred">
+            <div id="resource-preview-content"></div>
+            <div id="resource-preview-controls">
+              <div 
+                id="next-arrow-left" 
+                class="next-arrow"
+                hx-target="#resource-preview-content"
+                hx-trigger="click"
+                hx-swap="innerHTML"
+                hx-get="/api/v1/verified/preview?rid=${resource.id}&resourcename=${resource.name}&volume=${resource.volume}"
+                hx-headers='js:{"Range": "bytes=" + getPreviewWindow(-1)}'  
+              >
+                <svg width="24" height="8" viewBox="0 0 16 8" fill="none" xmlns="http://www.w3.org/2000/svg" class="arrow-icon">
+                <g transform="scale(-1,1) translate(-16,0)">
+                  <path d="M15 4H4V1" stroke="white"/>
+                  <path d="M14.5 4H3.5H0" stroke="white"/>
+                  <path d="M15.8536 4.35355C16.0488 4.15829 16.0488 3.84171 15.8536 3.64645L12.6716 0.464466C12.4763 0.269204 12.1597 0.269204 11.9645 0.464466C11.7692 0.659728 11.7692 0.976311 11.9645 1.17157L14.7929 4L11.9645 6.82843C11.7692 7.02369 11.7692 7.34027 11.9645 7.53553C12.1597 7.7308 12.4763 7.7308 12.6716 7.53553L15.8536 4.35355ZM15 4.5L15.5 4.5L15.5 3.5L15 3.5L15 4.5Z" fill="white"/>
+                </g>
+                </svg>
+              </div>
+              <div>
+                <span id="page-index">0</span>
+              </div>
+              <div 
+                id="next-arrow-right" 
+                class="next-arrow"
+                hx-target="#resource-preview-content"
+                hx-trigger="click"
+                hx-swap="innerHTML"
+                hx-get="/api/v1/verified/preview?rid=${resource.id}&resourcename=${resource.name}&volume=${resource.volume}"
+                hx-headers='js:{"Range": "bytes=" + getPreviewWindow(+1)}'  
+              >
+                <svg width="24" height="8" viewBox="0 0 16 8" fill="none" xmlns="http://www.w3.org/2000/svg" class="arrow-icon">
+                  <path d="M15 4H4V1" stroke="white"/>
+                  <path d="M14.5 4H3.5H0" stroke="white"/>
+                  <path d="M15.8536 4.35355C16.0488 4.15829 16.0488 3.84171 15.8536 3.64645L12.6716 0.464466C12.4763 0.269204 12.1597 0.269204 11.9645 0.464466C11.7692 0.659728 11.7692 0.976311 11.9645 1.17157L14.7929 4L11.9645 6.82843C11.7692 7.02369 11.7692 7.34027 11.9645 7.53553C12.1597 7.7308 12.4763 7.7308 12.6716 7.53553L15.8536 4.35355ZM15 4.5L15.5 4.5L15.5 3.5L15 3.5L15 4.5Z" fill="white"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="edit-modal" class="modal hidden"></div>
+      </div>
+      <hr>
+      <div class="resource-details-footer">
+        <div class="feedback"></div>
+        <div class="r-loader hidden"><div></div></div>
+      </div>`;
+
+
+}

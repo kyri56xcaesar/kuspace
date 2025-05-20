@@ -1,302 +1,168 @@
 {{ define "edit-form.html"}} 
-<div class="close-btn-div"><button onclick="hide(document.getElementById('edit-modal'))" class="button-close"></button></div>
+<div id="resource-edit-modal">
+  <div class="close-btn-div">
+    <button onclick="hide(document.getElementById('edit-modal'))" class="button-close"></button>
+  </div>
 	<div
     id="edit-resource-form"
+    class="modal-content"
   >   
     <h3>Edit Resource</h3>
     <p>Auto save on key release (or change)</p>
     <hr> 
     <div>
-    <div>
       <div>
-      <label for="resourcename">ResourceName</label>
-  	  <input 
-        id="resource-path-select"
-		    name="resourcename" 
-        value="{{ .resourcename }}"
-        hx-patch="/api/v1/verified/mv?rid={{ .rid }}&resourcename={{ .resourcename }}"
-			  hx-trigger="keyup changed delay:3000ms"
-        hx-swap="none"
-		  >
-      </div>
-      <hr>
-      <div>
-  		<label for="permissions">Permissions</label>
-  		<div id="permissions-container">
         <div>
-          <h4>Owner:</h4>
-            <div class="perm-display-div"> 
-              <label>
-                r
-                <input type="checkbox" name="owner-r" value="r"
-                  {{if .perms.OwnerR}}checked{{end}}
-                  onchange="updatePermissionString()"
-                >
-              </label>
-              <label>
-                w
-                <input type="checkbox" name="owner-w" value="w"
-                  {{if .perms.OwnerW}}checked{{end}}
-                  onchange="updatePermissionString()"
-                >
-              </label>
-              <label>
-                x
-                <input type="checkbox" name="owner-x" value="x"
-                  {{if .perms.OwnerX}}checked{{end}}
-                  onchange="updatePermissionString()"
-                >
-              </label>
+          <label for="resourcename">Name</label>
+  	      <input 
+            id="resource-path-select"
+		        name="resourcename" 
+            value="{{ .resourcename }}"
+            hx-patch="/api/v1/verified/mv?rid={{ .rid }}&resourcename={{ .resourcename }}&volume={{.volume }}"
+		  	    hx-trigger="keyup changed delay:3000ms"
+            hx-swap="none"
+		    >
+        </div>
+        <hr>
+        <div>
+  	  	  <div id="permissions-container">
+            <div>
+              <h4>Owner:</h4>
+                <div class="perm-display-div"> 
+                  <label>
+                    r
+                    <input type="checkbox" name="owner-r" value="r"
+                    {{if .perms.OwnerR}}checked{{end}}
+                    onchange="updatePermissionString()"
+                    >
+                  </label>
+                  <label>
+                    w
+                    <input type="checkbox" name="owner-w" value="w"
+                      {{if .perms.OwnerW}}checked{{end}}
+                      onchange="updatePermissionString()"
+                    >
+                  </label>
+                  <label>
+                    x
+                    <input type="checkbox" name="owner-x" value="x"
+                      {{if .perms.OwnerX}}checked{{end}}
+                      onchange="updatePermissionString()"
+                    >
+                  </label>
+                </div>
             </div>
-        </div>
-        <div>
-          <h4>Group:</h4>
-          <div class="perm-display-div">
-            <label>
-              r
-              <input type="checkbox" name="group-r" value="r"
-                {{if .perms.GroupR}}checked{{end}}
-                onchange="updatePermissionString()"
-              >
-            </label>
-            <label>
-              w
-              <input type="checkbox" name="group-w" value="w"
-                {{if .perms.GroupW}}checked{{end}}
-                onchange="updatePermissionString()"
-              >
-            </label>
-            <label>
-              x
-              <input type="checkbox" name="group-x" value="x"
-                {{if .perms.GroupX}}checked{{end}}
-                onchange="updatePermissionString()"
-              >
-            </label>
-          </div>
-        </div>
-        <div>
-          <h4>Others:</h4>
-          <div class="perm-display-div">
-            <label>
-              r
-              <input type="checkbox" name="other-r" value="r"
-                {{if .perms.OtherR}}checked{{end}}
-                onchange="updatePermissionString()"
-              > 
-            </label>
-            <label>
-              w
-              <input type="checkbox" name="other-w" value="w"
-                {{if .perms.OtherW}}checked{{end}}
-                onchange="updatePermissionString()"
-              >
-            </label>
-            <label>
-              x
-              <input type="checkbox" name="other-x" value="x"
-                {{if .perms.OtherX}}checked{{end}}
-                onchange="updatePermissionString()"
-              > 
-            </label>
-          </div>
-        </div>
-        <input
-          type="hidden"
-          name="permissions"
-          id="permissionsInput"
-          value="" 
-          hx-patch="/api/v1/verified/admin/chmod?rid={{ .rid }}"
-          hx-trigger="change delay:1000ms"
-          hx-headers='{"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache"}'
-          hx-swap="none"
-        >
-      </div>
-      </div>
-	  </div>
-
-    <div>
-      <div>
-	    <label for="owner">Owner</label>
-      <select
-        id="resource-owner-select" 
-        name="owner"
-        hx-patch="/api/v1/verified/admin/chown?rid={{ .rid }}"
-        hx-trigger="change delay:1000ms"
-        hx-headers='{"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache"}'
-        hx-swap="none"
-      >
-      {{range .users}}
-        <option
-          value="{{.Uid}}"
-          {{if eq .Uid $.owner}}selected{{end}}
-        >uid:{{.Uid}} - username:{{ .Username }}</option>
-      {{end}}
-      </select>  
-      </div>
-      <hr>
-      <div>
-      <label for="group">Group</label>
-      <select
-        id="resource-group-select"
-        name="group"
-        hx-patch="/api/v1/verified/admin/chgroup?rid={{ .rid }}"
-        hx-trigger="change delay:1000ms"
-        hx-headers='{"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache"}'
-        hx-swap="none"
-      >
-      {{range .groups}}
-        <option
-          value="{{.Gid}}"
-          {{if eq .Gid $.group}}selected{{end}}
-        >gid:{{.Gid}} - groupname:{{.Groupname}}</option>
-      {{end}}
-      </select>
-      </div>
-    </div>
-    
-    </div>
-  </div>
-</div>
-{{ end }}
-
-{{ define "edit-form-user.html"}} 
-<div class="close-btn-div"><button onclick="hide(document.getElementById('edit-modal'))" class="button-close"></button></div>
-	<div
-    id="edit-resource-form"
-  >   
-    <h3>Edit Resource</h3>
-    <p>Auto save on key release (or change)</p>
-    <hr> 
-    <div>
-    <div>
-      <div>
-      <label for="resourcename">ResourceName</label>
-  	  <input 
-        id="resource-path-select"
-		    name="resourcename" 
-        value="{{ .resourcename }}"
-        hx-patch="/api/v1/verified/mv?rid={{ .rid }}&resourcename={{ .resourcename }}"
-			  hx-trigger="keyup changed delay:3000ms"
-        hx-swap="none"
-		  >
-      </div>
-      <hr>
-      <div>
-  		<label for="permissions">Permissions</label>
-  		<div id="permissions-container">
-        <div>
-          <h4>Owner:</h4>
-            <div class="perm-display-div"> 
-              <label>
-                r
-                <input type="checkbox" name="owner-r" value="r"
-                  {{if .perms.OwnerR}}checked{{end}}
-                  onchange="updatePermissionString()"
-                >
-              </label>
-              <label>
-                w
-                <input type="checkbox" name="owner-w" value="w"
-                  {{if .perms.OwnerW}}checked{{end}}
-                  onchange="updatePermissionString()"
-                >
-              </label>
-              <label>
-                x
-                <input type="checkbox" name="owner-x" value="x"
-                  {{if .perms.OwnerX}}checked{{end}}
-                  onchange="updatePermissionString()"
-                >
-              </label>
+            <div>
+              <h4>Group:</h4>
+              <div class="perm-display-div">
+                <label>
+                  r
+                  <input type="checkbox" name="group-r" value="r"
+                    {{if .perms.GroupR}}checked{{end}}
+                    onchange="updatePermissionString()"
+                  >
+                </label>
+                <label>
+                  w
+                  <input type="checkbox" name="group-w" value="w"
+                    {{if .perms.GroupW}}checked{{end}}
+                    onchange="updatePermissionString()"
+                  >
+                </label>
+                <label>
+                  x
+                  <input type="checkbox" name="group-x" value="x"
+                    {{if .perms.GroupX}}checked{{end}}
+                    onchange="updatePermissionString()"
+                  >
+                </label>
+              </div>
             </div>
-        </div>
-        <div>
-          <h4>Group:</h4>
-          <div class="perm-display-div">
-            <label>
-              r
-              <input type="checkbox" name="group-r" value="r"
-                {{if .perms.GroupR}}checked{{end}}
-                onchange="updatePermissionString()"
-              >
-            </label>
-            <label>
-              w
-              <input type="checkbox" name="group-w" value="w"
-                {{if .perms.GroupW}}checked{{end}}
-                onchange="updatePermissionString()"
-              >
-            </label>
-            <label>
-              x
-              <input type="checkbox" name="group-x" value="x"
-                {{if .perms.GroupX}}checked{{end}}
-                onchange="updatePermissionString()"
-              >
-            </label>
+            <div>
+              <h4>Others:</h4>
+              <div class="perm-display-div">
+                <label>
+                  r
+                  <input type="checkbox" name="other-r" value="r"
+                    {{if .perms.OtherR}}checked{{end}}
+                    onchange="updatePermissionString()"
+                  > 
+                </label>
+                <label>
+                  w
+                  <input type="checkbox" name="other-w" value="w"
+                    {{if .perms.OtherW}}checked{{end}}
+                    onchange="updatePermissionString()"
+                  >
+                </label>
+                <label>
+                  x
+                  <input type="checkbox" name="other-x" value="x"
+                    {{if .perms.OtherX}}checked{{end}}
+                    onchange="updatePermissionString()"
+                  > 
+                </label>
+              </div>
+            </div>
+            <input
+              type="hidden"
+              name="permissions"
+              id="permissionsInput"
+              value="" 
+              hx-patch="/api/v1/verified/admin/chmod?rid={{ .rid }}"
+              hx-trigger="change delay:1000ms"
+              hx-headers='{"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache"}'
+              hx-swap="none"
+            >
           </div>
         </div>
+	    </div>
+      {{ if .admin }}
+      <div>
         <div>
-          <h4>Others:</h4>
-          <div class="perm-display-div">
-            <label>
-              r
-              <input type="checkbox" name="other-r" value="r"
-                {{if .perms.OtherR}}checked{{end}}
-                onchange="updatePermissionString()"
-              > 
-            </label>
-            <label>
-              w
-              <input type="checkbox" name="other-w" value="w"
-                {{if .perms.OtherW}}checked{{end}}
-                onchange="updatePermissionString()"
-              >
-            </label>
-            <label>
-              x
-              <input type="checkbox" name="other-x" value="x"
-                {{if .perms.OtherX}}checked{{end}}
-                onchange="updatePermissionString()"
-              > 
-            </label>
-          </div>
+	        <label for="owner">Owner</label>
+          <select
+            id="resource-owner-select" 
+            name="owner"
+            hx-patch="/api/v1/verified/admin/chown?rid={{ .rid }}"
+            hx-trigger="change delay:1000ms"
+            hx-headers='{"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache"}'
+            hx-swap="none"
+          >
+            {{range .users}}
+              <option
+                value="{{.Uid}}"
+                {{if eq .Uid $.owner}}selected{{end}}
+              >uid:{{.Uid}} - username:{{ .Username }}</option>
+            {{end}}
+          </select>  
         </div>
-        <input
-          type="hidden"
-          name="permissions"
-          id="permissionsInput"
-          value="" 
-          hx-patch="/api/v1/verified/admin/chmod?rid={{ .rid }}"
-          hx-trigger="change delay:1000ms"
-          hx-headers='{"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache"}'
-          hx-swap="none"
-        >
+        <hr>
+        <div>
+          <label for="group">Group</label>
+          <select
+            id="resource-group-select"
+            name="group"
+            hx-patch="/api/v1/verified/admin/chgroup?rid={{ .rid }}"
+            hx-trigger="change delay:1000ms"
+            hx-headers='{"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache"}'
+            hx-swap="none"
+          >
+          {{range .groups}}
+            <option
+              value="{{.Gid}}"
+              {{if eq .Gid $.group}}selected{{end}}
+            >gid:{{.Gid}} - groupname:{{.Groupname}}</option>
+          {{end}}
+          </select>
+        </div>
       </div>
-      </div>
-	  </div>
-
+      {{ end }}
     </div>
   </div>
 </div>
 {{ end }}
 
-{{ define "add-symlink-form.html"}}
-<div id="add-symlink-form" class="add-form">
-  <h3>Add symlink</h3>
-  <hr>
-  <div>
-    <div>
-      <label for="sym-url">URL</label>
-      <input id="sym-url" type="text" name="url">
-    </div>
-    <div>
-
-    </div>
-  </div>
-</div>
-{{ end }}
 
 {{ define "resource-preview.html" }}
 <div class="resource-preview-container">
@@ -335,7 +201,6 @@
 
 
 {{ define "jobs_list_template.html" }}
-
   <ul>
   {{ range . }}
     <li>

@@ -76,14 +76,16 @@ public static String run(String data) {
 }
 function setupJobSubmitter(element) {
     // "JOB" preperation setup
-    element.querySelector("#language-selector").value = "python"; 
+    element.querySelector("#language-selector").value = "custom"; 
     // reset text area 
-    element.querySelector("#j-description").value = "";
+    // const desc = element.querySelector("#j-description");
+    // if (desc) {
+    //   desc.value = "";
+    // }
     // html/css/js mini "code editor"
     // Load CodeMirror
     // console.log(element.querySelector("#code-editor"));
     const editor = CodeMirror.fromTextArea(element.querySelector(".code-editor"), {
-      mode: "python", // Default mode
       lineNumbers: true,
       theme: "monokai",  // Choose a theme
       matchBrackets: true,
@@ -99,9 +101,8 @@ function setupJobSubmitter(element) {
 
 
     setTimeout(() => {
-      editor.setValue(defaultMap["python"] || "");
+      editor.setValue(defaultMap[""] || "");
       editor.refresh(); // <-- this line saves lives
-      element.querySelector("#submit-job-button").checked = true;
     }, 100);
     // console.log(editor);
 
@@ -125,138 +126,133 @@ function setupJobSubmitter(element) {
       const reader = new FileReader();
       editor.setOption("mode", mode);    
 
-      reader.onload = function(e) {
-        editor.setValue(e.target.result);
+      reader.onload = function(event) {
+        editor.setValue(event.target.result);
       };
       reader.readAsText(file);
     });
 
     // specify output functionality
-    element.querySelector("#select-output-destination").addEventListener("input", function(event) {
-      const inputValue = event.target.value;
-      const spanElement = event.target.closest('div').parentElement.nextElementSibling.children[4];
-      spanElement.textContent = inputValue;
-    });
+    // element.querySelector("#select-output-destination").addEventListener("input", function(event) {
+    //   const inputValue = event.target.value;
+    //   const spanElement = event.target.closest('div').parentElement.nextElementSibling.children[4];
+    //   spanElement.textContent = inputValue;
+    // });
 
-    // select input "resources" for the job display handler
-    element.querySelector("#select-j-input-button").addEventListener("click", function(event) {
-      // resource selection modal
-      const existingModal = element.querySelector("#resource-selection-modal");
-      if (existingModal) existingModal.remove();
+    // // select input "resources" for the job display handler
+    // element.querySelector("#select-j-input-button").addEventListener("click", function(event) {
+    //   // resource selection modal
+    //   const existingModal = element.querySelector("#resource-selection-modal");
+    //   if (existingModal) existingModal.remove();
 
-      // Create modal background overlay
-      const modalOverlay = document.createElement("div");
-      modalOverlay.id = "resource-selection-modal";
-      modalOverlay.classList.add("job-select-modal-overlay")
+    //   // Create modal background overlay
+    //   const modalOverlay = document.createElement("div");
+    //   modalOverlay.id = "resource-selection-modal";
+    //   modalOverlay.classList.add("job-select-modal-overlay")
 
-      // Create modal content box
-      const modalContent = document.createElement("div");
-      modalContent.innerHTML = `
-          <h3>Select Resources</h3>
-          <table border="1" id="resource-selection-table" style="width:100%; border-collapse: collapse; text-align: left;">
-              <thead>
-                  <tr>
-                      <th>Select</th>
-                      <th>Name</th>
-                      <th>Type</th>
-                      <th>Size</th>
-                  </tr>
-              </thead>
-              <tbody>
-              </tbody>
-          </table>
-          <br>
-          <button id="submit-resource-selection">Submit</button>
-          <button id="cancel-resource-selection">Cancel</button>
-      `;
+    //   // Create modal content box
+    //   const modalContent = document.createElement("div");
+    //   modalContent.innerHTML = `
+    //       <h3>Select Resources</h3>
+    //       <table border="1" id="resource-selection-table" style="width:100%; border-collapse: collapse; text-align: left;">
+    //           <thead>
+    //               <tr>
+    //                   <th>Select</th>
+    //                   <th>Name</th>
+    //                   <th>Type</th>
+    //                   <th>Size</th>
+    //               </tr>
+    //           </thead>
+    //           <tbody>
+    //           </tbody>
+    //       </table>
+    //       <br>
+    //       <button id="submit-resource-selection">Submit</button>
+    //       <button id="cancel-resource-selection">Cancel</button>
+    //   `;
 
-      modalOverlay.appendChild(modalContent);
-      document.body.appendChild(modalOverlay);
+    //   modalOverlay.appendChild(modalContent);
+    //   document.body.appendChild(modalOverlay);
 
-      // Reference existing resources from a previous table
-      const selectionTableBody = modalContent.querySelector("tbody");
+    //   // Reference existing resources from a previous table
+    //   const selectionTableBody = modalContent.querySelector("tbody");
 
-      const cachedResources = new Promise((resolve, reject) => {
-        fetch('/api/v1/verified/admin/fetch-resources?format=json')
-          .then(response => {
-            if (!response.ok) {
-              throw new Error('Network response was not ok');
-            }
-            return response.json();
-          })
-          .then(data => resolve(data))
-          .catch(error => reject(error));
-      });
+    //   const cachedResources = new Promise((resolve, reject) => {
+    //     fetch('/api/v1/verified/admin/fetch-resources?format=json')
+    //       .then(response => {
+    //         if (!response.ok) {
+    //           throw new Error('Network response was not ok');
+    //         }
+    //         return response.json();
+    //       })
+    //       .then(data => resolve(data))
+    //       .catch(error => reject(error));
+    //   });
 
-      cachedResources.then(resources => {
-        resources.forEach((resource) => {
-          const resourceId = resource.rid;
-          const resourceName = resource.name;
-          const resourceType = resource.type;
-          const resourceSize = resource.size;
+    //   cachedResources.then(resources => {
+    //     resources.forEach((resource) => {
+    //       const resourceId = resource.rid;
+    //       const resourceName = resource.name;
+    //       const resourceType = resource.type;
+    //       const resourceSize = resource.size;
 
-          const newRow = document.createElement("tr");
-          newRow.innerHTML = `
-            <td><input type="checkbox" data-resource-id="${resourceId}" data-resource-name="${resourceName}"></td>
-            <td>${resourceName}</td>
-            <td>${resourceType}</td>
-            <td>${resourceSize}</td>
-          `;
-          selectionTableBody.appendChild(newRow);
-        });
-      }).catch(error => {
-        console.error('Error fetching resources:', error);
-      });
+    //       const newRow = document.createElement("tr");
+    //       newRow.innerHTML = `
+    //         <td><input type="checkbox" data-resource-id="${resourceId}" data-resource-name="${resourceName}"></td>
+    //         <td>${resourceName}</td>
+    //         <td>${resourceType}</td>
+    //         <td>${resourceSize}</td>
+    //       `;
+    //       selectionTableBody.appendChild(newRow);
+    //     });
+    //   }).catch(error => {
+    //     console.error('Error fetching resources:', error);
+    //   });
 
-      /*if (cachedResources) {
-        cachedResources.forEach((resource) => {
-              const resourceId = resource.rid;
-              const resourceName = resource.name;
-              const resourceType = resource.type;
-              const resourceSize = resource.size;
+    //   /*if (cachedResources) {
+    //     cachedResources.forEach((resource) => {
+    //           const resourceId = resource.rid;
+    //           const resourceName = resource.name;
+    //           const resourceType = resource.type;
+    //           const resourceSize = resource.size;
 
-              const newRow = document.createElement("tr");
-              newRow.innerHTML = `
-                  <td><input type="checkbox" data-resource-id="${resourceId}" data-resource-name="${resourceName}"></td>
-                  <td>${resourceName}</td>
-                  <td>${resourceType}</td>
-                  <td>${resourceSize}</td>
-              `;
-              selectionTableBody.appendChild(newRow);
-          });
-      }
-      */
-      // Handle submission
-      document.querySelector("#submit-resource-selection").addEventListener("click", function () {
-        const selectedResources = [];
-        document.querySelectorAll("#resource-selection-table input[type='checkbox']:checked").forEach((checkbox) => {
-            selectedResources.push({
-                id: checkbox.getAttribute("data-resource-id"),
-                name: checkbox.getAttribute("data-resource-name"),
-            });
-        });
+    //           const newRow = document.createElement("tr");
+    //           newRow.innerHTML = `
+    //               <td><input type="checkbox" data-resource-id="${resourceId}" data-resource-name="${resourceName}"></td>
+    //               <td>${resourceName}</td>
+    //               <td>${resourceType}</td>
+    //               <td>${resourceSize}</td>
+    //           `;
+    //           selectionTableBody.appendChild(newRow);
+    //       });
+    //   }
+    //   */
+    //   // Handle submission
+    //   document.querySelector("#submit-resource-selection").addEventListener("click", function () {
+    //     const selectedResources = [];
+    //     document.querySelectorAll("#resource-selection-table input[type='checkbox']:checked").forEach((checkbox) => {
+    //         selectedResources.push({
+    //             id: checkbox.getAttribute("data-resource-id"),
+    //             name: checkbox.getAttribute("data-resource-name"),
+    //         });
+    //     });
 
-        // You can send selectedResources to another function or API
-        //alert(`Selected ${selectedResources.length} resources!`);
-        element.querySelector(".input-box").textContent = selectedResources.map(resource => `${resource.name}`).join('\n');
+    //     // You can send selectedResources to another function or API
+    //     //alert(`Selected ${selectedResources.length} resources!`);
+    //     element.querySelector(".input-box").textContent = selectedResources.map(resource => `${resource.name}`).join('\n');
 
-        // Close the modal
-        modalOverlay.remove();
-      });
+    //     // Close the modal
+    //     modalOverlay.remove();
+    //   });
 
-      // Handle cancel
-      document.querySelector("#cancel-resource-selection").addEventListener("click", function () {
-          modalOverlay.remove();
-      });
+    //   // Handle cancel
+    //   document.querySelector("#cancel-resource-selection").addEventListener("click", function () {
+    //       modalOverlay.remove();
+    //   });
 
 
 
-    });
-
-    setTimeout(() => {
-        editor.setValue(defaultMap["python"] || "");  // Prevent undefined values
-        element.querySelector("#submit-job-button").checked = true;
-    }, 100);
+    // });
 
     // Job submission, lets do it as a promise, more flexible for this rather than htmx
     const submitJobBtn = element.querySelector("#submit-job-button");
@@ -304,7 +300,7 @@ function setupJobSubmitter(element) {
         
             // send the request and await response 
             const response = new Promise((resolve, reject) => {
-              fetch('/api/v1/verified/jobs', {
+              fetch('/api/v1/verified/fetch-jobs', {
                 method: 'POST',
                 headers: {
               'Content-Type': 'application/json',
@@ -350,26 +346,26 @@ function setupJobSubmitter(element) {
     });
 
     // job i/o bar minimizer 
-    element.querySelector("#job-io-minimizer").addEventListener("click", (event) => {
-      const ioSetupDiv = document.getElementById("job-io-setup");
-      // ioSetupDiv.classList.toggle("minimized");
+    // element.querySelector("#job-io-minimizer").addEventListener("click", (event) => {
+    //   const ioSetupDiv = document.getElementById("job-io-setup");
+    //   // ioSetupDiv.classList.toggle("minimized");
 
-      ioSetupDiv.querySelectorAll(".minimizable").forEach((div) => {
-        div.classList.toggle("hidden");
-        div.classList.toggle("minimized");
-      })
-    });
+    //   ioSetupDiv.querySelectorAll(".minimizable").forEach((div) => {
+    //     div.classList.toggle("hidden");
+    //     div.classList.toggle("minimized");
+    //   })
+    // });
 
-    // job feedback bar minimizer 
-    element.querySelector("#job-feedback-minimizer").addEventListener("click", (event) => {
-      const feedbackDiv = document.getElementById("job-feedback");
-      feedbackDiv.classList.toggle("minimized");
+    // // job feedback bar minimizer 
+    // element.querySelector("#job-feedback-minimizer").addEventListener("click", (event) => {
+    //   const feedbackDiv = document.getElementById("job-feedback");
+    //   feedbackDiv.classList.toggle("minimized");
 
-      feedbackDiv.querySelectorAll(".minimizable").forEach((div) => {
-        div.classList.toggle("hidden");
-        div.classList.toggle("minimized");
-      })
-    });
+    //   feedbackDiv.querySelectorAll(".minimizable").forEach((div) => {
+    //     div.classList.toggle("hidden");
+    //     div.classList.toggle("minimized");
+    //   })
+    // });
 
     return editor;
 
