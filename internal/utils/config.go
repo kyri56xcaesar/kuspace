@@ -30,6 +30,7 @@ import (
 
 type EnvConfig struct {
 	ConfigPath string // path of the .conf file
+	PROFILE    string // baremeta or container
 
 	// ###################################
 	// API CONFS
@@ -89,26 +90,33 @@ type EnvConfig struct {
 
 	// 2. can use minio
 	// minio conf
-	MINIO_ACCESS_KEY      string // "root" or admin username for authentication
-	MINIO_SECRET_KEY      string // "root" or admin password for authentication
-	MINIO_ENDPOINT        string // minio API endpoint
-	MINIO_USE_SSL         string // boolean (if https or not)
-	MINIO_DEFAULT_BUCKET  string // default bucket name
-	MINIO_OBJECT_LOCKING  bool   // boolean (object locking)
-	OBJECT_SHARED         bool   // boolean (object sharing)
-	OBJECT_SHARE_EXPIRE   string // expriation date
-	ONLY_PRESIGNED_UPLOAD bool   // upload only via presigned urls
-	OBJECT_SIZE_THRESHOLD string // object size
-	MINIO_FETCH_STAT      bool
+	MINIO_NODEPORT_ENDPOINT string // minio API endpoint if running inside kube and exposed via nodeport
+	MINIO_ENDPOINT          string // minio API endpoint
+	MINIO_ACCESS_KEY        string // "root" or admin username for authentication
+	MINIO_SECRET_KEY        string // "root" or admin password for authentication
+	MINIO_USE_SSL           string // boolean (if https or not)
+	MINIO_DEFAULT_BUCKET    string // default bucket name
+	MINIO_OBJECT_LOCKING    bool   // boolean (object locking)
+	OBJECT_SHARED           bool   // boolean (object sharing)
+	OBJECT_SHARE_EXPIRE     string // expriation date
+	ONLY_PRESIGNED_UPLOAD   bool   // upload only via presigned urls
+	OBJECT_SIZE_THRESHOLD   string // object size
+	MINIO_FETCH_STAT        bool
 
 	// Main api (uspace) is using a manager/dispatcher/scheduler mechanism
 	// configuration here.
-	J_DISPATCHER   string
-	J_QUEUE_SIZE   string
-	J_MAX_WORKERS  string
-	J_EXECUTOR     string
-	J_WS_ADDRESS   string
-	J_WS_LOGS_PATH string
+	J_DISPATCHER      string
+	J_QUEUE_SIZE      string
+	J_MAX_WORKERS     string
+	J_EXECUTOR        string
+	J_WS_ADDRESS      string
+	J_WS_LOGS_PATH    string
+	J_MAX_CPU         int64
+	J_MAX_MEM         int64
+	J_MAX_STORAGE     int64
+	J_MAX_PARALLELISM int
+	J_MAX_TIMEOUT     int64
+	J_MAX_LOGIC_CHARS int64
 	// database storage of the jobs
 	DB_JOBS                string
 	DB_JOBS_DRIVER         string
@@ -139,6 +147,7 @@ func LoadConfig(path string) EnvConfig {
 
 	config := EnvConfig{
 		ConfigPath: split[len(split)-1],
+		PROFILE:    getEnv("PROFILE", "baremetal"),
 
 		API_PORT:           getEnv("API_PORT", "8079"),
 		API_ADDRESS:        getEnv("API_ADDRESS", "localhost"),
@@ -163,24 +172,31 @@ func LoadConfig(path string) EnvConfig {
 		LOCAL_VOLUMES_DEFAULT_CAPACITY: getFloatEnv("LOCAL_VOLUMES_DEFAULT_CAPACITY", 20),
 		LOCAL_VOLUMES_DEFAULT_PATH:     getEnv("LOCAL_VOLUMES_DEFAULT_PATH", "data/volumes/fslite"),
 
-		MINIO_ACCESS_KEY:      getEnv("MINIO_ACCESS_KEY", "minioadmin"),
-		MINIO_SECRET_KEY:      getEnv("MINIO_SECRET_KEY", "minioadmin"),
-		MINIO_ENDPOINT:        getEnv("MINIO_ENDPOINT", "minio:9000"),
-		MINIO_USE_SSL:         getEnv("MINIO_USE_SSL", "false"),
-		MINIO_DEFAULT_BUCKET:  getEnv("MINIO_DEFAULT_BUCKET", "default"),
-		MINIO_OBJECT_LOCKING:  getBoolEnv("MINIO_OBJECT_LOCKING", "false"),
-		OBJECT_SHARED:         getBoolEnv("OBJECT_SHARED", "false"),
-		OBJECT_SHARE_EXPIRE:   getEnv("OBJECT_SHARE_EXPIRE", "1440"),
-		ONLY_PRESIGNED_UPLOAD: getBoolEnv("ONLY_PRESIGNED_UPLOAD", "false"),
-		OBJECT_SIZE_THRESHOLD: getEnv("OBJECT_SIZE_THRESHOLD", "400000000"),
-		MINIO_FETCH_STAT:      getBoolEnv("MINIO_FETCH_STAT", "false"),
+		MINIO_ENDPOINT:          getEnv("MINIO_ENDPOINT", "minio:9000"),
+		MINIO_NODEPORT_ENDPOINT: getEnv("MINIO_NODEPORT_ENDPOINT", "localhost:30101"),
+		MINIO_ACCESS_KEY:        getEnv("MINIO_ACCESS_KEY", "minioadmin"),
+		MINIO_SECRET_KEY:        getEnv("MINIO_SECRET_KEY", "minioadmin"),
+		MINIO_USE_SSL:           getEnv("MINIO_USE_SSL", "false"),
+		MINIO_DEFAULT_BUCKET:    getEnv("MINIO_DEFAULT_BUCKET", "default"),
+		MINIO_OBJECT_LOCKING:    getBoolEnv("MINIO_OBJECT_LOCKING", "false"),
+		OBJECT_SHARED:           getBoolEnv("OBJECT_SHARED", "false"),
+		OBJECT_SHARE_EXPIRE:     getEnv("OBJECT_SHARE_EXPIRE", "1440"),
+		ONLY_PRESIGNED_UPLOAD:   getBoolEnv("ONLY_PRESIGNED_UPLOAD", "false"),
+		OBJECT_SIZE_THRESHOLD:   getEnv("OBJECT_SIZE_THRESHOLD", "400000000"),
+		MINIO_FETCH_STAT:        getBoolEnv("MINIO_FETCH_STAT", "false"),
 
-		J_DISPATCHER:   getEnv("J_DISPATCHER", "default"),
-		J_EXECUTOR:     getEnv("J_EXECUTOR", "docker"),
-		J_QUEUE_SIZE:   getEnv("J_QUEUE_SIZE", "100"),
-		J_MAX_WORKERS:  getEnv("J_MAX_WORKERS", "10"),
-		J_WS_ADDRESS:   getEnv("J_WS_ADDRESS", "localhost:8082"),
-		J_WS_LOGS_PATH: getEnv("J_WS_LOGS_PATH", "data/logs/jobs/job_ws.log"),
+		J_DISPATCHER:      getEnv("J_DISPATCHER", "default"),
+		J_EXECUTOR:        getEnv("J_EXECUTOR", "docker"),
+		J_QUEUE_SIZE:      getEnv("J_QUEUE_SIZE", "100"),
+		J_MAX_WORKERS:     getEnv("J_MAX_WORKERS", "10"),
+		J_WS_ADDRESS:      getEnv("J_WS_ADDRESS", "localhost:8082"),
+		J_WS_LOGS_PATH:    getEnv("J_WS_LOGS_PATH", "data/logs/jobs/job_ws.log"),
+		J_MAX_CPU:         getInt64Env("J_MAX_CPU", 16),
+		J_MAX_MEM:         getInt64Env("J_MAX_MEM", 65000),
+		J_MAX_STORAGE:     getInt64Env("J_MAX_STORAGE", 20),
+		J_MAX_PARALLELISM: int(getInt64Env("J_MAX_PARALLELISM", 16)),
+		J_MAX_TIMEOUT:     getInt64Env("J_MAX_TIMEOUT", 6000),
+		J_MAX_LOGIC_CHARS: getInt64Env("J_MAX_LOGIC_CHARS", 1000000),
 
 		DB_JOBS:                getEnv("DB_JOBS", "jobs.db"),
 		DB_JOBS_DRIVER:         getEnv("DB_JOBS_DRIVER", "duckdb"),

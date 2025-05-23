@@ -1,24 +1,50 @@
+vfsRoot = {};
+currentPath = [];
 // Build the VFS tree from paths
+// function buildTree(resources) {
+//   // console.log(paths);
+//   const root = {};
+//   resources.forEach(resource => {
+//     console.log('resource: ', resource);
+//     const parts = resource.name.split("/").filter(Boolean);
+//     // console.log(parts);
+//     let node = root;
+//     parts.forEach((part, index) => {
+//       if (!node[part]) {
+//         node[part] = {
+//           __isFile: (index === parts.length - 1) && (parts[parts.length - 1] != "."),
+//           __children: {}
+//         };
+//       }
+//       node = node[part].__children;
+//     });
+//   });
+//   return root;
+// }
+
 function buildTree(resources) {
-  // console.log(paths);
   const root = {};
+
   resources.forEach(resource => {
-    const parts = resource.name.split("/").filter(Boolean);
-    // console.log(parts);
+    const volumeRoot = resource.vname || "default";
+    const parts = [volumeRoot, ...resource.name.split("/").filter(Boolean)];
+
     let node = root;
     parts.forEach((part, index) => {
       if (!node[part]) {
         node[part] = {
-          __isFile: (index === parts.length - 1) && (parts[parts.length - 1] != "."),
+          __isFile: (index === parts.length - 1),
           __children: {}
         };
       }
       node = node[part].__children;
     });
   });
+
   return root;
 }
-  
+
+
 function getNodeAtPath(pathParts) {
   let node = vfsRoot;
   for (const part of pathParts) {
@@ -59,7 +85,6 @@ function renderVFS(pathParts, container) {
     div.style.paddingLeft = "10px";
     div.onclick = () => {
       if (isFile) {
-        console.log("File selected:", [...currentPath, key].join("/"));
         displaySelectedResource([...currentPath, key].join("/"));
       } else {
         if (key != ".") {
@@ -77,11 +102,11 @@ function displaySelectedResource(resourcePath) {
   targetDiv.classList.remove("hidden");
   // find resource data by name (the)
 
-  let resourceTarget;
+  let resource;
 
-  for (resource of resources) {
+  for (resource of cachedResources) {
     if ("/"+resourcePath=== resource.name) {
-      resourceTarget = resource;
+      resource = resource;
       break;
     }
   }
@@ -97,27 +122,38 @@ function displaySelectedResource(resourcePath) {
           <div class="resource-options-inner dropdown">
             <button 
               class="r-btn-download" 
-              onclick="downloadResource('${resourceTarget.name}')"
+              onclick="downloadResource('/api/v1/verified/download?target=${resource.name}&volume=${resource.vname}')"
             >
               Download
             </button>
+
+            <button
+              id="preview-resource-btn"
+              hx-target="#resource-preview-content-2"
+              hx-trigger="click"
+              hx-swap="innerHTML"
+              hx-get="/api/v1/verified/preview?rid=${resource.id}&resourcename=${resource.name}&volume=${resource.vname}"
+              hx-headers='{"Range": "bytes=${getPreviewWindow(0)}"}'
+            >Preview</button>
               
             <button 
               class="r-btn-edit"
-              hx-get="/api/v1/verified/edit-form?resourcename=${resourceTarget.name}&owner=${resourceTarget.uid}&group=${resourceTarget.gid}&perms=${resourceTarget.perms}&rid=${resourceTarget.rid}&volume=${resourceTarget.vname}"
+              hx-get="/api/v1/verified/edit-form?resourcename=${resource.name}&owner=${resource.owner || 0}&group=${resource.group || 0}&perms=${resource.perms}&rid=${resource.rid}&volume=${resource.vname}"
               hx-swap="innerHTML"
               hx-trigger="click"
-              hx-target="#edit-modal"
-              hx-on::after-request="show(document.getElementById('edit-modal'))"
+              hx-target="#edit-modal-2"
+              hx-on::after-request="show(this.parentNode.querySelector('#edit-modal-2'))"
               >
               Edit
             </button>
+            <div id="edit-modal-2" class="modal hidden darkened"></div>
+
             <button 
               class="r-btn-delete"
-              hx-delete="/api/v1/verified/rm?rids=${resourceTarget.rid}"
+              hx-delete="/api/v1/verified/rm?name=${resource.name}&volume=${resource.vname}"
               hx-trigger="click"
               hx-swap="none"
-              hx-confirm="Are you sure you want to delete resource ${resourceTarget.name}?"
+              hx-confirm="Are you sure you want to delete resource ${resource.name}?"
 
               hx-on::before-request="show(document.querySelector('.r-loader'))"
             >
@@ -126,7 +162,7 @@ function displaySelectedResource(resourcePath) {
 
             <button
               id="close-r-selected-display"
-              onclick="console.log(this);document.querySelector('#selected-resource-display').classList.add('hidden');"
+              onclick="document.querySelector('#selected-resource-display').classList.add('hidden');"
             >
             Close
             </button>
@@ -138,37 +174,31 @@ function displaySelectedResource(resourcePath) {
     <hr>
     <div class="resource-details-main">
       <div class="resource-details-inner">
-        <p><strong>Rid:</strong> ${resourceTarget.rid}</p>
-        <p><strong>Name:</strong> ${resourceTarget.name}</p>
-        <p><strong>Type:</strong> ${resourceTarget.type}</p>
-        <p><strong>Size:</strong> ${resourceTarget.size}</p>
-        <p><strong>Permissions:</strong> ${resourceTarget.perms}</p>
-        <p><strong>Created At:</strong> ${resourceTarget.created_at}</p>
-        <p><strong>Updated At:</strong> ${resourceTarget.updated_at}</p>
-        <p><strong>Accessed At:</strong> ${resourceTarget.accessed_at}</p>
-        <p><strong>Owner:</strong> ${resourceTarget.uid}</p>
-        <p><strong>Group:</strong> ${resourceTarget.gid}</p>
-        <p><strong>Volume:</strong> ${resourceTarget.vid}</p>
+        <p><strong>Rid:</strong> ${resource.rid}</p>
+        <p><strong>Name:</strong> ${resource.name}</p>
+        <p><strong>Volume:</strong> ${resource.vname}</p>
+        <p><strong>Type:</strong> ${resource.type}</p>
+        <p><strong>Size:</strong> ${resource.size}</p>
+        <p><strong>Permissions:</strong> ${resource.perms}</p>
+        <p><strong>Created At:</strong> ${resource.created_at}</p>
+        <p><strong>Updated At:</strong> ${resource.updated_at}</p>
+        <p><strong>Accessed At:</strong> ${resource.accessed_at}</p>
+        <p><strong>Owner:</strong> ${resource.uid || 0}</p>
+        <p><strong>Group:</strong> ${resource.gid || 0}</p>
+        <p><strong>Vid:</strong> ${resource.vid || 0}</p>
       </div>
       <div id="resource-preview" class="resource-preview-window">
-        <button
-          id="preview-resource-btn"
-          hx-target="#resource-preview-content"
-          hx-trigger="click"
-          hx-swap="innerHTML"
-          hx-get="/api/v1/verified/preview?rid=${resourceTarget.rid}&resourcename=${resourceTarget.name}"
-          hx-headers='{"Range": "bytes=${getPreviewWindow(0)}"}'
-        >Preview</button>
+        
         <div class="resource-preview-main blurred">
-          <div id="resource-preview-content"></div>
+          <div id="resource-preview-content-2" class="resource-preview-content"></div>
           <div id="resource-preview-controls">
             <div 
               id="next-arrow-left" 
               class="next-arrow"
-              hx-target="#resource-preview-content"
+              hx-target="#resource-preview-content-2"
               hx-trigger="click"
               hx-swap="innerHTML"
-              hx-get="/api/v1/verified/preview?rid=${resourceTarget.rid}&resourcename=${resourceTarget.name}"
+              hx-get="/api/v1/verified/preview?rid=${resource.id}&resourcename=${resource.name}&volume=${resource.vname}"
               hx-headers='js:{"Range": "bytes=" + getPreviewWindow(-1)}'  
             >
               <svg width="24" height="8" viewBox="0 0 16 8" fill="none" xmlns="http://www.w3.org/2000/svg" class="arrow-icon">
@@ -185,10 +215,10 @@ function displaySelectedResource(resourcePath) {
             <div 
               id="next-arrow-right" 
               class="next-arrow"
-              hx-target="#resource-preview-content"
+              hx-target="#resource-preview-content-2"
               hx-trigger="click"
               hx-swap="innerHTML"
-              hx-get="/api/v1/verified/preview?rid=${resourceTarget.rid}&resourcename=${resourceTarget.name}"
+              hx-get="/api/v1/verified/preview?rid=${resource.id}&resourcename=${resource.name}&volume=${resource.vname}"
               hx-headers='js:{"Range": "bytes=" + getPreviewWindow(+1)}'            >
               <svg width="24" height="8" viewBox="0 0 16 8" fill="none" xmlns="http://www.w3.org/2000/svg" class="arrow-icon">
                 <path d="M15 4H4V1" stroke="white"/>
@@ -200,7 +230,6 @@ function displaySelectedResource(resourcePath) {
         </div>
       </div>
 
-      <div id="edit-modal" class="modal hidden darkened"></div>
     </div>
     <hr>
     <div class="resource-details-footer">

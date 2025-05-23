@@ -190,7 +190,6 @@ func (mc *MinioClient) statObject(bucketname, objectname string) (minio.ObjectIn
 		return objInfo, err
 	}
 
-	log.Println("object statted: ", objInfo)
 	return objInfo, nil
 }
 

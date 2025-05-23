@@ -268,7 +268,11 @@ func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 		}
 
 		// should check if already exists (in database).
-		if _, err = getResourceByName(db, resource.Name); err == nil { // if err is nil, it exists
+		// if _, err = getResourceByName(db, resource.Name); err == nil { // if err is nil, it exists
+		// 	return nil, ut.NewInfo("%s object already exists", resource.Name)
+		// }
+
+		if _, err = getResourceByNameAndVolume(db, resource.Name, resource.Vname); err == nil { // if err is nil, it exists
 			return nil, ut.NewInfo("%s object already exists", resource.Name)
 		}
 
@@ -386,7 +390,7 @@ func (fsl *FsLite) Remove(t any) error {
 		return err
 	}
 
-	err = deleteResourceByName(db, resource.Name)
+	err = deleteResourceByNameAndVolume(db, resource.Name, resource.Vname)
 	if err != nil {
 		return err
 	}
@@ -477,7 +481,7 @@ func (fsl *FsLite) Download(t *any) (context.CancelFunc, error) {
 		return nil, err
 	}
 
-	_, err = getResourceByName(db, resourcePtr.Name)
+	_, err = getResourceByNameAndVolume(db, resourcePtr.Name, resourcePtr.Vname)
 	if err != nil {
 		return nil, err
 	}

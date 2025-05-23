@@ -42,6 +42,8 @@ package utils
 import (
 	"bufio"
 	"bytes"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -258,17 +260,6 @@ func NewInfo(msg string, args ...any) error {
 	return fmt.Errorf("[INFO] %s", fmt.Sprintf(msg, args...))
 }
 
-func HasInvalidCharacters(s, chars string) bool {
-	// Escape regex meta-characters to avoid pattern errors
-	var escapedChars []string
-	for _, c := range chars {
-		escapedChars = append(escapedChars, regexp.QuoteMeta(string(c)))
-	}
-	pattern := "[" + strings.Join(escapedChars, "") + "]"
-	re := regexp.MustCompile(pattern)
-	return re.MatchString(s)
-}
-
 func ReadFileAt(filePath string, start, end int64) ([]byte, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -309,9 +300,25 @@ func CurrentTime() string {
 	return time.Now().UTC().Format(time_format)
 }
 
+func HasInvalidCharacters(s, chars string) bool {
+	// Escape regex meta-characters to avoid pattern errors
+	var escapedChars []string
+	for _, c := range chars {
+		escapedChars = append(escapedChars, regexp.QuoteMeta(string(c)))
+	}
+	pattern := "[" + strings.Join(escapedChars, "") + "]"
+	re := regexp.MustCompile(pattern)
+	return re.MatchString(s)
+}
+
 // Security related utils
 func IsNumeric(s string) bool {
 	re := regexp.MustCompile(`^[0-9]+$`)
+	return re.MatchString(s)
+}
+
+func IsValidPath(s string) bool {
+	re := regexp.MustCompile(`^[a-zA-Z0-9._\-/]+$`)
 	return re.MatchString(s)
 }
 
@@ -327,7 +334,7 @@ func IsAlphanumericPlus(s string) bool {
 
 func IsValidUTF8String(s string) bool {
 	// Updated regex to include space (\s) and new line (\n) characters
-	re := regexp.MustCompile(`^[\p{L}\p{N}\s\n!@#\$%\^&\*\(\):\?><\.\-]+$`)
+	re := regexp.MustCompile(`^[\p{L}\p{N}\s\n!@#\$%\^&\*\(\):\?><\.\- ]+$`)
 
 	return re.MatchString(s)
 }
@@ -434,4 +441,46 @@ func ValidateObjectName(name string) error {
 	// }
 
 	return nil
+}
+
+func appendIfMissing(s, suffix string) string {
+	if !strings.HasSuffix(s, suffix) {
+		return s + suffix
+	}
+	return s
+}
+
+func parseMi(s string) (int, error) {
+	if s == "" {
+		return 0, nil
+	}
+	s = strings.TrimSuffix(s, "Mi")
+	return strconv.Atoi(s)
+}
+
+func parseGi(s string) (float64, error) {
+	if s == "" {
+		return 0, nil
+	}
+	s = strings.TrimSuffix(s, "Gi")
+	return strconv.ParseFloat(s, 64)
+}
+
+func parseCPU(s string) (float64, error) {
+	if s == "" {
+		return 0, nil
+	}
+	return strconv.ParseFloat(s, 64)
+}
+
+func generateRandomString(length int) (string, error) {
+	byteLength := (length * 6 / 8) + 1 // because base64 encodes 6 bits per character
+	bytes := make([]byte, byteLength)
+
+	_, err := rand.Read(bytes)
+	if err != nil {
+		return "", err
+	}
+
+	return base64.RawURLEncoding.EncodeToString(bytes)[:length], nil
 }

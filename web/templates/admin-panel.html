@@ -7,7 +7,6 @@
   <link rel="icon" href="../assets/logos/cropped.png">
   <link href="../css/styles.css" rel="stylesheet">
   <link href="../css/admin-panel.css" rel="stylesheet">
-  <link href="../css/dashboard.css" rel="stylesheet">
   <!-- general use js -->
   <script src="../js/index.js"></script>
   <script src="../js/gshell.js"></script>
@@ -20,13 +19,22 @@
   <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"> -->
   <link rel="stylesheet" href="../assets/fontawesome/css/all.min.css">
   <!-- htmx-->
-  <script src="../js/htmx.min.js"></script>
- 
+  <script src="../js/htmx/htmx.min.js"></script>
+  
   <!-- Code Mirror -->
-  <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css"> -->
-  <link rel="stylesheet" href="../css/codemirror.min.css">
-  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script> -->
-  <script src="../js/codemirror.min.js"></script>
+  <link rel="stylesheet" href="../css/codemirror/codemirror.min.css">
+  <link rel="stylesheet" href="../css/codemirror/monokai.css">
+  <script src="../js/codemirror/codemirror.min.js"></script>
+  <script src="../js/codemirror/mode/python/python.js"></script>
+  <script src="../js/codemirror/mode/sql/sql.js"></script>
+  <script src="../js/codemirror/addon/edit/matchbrackets.js"></script>
+  <script src="../js/codemirror/addon/edit/matchtags.js"></script>
+  <script src="../js/codemirror/addon/edit/trailingspace.js"></script>
+
+
+  <!-- vfs render -->
+  <script src="../js/vfs.js"></script>
+
 
 </head>
 <body class="darkened">
@@ -74,10 +82,9 @@
             </ul>
           </div>
         </li>
-
         <hr>
-
         <!-- Administration Section -->
+        {{ if .elevated }}
         <li class="menu-section">
           <div class="section-title">Admin Hub</div>
           <hr>
@@ -133,29 +140,36 @@
             </ul>
           </div>
         </li>
+        {{ end }}
+        <hr>
+        <!-- tools -->
+        <li class="menu-section">
+          <div class="section-title">Tools
+            <hr>
+            <div class="submenu-wrapper">
+              <ul class="submenu">
+                <li>
+                  <a 
+                    id="fetch-shell"
+                    href="#"
+                    hx-get="/api/v1/verified/gshell"
+                    hx-target="#gshell-spawner"
+                    hx-swap="innerHTML"
+                    hx-trigger="click"
+                  > <i class="fa-solid fa-terminal"></i></a>
+                </li>
+              </ul>
+            </div>
+          </div>  
+        </li>
       </ul>
-      <hr>
-      <div class="menu-footer submenu">
-        <ul class="collapsing">
-          <li>
-            <a 
-              id="fetch-shell"
-              href="#"
-              hx-get="/api/v1/verified/gshell"
-              hx-target="#gshell-spawner"
-              hx-swap="innerHTML"
-              hx-trigger="click"
-            > <i class="fa-solid fa-terminal"></i></a>
-          </li>
-        </ul>
-      </div>
     </div>
 
     <div class="logout-wrapper">
       <button  
         class="logout-button"
         id="logout-a"
-        hx-delete="/api/v1/logout?access_token&refresh_token" 
+        hx-delete="/api/v1/logout?access_token" 
         hx-swap="none" 
         hx-trigger="click" 
         >
@@ -188,6 +202,7 @@
     </header>
     <main id="main-content">
       <!-- users -->
+      {{ if .elevated }}
       <section id="users" class="content-section hidden">
         <h2>Manage Users </h2>
         <p class="fading">Perform CRUD operations on users.</p>
@@ -212,7 +227,7 @@
                 </svg>
               </button>
             </div>
-            <span id="useradd-error-feedback"></span>
+            <span class="feedback"></span>
           </div>
           <form 
             class="darkened"
@@ -273,7 +288,7 @@
                   </svg>  
                 </button>
               </div>
-              <span id="useradd-error-feedback"></span>
+              <span class="feedback"></span>
             </div>
           </div>
           <div id="hasher-content">
@@ -377,7 +392,7 @@
                 </svg>  
               </button>
             </div>
-            <span id="useradd-error-feedback"></span>
+            <span id="groupadd-error-feedback" class="feedback"></span>
           </div>
 
           <form 
@@ -400,44 +415,38 @@
           </form>
         </div>
       </section>
-      <section id="jobs-manage" class="content-section">
+      <section id="jobs-manage" class="content-section hidden">
         <h2>Manage Jobs</h2>
         <p class="fading">Monitor, view, and manage jobs.</p>
         <hr>
         <div style="padding: 1rem;">
           <div id="existing-jobs-container">
             <div>
-              <div>  
-                <label>
-                  Search by 
-                  <select 
-                    class="custom-select-minimal" 
-                    id="job-search-by-select"
-                    id="fetch-jobs-div"
-                    hx-trigger="change"
-                    hx-target="#fetch-jobs-div"
-                    hx-swap="innerHTML"
-                    hx-get="/api/v1/verified/fetch-jobs"
-                    hx-vals='js:{sort: document.getElementById("job-search-by-select").value}' 
-                  > 
-                    <option value="jid" selected>job id</option>
-                    <option value="uid">user id</option>
-                    <option value="status">status</option>
-                    <option value="created_at">created at</option>
-                    <option value="completed_at">completed at</option>
-                    <option value="output">output</option>
-                  </select>
-                </label>
-                <input type="text" name="job_search" id="job-search">
-              </div>
+              <div class="search-bar">
+                <input id="job-search" type="text" placeholder="Search by 'jid'">
+                <button type="submit">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+                    <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z">
+                  </svg>
+                </button>
+                <select id="search-by"> 
+                  <option value="jid" selected>job id</option>
+                  <option value="uid">user id</option>
+                  <option value="status">status</option>
+                  <option value="created_at">created at</option>
+                  <option value="completed_at">completed at</option>
+                  <option value="output">output</option>
+                  <option value="input">input</option>
+                </select>
+              </div>                        
               <button
                 id="fetch-jobs-button"
                 hx-trigger="click"
                 hx-target="#fetch-jobs-div"
                 hx-swap="innerHTML"
                 hx-get="/api/v1/verified/fetch-jobs"
-                hx-vals='js:{sort: document.getElementById("job-search-by-select").value}' 
-              >Reload history</button>
+                hx-vals='js:{sort: document.getElementById("existing-jobs-container").querySelector("#search-by").value}' 
+              ><i class="fas fa-redo"></i></button>
             </div>
             <div 
               id="fetch-jobs-div"
@@ -447,90 +456,7 @@
               hx-get="/api/v1/verified/fetch-jobs"
             ></div>
           </div>
-          <hr>
-
-          <div id="new-job-container">
-            <div 
-              id="j-editor-container"
-              class="job-section-wrapper"
-            >
-              <div id="j-editor-header-0">
-                <i class="fa-solid fa-code" style="color: green;"></i>
-                <span></span>
-              </div>
-              <div id="j-editor-header">
-                <div class="custom-select-wrapper">
-                  <select id="language-selector" class="custom-select">
-                    <option selected value="python">Python</option>
-                    <option value="javascript">JavaScript</option>
-                    <option value="go">Go</option>
-                    <option value="java">Java</option>
-                    <option value="c">C</option>
-                  </select>
-                </div>
-                <div>
-                  <label for="code-file-upload" class="custom-file-label"><i class="fa-solid fa-arrow-up"></i></label>
-                  <input type="file" id="code-file-upload" style="display: none;"/>
-                </div>
-              </div>
-              <div id="j-editor-body">
-                <textarea class="code-editor"></textarea>
-              </div>
-            </div>
-            <div id="job-io-setup">
-              <div class="minimizable fade-out">
-                <button id="select-j-input-button">Input<i class="fa-solid fa-file-import"></i></button>
-                <div>
-                  <input type="text" value="output.out" id="select-output-destination" autocomplete="off">
-                </div>
-                <div>
-                  <textarea id="j-description" placeholder="Description" maxlength="100">
-                  </textarea>
-                </div>
-                <div id="resource-select-modal-container"></div>
-              </div>
-              <!-- display -->
-              <div class="minimizable fade-out">
-                <span class="input-box">input.in</span>
-                <span>λ</i></span>
-                <span class="script-box"> <i class="fa-solid fa-code" style="color: orange;"></i> </span>
-                <span class="arrow-box">➡</span>
-                <span class="output-box">output.out</span>
-              </div>
-
-              <div class="mininizable fade-out" id="submit-job-wrapper">
-                <div class="submit-cancel">
-                  <!-- From Uiverse.io by Ashon-G --> 
-                  <div aria-live="assertive" role="alert" class="j-loader hidden"></div>
-
-                  <input type="checkbox" value="None" name="check" 
-                    id="submit-job-button" checked
-                  >
-                  <label for="submit-job-button" tabindex=1></label>
-                </div>
-              </div>
-
-              <div class="minimizer" id="job-io-minimizer">
-                <svg class="arrow-icon" width="20" height="20" viewBox="0 0 20 20">
-                  <polygon points="2,5 18,5 10,16" fill="black"/>
-                </svg>
-              </div>
-            </div>
-            <div id="job-feedback" class="hidden minimizable">
-              <div class="minimizer" id="job-feedback-minimizer">
-                <svg class="arrow-icon" width="20" height="20" viewBox="0 0 20 20">
-                  <polygon points="2,5 18,5 10,16" fill="black"/>
-                </svg>
-              </div>
-              <div id="feedback-messages">
-                <div id="j-feedback-copy" class="minimizable">
-                  <button id="j-feedback-copy-btn" onclick="copyToClipboard('#feedback-messages', 'j-feedback-copy-btn')" type="button" class="copy-btn">📋</button>
-                <div>
-              </div>
-            </div>
-          </div>
         </div>
-
       </section>
       <!-- resources -->    
       <section id="resources" class="content-section hidden">      
@@ -546,7 +472,7 @@
               </svg>
             </button>
           </div>
-          <span id="useradd-error-feedback"></span>
+          <span class="feedback"></span>
         </div>              
         <hr>
         <div>
@@ -561,12 +487,21 @@
           <div id="resources-display-container" style="padding: 1rem;">
             <div id="resources-header">
               <div class="search-bar">
-                <input id="resource-search" type="text" placeholder="Search resource  'by name'">
+                <input id="resource-search" type="text" placeholder="Search by 'name'">
                 <button type="submit">
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
                     <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z">
                   </svg>
                 </button>
+                <select id="search-by">
+                  <option value="name" selected>Name</option>
+                  <option value="volume">Volume</option>
+                  <option value="owner">Owner</option>
+                  <option value="group">Group</option>
+                  <option value="createdat">CreatedAt</option>
+                  <option value="updateddat">UpdatedAt</option>
+                  <option value="accessedat">AccessedAt</option>
+              </select>
               </div>
               <div>
                 <form id="fetch-resources-form"
@@ -607,12 +542,16 @@
         <div class="v-content">
           <div class="v-header">
             <div class="search-bar">
-              <input id="volume-search" type="text" placeholder="Search Volumes 'by name'">
+              <input id="volume-search" type="text" placeholder="Search by 'name'">
               <button type="submit">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
                   <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z">
                 </svg>
               </button>
+              <select id="search-by">
+                <option value="name" selected>Name</option>
+                <option value="createdat">CreatedAt</option>
+              </select>
             </div>
             <div>
               <button
@@ -620,6 +559,7 @@
                 hx-get="/api/v1/verified/fetch-volumes"
                 hx-target="#volumes-target"
                 hx-swap="innerHTML"
+                hx-trigger="click"
               ><i class="fas fa-redo"></i>
               </button>
               <button
@@ -673,6 +613,7 @@
         </div>
         
       </section>
+
       <section id="settings" class="content-section hidden">
         <h2>Settings</h2>
         <p class="fading">Manage settings.</p>
@@ -681,9 +622,9 @@
           <p>Settings will be here.</p>
         </div>
       </section>
+      {{ end }}
 
-
-      <section id="dashboard" class="content-section hidden">
+      <section id="dashboard" class="content-section">
 
       </section>
 
@@ -692,23 +633,23 @@
           <h2>Job Browser</h2>
           <div class="row-flex-sb">
             <p class="fading">
-              - A Display of the <q><i>applications</i></q> available<br>
+              - A display of the <q><i>applications</i></q> available<br>
               - A new Job (App/Custom) panel<br>
-              - A Job results display
+              - A Job results  display
             </p>
             
             <div id="job-browser-options">
-              <a href="#" onclick="showSubSection('application-display')">Apps</a>
-              <a href="#" onclick="showSubSection('job-feedback-view')">Jobs</a>
-              <a href="#" onclick="showSubSection('new-job');">New</a>
+              <a href="#" onclick="showSubSection('job-browser', 'application-display')">Apps</a>
+              <a href="#" onclick="showSubSection('job-browser', 'job-feedback-view')">Jobs</a>
+              <a href="#" onclick="showSubSection('job-browser', 'new-job');">New</a>
             </div>
           </div>
           <hr>
-          <div class="subsection hidden" id="application-display">
+          <div class="subsection" id="application-display">
               <div
                 id="fetch-applications-display"
                 hx-trigger="load"
-                hx-get="/api/v1/verified/fetch-applications"
+                hx-get="/api/v1/verified/fetch-apps"
                 hx-target="this"
                 hx-swap="innerHTML"
               >
@@ -716,95 +657,141 @@
 
           </div>
 
-          <div class="subsection" id="new-job">
-            <form id="job-create-setup">
+          <div class="subsection hidden" id="new-job">
+            <h4>Job Submitter</h4>
+            <hr>
+            <!-- job-optional-inputs minimizer -->
+            <div class="minimizer">
+              <i title="Minimize" id="resource-options-dropdown-button" onclick="toggle_job_optionals(document.getElementById('job-create-form'))" class="fa-solid fa-compress"></i>
+            </div>
+            <div class="reset">
+              <i class="fa-solid fa-rotate-left" id="form-reset" onclick="document.querySelector('#job-create-form').reset()"></i>
+            </div>
+            <form 
+              id="job-create-form"
+              hx-post="/api/v1/verified/jobs"
+              hx-swap="none"
+              hx-trigger="submit"
+            >
               <div class="form-grid-wrapper">
-                <!-- i/o div -->
                 <div class="form-grid">
-                  <div class="form-group">
-                    <label for="input">Input</label>
-                    <input id="input" name="input" type="button">
+                  <!-- i/o div -->
+                  <div>
+                    <div class="form-group">
+                      <label for="job-input">Input</label><span style="color:red;">*</span>
+                      <div id="select-resource">
+                        <div id="resource-modal" class="modal hidden">
+                          <div class="modal-content">
+                            <h3>Select a Resource</h3>
+                            <div id="resource-list">
+                              <!-- resource options will be populated dynamically -->
+                            </div>
+                            <button type="button" id="cancel-select">Cancel</button>
+                          </div>
+                        </div>
+                        <button type="button" class="icon-button" id="select-resource-btn-job" title="Select Resource"><i class="fa-solid fa-cube"></i></button>
+                      </div>
+                      <input id="job-input" name="input" type="text" title="Input" placeholder="default-bucket/input.in">
+                    </div>
+                    <div class="form-group">
+                      <label for="job-output">Output</label><span style="color:red;">*</span>
+                      <div id="select-volume">
+                        <div id="volume-modal" class="modal hidden">
+                          <div class="modal-content">
+                            <h3>Select a Volume</h3>
+                            <div id="volume-list">
+                              <!-- Volume options will be populated dynamically -->
+                            </div>
+                            <button type="button" id="cancel-select">Cancel</button>
+                          </div>
+                        </div>
+                        <button type="button" class="icon-button" id="select-volume-btn-job" title="Select Volume"><i class="fa-solid fa-database"></i></button>
+                      </div>
+                      <input id="job-output" name="output" type="text" placeholder="default-bucket/output.out">
+                    </div>
                   </div>
-                  <div class="form-group">
-                    <label for="output">Output</label>
-                    <input id="output" name="output" type="text" placeholder="default-bucket/output.out">
+                  <!-- semantics -->
+                  <div class="job-optional">
+                    <div class="form-group">
+                      <label for="parallelism">Parallelism</label>
+                      <input type="number" id="parallelism" name="parallelism" class="text-input" min="1" max="8" value="1" />                  
+                    </div>
+                    <div class="form-group">
+                      <label for="j-timeout">Timeout (m)</label>
+                      <input type="number" id="j-timeout" name="timeout" class="text-input" min="0" max="120" />                  
+                    </div>
+                  </div>
+
+                  <div class="job-optional">
+                    <textarea id="description" name="description" class="text-input" rows="2" placeholder="Description (optional)" maxlength="150"></textarea>
                   </div>
                 </div>
-
-                <!-- semantics -->
-                <div class="form-grid">
-                  <div class="form-group">
-                    <label for="parallelism">Parallelism</label>
-                    <input type="number" id="parallelism" name="parallelism" class="text-input" min="1" value="1" />                  
-                  </div>
-                  <div class="form-group">
-                    <label for="j-timeout">Timeout</label>
-                    <input type="number" id="j-timeout" name="j-timeout" class="text-input" min="0" />                  
-                  </div>
-                </div>
-
-                
-                <!-- description -->
-                <div>
-                  <div class="form-group">
-                    <textarea id="description" name="description" class="text-input" rows="2" placeholder="Description"></textarea>
-                  </div>
-                </div>
-
-
-
+            
                 <!-- quotas -->
-                <div>
-                  <div class="form-grid">
+                <div class="form-grid job-optional">
+                  <!-- memory -->
+                  <div>
                     <div class="form-group">
                       <label for="memory_request">Memory Request</label>
                       <input type="text" id="memory_request" name="memory_request" class="text-input small" placeholder="e.g., 512Mi" />
                     </div>
-                  
+                    <div class="form-group">
+                      <label for="memory_limit">Memory Limit</label>
+                      <input type="text" id="memory_limit" name="memory_limit" class="text-input small" placeholder="1024Mi" />
+                    </div>
+                  </div>
+                  <!-- cpu -->
+                  <div>
                     <div class="form-group">
                       <label for="cpu_request">CPU Request</label>
                       <input type="text" id="cpu_request" name="cpu_request" class="text-input small" placeholder="e.g., 0.5" />
                     </div>
-                  
+                    <div class="form-group">
+                      <label for="cpu_limit">CPU Limit</label>
+                      <input type="text" id="cpu_limit" name="cpu_limit" class="text-input small" placeholder="1"/>
+                    </div>
+                  </div>
+                  <!-- storage -->
+                  <div>
                     <div class="form-group">
                       <label for="ephemeral_storage_request">Ephemeral Storage Request</label>
                       <input type="text" id="ephemeral_storage_request" name="ephimeral_storage_request" class="text-input small" placeholder="e.g., 1Gi" />
                     </div>
+                    <div class="form-group">
+                      <label for="ephemeral_storage_limit">Ephemeral Storage Limit</label>
+                      <input type="text" id="ephemeral_storage_limit" name="ephimeral_storage_limit" class="text-input small" placeholder="1Gi" />
+                    </div>
                   </div>
                 </div>
 
-                <!-- quotas 2 -->
-                <!-- Resource Limits -->
-                <div class="form-grid">
-                  <div class="form-group">
-                    <label for="memory_limit">Memory Limit</label>
-                    <input type="text" id="memory_limit" name="memory_limit" class="text-input small" placeholder="1024Mi" />
+                <div class="collapsible info">
+                  <div>
+                    <p class="target"><strong>Info!</strong> the '#%' FROM clause is required as a 'placeholder' to read from the specified input!</p>
+                    <button type="button" class="toggle-button-collapse collapsible">
+                      <svg class="arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="arrow">
+                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                        <polyline points="12 19 5 12 12 5"></polyline>
+                      </svg>
+                    </button>
                   </div>
-                
-                  <div class="form-group">
-                    <label for="cpu_limit">CPU Limit</label>
-                    <input type="text" id="cpu_limit" name="cpu_limit" class="text-input small" placeholder="1"/>
-                  </div>
-                
-                  <div class="form-group">
-                    <label for="ephemeral_storage_limit">Ephemeral Storage Limit</label>
-                    <input type="text" id="ephemeral_storage_limit" name="ephimeral_storage_limit" class="text-input small" placeholder="1Gi" />
-                  </div>
-                </div>
-
-
+                  <span class="feedback-message"></span>
+                </div> 
                 <!-- logic -->
-                <div id="job-create-setup-editor">
+                <div id="job-create-form-editor">
                   <div id="header">
                       <i class="fa-solid fa-code"></i>
-                      <div>
-                        <select id="language-selector" class="custom-select" name="logic">
-                          <option value="custom" selected>Custom</option>                       
+                      
+                      <label for="language-selector" class="form-label-group">
+                        Application:
+                        <select id="language-selector" name="logic">
+                          <option value="duckdb" selected>duckdb</option>
+                          <option value="python">Python</option>
                         </select>
-                        <div>
-                          <label for="code-file-upload" class="custom-file-label"><i class="fa-solid fa-arrow-up"></i></label>
-                          <input type="file" id="code-file-upload" style="display: none;"/>
-                        </div>
+                      </label>
+
+                      <div>
+                        <label for="code-file-upload" class="custom-file-label"><i class="fa-solid fa-arrow-up"></i></label>
+                        <input type="file" id="code-file-upload" style="display: none;"/>
                       </div>
                   </div>
                   
@@ -814,20 +801,71 @@
                 </div>
 
                 <!-- submit -->
-                <div class="form-group">
-                  <button type="submit" id="submit-job-button">Create Job</button>
+                <div class="form-group submit-button-wrapper">
+                  <button type="submit" id="submit-job-button">Submit Job</button>
                 </div>
+                <div id="job-submit-feedback" class="feedback"></div>
+                
               </div>
             </form>
+            <div id="job-submit-loader" class="hidden loader-heartbeat">
+              <!-- From Uiverse.io by ilkhoeri --> 
+              <svg
+                xmlns:xlink="https://www.w3.org/1999/xlink"
+                xmlns="https://www.w3.org/2000/svg"
+                width="550"
+                height="210"
+                viewBox="0 0 550 210"
+              >
+                <path
+                  d="m0,130.08h44.51c7.08-3.45,11.54-24.65,19.42-24.81s13.23,22.54,21.03,24.81c10.03,2.92,29.69-14.6,39.91-12.4,4.58.98,9.34,12.36,14.02,12.4,3.54.03,7.25-9.31,10.79-9.17,3.24.13,6.17,7.93,9.17,9.17s9.68-1.48,12.4,0c2.4,1.3,3.45,10.3,5.93,9.17,3.23-1.48,2.82-103.01,8.09-103.01,6.96,0,12.35,137.53,16.72,137.53,3.9,0-.09-36.61,8.49-43.69,3.41-2.81,13.69,1.93,17.66,0,7.17-3.49,11.72-24.71,19.69-25.08,8.62-.4,15.39,22.86,23.73,25.08,8.99,2.38,26.51-12.76,35.6-10.79,5.58,1.21,11.46,15.82,17.12,15.1,3.88-.49,4.87-12.59,8.76-12.94,3.01-.28,5.7,7.46,8.49,8.63s9.75-1.43,12.54,0,4.03,9.39,7.01,9.71c4.98.54,2.64-103.55,8.63-103.55,5.16,0,8.8,111.51,12.94,111.64,5.02.16,5.01-15.2,9.3-17.8s15.02,2.06,19.42,0c7.39-3.46,12.74-25.17,20.9-25.08,8.97.09,13.68,25.85,22.38,28.04,9.17,2.31,25.4-15.93,34.79-14.83,4.95.58,11.31,10.3,16.04,11.87h44.51"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  fill="none"
+                  stroke="#DE6262"
+                ></path>
+              </svg>
+            </div>
 
           </div>
 
           <div class="subsection hidden" id="job-feedback-view">
+          <div id="existing-jobs-container-2">
             <div>
-              <div></div>
-              <div></div>
-
+              <div class="search-bar">
+                <input id="job-search" type="text" placeholder="Search by 'jid'">
+                <button type="submit">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+                    <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z">
+                  </svg>
+                </button>
+                <select id="search-by"> 
+                    <option value="jid" selected>job id</option>
+                    <option value="uid">user id</option>
+                    <option value="status">status</option>
+                    <option value="created_at">created at</option>
+                    <option value="completed_at">completed at</option>
+                    <option value="input">input</option>
+                    <option value="output">output</option>
+                </select>
+              </div>                        
+              <button
+                id="fetch-jobs-button-2"
+                hx-trigger="click"
+                hx-target="#fetch-jobs-div-2"
+                hx-swap="innerHTML"
+                hx-get="/api/v1/verified/fetch-jobs"
+                hx-vals='js:{sort: document.getElementById("existing-jobs-container-2").querySelector("#search-by").value}' 
+              ><i class="fas fa-redo"></i></button>
             </div>
+            <div 
+              id="fetch-jobs-div-2"
+              hx-trigger="load"
+              hx-target="this"
+              hx-swap="innerHTML"
+              hx-get="/api/v1/verified/fetch-jobs"
+            ></div>
+          </div>
           </div>
         </div>
         
@@ -838,108 +876,110 @@
         <p class="fading">User information, management</p>
         <hr>
         
-        <div class="" id="profile-settings-section">
-          <h4> Profile </h4>
-          <hr>
+        <div id="profile-settings-section">
           <div id="user-profile" >
-            <div id="user-info">
-              <div> 
-                <div>                     
-                  <label for="username">Username:</label> 
-                  <span id="username"></span>
+            <div id="user-info" class="user-info-container darkened">
+              <div class="user-summary">
+                <div class="info-row">
+                  <label>Username:</label>
+                  <span class="info-display" id="username">{{ .username }}</span>
                 </div>
-                <div>
-                  <label for="username">Password:</label> 
+              
+                <div class="info-row">
+                  <label>Password: </label>
                   <div class="info-display">
                     <span id="password">*******</span>
-                    <i onclick="toggleHidden('#change-password-form', '.settings-action')" id="change-password-button" class="fas fa-edit"></i>
+                    <i onclick="toggleHidden('#change-password-form', '.settings-action')" class="fas fa-edit edit-icon" title="Change password"></i>
                   </div>
                 </div>
-                <div>
-                  <label for="email">Email:</label>
+              
+                <div class="info-row">
+                  <label>Email:</label>
                   <div class="info-display">
-                    <span id="email"></span>
-                    <i onclick="toggleHidden('#change-email-prompt', '.settings-action')" id="change-email-button" class="fas fa-edit"></i>  
+                    <span id="email">{{ .info }}</span>
+                    <i onclick="toggleHidden('#email-change-form', '.settings-action')" class="fas fa-edit edit-icon" title="Change email"></i>
                   </div>
                 </div>
-                <div>
-                  <label for="groups">Groups:</label>
-                  <div class="info-display">
-                    <span id="groups"></span>
-                  </div>
+              
+                <div class="info-row">
+                  <label>Groups:</label>
+                  <span class="info-display" id="groups">{{ .groups }}</span>
                 </div>
-                <div>
-                  <label for="home">Home:</label>
-                  <div class="info-display">
-                    <span id="home"></span>
-                  </div>
+              
+                <div class="info-row">
+                  <label>Home:</label>
+                  <span id="home"> {{ .home }}</span>
                 </div>
-                <div>
-                  <span>Total #Jobs: </span>
-                  <span>Total #Files: </span>
+              
+                <div class="info-row">
+                  <label>Total #Jobs:</label>
+                  <span id="total-jobs">{{ .total_jobs }}</span>
                 </div>
-              </div>
-              <div id="profile-actions-div">
-                <form 
-                  class="settings-action hidden" 
-                  id="change-password-form"
+              
+                <div class="info-row">
+                  <label>Total #Files:</label>
+                  <span id="total-files">{{ .total_files }}</span>
+                </div>
+              </div>            
+              <div class="user-actions">
+                <form class="settings-action hidden" id="change-password-form"
                   hx-post="/api/v1/verified/passwd"
                   hx-swap="none"
                   hx-trigger="submit"
                 >
-                  <div class="label-input-class">
-                    <label for="current_password">Current password: </label>
-                    <input required autocomplete="off" id="current_password" type="password" name="current_password">
-                  </div>
-                  <div class="label-input-class">
-                    <label for="new_password">New password: </label>
-                    <input required autocomplete="off" id="new_password" type="password" name="new_password">
-                  </div>
-                  <div class="label-input-class">
-                    <label for="new_password_repeat">New password repeat: </label>
-                    <input required autocomplete="off" id="new_password_repeat" type="password" name="new_password_repeat">
-                  </div>
-                  <button id="submit_password_change_btn" type="submit">Submit</button>
-                </form>
-                <div class="settings-action hidden" id="change-email-prompt">
-                  <form
-                    id="email-change-form"
-                    hx-put="/api/v1/verified/user-update"
-                    hx-trigger="submit"
-                    hx-swap="none"
-                    hx-headers='{"Content-Type":"multipart/form-data"}'
-                    >
-                    <div class="label-input-class">
-                      <label for="email">Email</label>
-                      <input id="new-email-change" name="new-email-change">
+                  <div>
+                    <div class="label-input">
+                      <label for="new_password">New password:</label>
+                      <input required type="password" name="new_password" id="new_password">
                     </div>
-                    <button 
-                      id="submit-email-change-btn" 
-                      type="submit"
-                      >Submit</button>
-                  </form>
-                </div>
+                    <div class="label-input">
+                      <label for="new_password_repeat">Repeat new password:</label>
+                      <input required type="password" name="new_password_repeat" id="new_password_repeat">
+                    </div>
+                  </div>
+                  <div>
+                    <div class="label-input">
+                      <label for="current_password">Current password:</label>
+                      <input required type="password" name="current_password" id="current_password">
+                    </div>
+                    <button type="submit">Update Password</button>
+                    <button type="button" class="cancel-btn" onclick="hide(this.parentNode.parentNode)"><i class="fa fa-times"></i></button>
+                  </div>
+                </form>
+                <form
+                  id="email-change-form"
+                  class="settings-action hidden"
+                  hx-put="/api/v1/verified/user-update"
+                  hx-trigger="submit"
+                  hx-swap="none"
+                  hx-headers='{"Content-Type":"multipart/form-data"}'
+                >
+                  <div class="label-input">
+                    <label for="new-email-change">New email:</label>
+                    <input id="new-email-change" name="new-email-change" type="email">
+                  </div>
+                  <button type="submit">Update Email</button>
+                  <button type="button" class="cancel-btn" onclick="hide(this.parentNode)"><i class="fa fa-times"></i></button>
+                </form>
               </div>
             </div>
-            <div id="vfs-display">
-              <h3>myfiles</h3>
+            <div id="vfs-display" class="darkened">
+              <h3>your Files</h3>
               <div>
-                <div id="vfs">
-                  <script>
-                    const resources = {} // my resourses
-                    const container = document.getElementById("vfs");
-                    let vfsRoot = {};
-                    let currentPath = [];
-                    vfsRoot = buildTree(resources);
-                    renderVFS(currentPath, container);
-                  </script>
+                <div 
+                  id="vfs"
+                  hx-get="/api/v1/verified/fetch-resources?format=json" 
+                  hx-swap="none"
+                  hx-target="this"
+                  hx-trigger="load"
+                >
+
                 </div>
                 <div id="selected-resource-display" class="hidden">
                 </div>
               </div>
             </div>
-            <div class="fupload">
-              <h3>Upload files</h3>
+            <div class="fupload darkened">
               <div class="fupload-container" id="drop-zone"> 
                 <div class="fupload-header" id="file-boxes"> 
                   <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -960,17 +1000,26 @@
                 >
                   <label for="file" class="fupload-footer"> 
                     <div id="select-volume">
+                      <div id="volume-modal" class="modal hidden">
+                        <div class="modal-content">
+                          <h3>Select a Volume</h3>
+                          <div id="volume-list">
+                            <!-- Volume options will be populated dynamically -->
+                          </div>
+                          <button type="button" id="cancel-select">Cancel</button>
+                        </div>
+                      </div>
                       <p><strong>Volume:</strong> <span id="selected-volume">None</span></p>
                       <button type="button" id="select-volume-btn">Choose Volume</button>
                     </div>
-                    <div>
-                      <p id="file-name">No file selected</p> 
-                    </div>
-                    <div id="upload-file">
+                    <div class="display-files">
                       <svg fill="#000000" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
                         <path d="M15.331 6H8.5v20h15V14.154h-8.169z"></path>
                         <path d="M18.153 6h-.009v5.342H23.5v-.002z"></path>
                       </svg> 
+                      <p id="file-name">No file selected</p> 
+                    </div>
+                    <div id="upload-file">
                       <button 
                         id="upload-button"
                         type="submit"
@@ -982,17 +1031,7 @@
                   <input id="file" type="file" name="files" multiple hidden>
                 </form>
               </div>
-              <div id="progress-container" class="hidden">
-              </div>
-              <div id="volume-modal" class="modal hidden">
-                <div class="modal-content">
-                  <h3>Select a Volume</h3>
-                  <div id="volume-list">
-                    <!-- Volume options will be populated dynamically -->
-                  </div>
-                  <button id="cancel-volume-select">Cancel</button>
-                </div>
-              </div>
+              <div id="progress-container" class="hidden"></div>
             </div>
           </div>
 

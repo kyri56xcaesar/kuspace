@@ -307,10 +307,32 @@ func getResourcesByIds(db *sql.DB, rids []int) ([]ut.Resource, error) {
 	return resources, nil
 }
 
-func getResourceByName(db *sql.DB, name string) (ut.Resource, error) {
+func getResourcesByName(db *sql.DB, name string) ([]ut.Resource, error) {
+	var resources []ut.Resource
+
+	rows, err := db.Query("SELECT * FROM resources WHERE name = ?", name)
+	if err != nil {
+		log.Printf("error performing query: %v", err)
+		return resources, err
+	}
+
+	for rows.Next() {
+		var r ut.Resource
+		err = rows.Scan(r.PtrFields()...)
+		if err != nil {
+			log.Printf("failed to scan resource")
+			return resources, err
+		}
+		resources = append(resources, r)
+	}
+
+	return resources, nil
+}
+
+func getResourceByNameAndVolume(db *sql.DB, name, volume string) (ut.Resource, error) {
 	var resource ut.Resource
 
-	err := db.QueryRow("SELECT * FROM resources WHERE name = ?", name).Scan(resource.PtrFields()...)
+	err := db.QueryRow("SELECT * FROM resources WHERE name = ? AND vname = ?", name, volume).Scan(resource.PtrFields()...)
 	if err != nil {
 		// log.Printf("error scanning resource: %v", err)
 		return resource, err
@@ -425,6 +447,34 @@ func deleteResourceByName(db *sql.DB, name string) error {
 	}
 
 	res, err := tx.Exec("DELETE FROM resources WHERE name = ?", name)
+	if err != nil {
+		log.Printf("failed to execute query: %v", err)
+		return err
+	}
+
+	rAff, err := res.RowsAffected()
+	if err != nil {
+		log.Printf("failed to get rows affected")
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("failed to commit transaction: %v", err)
+		return err
+	}
+	log.Printf("deleted %v rows", rAff)
+
+	return nil
+}
+
+func deleteResourceByNameAndVolume(db *sql.DB, name, volume string) error {
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("error starting transaction: %v", err)
+		return err
+	}
+
+	res, err := tx.Exec("DELETE FROM resources WHERE name = ? AND vname = ?", name, volume)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
 		return err

@@ -181,14 +181,3 @@ func AuthMiddleware(group string) gin.HandlerFunc {
 		c.Abort()
 	}
 }
-
-// Utils
-func isBrowser(userAgent string) bool {
-	browsers := []string{"Mozilla", "Chrome", "Safari", "Edge", "Opera"}
-	for _, browser := range browsers {
-		if strings.Contains(userAgent, browser) {
-			return true
-		}
-	}
-	return false
-}

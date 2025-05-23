@@ -1,7 +1,7 @@
 {{ define "edit-form.html"}} 
 <div id="resource-edit-modal">
   <div class="close-btn-div">
-    <button onclick="hide(document.getElementById('edit-modal'))" class="button-close"></button>
+    <button onclick="hide(this.parentNode.parentNode.parentNode)" class="button-close"></button>
   </div>
 	<div
     id="edit-resource-form"
@@ -234,6 +234,293 @@
   </ul>
 {{ end }}
 
+{{ define "apps_list_template.html" }}
+<div id="apps-list-display">
+  <h2 class="apps-title">Available Applications</h2>
+  <div class="apps-list">
+    {{ range . }}
+    <div class="app-card">
+      <div class="app-header">
+        <div class="app-name">{{ .Name }} <span class="app-version">v{{ .Version }}</span></div>
+        <div class="app-status {{ .Status | lower }} {{ if eq .Status "available" }}green{{ else }}red{{ end }}">{{ .Status }}</div>
+      </div>
+      <div class="app-meta">
+        <div><strong>Image:</strong> {{ .Image }}</div>
+        <div><strong>Author:</strong> {{ .Author }}</div>
+        <div><strong>Created:</strong> {{ .CreatedAt }}</div>
+      </div>
+      <p class="app-description">{{ .Description }}</p>
+    </div>
+    {{ end }}
+  </div>
+</div>
+{{ end }}
+
+{{ define "volumes_template.html" }}
+<div>
+  {{range .volumes}} 
+  {{ $v := . }} 
+  <div class="v-body">
+    <div>
+      <h3 class="name">{{$v.Name}}</h3>
+      <p>Path: {{ $v.Path }}</p>
+      <hr>
+      <p>Usage: {{printf "%.2f" $v.Usage}} GB</p>
+      <p>Capacity: 
+        {{if le $v.Capacity 0.0}}
+          &infin;
+        {{else}}
+          {{printf "%.2f" $v.Capacity}} GB
+        {{end}}
+      </p>
+    </div>
+    <div>
+      <p class="createdat">Created at:<br>{{$v.CreatedAt }}</p>
+    </div>
+    <div class="options">
+      <div class="volume-container">
+        <button id="uploadButton">Upload Files</button>
+        <input type="file" id="fileInput" multiple style="display:none">
+      </div>
+      <button 
+        class="red"
+        id="delete-volume-btn"
+        hx-delete="/api/v1/verified/admin/volumedel?volume={{ $v.Name }}"
+        hx-swap="none"
+        hx-confirm="Are you sure you want to delete volume {{ $v.Name }}"
+      >Delete Volume</button>
+    </div>
+  </div>
+  {{end}} 
+</div>
+{{ end }}
+
+
+{{ define "groups_template.html"}}
+<div id="groups-result-container" style="padding: 1rem;">
+  <div id="view-table-header"> 
+    <div class="search-bar">
+      <input id="group-search" type="text" placeholder="Search by 'name'">
+      <button type="submit">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+          <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z">
+        </svg>
+      </button>
+      <select id="search-by">
+        <option value="name" selected>Name</option>
+        <option value="gid">gid</option>
+        <option value="users">Users</option>
+      </select>
+    </div>
+    <button 
+      id="reload-groups-btn"
+      hx-trigger="click" 
+      hx-get="/api/v1/verified/admin/fetch-groups" 
+      hx-target="#fetch-groups-results" 
+      hx-swap="innerHTML"
+    ><i class="fas fa-redo"></i></button>
+  </div>
+  <div id="table-container" style="overflow-x: auto; white-space: nowrap;">
+    <table class="darkened" id="all-groups-table" border="1" style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr>
+          <th>Group ID</th>
+          <th>Group Name</th>
+          <th>Users</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="groups-body">
+        {{ range $index, $group := . }}
+        <tr id="groups-table-{{ $index }}">
+          <td class="gid">{{ $group.Gid }}</td>
+          <td class="name">{{ $group.Groupname }}</td>
+          <td>
+            {{ $total := len $group.Users }}
+            <span class="users">
+            {{ range $i, $user := $group.Users }}
+              {{ .Username }}{{ if lt $i (sub $total 1) }},{{ end }}
+            {{ end }}
+            </span>
+          </td>
+          <td>
+            <div id="actions-btns">
+              {{ if and (ne $group.Gid 0) (ne $group.Gid 100) (ne $group.Gid 1000)}}
+              <button 
+                id="delete-grp-btn-{{ $index }}"
+                hx-delete="/api/v1/verified/admin/groupdel?gid={{ $group.Gid }}"
+                hx-swap="none"
+                hx-trigger="click"
+                hx-target="#groups-table-{{ $index }}"
+                hx-confirm="Are you sure you want to delete group {{ $group.Gid }}?"
+                > Delete</button>
+                {{ end }}
+            </div>
+          </td>
+        </tr>
+        {{ end }}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{ end }}
+
+
+{{ define "users_template.html"}}
+<div id="users-result-container" style="padding: 1rem;">
+  <div id="view-table-header"> 
+    <div class="search-bar">
+      <input id="user-search" type="text" placeholder="Search by 'name'">
+      <button type="submit">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+          <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z">
+        </svg>
+      </button>
+      <select id="search-by">
+        <option value="name" selected>Name</option>
+        <option value="groups">Groups</option>
+        <option value="email">Email</option>
+        <option value="home">Home</option>
+        <option value="uid">uid</option>
+      </select>
+    </div>
+    <button 
+      id="reload-btn"
+      hx-trigger="click" 
+      hx-get="/api/v1/verified/admin/fetch-users" 
+      hx-target="#fetch-users-results" 
+      hx-swap="innerHTML"
+    ><i class="fas fa-redo"></i></button>
+  </div>
+  <div id="table-container" style="overflow-x: auto; white-space: nowrap;">
+    <table class="darkened" id="all-users-table" border="1" style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr>
+          <th>User ID</th>
+          <th>Username</th>
+          <th>Password</th>
+          <th>Email</th>
+          <th>Home</th>
+          <th>Group ID</th>
+          <th>Groups</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="users-body">
+        {{ range $index, $user := . }}
+        <tr id="table-{{ $index }}">
+          <td class="uid">{{ $user.Uid }}</td>
+          <td class="name">{{ $user.Username }}</td>
+          <td>{{ $user.Password.Hashpass }}</td>
+          <td class="email">{{ $user.Info}}</td>
+          <td class="home">{{ $user.Home }}</td>
+          <td>{{ $user.Pgroup }}</td>
+          <td>
+            {{ $total := len $user.Groups }}
+            <span class="groups">
+            {{ range $i, $group := $user.Groups }}
+              {{ .Groupname }}{{ if lt $i (sub $total 1) }},{{ end }}
+            {{ end }}
+            </span>
+          </td>
+          <td>
+            <div id="actions-btns">
+              <button id="edit-btn-{{ $index }}" onclick="editUser('{{ $user.Uid }}', '{{ $index }}')">Edit</button>
+              {{ if ne $user.Uid 0 }}
+              <button 
+                id="delete-btn-{{ $index }}"
+                hx-delete="/api/v1/verified/admin/userdel?uid={{ .Uid }}"
+                hx-swap="none"
+                hx-trigger="click"
+                hx-target="#table-{{ $index }}"
+                hx-confirm="Are you sure you want to delete user {{ .Uid }}?"
+              > Delete</button>
+              {{ end }}
+            </div>
+          </td>
+        </tr>
+        {{ end }}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+{{ end }}
+
+{{ define "list-resources.html"}}
+<h3>List View</h3>
+<table id="resource-list-table">
+    <thead>
+        <tr>
+            <th>Rid</th>
+            <th>Name</th>
+            <th>Path</th>
+            <th>Volume</th>
+            <th>Type</th>
+            <th>Size</th>
+            <th>Permissions</th>
+            <th>Created At</th>
+            <th>Updated At</th>
+            <th>Accessed At</th>
+            <th>Owner</th>
+            <th>Group</th>
+            <th>Volume</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{ range . }}
+        <tr>
+            <td>{{ .Rid }}</td>
+            <td class="name">{{ .Name }}</td>
+            <td>{{ .Path }}</td>
+            <td class="volume">{{ .Vname}}</td>
+            <td>{{ .Type }}</td>
+            <td>{{ .Size }}</td>
+            <td>{{ .Perms }}</td>
+            <td class="createdat">{{ .Created_at }}</td>
+            <td class="updatedat">{{ .Updated_at }}</td>
+            <td class="accessedat">{{ .Accessed_at }}</td>
+            <td class="owner">{{ .Uid }}</td>
+            <td class="group">{{ .Gid }}</td>
+            <td>{{ .Vid }}</td>
+        </tr>
+        {{ end }}
+    </tbody>
+</table>
+<div id="edit-modal" class="modal hidden darkened"></div>
+{{ end }}
+
+
+{{ define "apps_display_template.html"}}
+<div id="applications-display-container">
+  <div> 
+    <h3>Applications</h3>
+  </div>
+  <div class="table-container">
+    <table class="darkened" id="all-apps-table" border="1">
+      <thead>
+        <tr>
+          <th>Application</th>
+          <th>Image</th>
+          <th>Description</th>
+          <th>Version</th>
+          <th>LAT</th>
+          <th>Author</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="users-body">
+        {{ range $index, $app := . }}
+
+        {{ end }}
+      </tbody>
+    </table>
+  </div>
+
+  
+
+</div>
+{{ end }}
 
 {{ define "empty_template" }}
 

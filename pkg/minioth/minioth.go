@@ -31,6 +31,10 @@ var (
 		"root",
 		"kubernetes",
 		"k8s",
+		"admin",
+		"manager",
+		"superuser",
+		"sudo",
 	}
 	HASH_COST int = 16
 )

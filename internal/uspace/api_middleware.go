@@ -86,7 +86,7 @@ func BindAccessTarget(http_header string) (ut.AccessClaim, error) {
 			return ac, fmt.Errorf("invalid header target format: unrecognised keyword")
 		}
 	} else {
-		return ac, fmt.Errorf("invalid header target format: prefix '$' or '/'")
+		target = "/" + resource
 	}
 
 	ac.Vid = vid

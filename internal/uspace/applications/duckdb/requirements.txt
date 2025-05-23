@@ -1,4 +1,5 @@
 duckdb
+sqlparse
 #boto3
 #pandas
 #pyarrow

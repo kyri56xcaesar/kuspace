@@ -113,6 +113,7 @@ func (srv *HTTPService) ServeHTTP() {
 			b, _ := json.Marshal(v)
 			return template.JS(b)
 		},
+		"lower": strings.ToLower,
 	}
 
 	// set a template eng
@@ -206,12 +207,11 @@ func (srv *HTTPService) ServeHTTP() {
 			c.HTML(http.StatusOK, "gshell-display.html", gin.H{"whoami": whoami})
 		})
 
-		// apps
-		verified.GET("/fetch-applications", srv.handleFetchApps)
-
 		// jobs
 		verified.POST("/jobs", srv.jobsHandler)
 		verified.GET("/fetch-jobs", srv.jobsHandler)
+		// apps
+		verified.GET("/fetch-apps", srv.appsHandler)
 
 		admin := verified.Group("/admin")
 		admin.PATCH("/chmod", AuthMiddleware("user,admin"), srv.handleResourcePerms)

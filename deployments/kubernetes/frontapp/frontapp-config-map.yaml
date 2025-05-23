@@ -6,13 +6,20 @@ metadata:
 data:
   frontapp.conf: |
     IP=0.0.0.0
-    API_ADDRESS=uspace.local
-    API_GIN_MODE=debug
-    AUTH_PORT=80
+    API_PORT=8079
+    FRONT_PORT=8080
+    MINIO_DEFAULT_BUCKET=uspace-default
+    J_MAX_PARALLELISM=4
+    FRONT_ADDRESS=frontapp
     AUTH_ADDRESS=minioth.local
     ALLOWED_ORIGINS=*
-    ALLOWED_METHODS=GET,POST
     ALLOWED_HEADERS=Origin,Content-Type,Authorization,Access-Control-Allow-Origin
-    API_PORT=80
-    FRONT_PORT=8080
-    FRONT_ADDRESS=frontapp
+    J_MAX_CPU=4
+    J_MAX_MEM=33000 # Mi
+    J_MAX_TIMEOUT=10
+    J_MAX_LOGIC_CHARS=1000000
+    API_GIN_MODE=debug
+    ALLOWED_METHODS=GET,POST,PATCH,DELETE,PUT
+    J_MAX_STORAGE=4
+    PROFILE=container
+    AUTH_PORT=80

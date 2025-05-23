@@ -194,10 +194,10 @@ func (srv *UService) RegisterRoutes() {
 	*    to the permissions of the user. For now, we will just implement the endpoints without any
 	* */
 	apiV1 := srv.Engine.Group("/api" + VERSION)
-	// apiV1.Use(serviceAuth(srv)) //, bindHeadersMiddleware())
+	if strings.ToLower(srv.config.API_GIN_MODE) != "debug" {
+		apiV1.Use(serviceAuth(srv))
+	}
 	apiV1.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.InstanceName("uspacedocs")))
-
-	apiV1.Use(bindHeadersMiddleware())
 	{
 		// jobs can be run from anyone
 		// job related
@@ -206,6 +206,12 @@ func (srv *UService) RegisterRoutes() {
 			"/job",
 			srv.handleJob,
 		)
+		apiV1.Match(
+			[]string{"GET", "POST"},
+			"/app",
+			srv.handleApps,
+		)
+		apiV1.Use(bindHeadersMiddleware())
 		/* equivalent to "ls", will return the resources, from the given path*/
 		apiV1.GET("/resources", srv.getResourcesHandler)
 		apiV1.POST("/resource/upload", srv.handleUpload)
@@ -242,11 +248,12 @@ func (srv *UService) RegisterRoutes() {
 			"/user/volume",
 			srv.handleUserVolumes,
 		)
-		// admin.Match(
-		// 	[]string{"GET", "POST", "PATCH", "DELETE"},
-		// 	"/group/volume",
-		// 	srv.handleGroupVolumes,
-		// )
+
+		admin.Match(
+			[]string{"GET", "POST", "PUT", "DELETE"},
+			"/app",
+			srv.handleAppsAdmin,
+		)
 	}
 }
 

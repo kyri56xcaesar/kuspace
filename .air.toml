@@ -10,7 +10,7 @@ include_ext = ["go", "html"] # watch these filename extensions
 #ignore these filename extentions or dirs
 exclude_dir = ["assets", "data", "build", "deployments", "pkg", "internal\\uspace", "vendor", "tmp", "internal\\utils"]
 
-include_dir = ["web", "internal\\frontapp"]
+include_dir = ["web\\templates", "internal\\frontapp"]
 include_file = ["configs\\frontapp.conf"]
 
 log = "air.log"

@@ -118,7 +118,14 @@ function cancelEdit(index, originalValues) {
   htmx.process(document.getElementById(`delete-btn-${index}`));
 
 }
-
+function toggle_job_optionals(jobDiv) {
+  if (jobDiv) {
+    const jobOptionals = jobDiv.querySelectorAll(".job-optional");
+    jobOptionals.forEach((optional) => {
+      optional.classList.toggle("hidden");
+    });
+  }
+}
 
 
 
@@ -172,135 +179,45 @@ document.addEventListener("DOMContentLoaded", () => {
   /**************************************************************************/
   // Job history functionalities
   // set to what we want to search by
-  let searchBy = "created_at";
-  const jobSearchSelector = document.getElementById("job-search-by-select");
-  jobSearchSelector.value = searchBy;
-  jobSearchSelector.addEventListener("input", (event) => {
-    searchBy = jobSearchSelector.value;
-  });
-
-  // actual search by
-  const jobSearch = document.getElementById("job-search");
-  jobSearch.value = "";
-  jobSearch.addEventListener("input", function() {
-    // we need to search from the currently paged jobs according to the search selector
-    // @TODO
-    searchValue = jobSearch.value;
-    // console.log("searching by " + searchBy + " at " + searchValue);
-    if (cacheJobResultsLi.length == 0) {// empty cache, must fetch 
-      
-    }
-
-    // do search and display
-    switch (searchBy) {
-      case "jid":
-        cacheJobResultsLi.forEach((li) => {
-          const jidSpan = li.querySelector(".jid");
-
-          if (!jidSpan.innerText.includes(searchValue)) {
-            li.classList.add("hidden");
-          } else {
-            li.classList.remove("hidden");
-          }
-        });
-        break;
-      case "uid":
-        cacheJobResultsLi.forEach((li) => {
-          if (!li.querySelector(".uid").innerText.includes(searchValue)) {
-            li.classList.add("hidden");
-          } else {
-            li.classList.remove("hidden");
-          }
-        });
-        break;
-      case "created_at":
-        cacheJobResultsLi.forEach((li) => {
-          if (!li.querySelector(".created_at").innerText.includes(searchValue)) {
-            li.classList.add("hidden");
-          } else {
-            li.classList.remove("hidden");
-          }
-        });
-        break;
-      case "completed_at":
-        cacheJobResultsLi.forEach((li) => {
-          if (!li.querySelector(".completed_at").innerText.includes(searchValue)) {
-            li.classList.add("hidden");
-          } else {
-            li.classList.remove("hidden");
-          }
-        });
-        break;
-      case "status":
-        cacheJobResultsLi.forEach((li) => {
-          if (!li.querySelector(".status").innerText.includes(searchValue)) {
-            li.classList.add("hidden");
-          } else {
-            li.classList.remove("hidden");
-          }
-        });
-        break;    
-      case "output":
-        cacheJobResultsLi.forEach((li) => {
-          if (!li.querySelector(".output").innerText.includes(searchValue)) {
-            li.classList.add("hidden");
-          } else {
-            li.classList.remove("hidden");
-          }
-        });
-        break;
-      default:
-         break;
-    }
-  });
-
-  setupJobSubmitter(document.querySelector('#job-create-setup'));
   
-  /**************************************************************************/
-  /**************************************************************************/
-  // access profile
-  /**************************************************************************/
-  /**************************************************************************/
+  setupJobSubmitter(document.querySelector('#job-create-form-editor'));
 
-
-
-
-
-
-  /**************************************************************************/
-  /**************************************************************************/
-  // Volumes
-  /**************************************************************************/
-  /**************************************************************************/
-  const vSearch = document.getElementById("volume-search");
-  vSearch.value = "";
-  vSearch.addEventListener("input", function() {
-    if (cacheVolumeResults.length == 0) {// empty cache, must fetch 
-      
-    }
-    searchValue = vSearch.value;
-    // console.log("searching by " + searchBy + " at " + searchValue);
-    // do search and display
-        cacheVolumeResults.forEach((li) => {
-          if (!li.querySelector(".name").innerText.includes(searchValue)) {
-            li.classList.add("hidden");
-          } else {
-            li.classList.remove("hidden");
-          }
-        });
-
+  // select a resource input for the job
+  const job_input = document.getElementById("job-input")
+  job_input.value = ""; //reset the value
+  document.getElementById("select-resource-btn-job").addEventListener("click", () => {
+    const modal = document.getElementById("select-resource-btn-job").parentNode.querySelector(".modal");
+    const resourceList = modal.querySelector("#resource-list");
+    resourceList.innerHTML = "";
 
     
+    // must retrieve all the resources from the page somehwere..
+
+    document.querySelector("#resource-list-table > tbody").querySelectorAll("tr").forEach((li) => {
+      let rname = li.querySelector(".name").textContent.trim();
+      rname = rname.startsWith("/") ? rname : "/" + rname
+      let vname =li.querySelector(".volume").textContent.trim();
+      const resourceName =  vname + rname;
+
+      const button = document.createElement("button");
+      button.textContent = resourceName;
+      button.type = "button";
+      button.addEventListener("click", () => {
+        job_input.value = resourceName;
+        document.getElementById("select-resource-btn-job").parentNode.querySelector(".modal").classList.add("hidden");
+      });
+      resourceList.appendChild(button);
+    });
+    modal.classList.remove("hidden");
   });
 
-  document.getElementById("cancel-modal-btn").addEventListener("click", () => {
-    document.getElementById("create-volume-modal").classList.add("hidden");
-  });
 
-  // for choosing a volume when upload
-  document.getElementById("select-volume-btn").addEventListener("click", () => {
-    const modal = document.getElementById("volume-modal");
-    const volumeList = document.getElementById("volume-list");
+  // select a volume output for the job
+  const job_output = document.getElementById("job-output");
+  job_output.value = ""; //reset the value
+  document.getElementById("select-volume-btn-job").addEventListener("click", () => {
+    const modal =  document.getElementById("select-volume-btn-job").parentNode.querySelector(".modal");
+    const volumeList = modal.querySelector("#volume-list");
 
     // Clear existing list
     volumeList.innerHTML = "";
@@ -311,9 +228,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const button = document.createElement("button");
       button.textContent = volumeName;
+      button.type = "button";
       button.addEventListener("click", () => {
-        document.getElementById("selected-volume").textContent = volumeName;
-        modal.classList.add("hidden");
+        job_output.value = volumeName + "/";
+        document.getElementById("select-volume-btn-job").parentNode.querySelector(".modal").classList.add("hidden");
       });
 
       volumeList.appendChild(button);
@@ -322,9 +240,96 @@ document.addEventListener("DOMContentLoaded", () => {
     modal.classList.remove("hidden");
   });
 
-  document.getElementById("cancel-volume-select").addEventListener("click", () => {
-    document.getElementById("volume-modal").classList.add("hidden");
+
+  
+  /**************************************************************************/
+  /**************************************************************************/
+  // access profile
+  /**************************************************************************/
+  /**************************************************************************/
+
+
+
+  /**************************************************************************/
+  /**************************************************************************/
+  // Volumes
+  /**************************************************************************/
+  /**************************************************************************/
+  const vSearch = document.getElementById("volume-search");
+  let vSearchBy = "name";
+  const vSearchSelector = document.querySelector(".v-header").querySelector("#search-by");
+  vSearchSelector.value = vSearchBy;
+  vSearchSelector.addEventListener("input", (event) => {
+    vSearchBy = vSearchSelector.value;
+    vSearch.placeholder = "Search by '" + vSearchBy+"'";
   });
+
+  vSearch.value = "";
+  vSearch.addEventListener("input", function() {
+    if (cacheVolumeResults.length == 0) {// empty cache, must fetch 
+      
+    }
+    searchValue = vSearch.value;
+    // console.log("searching by " + searchBy + " at " + searchValue);
+    // do search and display
+    cacheVolumeResults.forEach((li) => {
+      switch (vSearchBy) {
+        case "name":
+          if (!li.querySelector(".name").innerText.includes(searchValue)) {
+            li.classList.add("hidden");
+          } else {
+            li.classList.remove("hidden");
+          }
+          break;
+        case "createdat":
+          if (!li.querySelector(".createdat").innerText.includes(searchValue)) {
+            li.classList.add("hidden");
+          } else {
+            li.classList.remove("hidden");
+          }
+          break;
+      }
+    });
+ 
+  });
+
+  document.getElementById("cancel-modal-btn").addEventListener("click", () => {
+    document.getElementById("create-volume-modal").classList.add("hidden");
+  });
+
+  // for choosing a volume when upload
+  document.getElementById("select-volume-btn").addEventListener("click", () => {
+    const modal = document.getElementById("select-volume-btn").parentNode.querySelector(".modal");
+    const volumeList = modal.querySelector("#volume-list");
+
+    // Clear existing list
+    volumeList.innerHTML = "";
+
+    // Grab all volumes from the page
+    document.querySelectorAll(".v-body h3").forEach((h3) => {
+      const volumeName = h3.textContent.trim();
+
+      const button = document.createElement("button");
+      button.textContent = volumeName;
+      button.type = "button";
+      button.addEventListener("click", () => {
+        document.getElementById("selected-volume").textContent = volumeName;
+        document.getElementById("select-volume-btn").parentNode.querySelector(".modal").classList.add("hidden");
+      });
+
+      volumeList.appendChild(button);
+    });
+
+    modal.classList.remove("hidden");
+  });
+  
+
+  document.querySelectorAll("#cancel-select").forEach((cancel_btn) => {
+    cancel_btn.addEventListener("click", () => {
+      cancel_btn.parentNode.parentNode.classList.add("hidden");
+    });
+    
+  })
 
 
 
@@ -334,6 +339,13 @@ document.addEventListener("DOMContentLoaded", () => {
   /**************************************************************************/
   /**************************************************************************/
   const rSearch = document.getElementById("resource-search");
+  let rSearchBy = "name";
+  const rSearchBySelector = document.getElementById("resources-header").querySelector("#search-by");
+  rSearchBySelector.value = rSearchBy;
+  rSearchBySelector.addEventListener("input", (event) => {
+    rSearchBy = rSearchBySelector.value;
+    rSearch.placeholder = "Search by '" + rSearchBy+"'";
+  });
   rSearch.value = "";
   rSearch.addEventListener("input", function() {
     if (cacheResourceResults.length == 0) {// empty cache, must fetch 
@@ -344,12 +356,65 @@ document.addEventListener("DOMContentLoaded", () => {
     // do search and display
     let r_dets = document.getElementById("resource-details");
     cacheResourceResults.forEach((li) => {
-      if (!li.querySelector(".name").innerText.includes(searchValue)) {
-        li.classList.add("hidden");
-      } else {
-        li.classList.remove("hidden");
-        parseAndInjectRTableRowdata(li, r_dets);
+      switch (rSearchBy) {
+        case "name":
+          if (!li.querySelector(".name").innerText.includes(searchValue)) {
+            li.classList.add("hidden");
+          } else {
+            li.classList.remove("hidden");
+            parseAndInjectRTableRowdata(li, r_dets);
+          }
+          break;
+        case "volume":
+          if (!li.querySelector(".volume").innerText.includes(searchValue)) {
+            li.classList.add("hidden");
+          } else {
+            li.classList.remove("hidden");
+            parseAndInjectRTableRowdata(li, r_dets);
+          }
+          break;
+        case "createdat":
+          if (!li.querySelector(".createdat").innerText.includes(searchValue)) {
+            li.classList.add("hidden");
+          } else {
+            li.classList.remove("hidden");
+            parseAndInjectRTableRowdata(li, r_dets);
+          }
+          break;
+        case "updatedat":
+          if (!li.querySelector(".updatedat").innerText.includes(searchValue)) {
+            li.classList.add("hidden");
+          } else {
+            li.classList.remove("hidden");
+            parseAndInjectRTableRowdata(li, r_dets);
+          }
+          break;
+        case "accessedat":
+          if (!li.querySelector(".accessedat").innerText.includes(searchValue)) {
+            li.classList.add("hidden");
+          } else {
+            li.classList.remove("hidden");
+            parseAndInjectRTableRowdata(li, r_dets);
+          }
+          break;
+        case "owner":
+          if (!li.querySelector(".owner").innerText.includes(searchValue)) {
+            li.classList.add("hidden");
+          } else {
+            li.classList.remove("hidden");
+            parseAndInjectRTableRowdata(li, r_dets);
+          }
+          break;
+        case "group":
+          if (!li.querySelector(".group").innerText.includes(searchValue)) {
+            li.classList.add("hidden");
+          } else {
+            li.classList.remove("hidden");
+            parseAndInjectRTableRowdata(li, r_dets);
+          }
+          break;
       }
+
     });
 
 
@@ -392,7 +457,7 @@ function parseAndInjectRTableRowdata(tr, injectTarget) {
     id: tr.cells[0].innerText,
     name: tr.cells[1].innerText,
     path: tr.cells[2].innerText,
-    volume: tr.cells[3].innerText,
+    vname: tr.cells[3].innerText,
     type: tr.cells[4].innerText,
     size: tr.cells[5].innerText,
     perms: tr.cells[6].innerText,
@@ -409,34 +474,56 @@ function parseAndInjectRTableRowdata(tr, injectTarget) {
       <div class="resource-details-headers">
         <h3>Resource Details</h3>
         <div class="resource-options">
-          <div id="resource-options-inner">
-            <a 
-              href="/api/v1/verified/download?target=${resource.name}&volume=${resource.volume}"
-              download
-              class="r-btn-download"
-            >
-              Download
-            </a>
-            <button 
-              class="r-btn-edit"
-              hx-get="/api/v1/verified/edit-form?resourcename=${resource.name}&owner=${resource.owner}&group=${resource.group}&perms=${resource.perms}&rid=${resource.id}&volume=${resource.volume}"
-              hx-swap="innerHTML"
-              hx-trigger="click"
-              hx-target="#edit-modal"
-              hx-on::after-request="show(document.getElementById('edit-modal'))"
+          <i id="resource-options-dropdown-button"    onclick="this.nextElementSibling.firstElementChild.classList.toggle('open');" class="fa">&#xf078;</i>
+          <div class="resource-options">
+            <div class="resource-options-inner dropdown">
+              <button 
+                class="r-btn-download" 
+                onclick="downloadResource('/api/v1/verified/download?target=${resource.name}&volume=${resource.vname}')"
               >
-              Edit
-            </button>
-            <button 
-              class="r-btn-delete"
-              hx-delete="/api/v1/verified/rm?rids=${resource.id}&volume=${resource.volume}"
-              hx-trigger="click"
-              hx-swap="none"
-              hx-confirm="Are you sure you want to delete resource ${resource.volume}/${resource.name}?"
-              hx-on::before-request="show(document.querySelector('.r-loader'))"
-            >
-              Delete
-            </button>
+                Download
+              </button>
+
+              <button
+                id="preview-resource-btn"
+                hx-target="#resource-preview-content-1"
+                hx-trigger="click"
+                hx-swap="innerHTML"
+                hx-get="/api/v1/verified/preview?rid=${resource.id}&resourcename=${resource.name}&volume=${resource.vname}"
+                hx-headers='{"Range": "bytes=${getPreviewWindow(0)}"}'
+              >Preview</button>
+
+              <button 
+                class="r-btn-edit"
+                hx-get="/api/v1/verified/edit-form?resourcename=${resource.name}&owner=${resource.owner || 0}&group=${resource.group || 0}&perms=${resource.perms}&rid=${resource.rid}&volume=${resource.vname}"
+                hx-swap="innerHTML"
+                hx-trigger="click"
+                hx-target="#edit-modal-2"
+                hx-on::after-request="show(this.parentNode.querySelector('#edit-modal-2'))"
+                >
+                Edit
+              </button>
+              <div id="edit-modal-2" class="modal hidden darkened"></div>
+
+              <button 
+                class="r-btn-delete"
+                hx-delete="/api/v1/verified/rm?name=${resource.name}&volume=${resource.vname}"
+                hx-trigger="click"
+                hx-swap="none"
+                hx-confirm="Are you sure you want to delete resource ${resource.name}?"
+
+                hx-on::before-request="show(document.querySelector('.r-loader'))"
+              >
+                Delete
+              </button>
+
+              <button
+                id="close-r-selected-display"
+                onclick="document.getElementById('resource-details').innerHTML='';"
+              >
+              Close
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -446,7 +533,7 @@ function parseAndInjectRTableRowdata(tr, injectTarget) {
           <p><strong>Rid:</strong> ${resource.id}</p>
           <p><strong>Name:</strong> ${resource.name}</p>
           <p><strong>Path:</strong> ${resource.path}</p>
-          <p><strong>Volume:</strong> ${resource.volume}</p>
+          <p><strong>Volume:</strong> ${resource.vname}</p>
           <p><strong>Type:</strong> ${resource.type}</p>
           <p><strong>Size:</strong> ${resource.size}</p>
           <p><strong>Permissions:</strong> ${resource.perms}</p>
@@ -455,27 +542,19 @@ function parseAndInjectRTableRowdata(tr, injectTarget) {
           <p><strong>Accessed At:</strong> ${resource.accessedAt}</p>
           <p><strong>Owner:</strong> ${resource.owner}</p>
           <p><strong>Group:</strong> ${resource.group}</p>
-          <p><strong>Volume:</strong> ${resource.volume}</p>
+          <p><strong>Volume:</strong> ${resource.vname}</p>
         </div>
         <div id="resource-preview" class="resource-preview-window">
-          <button
-            id="preview-resource-btn"
-            hx-target="#resource-preview-content"
-            hx-trigger="click"
-            hx-swap="innerHTML"
-            hx-get="/api/v1/verified/preview?rid=${resource.id}&resourcename=${resource.name}&volume=${resource.volume}"
-            hx-headers='js:{"Range": "bytes=" + getPreviewWindow(0)}'  
-          >Preview</button>
           <div class="resource-preview-main blurred">
-            <div id="resource-preview-content"></div>
+            <div id="resource-preview-content-1" class="resource-preview-content"></div>
             <div id="resource-preview-controls">
               <div 
                 id="next-arrow-left" 
                 class="next-arrow"
-                hx-target="#resource-preview-content"
+                hx-target="#resource-preview-content-1"
                 hx-trigger="click"
                 hx-swap="innerHTML"
-                hx-get="/api/v1/verified/preview?rid=${resource.id}&resourcename=${resource.name}&volume=${resource.volume}"
+                hx-get="/api/v1/verified/preview?rid=${resource.id}&resourcename=${resource.name}&volume=${resource.vname}"
                 hx-headers='js:{"Range": "bytes=" + getPreviewWindow(-1)}'  
               >
                 <svg width="24" height="8" viewBox="0 0 16 8" fill="none" xmlns="http://www.w3.org/2000/svg" class="arrow-icon">
@@ -492,10 +571,10 @@ function parseAndInjectRTableRowdata(tr, injectTarget) {
               <div 
                 id="next-arrow-right" 
                 class="next-arrow"
-                hx-target="#resource-preview-content"
+                hx-target="#resource-preview-content-1"
                 hx-trigger="click"
                 hx-swap="innerHTML"
-                hx-get="/api/v1/verified/preview?rid=${resource.id}&resourcename=${resource.name}&volume=${resource.volume}"
+                hx-get="/api/v1/verified/preview?rid=${resource.id}&resourcename=${resource.name}&volume=${resource.vname}"
                 hx-headers='js:{"Range": "bytes=" + getPreviewWindow(+1)}'  
               >
                 <svg width="24" height="8" viewBox="0 0 16 8" fill="none" xmlns="http://www.w3.org/2000/svg" class="arrow-icon">
@@ -516,4 +595,99 @@ function parseAndInjectRTableRowdata(tr, injectTarget) {
       </div>`;
 
 
+}
+
+
+
+function setupSearchBar(jobSearchDiv, cacheJobResults) {
+  let searchBy = "jid";
+  const jobSearch = jobSearchDiv.querySelector("#job-search");
+  const jobSearchSelector = jobSearchDiv.querySelector("#search-by");
+  jobSearchSelector.value = searchBy;
+  jobSearchSelector.addEventListener("input", (event) => {
+    searchBy = jobSearchSelector.value;
+    jobSearch.placeholder = "Search by '" + searchBy+"'";
+  });
+
+  // actual search by
+  jobSearch.value = "";
+  jobSearch.addEventListener("input", function() {
+    // we need to search from the currently paged jobs according to the search selector
+    // @TODO
+    searchValue = jobSearch.value;
+    // console.log("searching by " + searchBy + " at " + searchValue);
+    if (cacheJobResults.length == 0) {// empty cache, must fetch 
+      
+    }
+
+    // do search and display
+    switch (searchBy) {
+      case "jid":
+        cacheJobResults.forEach((li) => {
+          const jidSpan = li.querySelector(".jid");
+
+          if (!jidSpan.innerText.includes(searchValue)) {
+            li.classList.add("hidden");
+          } else {
+            li.classList.remove("hidden");
+          }
+        });
+        break;
+      case "uid":
+        cacheJobResults.forEach((li) => {
+          if (!li.querySelector(".uid").innerText.includes(searchValue)) {
+            li.classList.add("hidden");
+          } else {
+            li.classList.remove("hidden");
+          }
+        });
+        break;
+      case "created_at":
+        cacheJobResults.forEach((li) => {
+          if (!li.querySelector(".created_at").innerText.includes(searchValue)) {
+            li.classList.add("hidden");
+          } else {
+            li.classList.remove("hidden");
+          }
+        });
+        break;
+      case "completed_at":
+        cacheJobResults.forEach((li) => {
+          if (!li.querySelector(".completed_at").innerText.includes(searchValue)) {
+            li.classList.add("hidden");
+          } else {
+            li.classList.remove("hidden");
+          }
+        });
+        break;
+      case "status":
+        cacheJobResults.forEach((li) => {
+          if (!li.querySelector(".status").innerText.includes(searchValue)) {
+            li.classList.add("hidden");
+          } else {
+            li.classList.remove("hidden");
+          }
+        });
+        break;    
+      case "output":
+        cacheJobResults.forEach((li) => {
+          if (!li.querySelector(".output").innerText.includes(searchValue)) {
+            li.classList.add("hidden");
+          } else {
+            li.classList.remove("hidden");
+          }
+        });
+      case "input":
+        cacheJobResults.forEach((li) => {
+          if (!li.querySelector(".input").innerText.includes(searchValue)) {
+            li.classList.add("hidden");
+          } else {
+            li.classList.remove("hidden");
+          }
+        });
+        break;
+      default:
+         break;
+    }
+  });
 }

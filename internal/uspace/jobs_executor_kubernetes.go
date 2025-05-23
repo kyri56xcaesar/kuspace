@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	k "kyri56xcaesar/kuspace/internal/uspace/kubernetes"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 
+	"github.com/minio/minio-go/v7"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -37,7 +39,7 @@ func (jke JKubernetesExecutor) ExecuteJob(job ut.Job) error {
 	return nil
 }
 func (jke JKubernetesExecutor) CancelJob(job ut.Job) error {
-	cancelJob(k.GetKubeClient(), fmt.Sprintf("job-%d", job.Jid), "default")
+	cancelJob(k.GetKubeClient(), fmt.Sprintf("job-%d", job.Jid), jke.jm.srv.config.NAMESPACE)
 	return nil
 
 }
@@ -49,6 +51,7 @@ func buildK8sJob(
 	env map[string]string,
 	quotas map[string]string,
 	parallelism int32,
+	namespace string,
 ) *batchv1.Job {
 	envVars := []corev1.EnvVar{}
 	for k, v := range env {
@@ -57,8 +60,9 @@ func buildK8sJob(
 
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   fmt.Sprintf("job-%s", jobID),
-			Labels: map[string]string{"job-group": "uspace-job"},
+			Name:      fmt.Sprintf("job-%s", jobID),
+			Labels:    map[string]string{"job-group": "uspace-job"},
+			Namespace: namespace,
 		},
 		Spec: batchv1.JobSpec{
 			Parallelism:  &parallelism,
@@ -156,6 +160,7 @@ func streamJobLogs(clientset *kubernetes.Clientset, jobName, namespace string, s
 
 func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	jobName := fmt.Sprintf("j-%d", job.Jid)
+	namespace := je.jm.srv.config.NAMESPACE
 
 	command, err := formatJobData(je, &job)
 	if err != nil {
@@ -170,27 +175,68 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 		job.Env,
 		map[string]string{"RMem": job.MemoryRequest, "RCpu": job.CpuRequest, "LMem": job.MemoryLimit, "LCpu": job.CpuLimit},
 		int32(job.Parallelism), // parallelism // should default to 1
+		namespace,
 	)
 
 	clientset := k.GetKubeClient() // from your config
-	err = runJob(clientset, jobSpec, "default")
+	err = runJob(clientset, jobSpec, namespace)
 	if err != nil {
 		log.Printf("error starting job: %v", err)
 		return
 	}
+	startTime := time.Now()
 
-	go streamJobLogs(clientset, jobSpec.Name, "default", func(data []byte) {
+	go streamJobLogs(clientset, jobSpec.Name, namespace, func(data []byte) {
 		streamToSocketWS(job.Jid, bytes.NewReader(data))
 	})
 
-	status, err := monitorJob(clientset, jobSpec.Name, "default")
+	status, err := monitorJob(clientset, jobSpec.Name, namespace)
 	if err != nil {
 		log.Printf("error monitoring job: %v", err)
 	}
-
-	log.Printf("Job %v finished with status: %s", jobName, status)
+	duration := time.Since(startTime)
+	log.Printf("Job %v finished with status: %s, duration: %v", jobName, status, duration)
 
 	// Optional: cleanup or postprocess
+	err = je.jm.srv.markJobStatus(job.Jid, status, duration)
+	if err != nil {
+		log.Printf("failed to annotate result to database")
+	}
+
+	// save output to db
+	p := strings.SplitN(job.Output, "/", 2)
+	if len(p) != 2 {
+		log.Printf("job output was invalid format, should have escaped by now...")
+	}
+
+	if status == "completed" {
+		output_resource := ut.Resource{
+			Name:  p[1],
+			Path:  "/",
+			Type:  "file",
+			Perms: "rw-r--r--",
+			Uid:   job.Uid,
+			Vname: p[0],
+			Gid:   job.Uid,
+		}
+		info, err := je.jm.srv.storage.Stat(output_resource)
+		if err != nil {
+			log.Printf("failed to stat output file from storage: %v", err)
+			return
+		}
+		info_casted, ok := info.(minio.ObjectInfo) // this should be changed to be independent of minio... // will do "resourceInfo struct "
+		if !ok {
+			log.Printf("failed to cast to object info")
+			return
+		}
+		output_resource.Size = info_casted.Size
+
+		log.Printf("saving to database...")
+		_, err = je.jm.srv.fsl.Insert(output_resource)
+		if err != nil {
+			log.Printf("failed to insert output object in database: %v", err)
+		}
+	}
 }
 
 func formatJobData(je *JKubernetesExecutor, job *ut.Job) ([]string, error) {
@@ -304,7 +350,7 @@ func formatJobCommand(job *ut.Job) ([]string, error) {
 
 	lang := job.Logic[:strings.Index(job.Logic+":", ":")]
 	switch lang {
-	case "application/duckdb": // check if the given logic is a custom app
+	case "application/duckdb", "duckdb": // check if the given logic is a custom app
 		job.Logic = DUCK_IMAGE
 		return []string{"python", "duckdb_app.py"}, nil
 

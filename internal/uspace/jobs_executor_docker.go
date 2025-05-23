@@ -332,7 +332,7 @@ func formatJobCommandD(job ut.Job, fileSave bool) ([]string, error) {
 
 func (je *JDockerExecutor) updateJobStatus(jid int64, status string, duration time.Duration) {
 	log.Printf("updating %v job status: %v", jid, status)
-	err := je.jm.srv.MarkJobStatus(jid, status, duration)
+	err := je.jm.srv.markJobStatus(jid, status, duration)
 	if err != nil {
 		log.Printf("failed to update job %d status (%s): %v", jid, status, err)
 	}

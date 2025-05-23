@@ -1,13 +1,16 @@
  // what we need to prepare jobs
 const modeMap = {
-    "js": "javascript",
-    "go": "go",
-    "py": "python",
-    "java": "java",
-    "c": "gcc",
-    "javascript":"node",
-    "python":"python",
-  
+    // "js": "javascript",
+    // "go": "go",
+    // "py": "python",
+    // "java": "java",
+    // "c": "gcc",
+    // "javascript":"node",
+
+    duckdb: "text/x-sql",   // duckdb is SQL-based
+    sql: "text/x-sql",
+    python: "python",
+    custom: "python"
   };
   
 const extMap = {
@@ -16,360 +19,94 @@ const extMap = {
   "go":"go",
   "c":"c",
   "java":"openjdk",
+  "sql":"sql",
 };
 
 const defaultMap = {
-  "javascript": 
-`
-function run(data) {
-  return data
-}
-
-
-
-
-
-`,
-  "python":
-`
+  sql:"-- SELECT * FROM #% WHERE ;\n",
+  javascript:"function run(data) {return data}\n",
+  python:`
 def run(data):\n\treturn data
-
-
-
-
-
-
 `,
-  "go":
-`
-func run(data string) string {
-  return data
+  go:"func run(data string) string {return data}\n",
+  c:"void run(char *buffer) {}\n",
+  java:"public static String run(String data) {return data;}\n",
+  duckdb:"--example\nCREATE TABLE test_data AS SELECT * FROM #%;\nSELECT * FROM test_data LIMIT 5;\n",
+  sql:"SELECT * FROM table_name;\n",
 }
 
+const MAX_SIZE_MB = 1;
+const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
-
-
-
-`,
-  "c":
-`
-void run(char *buffer) {
-
-}
-
-
-
-
-
-`,
-  "java":
-`
-public static String run(String data) {
-  return data;
-}
-
-
-
-
-
-`,
-}
 function setupJobSubmitter(element) {
     // "JOB" preperation setup
-    element.querySelector("#language-selector").value = "custom"; 
-    // reset text area 
-    // const desc = element.querySelector("#j-description");
-    // if (desc) {
-    //   desc.value = "";
-    // }
-    // html/css/js mini "code editor"
-    // Load CodeMirror
-    // console.log(element.querySelector("#code-editor"));
     const editor = CodeMirror.fromTextArea(element.querySelector(".code-editor"), {
       lineNumbers: true,
-      theme: "monokai",  // Choose a theme
+      theme: "monokai",  
       matchBrackets: true,
       autoCloseBrackets: true,
-      // indentUnit: 0,            // size of a single indent
       smartIndent: false,       // disables smart indent on newlines
-      // indentWithTabs: false,    // do not use tabs for indentation
-      // extraKeys: {
-      //   Tab: false              // disable tab behavior
-      // }
+      mode: "python",
 
     });
-
 
     setTimeout(() => {
-      editor.setValue(defaultMap[""] || "");
-      editor.refresh(); // <-- this line saves lives
-    }, 100);
-    // console.log(editor);
+      editor.setValue(defaultMap["duckdb"]);
 
-    // Language selection logic
-    element.querySelector("#language-selector").addEventListener("change", function() {
-      const mode = modeMap[this.value];
+    }, 1000);
+
+
+    const codeSnipperUpload = element.querySelector("#code-file-upload");
+    const appSelect = element.querySelector("#language-selector");
+
+    appSelect.addEventListener("change", function() {
+      const selectedValue = this.value.toLowerCase();
+      const mode = modeMap[selectedValue];
+      console.log('mode: ' + mode);
+      console.log('selectedValue: ' + selectedValue);
       editor.setOption("mode", mode);
-      editor.setValue(defaultMap[this.value]);
+      editor.setValue(defaultMap[selectedValue]);
+      editor.refresh(); 
     });
 
-    // Code file upload logic
-    element.querySelector("#code-file-upload").addEventListener("change", function(event) {
+    codeSnipperUpload.addEventListener("change", function() {
       const file = event.target.files[0];
       if (!file) return;
 
-      const ext = file.name.split('.').pop(); 
+      if (file.size > MAX_SIZE_BYTES) {
+        alert(`File too large. Max allowed size is ${MAX_SIZE_MB}MB.`);
+        return;
+      }
+
+      const ext = file.name.split('.').pop() || ""; 
       const mode = modeMap[ext] || "python"; 
+      editor.setOption("mode", mode);    
       // console.log('mode: ' + mode);
-      element.querySelector("#language-selector").value = extMap[ext];
+      appSelect.value = extMap[ext];
 
       const reader = new FileReader();
-      editor.setOption("mode", mode);    
-
+      reader.readAsText(file);
       reader.onload = function(event) {
         editor.setValue(event.target.result);
       };
-      reader.readAsText(file);
+      reader.onerror = function(event) {
+        console.error("Error reading file:", event.target.error);
+      };
+      editor.refresh(); 
     });
 
-    // specify output functionality
-    // element.querySelector("#select-output-destination").addEventListener("input", function(event) {
-    //   const inputValue = event.target.value;
-    //   const spanElement = event.target.closest('div').parentElement.nextElementSibling.children[4];
-    //   spanElement.textContent = inputValue;
-    // });
-
-    // // select input "resources" for the job display handler
-    // element.querySelector("#select-j-input-button").addEventListener("click", function(event) {
-    //   // resource selection modal
-    //   const existingModal = element.querySelector("#resource-selection-modal");
-    //   if (existingModal) existingModal.remove();
-
-    //   // Create modal background overlay
-    //   const modalOverlay = document.createElement("div");
-    //   modalOverlay.id = "resource-selection-modal";
-    //   modalOverlay.classList.add("job-select-modal-overlay")
-
-    //   // Create modal content box
-    //   const modalContent = document.createElement("div");
-    //   modalContent.innerHTML = `
-    //       <h3>Select Resources</h3>
-    //       <table border="1" id="resource-selection-table" style="width:100%; border-collapse: collapse; text-align: left;">
-    //           <thead>
-    //               <tr>
-    //                   <th>Select</th>
-    //                   <th>Name</th>
-    //                   <th>Type</th>
-    //                   <th>Size</th>
-    //               </tr>
-    //           </thead>
-    //           <tbody>
-    //           </tbody>
-    //       </table>
-    //       <br>
-    //       <button id="submit-resource-selection">Submit</button>
-    //       <button id="cancel-resource-selection">Cancel</button>
-    //   `;
-
-    //   modalOverlay.appendChild(modalContent);
-    //   document.body.appendChild(modalOverlay);
-
-    //   // Reference existing resources from a previous table
-    //   const selectionTableBody = modalContent.querySelector("tbody");
-
-    //   const cachedResources = new Promise((resolve, reject) => {
-    //     fetch('/api/v1/verified/admin/fetch-resources?format=json')
-    //       .then(response => {
-    //         if (!response.ok) {
-    //           throw new Error('Network response was not ok');
-    //         }
-    //         return response.json();
-    //       })
-    //       .then(data => resolve(data))
-    //       .catch(error => reject(error));
-    //   });
-
-    //   cachedResources.then(resources => {
-    //     resources.forEach((resource) => {
-    //       const resourceId = resource.rid;
-    //       const resourceName = resource.name;
-    //       const resourceType = resource.type;
-    //       const resourceSize = resource.size;
-
-    //       const newRow = document.createElement("tr");
-    //       newRow.innerHTML = `
-    //         <td><input type="checkbox" data-resource-id="${resourceId}" data-resource-name="${resourceName}"></td>
-    //         <td>${resourceName}</td>
-    //         <td>${resourceType}</td>
-    //         <td>${resourceSize}</td>
-    //       `;
-    //       selectionTableBody.appendChild(newRow);
-    //     });
-    //   }).catch(error => {
-    //     console.error('Error fetching resources:', error);
-    //   });
-
-    //   /*if (cachedResources) {
-    //     cachedResources.forEach((resource) => {
-    //           const resourceId = resource.rid;
-    //           const resourceName = resource.name;
-    //           const resourceType = resource.type;
-    //           const resourceSize = resource.size;
-
-    //           const newRow = document.createElement("tr");
-    //           newRow.innerHTML = `
-    //               <td><input type="checkbox" data-resource-id="${resourceId}" data-resource-name="${resourceName}"></td>
-    //               <td>${resourceName}</td>
-    //               <td>${resourceType}</td>
-    //               <td>${resourceSize}</td>
-    //           `;
-    //           selectionTableBody.appendChild(newRow);
-    //       });
-    //   }
-    //   */
-    //   // Handle submission
-    //   document.querySelector("#submit-resource-selection").addEventListener("click", function () {
-    //     const selectedResources = [];
-    //     document.querySelectorAll("#resource-selection-table input[type='checkbox']:checked").forEach((checkbox) => {
-    //         selectedResources.push({
-    //             id: checkbox.getAttribute("data-resource-id"),
-    //             name: checkbox.getAttribute("data-resource-name"),
-    //         });
-    //     });
-
-    //     // You can send selectedResources to another function or API
-    //     //alert(`Selected ${selectedResources.length} resources!`);
-    //     element.querySelector(".input-box").textContent = selectedResources.map(resource => `${resource.name}`).join('\n');
-
-    //     // Close the modal
-    //     modalOverlay.remove();
-    //   });
-
-    //   // Handle cancel
-    //   document.querySelector("#cancel-resource-selection").addEventListener("click", function () {
-    //       modalOverlay.remove();
-    //   });
+    setTimeout(() => {
+      editor.setValue(defaultMap[""] || "");
+      editor.refresh(); 
+    }, 100);
 
 
 
-    // });
-
-    // Job submission, lets do it as a promise, more flexible for this rather than htmx
-    const submitJobBtn = element.querySelector("#submit-job-button");
-
-    submitJobBtn.addEventListener("change", function(event) {
-        if (submitJobBtn.checked) {// cancel job case {}
-        //confirm?
-            if (!confirm("Are you sure you want to cancel the job execution?")) {
-                submitJobBtn.checked = false;
-                return;
-            }
-
-            // start an indicator spinner
-            const jloader = element.querySelector('.j-loader');
-            jloader.classList.remove("hidden");
-            jloader.style.animation="reverseSpin var(--speed) infinite linear";
-            // send the request and await response (maybe trigger a ws to get realtime data about the job)
-            // handle response, display, spinner, output
- 
-        } else { // send job
-            // start an indicator spinner
-            const jloader = element.querySelector('.j-loader');
-            jloader.style.animation="spin var(--speed) infinite linear";
-            jloader.classList.remove("hidden");
-    
-
-            // send job request
-            // job data 
-            const input = element.querySelector(".input-box").textContent.split('\n').map((file) => file.replace(/^\/+/, ''));
-            const output = element.querySelector(".output-box").textContent;
-            const code = normalizeIndentation(editor.getValue());
-            const logic = editor.getOption("mode");
-            const description = element.querySelector("#j-description").value;
-
-            // verify logic integrity
-            // gather data
-            let job = {
-              "uid":0,
-              "input":input,
-              "output":output,
-              "logic":logic,
-              "logic_body":code,
-              "description":description,
-            }
-        
-            // send the request and await response 
-            const response = new Promise((resolve, reject) => {
-              fetch('/api/v1/verified/fetch-jobs', {
-                method: 'POST',
-                headers: {
-              'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(job),
-              })
-                .then(response => {
-              if (!response.ok) {
-                throw new Error('Network response was not ok');
-              }
-              return response.json();
-                })
-                .then(data => resolve(data))
-                .catch(error => reject(error));
-            });
-
-            // handle response, display, spinner, output, (maybe trigger a ws on success to get realtime data about the job)
-            response.then(resp => {
-              // console.log(resp);
-              // we get the job id here, and we can open a feedback panel for this job here..
-              // open feedback panel
-              if (resp.status == "error") {
-                return;
-              } else {
-                const jobFeedbackPanel = element.querySelector('#job-feedback');
-                jobFeedbackPanel.classList.remove('hidden');
-                createFeedbackPanel(resp.jid);
-            
-              }
-          
-          
-          
-            }).catch(error => {
-              console.error('Error fetching resources:', error);
-            });
-        
-            setTimeout(() => {
-                jloader.classList.add('hidden');
-                submitJobBtn.checked = true;
-            }, 2000);
-
-        }
-    });
-
-    // job i/o bar minimizer 
-    // element.querySelector("#job-io-minimizer").addEventListener("click", (event) => {
-    //   const ioSetupDiv = document.getElementById("job-io-setup");
-    //   // ioSetupDiv.classList.toggle("minimized");
-
-    //   ioSetupDiv.querySelectorAll(".minimizable").forEach((div) => {
-    //     div.classList.toggle("hidden");
-    //     div.classList.toggle("minimized");
-    //   })
-    // });
-
-    // // job feedback bar minimizer 
-    // element.querySelector("#job-feedback-minimizer").addEventListener("click", (event) => {
-    //   const feedbackDiv = document.getElementById("job-feedback");
-    //   feedbackDiv.classList.toggle("minimized");
-
-    //   feedbackDiv.querySelectorAll(".minimizable").forEach((div) => {
-    //     div.classList.toggle("hidden");
-    //     div.classList.toggle("minimized");
-    //   })
-    // });
+   
 
     return editor;
 
- }
+}
  
  
 function createFeedbackPanel(jid) {

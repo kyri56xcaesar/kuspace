@@ -169,53 +169,6 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 		return
 	}
 
-	/* give the user some of the volume pie */
-	go func() {
-		json_data, err := json.Marshal(ut.UserVolume{Vid: 1, Uid: useraddResp.Uid})
-		if err != nil {
-			log.Printf("failed to marshal to json: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
-			return
-		}
-		req, err := http.NewRequest(http.MethodPost, apiServiceURL+"/api/v1/admin/user/volume", bytes.NewBuffer(json_data))
-		if err != nil {
-			log.Printf("failed to create a new request: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
-			req.Header.Add("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
-			return
-		}
-		req.Header.Add("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
-
-		_, err = http.DefaultClient.Do(req)
-		if err != nil {
-			log.Printf("failed to send user volume claim request: %v", err)
-		}
-
-	}()
-
-	/* give the users primary group some of the pie as well*/
-	go func() {
-		json_data, err := json.Marshal(ut.GroupVolume{Vid: 1, Gid: useraddResp.Pgroup})
-		if err != nil {
-			log.Printf("failed to marshal to json: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set gv"})
-			return
-		}
-		req, err := http.NewRequest(http.MethodPost, apiServiceURL+"/api/v1/admin/group/volume", bytes.NewBuffer(json_data))
-		if err != nil {
-			log.Printf("failed to create a new request: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set gv"})
-			return
-		}
-		req.Header.Add("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
-
-		_, err = http.DefaultClient.Do(req)
-		if err != nil {
-			log.Printf("failed to send user group volume claim request: %v", err)
-			return
-		}
-	}()
-
 	c.JSON(http.StatusOK, gin.H{"status": "user added"})
 }
 
@@ -583,7 +536,7 @@ func (srv *HTTPService) handleFetchResources(c *gin.Context) {
 
 	switch struc_type {
 	case "tree":
-		var data map[string]interface{}
+		var data map[string]any
 		if err := json.Unmarshal(body, &data); err != nil {
 			log.Printf("failed to unmarshal response: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
@@ -606,7 +559,6 @@ func (srv *HTTPService) handleFetchResources(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
 			return
 		}
-
 		format := c.Request.URL.Query().Get("format")
 		respondInFormat(c, format, data, "list-resources.html")
 
@@ -850,7 +802,8 @@ func (srv *HTTPService) handleResourceMove(c *gin.Context) {
 }
 
 func (srv *HTTPService) handleResourceDelete(c *gin.Context) {
-	resource_target := c.Request.URL.Query().Get("rids")
+	// will be confgured for multiple deletion
+	resource_target := c.Request.URL.Query().Get("name")
 	if resource_target == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing target parameter"})
 		return
@@ -858,7 +811,7 @@ func (srv *HTTPService) handleResourceDelete(c *gin.Context) {
 	uid, _ := c.Get("user_id")
 	group_ids, _ := c.Get("group_ids")
 
-	req, err := http.NewRequest(http.MethodDelete, apiServiceURL+"/api/v1/resource/rm?rids="+resource_target, c.Request.Body)
+	req, err := http.NewRequest(http.MethodDelete, apiServiceURL+"/api/v1/resource/rm", c.Request.Body)
 	if err != nil {
 		log.Printf("failed to create a new request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
@@ -875,11 +828,9 @@ func (srv *HTTPService) handleResourceDelete(c *gin.Context) {
 		volume = srv.Config.MINIO_DEFAULT_BUCKET
 	}
 
-	req.Header.Add("Access-Target", fmt.Sprintf(":%s:$rids=%s %v:%v", volume, resource_target, uid, group_ids))
+	req.Header.Add("Access-Target", fmt.Sprintf(":%s:%s %v:%v", volume, resource_target, uid, group_ids))
 	req.Header.Add("Authorization", c.Request.Header.Get("Authorization"))
 	req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
-
-	log.Printf("$rids=%v %v:%v", resource_target, uid, group_ids)
 
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -1291,6 +1242,187 @@ func (srv *HTTPService) jobsHandler(c *gin.Context) {
 		// Render the HTML template
 		respondInFormat(c, format, jobResp.Content, "jobs_list_template.html")
 	case http.MethodPost:
+		// lets fix the uid (identify ourselves)
+		var job ut.Job
+		err := c.ShouldBind(&job)
+		if err != nil {
+			log.Printf("failed to bind json body: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to bind"})
+			return
+		}
+
+		err = job.ValidateForm(srv.Config.J_MAX_CPU, srv.Config.J_MAX_MEM, srv.Config.J_MAX_STORAGE, int64(srv.Config.J_MAX_PARALLELISM), srv.Config.J_MAX_TIMEOUT, srv.Config.J_MAX_LOGIC_CHARS)
+		if err != nil {
+			log.Printf("failed to validate form: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// our uid
+		uid, exists := c.Get("user_id")
+		if !exists {
+			log.Printf("uid not set correctly... should be unreachable")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "incosiderable"})
+			return
+		}
+		job.Uid, err = strconv.Atoi(uid.(string))
+		if err != nil {
+			log.Printf("failed to atoi uid value: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to atoi uid"})
+			return
+		}
+		job_json, err := json.Marshal(job)
+		if err != nil {
+			log.Printf("failed to marshal job: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to marshal job"})
+			return
+		}
+		jobReq, err := http.NewRequest(http.MethodPost, apiServiceURL+"/api/v1/job", bytes.NewBuffer(job_json))
+		if err != nil {
+			log.Printf("failed to create request: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			return
+		}
+		jobReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+
+		client := &http.Client{Timeout: 10 * time.Second}
+		response, err := client.Do(jobReq)
+		if err != nil {
+			log.Printf("failed to make request: %v", err)
+			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch jobs"})
+			return
+		}
+
+		var resp struct {
+			Jid    int    `json:"jid"`
+			Status string `json:"status"`
+		}
+
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			log.Printf("failed to read response body: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
+			return
+		}
+		defer response.Body.Close()
+
+		err = json.Unmarshal(body, &resp)
+		if err != nil {
+			log.Printf("failed to unmarshal response body: %v", err)
+			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to retrieve expected response"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"jid": resp.Jid, "status": resp.Status, "output": job.Output})
+
+	default:
+		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "method not supported"})
+
+	}
+
+}
+
+func (srv *HTTPService) appsHandler(c *gin.Context) {
+	switch c.Request.Method {
+	case http.MethodGet:
+		appReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/app", nil)
+		if err != nil {
+			log.Printf("failed to create request: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			return
+		}
+		appReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+
+		client := &http.Client{Timeout: 10 * time.Second}
+		response, err := client.Do(appReq)
+		if err != nil {
+			log.Printf("failed to make request: %v", err)
+			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch data"})
+			return
+		}
+		defer response.Body.Close()
+
+		var resp struct {
+			Content []ut.Application `json:"content"`
+		}
+
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			log.Printf("failed to read response body: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
+			return
+		}
+
+		err = json.Unmarshal(body, &resp)
+		if err != nil {
+			log.Printf("failed to unmarshal response: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
+			return
+		}
+
+		// sort on given argument
+		sortBy := c.Request.URL.Query().Get("sort")
+
+		switch sortBy {
+		case "name":
+			sort.Slice(resp.Content, func(i, j int) bool {
+				return resp.Content[i].Name > resp.Content[j].Name
+			})
+		case "image":
+			sort.Slice(resp.Content, func(i, j int) bool {
+				return resp.Content[i].Image > resp.Content[j].Image
+			})
+		case "version":
+			sort.Slice(resp.Content, func(i, j int) bool {
+				return resp.Content[i].Version > resp.Content[j].Version
+			})
+		case "status":
+			sort.Slice(resp.Content, func(i, j int) bool {
+				return compareStatus(resp.Content[i].Status, resp.Content[j].Status)
+			})
+		case "author":
+			sort.Slice(resp.Content, func(i, j int) bool {
+				return resp.Content[i].Author > resp.Content[j].Author
+			})
+		case "author_id":
+			sort.Slice(resp.Content, func(i, j int) bool {
+				return resp.Content[i].AuthorId > resp.Content[j].AuthorId
+			})
+		case "created_at", "time":
+			// sort users on time
+			sort.Slice(resp.Content, func(i, j int) bool {
+				t1, err1 := time.Parse(customTimeLayout, resp.Content[i].CreatedAt)
+				t2, err2 := time.Parse(customTimeLayout, resp.Content[j].CreatedAt)
+
+				// Handle parsing errors gracefully (e.g., keep original order)
+				if err1 != nil || err2 != nil {
+					return false
+				}
+
+				return t1.After(t2)
+			})
+		case "inserted_at":
+			// sort users on time
+			sort.Slice(resp.Content, func(i, j int) bool {
+				t1, err1 := time.Parse(customTimeLayout, resp.Content[i].InsertedAt)
+				t2, err2 := time.Parse(customTimeLayout, resp.Content[j].InsertedAt)
+
+				// Handle parsing errors gracefully (e.g., keep original order)
+				if err1 != nil || err2 != nil {
+					return false
+				}
+
+				return t1.After(t2)
+			})
+
+		}
+
+		// answer according to format
+		format := c.Request.URL.Query().Get("format")
+
+		// Render the HTML template
+		respondInFormat(c, format, resp.Content, "apps_list_template.html")
+	case http.MethodPost:
 
 		// lets fix the uid (identify ourselves)
 		var job ut.Job
@@ -1360,13 +1492,6 @@ func (srv *HTTPService) jobsHandler(c *gin.Context) {
 *********************************************************************
 *   Apps
 * */
-
-func (srv *HTTPService) handleFetchApps(c *gin.Context) {
-	// fetch apps...
-
-	// render template
-	c.HTML(http.StatusOK, "apps_display_template.html", gin.H{})
-}
 
 /*
 *********************************************************************
@@ -2206,11 +2331,21 @@ func (srv *HTTPService) updateUser(c *gin.Context) {
 
 func (srv *HTTPService) handleAdminPanel(c *gin.Context) {
 	username := c.GetString("username")
-	info := c.Query("info")
+	groups := c.GetString("groups")
+	info := c.GetString("info")
+	home := c.GetString("home")
+	elevated := 0
+	if strings.Contains(groups, "admin") {
+		elevated = 1
+	}
+
 	c.HTML(http.StatusOK, "admin-panel.html", gin.H{
 		"username": username,
 		"message":  "Welcome to the Admin Panel ",
 		"info":     info,
+		"home":     home,
+		"elevated": elevated,
+		"groups":   groups,
 	})
 
 }
@@ -2219,7 +2354,7 @@ func (srv *HTTPService) handleAdminPanel(c *gin.Context) {
 *********************************************************************
 * */
 /* helpful functions */
-func jsonPostRequest(destinationURI string, accessToken string, requestData interface{}) (*http.Response, error) {
+func jsonPostRequest(destinationURI string, accessToken string, requestData any) (*http.Response, error) {
 	// Marshal the request data into JSON
 	jsonData, err := json.Marshal(requestData)
 	if err != nil {
@@ -2239,7 +2374,7 @@ func jsonPostRequest(destinationURI string, accessToken string, requestData inte
 	return client.Do(req)
 }
 
-func parseTreeNode(name string, data map[string]interface{}) *TreeNode {
+func parseTreeNode(name string, data map[string]any) *TreeNode {
 	if isFileNode(data) {
 		var resource ut.Resource
 		jsonData, _ := json.Marshal(data)
@@ -2259,7 +2394,7 @@ func parseTreeNode(name string, data map[string]interface{}) *TreeNode {
 	}
 
 	for key, value := range data {
-		if childData, ok := value.(map[string]interface{}); ok {
+		if childData, ok := value.(map[string]any); ok {
 			node.Children[key] = parseTreeNode(key, childData)
 		}
 	}
@@ -2267,7 +2402,7 @@ func parseTreeNode(name string, data map[string]interface{}) *TreeNode {
 	return node
 }
 
-func isFileNode(data map[string]interface{}) bool {
+func isFileNode(data map[string]any) bool {
 	_, hasName := data["name"]
 	_, hasType := data["type"]
 	return hasName && hasType

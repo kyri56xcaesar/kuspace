@@ -207,8 +207,8 @@ func (l *LoginClaim) validateClaim() error {
 		return errors.New("username cannot be empty")
 	}
 
-	if !ut.IsAlphanumericPlus(l.Username) {
-		return fmt.Errorf("username %q is invalid: only alphanumeric chararctes[@+] are allowed", l.Username)
+	if !ut.IsAlphanumeric(l.Username) {
+		return fmt.Errorf("username %q is invalid: only alphanumeric chararctes are allowed", l.Username)
 	}
 
 	if l.Password == "" {
@@ -223,31 +223,32 @@ func (u *RegisterClaim) validateUser() error {
 		return errors.New("username cannot be empty")
 	}
 
+	if len(u.User.Username) < 3 || len(u.User.Username) > 32 {
+		return fmt.Errorf("username must be between 3 and 32 characters")
+	}
+
 	if offLimits(u.User.Username) {
 		return errors.New("username off limits")
 	}
 
-	if !ut.IsAlphanumericPlus(u.User.Username) {
-		return fmt.Errorf("username %q is invalid: only alphanumeric characters[@+] are allowed", u.User.Username)
+	if !ut.IsAlphanumeric(u.User.Username) {
+		return fmt.Errorf("username %q is invalid: only alphanumeric characters are allowed", u.User.Username)
 	}
 
 	if len(u.User.Info) > 100 {
 		return fmt.Errorf("info field is too long: maximum allowed length is 100 characters")
 	}
 
-	// Validate UID
-	if u.User.Uid < 0 {
-		return fmt.Errorf("uid '%d' is invalid: must be a non-negative integer", u.User.Uid)
-	}
-
-	// Validate Primary Group
-	if u.User.Pgroup < 0 {
-		return fmt.Errorf("primary group '%d' is invalid: must be a non-negative integer", u.User.Pgroup)
+	if !ut.IsAlphanumericPlus(u.User.Info) {
+		return fmt.Errorf("email %q is invalid: only alphanumeric characters[+@_] are allowed", u.User.Info)
 	}
 
 	if err := u.User.Password.ValidatePassword(); err != nil {
 		return fmt.Errorf("password validation error: %w", err)
 	}
+
+	u.User.Username = strings.TrimSpace(u.User.Username)
+	u.User.Info = strings.TrimSpace(u.User.Info)
 
 	return nil
 }

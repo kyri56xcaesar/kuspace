@@ -25,7 +25,7 @@ import (
 
 const (
 	region   = "eu-central-1"
-	localDir = "minio_local"
+	localDir = "minio_local" // perhaps some form of locality
 )
 
 var (
@@ -60,11 +60,17 @@ func NewMinioClient(cfg ut.EnvConfig) MinioClient {
 		log.Printf("failed to parse object threshold, fallingthrough to default")
 		OBJECT_SIZE_THRESHOLD = DEFALT_OBJECT_SIZE_THRESHOLD
 	}
+	var endpoint string
+	if cfg.PROFILE == "baremetal" {
+		endpoint = cfg.MINIO_NODEPORT_ENDPOINT
+	} else {
+		endpoint = cfg.MINIO_ENDPOINT
+	}
 
 	mc := MinioClient{
 		accessKey:                cfg.MINIO_ACCESS_KEY,
 		secretKey:                cfg.MINIO_SECRET_KEY,
-		endpoint:                 cfg.MINIO_ENDPOINT,
+		endpoint:                 endpoint,
 		useSSL:                   cfg.MINIO_USE_SSL == "true",
 		objectLocking:            cfg.MINIO_OBJECT_LOCKING,
 		default_bucket_name:      cfg.MINIO_DEFAULT_BUCKET,
@@ -239,17 +245,6 @@ func (mc *MinioClient) Stat(t any) (any, error) {
 	object, ok := t.(ut.Resource)
 	if !ok {
 		return nil, ut.NewError("failed to cast")
-	}
-
-	// check if the object exists
-
-	fi, err := os.Stat(mc.default_local_space_path + object.Name)
-	if err == nil {
-		log.Printf("object exists")
-		return fi, nil
-	} else if os.IsNotExist(err) {
-	} else {
-		return nil, fmt.Errorf("error checking file existence: %v", err)
 	}
 
 	if FETCHSTAT {

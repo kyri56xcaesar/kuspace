@@ -1,46 +1,4 @@
-editor = "";
-
-
-
 document.addEventListener("DOMContentLoaded", () => {
-    const profileMenu = document.querySelector(".profile-menu");
-    const profileButton = document.querySelector(".profile-button");
-    profileButton.addEventListener("click", () => {
-        profileMenu.classList.toggle("open");
-    });
-    document.addEventListener("click", (event) => {
-        if (!profileMenu.contains(event.target)) {
-            profileMenu.classList.remove("open");
-        }
-    });
-
-
-
-
-    /**************************************************************************/
-    // files
-    /**************************************************************************/
-
-    // functionality of file upload via drag
-    const dashBoardHome = document.getElementById("dashboard-home");
-    const dropZone = dashBoardHome.querySelector("#drop-zone");
-    const fileInput = dashBoardHome.querySelector("#file");
-    const fileBoxContainer = dashBoardHome.querySelector("#file-boxes");
-    const submitButton = dashBoardHome.querySelector("#upload-button");
-    const fileNameDisplay = dashBoardHome.querySelector("#file-name");
-
-    fileUploadModule = fileUploadContainerFunctionality(
-      dropZone,
-      fileInput,
-      fileBoxContainer,
-      submitButton,
-      fileNameDisplay
-    );
-
- 
-    editor = setupJobSubmitter(document.querySelector('#new-job-container-dash'));
-
-
     // USER CHART
     const uchartCanvas = document.getElementById("user-df-chart");
     

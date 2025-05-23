@@ -72,7 +72,7 @@ func (srv *UService) getResourcesHandler(c *gin.Context) {
 	res, err := srv.fsl.SelectObjects(
 		map[string]any{
 			"vname":  ac.Vname,
-			"prefix": ac.Target,
+			"prefix": strings.TrimPrefix(ac.Target, "/"),
 			"limit":  limit,
 		},
 	)
@@ -142,21 +142,21 @@ func (srv *UService) rmResourceHandler(c *gin.Context) {
 	ac := ac_h.(ut.AccessClaim)
 	log.Printf("binded access claim: %+v", ac)
 
-	if err := srv.fsl.Remove(ut.Resource{
-		Name:  ac.Target,
-		Vname: ac.Vname,
-	}); err != nil {
-		log.Printf("error when removing object from fsl: %v", err) // perhaps specify exact details of error
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete obj"})
-		return
-	}
-
 	// if this fails perhaps we need to delete the db entry...
 	if err := srv.storage.Remove(ut.Resource{
 		Name:  ac.Target,
 		Vname: ac.Vname,
 	}); err != nil {
 		log.Printf("error when removing object: %v", err) // perhaps specify exact details of error
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete obj"})
+		return
+	}
+
+	if err := srv.fsl.Remove(ut.Resource{
+		Name:  ac.Target,
+		Vname: ac.Vname,
+	}); err != nil {
+		log.Printf("error when removing object from fsl: %v", err) // perhaps specify exact details of error
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete obj"})
 		return
 	}
@@ -205,14 +205,6 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 		return
 	}
 
-	//database
-	err := srv.fsl.Update(map[string]string{"newname": parts[1], "volume": parts[0], "name": ac.Target})
-	if err != nil {
-		log.Printf("failed to update inner fsl: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update file in local db"})
-		return
-	}
-
 	if err := srv.storage.Copy(
 		ut.Resource{
 			Name:  ac.Target,
@@ -236,6 +228,14 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 	); err != nil {
 		log.Printf("failed to delete the actual old file: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete original"})
+		return
+	}
+
+	//database
+	err := srv.fsl.Update(map[string]string{"newname": parts[1], "volume": parts[0], "name": ac.Target})
+	if err != nil {
+		log.Printf("failed to update inner fsl: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update file in local db"})
 		return
 	}
 

@@ -14,9 +14,10 @@ spec:
       protocol: TCP
       port: 9000
       targetPort: 9000
+      nodePort: 30101  # to contact it outside of the cluster
     - name: console
       protocol: TCP
       port: 9090
       targetPort: 9090
-      nodePort: 30100
+      nodePort: 30100 # to contact it outside of the cluster
 

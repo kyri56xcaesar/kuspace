@@ -35,6 +35,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 /*
@@ -425,10 +426,10 @@ type User struct {
 	Groups []Group `json:"groups,omitempty"`
 
 	// Uid is the user’s numeric ID.
-	Uid int `json:"uid,omitempty" example:"1001"`
+	Uid int `json:"uid,omitempty"`
 
 	// Pgroup is the user’s primary group ID.
-	Pgroup int `json:"pgroup,omitempty" example:"2001"`
+	Pgroup int `json:"pgroup,omitempty"`
 }
 
 func (u *User) ToString() string {
@@ -466,14 +467,36 @@ type Password struct {
 
 /* check password fields for allowed values...*/
 func (p *Password) ValidatePassword() error {
+	pass := p.Hashpass
+
 	// Validate Password Length
-	if len(p.Hashpass) < 4 {
-		return NewError("password length '%d' is too short: minimum required length is 4 characters", len(p.Hashpass))
+	if len(pass) < 8 {
+		return NewError("password length '%d' is too short: minimum required length is 8 characters", len(pass))
 	}
 
 	// Validate Hashpass
-	if p.Hashpass == "" {
+	if pass == "" {
 		return NewError("hashpass cannot be empty")
+	}
+
+	var hasUpper bool
+	var hasDigit bool
+
+	for _, r := range pass {
+		switch {
+		case unicode.IsUpper(r):
+			hasUpper = true
+		case unicode.IsDigit(r):
+			hasDigit = true
+		}
+	}
+
+	if !hasUpper {
+		return NewError("password must contain at least one uppercase letter")
+	}
+
+	if !hasDigit {
+		return NewError("password must contain at least one digit")
 	}
 
 	return nil
@@ -523,23 +546,23 @@ type Job struct {
 	Jid int64 `json:"jid,omitempty"`
 	Uid int   `json:"uid"`
 
-	Parallelism int `json:"parallelism,omitempty"`
+	Parallelism int `json:"parallelism,omitempty" form:"parallelism"`
 	Priority    int `json:"priority,omitempty"`
 
-	MemoryRequest string `json:"memory_request,omitempty"`
-	CpuRequest    string `json:"cpu_request,omitempty"`
-	MemoryLimit   string `json:"memory_limit,omitempty"`
-	CpuLimit      string `json:"cpu_limit,omitempty"`
+	MemoryRequest string `json:"memory_request,omitempty" form:"memory_request"`
+	CpuRequest    string `json:"cpu_request,omitempty" form:"cpu_request"`
+	MemoryLimit   string `json:"memory_limit,omitempty" form:"memory_limit"`
+	CpuLimit      string `json:"cpu_limit,omitempty" form:"cpu_limit"`
 
-	EphimeralStorageRequest string `json:"ephimeral_storage_request,omitempty"`
-	EphimeralStorageLimit   string `json:"ephimeral_storage_limit,omitempty"`
+	EphimeralStorageRequest string `json:"ephimeral_storage_request,omitempty" form:"ephimeral_storage_request"`
+	EphimeralStorageLimit   string `json:"ephimeral_storage_limit,omitempty" form:"ephimeral_storage_limit"`
 
-	Description string  `json:"description,omitempty"`
+	Description string  `json:"description,omitempty" form:"description"`
 	Duration    float64 `json:"duration,omitempty"`
 
-	Input   string `json:"input"`
-	Output  string `json:"output"`
-	Timeout int    `json:"timeout,omitempty"` // in minutes
+	Input   string `json:"input" form:"input"`
+	Output  string `json:"output" form:"output"`
+	Timeout int    `json:"timeout,omitempty" form:"timeout"` // in minutes
 
 	Env map[string]string `json:"env,omitempty"`
 
@@ -547,15 +570,126 @@ type Job struct {
 	InputFormat  string `json:"input_format,omitempty"`
 	OutputFormat string `json:"output_format,omitempty"`
 
-	Logic        string   `json:"logic"`
-	LogicBody    string   `json:"logic_body"`
-	LogicHeaders string   `json:"logic_headers,omitempty"`
-	Params       []string `json:"params,omitempty"`
+	Logic        string   `json:"logic" form:"logic"`
+	LogicBody    string   `json:"logic_body" form:"logic_body"`
+	LogicHeaders string   `json:"logic_headers,omitempty" form:"logic_headers"`
+	Params       []string `json:"params,omitempty" form:"params"`
 
 	Status       string `json:"status,omitempty"`
 	Completed    bool   `json:"completed,omitempty"`
 	Completed_at string `json:"completed_at,omitempty"`
 	Created_at   string `json:"created_at,omitempty"`
+}
+
+func (j *Job) ValidateForm(max_cpu, max_mem, max_storage, max_paral, max_timeout, max_chars int64) error {
+	// Validate
+	if j.Description != "" && !IsValidUTF8String(j.Description) {
+		return fmt.Errorf("description must contain valid characters")
+	}
+
+	if j.LogicHeaders != "" && !IsValidUTF8String(j.LogicHeaders) {
+		return fmt.Errorf("headers must contain valid characters")
+	}
+
+	if j.Logic == "" {
+		return fmt.Errorf("must provide logic")
+	}
+
+	if !IsValidUTF8String(j.Logic) {
+		return fmt.Errorf("logic must contain valid characters")
+	}
+
+	if len(j.LogicBody) == 0 {
+		return fmt.Errorf("must provide logic")
+	}
+
+	if int64(len(j.LogicBody)) > max_chars {
+		return fmt.Errorf("logic_body exceeds max length of %v characters", max_chars)
+	}
+
+	if j.Params != nil && !IsValidUTF8String(strings.Join(j.Params, " ")) {
+		return fmt.Errorf("headers must contain valid characters")
+	}
+
+	if j.Input == "" {
+		return fmt.Errorf("must provide input")
+	}
+
+	if j.Output == "" {
+		return fmt.Errorf("must provide output")
+	}
+	// Validate paths
+	if !IsValidPath(j.Input) || !IsValidPath(j.Output) {
+		return fmt.Errorf("input/output paths contain invalid characters")
+	}
+
+	if len(j.Description) > 150 {
+		return fmt.Errorf("description must be less or equal than 150 characters")
+	}
+
+	if j.Parallelism > int(max_paral) || j.Parallelism < 0 {
+		return fmt.Errorf("parallelism must be between 0 and %d", max_paral)
+	}
+
+	if j.Timeout > int(max_timeout) {
+		return fmt.Errorf("max timeout allowed: %v", max_timeout)
+	}
+
+	// CPU
+	cpuReq, err := parseCPU(j.CpuRequest)
+	if err != nil || cpuReq > float64(max_cpu) {
+		return fmt.Errorf("cpu_request must be a float less than %v", max_cpu)
+	}
+
+	cpuLim, err := parseCPU(j.CpuLimit)
+	if err != nil || cpuLim > float64(max_cpu) {
+		return fmt.Errorf("cpu_limit must be a float less than %v", max_cpu)
+	}
+
+	// Memory
+	memReq, err := parseMi(j.MemoryRequest)
+	if err != nil || int64(memReq) > max_mem {
+		return fmt.Errorf("memory_request must be less than %vMi", max_mem)
+	}
+
+	memLim, err := parseMi(j.MemoryLimit)
+	if err != nil || int64(memLim) > max_mem {
+		return fmt.Errorf("memory_limit must be between less than %vMi", max_mem)
+	}
+
+	// Ephemeral Storage
+	storageReq, err := parseGi(j.EphimeralStorageRequest)
+	if err != nil || storageReq > float64(max_storage) {
+		return fmt.Errorf("ephemeral_storage_request must be less than %vGi", max_storage)
+	}
+
+	storageLim, err := parseGi(j.EphimeralStorageLimit)
+	if err != nil || storageLim > float64(max_storage) {
+		return fmt.Errorf("ephemeral_storage_limit must be less than %vGi", max_storage)
+	}
+
+	// sanitize
+	j.Input = strings.TrimSpace(j.Input)
+	j.Output = strings.TrimSpace(j.Output)
+
+	if p := strings.Split(j.Output, "/"); len(p) != 2 || p[1] == "" {
+		r, err := generateRandomString(16)
+		if err != nil {
+			return fmt.Errorf("failed to generate output name, must provide an output object name")
+		}
+		j.Output = j.Output + r
+	}
+
+	j.MemoryRequest = appendIfMissing(strings.TrimSpace(j.MemoryRequest), "Mi")
+	j.MemoryLimit = appendIfMissing(strings.TrimSpace(j.MemoryLimit), "Mi")
+
+	j.EphimeralStorageRequest = appendIfMissing(strings.TrimSpace(j.EphimeralStorageRequest), "Gi")
+	j.EphimeralStorageLimit = appendIfMissing(strings.TrimSpace(j.EphimeralStorageLimit), "Gi")
+
+	j.CpuRequest = strings.TrimSpace(j.CpuRequest)
+	j.CpuLimit = strings.TrimSpace(j.CpuLimit)
+
+	return nil
 }
 
 func (j *Job) PtrFields() []any {
@@ -578,4 +712,33 @@ type APIResponse[T any] struct {
 	Status  string `json:"status"`  // e.g., "success", "error"
 	Message string `json:"message"` // e.g., "Operation successful"
 	Data    T      `json:"data"`    // Any data payload
+}
+
+type Application struct {
+	Id          int64  `json:"id,omitempty"`
+	Name        string `json:"name"`
+	Image       string `json:"image"`
+	Description string `json:"description,omitempty"`
+	Version     string `json:"version"`
+	Author      string `json:"author"`
+	AuthorId    int    `json:"author_id,omitempty"`
+	Status      string `json:"status"`
+	InsertedAt  string `json:"inserted_at,omitempty"`
+	CreatedAt   string `json:"created_at,omitempty"`
+}
+
+func (a *Application) FieldsNoId() []any {
+	return []any{a.Name, a.Image, a.Description, a.Version, a.Author, a.AuthorId, a.Status, a.InsertedAt, a.CreatedAt}
+}
+
+func (a *Application) Fields() []any {
+	return []any{a.Id, a.Name, a.Image, a.Description, a.Version, a.Author, a.AuthorId, a.Status, a.InsertedAt, a.CreatedAt}
+}
+
+func (a *Application) PtrFieldsNoId() []any {
+	return []any{&a.Name, &a.Image, &a.Description, &a.Version, &a.Author, &a.AuthorId, &a.Status, &a.InsertedAt, &a.CreatedAt}
+}
+
+func (a *Application) PtrFields() []any {
+	return []any{&a.Id, &a.Name, &a.Image, &a.Description, &a.Version, &a.Author, &a.AuthorId, &a.Status, &a.InsertedAt, &a.CreatedAt}
 }

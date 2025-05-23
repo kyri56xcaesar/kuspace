@@ -106,8 +106,13 @@ function showSection(sectionId) {
   }
 }
 
-function showSubSection(sectionId) {
-  const subsections = document.querySelectorAll('.subsection');
+function showSubSection(divId, sectionId) {
+  const parentDiv = document.getElementById(divId);
+  if (!parentDiv) {
+    console.error(`Parent div with ID ${divId} not found.`);
+    return;
+  }
+  const subsections = parentDiv.querySelectorAll('.subsection');
   if (subsections) {
     subsections.forEach(subsection => {
       if (subsection.id === sectionId) {
@@ -170,9 +175,9 @@ function getCookie(name) {
   return '';
 }
 
-function downloadResource(filename) {
+function downloadResource(href) {
   const link = document.createElement("a");
-  link.href = `/api/v1/verified/download?target=${(filename)}`;
+  link.href = href;
   link.download = ""; // tells browser to treat it as a download
   document.body.appendChild(link);
   link.click();
@@ -271,14 +276,6 @@ document.addEventListener('htmx:beforeSwap', function(event) {
   const triggeringElement = event.detail.elt;
   const triggeringElementId = triggeringElement.id;
 
-  if (event.detail.xhr.status === 401) {
-    // Prevent HTMX from replacing content
-    event.detail.shouldSwap = false;
-    
-    // alert('Your session has expired. Redirecting to login...');
-    window.location.href = "http://"+IP+":"+PORT+"/api/v1/login";
-    event.preventDefault();
-  }
   
   if (triggeringElementId === "gshell-spawner") {
     let newShell = newTerminal();
@@ -309,9 +306,15 @@ document.addEventListener('htmx:afterSwap', function (event) {
   } else if (triggeringElementId.startsWith('gshell-container')) {
     // Grab that specific shell and give it the terminal features
     giveFunctionality(triggeringElement); 
-  } else if (triggeringElementId === "fetch-jobs-div" || triggeringElementId === "job-search-by-select") {
-    cacheJobResultsLi = document.getElementById("fetch-jobs-div").querySelectorAll("li");
+  } else if (triggeringElementId === "fetch-jobs-div") {
+    cacheResultsLi = document.getElementById("fetch-jobs-div").querySelectorAll("li");
+    setupSearchBar(document.querySelector("#existing-jobs-container .search-bar"), cacheResultsLi);
     // console.log(cacheJobResultsLi);
+  } else if (triggeringElementId === "fetch-jobs-div-2") {
+    cacheResultsLi = document.getElementById("fetch-jobs-div-2").querySelectorAll("li");
+    setupSearchBar(document.querySelector("#existing-jobs-container-2 .search-bar"), cacheResultsLi);
+  } else if (triggeringElementId === "fetch-jobs-button") {
+
   } else if (triggeringElementId === "volumes-target") {
     cacheVolumeResults = document.getElementById("volumes-target").querySelectorAll(".v-body");
     // console.log(cacheVolumeResults);
@@ -329,8 +332,6 @@ document.addEventListener('htmx:afterSwap', function (event) {
         const vname = volume.querySelector(".name").innerText;
         const files = finp.files;
 
-        console.log("v: ", vname);
-        console.log("files: ", files);
         if (!files.length) return;
 
         const formData = new FormData();
@@ -366,7 +367,117 @@ document.addEventListener('htmx:afterSwap', function (event) {
     }
     // populte eventListeners and edit logic
     addResourceListListeners()
-  } 
+  } else if (triggeringElementId === "fetch-groups-results") {
+    cacheGroupResults = triggeringElement.querySelector("tbody").querySelectorAll("tr");
+    // Groups search
+    const gSearch = triggeringElement.querySelector("#group-search");
+    let gSearchBy = "name";
+    const gSearchSelector = triggeringElement.querySelector("#view-table-header").querySelector("#search-by");
+    gSearchSelector.value = gSearchBy;
+    gSearchSelector.addEventListener("input", (event) => {
+      gSearchBy = gSearchSelector.value;
+      gSearch.placeholder = "Search by '" + gSearchBy+"'";
+    });
+
+    gSearch.value = "";
+    gSearch.addEventListener("input", function() {
+      if (cacheGroupResults.length == 0) {// empty cache, must fetch 
+
+      }
+      searchValue = gSearch.value;
+      // console.log("searching by " + searchBy + " at " + searchValue);
+      // do search and display
+      cacheGroupResults.forEach((li) => {
+        switch (gSearchBy) {
+          case "name":
+            if (!li.querySelector(".name").innerText.includes(searchValue)) {
+              li.classList.add("hidden");
+            } else {
+              li.classList.remove("hidden");
+            }
+            break;
+          case "gid":
+            if (!li.querySelector(".gid").innerText.includes(searchValue)) {
+              li.classList.add("hidden");
+            } else {
+              li.classList.remove("hidden");
+            }
+            break;
+          case "users":
+            if (!li.querySelector(".users").textContent.includes(searchValue)) {
+              li.classList.add("hidden");
+            } else {
+              li.classList.remove("hidden");
+            }
+            break;
+        }
+      });
+    
+    });
+
+  } else if (triggeringElementId === "fetch-users-results") {
+    cacheUserResults = triggeringElement.querySelector("tbody").querySelectorAll("tr");
+    // console.log(cacheUserResults);
+    // Users search 
+    let uSearchBy = "name";
+    const uSearchSelector = triggeringElement.querySelector("#view-table-header").querySelector("#search-by");
+    const uSearch = triggeringElement.querySelector("#user-search");
+    uSearchSelector.value = uSearchBy;
+    uSearchSelector.addEventListener("input", (event) => {
+      uSearchBy = uSearchSelector.value;
+      uSearch.placeholder = "Search by '" + uSearchBy+"'";
+    });
+
+    uSearch.value = "";
+    uSearch.addEventListener("input", function() {
+      if (cacheUserResults.length == 0) {// empty cache, must fetch 
+
+      }
+      searchValue = uSearch.value;
+      // console.log("searching by " + searchBy + " at " + searchValue);
+      // do search and display
+      cacheUserResults.forEach((li) => {
+        switch (uSearchBy) {
+          case "name":
+            if (!li.querySelector(".name").innerText.includes(searchValue)) {
+              li.classList.add("hidden");
+            } else {
+              li.classList.remove("hidden");
+            }
+            break;
+          case "groups":
+            if (!li.querySelector(".groups").textContent.includes(searchValue)) {
+              li.classList.add("hidden");
+            } else {
+              li.classList.remove("hidden");
+            }
+            break;
+          case "email":
+            if (!li.querySelector(".email").innerText.includes(searchValue)) {
+              li.classList.add("hidden");
+            } else {
+              li.classList.remove("hidden");
+            }
+            break;
+          case "home":
+            if (!li.querySelector(".home").innerText.includes(searchValue)) {
+              li.classList.add("hidden");
+            } else {
+              li.classList.remove("hidden");
+            }
+            break;
+          case "uid":
+            if (!li.querySelector(".uid").innerText.includes(searchValue)) {
+              li.classList.add("hidden");
+            } else {
+              li.classList.remove("hidden");
+            }
+            break;
+        }
+      });
+    
+    });
+  }
 
 });
 
@@ -385,13 +496,6 @@ document.addEventListener('htmx:afterRequest', function (event) {
 
   // console.log('triggering element: ', triggeringElement);
 
-  if (event.detail.xhr.status == 401 || event.detail.xhr.status == 303) {
-    event.preventDefault();
-    
-    window.location.href = "http://"+IP+":"+PORT+"/api/v1/login";
-
-    return;
-  }
   // Handle different cases
   // all users fetch
   if (triggeringElement.id === 'fetch-users-results') { 
@@ -416,19 +520,26 @@ document.addEventListener('htmx:afterRequest', function (event) {
   
   } else if (triggeringElement.id === 'add-user-form') {
     // new user creation (from admin)
+    const feedback = triggeringElement.previousElementSibling?.querySelector('.feedback');
+    triggeringElement.reset();
+
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
       document.getElementById('reload-btn').dispatchEvent(new Event('click'));
-      triggeringElement.reset();
-    } else if (event.detail.xhr.status < 400) {
-    } else if (event.detail.xhr.status < 500) {
-      const form = triggeringElement.closest('form');
-      form.classList.add('error-highlight');
-      const feedback = document.getElementById('useradd-error-feedback');
+      triggeringElement.classList.add('check-highlight');
       feedback.textContent = event.detail.xhr.responseText.replace(/[{}]/g, '');
       setTimeout(()=>{
-        form.classList.remove('error-highlight');
+        triggeringElement.classList.remove('check-highlight');
         feedback.textContent = '';
-      }, 40000);
+      }, 4000);
+
+    } else if (event.detail.xhr.status < 400) {
+    } else if (event.detail.xhr.status < 500) {
+      triggeringElement.classList.add('error-highlight');
+      feedback.textContent = event.detail.xhr.responseText.replace(/[{}]/g, '');
+      setTimeout(()=>{
+        triggeringElement.classList.remove('error-highlight');
+        feedback.textContent = '';
+      }, 4000);
     }
   // deleting users by admin 
   
@@ -504,10 +615,31 @@ document.addEventListener('htmx:afterRequest', function (event) {
  
 
   } else if (triggeringElement.id === 'add-group-form') {
+    const feedback = triggeringElement.previousElementSibling?.querySelector('.feedback');
+    triggeringElement.reset();
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status <300) {
       document.getElementById('reload-groups-btn').dispatchEvent(new Event('click'));
-      triggeringElement.reset();
-    } 
+      triggeringElement.classList.add('check-highlight');
+      feedback.textContent = event.detail.xhr.responseText.replace(/[{}]/g, '');
+      setTimeout(()=>{
+        triggeringElement.classList.remove('check-highlight');
+        feedback.textContent = '';
+      }, 4000);
+    }  else if (event.detail.xhr.status >= 400 && event.detail.xhr.status < 500) {
+      triggeringElement.classList.add('warning-highlight');
+      feedback.textContent = event.detail.xhr.responseText.replace(/[{}]/g, '');
+      setTimeout(()=>{
+        triggeringElement.classList.remove('warning-highlight');
+        feedback.textContent = '';
+      }, 4000);
+    } else if (event.detail.xhr.status >= 500) {
+      triggeringElement.classList.add('error-highlight');
+      feedback.textContent = event.detail.xhr.responseText.replace(/[{}]/g, '');
+      setTimeout(()=>{
+        triggeringElement.classList.remove('error-highlight');
+        feedback.textContent = '';
+      }, 4000);
+    }
     
 
   
@@ -644,7 +776,6 @@ document.addEventListener('htmx:afterRequest', function (event) {
   } else if (triggeringElement.id === 'preview-resource-btn') {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
       document.querySelector(".resource-preview-main").classList.remove("blurred");
-      document.querySelector("#preview-resource-btn").remove();
     }
   } else if (triggeringElement.id === 'register-form') {
     if (event.detail.xhr.status < 300) {
@@ -671,16 +802,26 @@ document.addEventListener('htmx:afterRequest', function (event) {
         console.error("Could not parse JSON:", error, rawResponse);
       }
     }
-  } else if (triggeringElement.id === 'load-resources-to-cache') {
+  } else if (triggeringElement.id === 'load-resources-to-cache' || triggeringElement.id === 'vfs') {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
       const rawResponse = event.detail.xhr.responseText;
       try {
         cachedResources = JSON.parse(rawResponse); 
         console.log("Fetched resources:", cachedResources);
+
+        if (triggeringElement.id === 'vfs') {
+          // vfs
+          currentPath = [];
+          vfsRoot = {};
+          vfsRoot = buildTree(cachedResources);
+          renderVFS(currentPath, triggeringElement, {});
+        }
       } catch (error) {
         console.error("Could not parse JSON:", error, rawResponse);
       }
+    } else {
     }
+
   } else if (triggeringElement.id === 'change-password-form') {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
       triggeringElement.reset();
@@ -744,6 +885,41 @@ document.addEventListener('htmx:afterRequest', function (event) {
     } else if (event.detail.xhr.status < 500) {
       //todo
     }
+  } else if (triggeringElement.id === 'fetch-volumes-btn' || triggeringElement.id === 'fetch-volumes-display') {
+    if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+      const volumeList = document.getElementById('volumes-target');
+      if (volumeList) {
+        volumeList.scrollTo({ top: 0, behavior: "smooth"});
+      }
+    } else if (event.detail.xhr.status < 400) {
+      //todo
+    } else if (event.detail.xhr.status < 500) {
+      //todo
+    }
+  } else if (triggeringElement.id === 'job-create-form') {
+    const feedback = triggeringElement?.querySelector('.feedback');
+    const button = triggeringElement.querySelector('button[type="submit"]');
+    if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+      // document.getElementById('reload-btn').dispatchEvent(new Event('click'));
+      setTimeout(() => {
+        button.classList.add('check-highlight');
+        feedback.textContent = event.detail.xhr.responseText.replace(/[{}]/g, '');
+        setTimeout(()=>{
+          button.classList.remove('check-highlight');
+          feedback.textContent = '';
+        }, 8000);
+      }, 2000);
+    } else if (event.detail.xhr.status < 400) {
+    } else if (event.detail.xhr.status < 500) {
+      setTimeout(() => {
+        button.classList.add('error-highlight');
+        feedback.textContent = event.detail.xhr.responseText.replace(/[{}]/g, '');
+        setTimeout(()=>{
+          button.classList.remove('error-highlight');
+          feedback.textContent = '';
+        }, 8000);
+      }, 2000);
+    }
   }
 });
 
@@ -765,10 +941,12 @@ document.addEventListener('htmx:confirm', function(evt) {
 });
 
 document.addEventListener('htmx:responseError', function(event) {
-  if (event.detail.xhr.status === 401) {
-      // alert('Your session has expired. Redirecting to login...');
-      window.location.href = "http://"+IP+":"+PORT+"/api/v1/login";
-    }
+  if (event.detail.xhr.status === 401) { // token expired
+     // Prevent HTMX from replacing content
+     event.detail.shouldSwap = false;
+     window.location.href = "http://"+IP+":"+PORT+"/api/v1/login";
+     event.preventDefault();
+  }
 });
 
 document.addEventListener("htmx:configRequest", function(evt) {
@@ -779,8 +957,21 @@ document.addEventListener("htmx:configRequest", function(evt) {
   if (triggeringElementId === "upload-files-form-dash") {
     const spanVal = document.getElementById("selected-volume").textContent;
     evt.detail.headers['X-Volume-Target'] = spanVal;
+  } else if (triggeringElementId === "job-create-form") {
+    const loader = document.querySelector("#job-submit-loader");
+    const form = document.querySelector("#job-create-form");
+    loader.classList.remove("hidden");
+    form.classList.add("disabled");
+    loaderTimeout = setTimeout(() => {
+      loader.classList.add("hidden");
+      form.classList.remove("disabled");
+    }, 2000);
   }
 
+});
+
+document.addEventListener("htmx:afterOnLoad", function(evt) {
+  
 });
 
 

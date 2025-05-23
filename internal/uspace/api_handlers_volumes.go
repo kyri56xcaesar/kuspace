@@ -166,18 +166,18 @@ func (srv *UService) handleUserVolumes(c *gin.Context) {
 				userVolume.Quota = float64(capacity)
 			}
 
-			cancelFn, err := srv.storage.Insert([]any{userVolume})
-			defer cancelFn()
+			cancelFn, err := srv.fsl.Insert([]any{userVolume})
 			if err != nil {
 				log.Printf("failed to insert user volume: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert uv"})
 				return
 			}
+			defer cancelFn()
 			c.JSON(http.StatusCreated, gin.H{"status": "inserted user volume"})
 			return
 		}
 		// binded user
-		cancelFn, err := srv.storage.Insert([]any{userVolumes})
+		cancelFn, err := srv.fsl.Insert([]any{userVolumes})
 		defer cancelFn()
 		if err != nil {
 			log.Printf("failed to insert user volumes: %v", err)

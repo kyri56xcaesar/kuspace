@@ -7,6 +7,7 @@ import (
 	"log"
 )
 
+//  should add a "Resource Info Struct"
 /*
  *
  *
