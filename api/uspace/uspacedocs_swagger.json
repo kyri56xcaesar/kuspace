@@ -12,6 +12,1315 @@
     "host": "localhost:8079",
     "basePath": "/api/v1",
     "paths": {
+        "/admin/app": {
+            "get": {
+                "description": "Admin operations for applications: retrieve, insert, update, delete.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "apps"
+                ],
+                "summary": "Application admin endpoint",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Pagination limit for listing applications",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination offset for listing applications",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated application IDs to fetch or delete",
+                        "name": "ids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Application name (used with version)",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Application version (used with name)",
+                        "name": "version",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Single application ID to delete",
+                        "name": "id",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Single application object (POST/PUT)",
+                        "name": "app",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Application"
+                        }
+                    },
+                    {
+                        "description": "Multiple application objects (POST)",
+                        "name": "apps",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Application"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success with application(s) content or status",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request (e.g., malformed input)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Admin operations for applications: retrieve, insert, update, delete.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "apps"
+                ],
+                "summary": "Application admin endpoint",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Pagination limit for listing applications",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination offset for listing applications",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated application IDs to fetch or delete",
+                        "name": "ids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Application name (used with version)",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Application version (used with name)",
+                        "name": "version",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Single application ID to delete",
+                        "name": "id",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Single application object (POST/PUT)",
+                        "name": "app",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Application"
+                        }
+                    },
+                    {
+                        "description": "Multiple application objects (POST)",
+                        "name": "apps",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Application"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success with application(s) content or status",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request (e.g., malformed input)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Admin operations for applications: retrieve, insert, update, delete.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "apps"
+                ],
+                "summary": "Application admin endpoint",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Pagination limit for listing applications",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination offset for listing applications",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated application IDs to fetch or delete",
+                        "name": "ids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Application name (used with version)",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Application version (used with name)",
+                        "name": "version",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Single application ID to delete",
+                        "name": "id",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Single application object (POST/PUT)",
+                        "name": "app",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Application"
+                        }
+                    },
+                    {
+                        "description": "Multiple application objects (POST)",
+                        "name": "apps",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Application"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success with application(s) content or status",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request (e.g., malformed input)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Admin operations for applications: retrieve, insert, update, delete.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "apps"
+                ],
+                "summary": "Application admin endpoint",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Pagination limit for listing applications",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination offset for listing applications",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated application IDs to fetch or delete",
+                        "name": "ids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Application name (used with version)",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Application version (used with name)",
+                        "name": "version",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Single application ID to delete",
+                        "name": "id",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Single application object (POST/PUT)",
+                        "name": "app",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Application"
+                        }
+                    },
+                    {
+                        "description": "Multiple application objects (POST)",
+                        "name": "apps",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Application"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success with application(s) content or status",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request (e.g., malformed input)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/job": {
+            "get": {
+                "description": "Handles CRUD operations for jobs. Supports multiple HTTP methods.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "jobs"
+                ],
+                "summary": "Admin job endpoint",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Filter jobs by single user ID",
+                        "name": "uid",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of user IDs to filter jobs",
+                        "name": "uids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of job IDs to retrieve or delete",
+                        "name": "jids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Single job ID to retrieve or delete",
+                        "name": "jid",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination limit for job list",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination offset for job list",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Job object for POST (single) and PUT",
+                        "name": "job",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Job"
+                        }
+                    },
+                    {
+                        "description": "Job array for POST (multiple)",
+                        "name": "jobs",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Job"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success with job(s) content or status message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request (e.g., parse error)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Handles CRUD operations for jobs. Supports multiple HTTP methods.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "jobs"
+                ],
+                "summary": "Admin job endpoint",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Filter jobs by single user ID",
+                        "name": "uid",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of user IDs to filter jobs",
+                        "name": "uids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of job IDs to retrieve or delete",
+                        "name": "jids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Single job ID to retrieve or delete",
+                        "name": "jid",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination limit for job list",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination offset for job list",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Job object for POST (single) and PUT",
+                        "name": "job",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Job"
+                        }
+                    },
+                    {
+                        "description": "Job array for POST (multiple)",
+                        "name": "jobs",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Job"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success with job(s) content or status message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request (e.g., parse error)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Handles CRUD operations for jobs. Supports multiple HTTP methods.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "jobs"
+                ],
+                "summary": "Admin job endpoint",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Filter jobs by single user ID",
+                        "name": "uid",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of user IDs to filter jobs",
+                        "name": "uids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of job IDs to retrieve or delete",
+                        "name": "jids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Single job ID to retrieve or delete",
+                        "name": "jid",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination limit for job list",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination offset for job list",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Job object for POST (single) and PUT",
+                        "name": "job",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Job"
+                        }
+                    },
+                    {
+                        "description": "Job array for POST (multiple)",
+                        "name": "jobs",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Job"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success with job(s) content or status message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request (e.g., parse error)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Handles CRUD operations for jobs. Supports multiple HTTP methods.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "jobs"
+                ],
+                "summary": "Admin job endpoint",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Filter jobs by single user ID",
+                        "name": "uid",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of user IDs to filter jobs",
+                        "name": "uids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of job IDs to retrieve or delete",
+                        "name": "jids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Single job ID to retrieve or delete",
+                        "name": "jid",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination limit for job list",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination offset for job list",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Job object for POST (single) and PUT",
+                        "name": "job",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Job"
+                        }
+                    },
+                    {
+                        "description": "Job array for POST (multiple)",
+                        "name": "jobs",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Job"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success with job(s) content or status message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request (e.g., parse error)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/user/volume": {
+            "post": {
+                "description": "Insert single or multiple user volume objects.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "volumes",
+                    "users"
+                ],
+                "summary": "Manage user volumes",
+                "parameters": [
+                    {
+                        "description": "Single user volume",
+                        "name": "userVolume",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.UserVolume"
+                        }
+                    },
+                    {
+                        "description": "Array of user volumes",
+                        "name": "userVolumes",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.UserVolume"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "User volume(s) inserted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request (binding or decoding error)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Insert single or multiple user volume objects.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "volumes",
+                    "users"
+                ],
+                "summary": "Manage user volumes",
+                "parameters": [
+                    {
+                        "description": "Single user volume",
+                        "name": "userVolume",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.UserVolume"
+                        }
+                    },
+                    {
+                        "description": "Array of user volumes",
+                        "name": "userVolumes",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.UserVolume"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "User volume(s) inserted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request (binding or decoding error)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Insert single or multiple user volume objects.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "volumes",
+                    "users"
+                ],
+                "summary": "Manage user volumes",
+                "parameters": [
+                    {
+                        "description": "Single user volume",
+                        "name": "userVolume",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.UserVolume"
+                        }
+                    },
+                    {
+                        "description": "Array of user volumes",
+                        "name": "userVolumes",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.UserVolume"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "User volume(s) inserted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request (binding or decoding error)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/app": {
+            "get": {
+                "description": "Retrieves or registers applications. Accepts queries or full application POST payloads.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "apps"
+                ],
+                "summary": "Application endpoint (user)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Pagination limit for listing applications",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination offset for listing applications",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated application IDs to filter",
+                        "name": "ids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Application name to fetch specific app",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Application version to fetch specific app",
+                        "name": "version",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Single application object (for POST)",
+                        "name": "app",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Application"
+                        }
+                    },
+                    {
+                        "description": "Multiple applications (for POST)",
+                        "name": "apps",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Application"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success with application(s) content or status",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request (e.g., malformed input)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Retrieves or registers applications. Accepts queries or full application POST payloads.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "apps"
+                ],
+                "summary": "Application endpoint (user)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Pagination limit for listing applications",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination offset for listing applications",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated application IDs to filter",
+                        "name": "ids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Application name to fetch specific app",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Application version to fetch specific app",
+                        "name": "version",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Single application object (for POST)",
+                        "name": "app",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Application"
+                        }
+                    },
+                    {
+                        "description": "Multiple applications (for POST)",
+                        "name": "apps",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Application"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success with application(s) content or status",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request (e.g., malformed input)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/job": {
             "get": {
                 "description": "GET retrieves jobs by uid(s), jid, or returns all. POST submits one or multiple jobs.",
@@ -309,6 +1618,67 @@
                 }
             }
         },
+        "/resource/group": {
+            "post": {
+                "description": "Updates the group (group ID) of a resource based on its resource ID.",
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "resources",
+                    "admin"
+                ],
+                "summary": "Change resource group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resource ID",
+                        "name": "rid",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "New group ID",
+                        "name": "group",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Resource group updated successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Missing or invalid parameters",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to update resource",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/resource/mv": {
             "post": {
                 "description": "Moves a resource (copy + delete) to another bucket/object path using the `dest` query parameter.",
@@ -352,6 +1722,184 @@
                     },
                     "500": {
                         "description": "Copy or delete failed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/resource/ownership": {
+            "post": {
+                "description": "Updates the owner (user ID) of a resource based on its resource ID.",
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "resources",
+                    "admin"
+                ],
+                "summary": "Change resource owner",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resource ID",
+                        "name": "rid",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "New owner user ID",
+                        "name": "owner",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Resource owner updated successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Missing or invalid parameters",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to update resource",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/resource/permissions": {
+            "post": {
+                "description": "Updates permissions for a resource given its ID and a permission string.",
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "resources",
+                    "admin"
+                ],
+                "summary": "Change resource permissions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resource ID",
+                        "name": "rid",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "New permission string (e.g., rwxr-x---)",
+                        "name": "permissions",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Resource updated successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Missing or invalid parameters",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to update resource",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/resource/preview": {
+            "get": {
+                "description": "Returns a byte-range preview (default 4KB) of a file resource. Assumes user is authorized.",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "resources",
+                    "preview"
+                ],
+                "summary": "Preview a resource",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Byte range to preview (e.g., 'bytes=0-4095')",
+                        "name": "Range",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "206": {
+                        "description": "Partial content",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "416": {
+                        "description": "Requested range exceeds file size",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1064,6 +2612,41 @@
         }
     },
     "definitions": {
+        "kyri56xcaesar_kuspace_internal_utils.Application": {
+            "type": "object",
+            "properties": {
+                "author": {
+                    "type": "string"
+                },
+                "author_id": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "image": {
+                    "type": "string"
+                },
+                "inserted_at": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
         "kyri56xcaesar_kuspace_internal_utils.Job": {
             "type": "object",
             "properties": {
@@ -1155,6 +2738,26 @@
                 }
             }
         },
+        "kyri56xcaesar_kuspace_internal_utils.UserVolume": {
+            "type": "object",
+            "properties": {
+                "quota": {
+                    "type": "number"
+                },
+                "uid": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "usage": {
+                    "type": "number"
+                },
+                "vid": {
+                    "type": "integer"
+                }
+            }
+        },
         "kyri56xcaesar_kuspace_internal_utils.Volume": {
             "type": "object",
             "properties": {
@@ -1169,6 +2772,9 @@
                 },
                 "name": {
                     "type": "string"
+                },
+                "object_count": {
+                    "type": "integer"
                 },
                 "path": {
                     "type": "string"

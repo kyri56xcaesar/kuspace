@@ -59,7 +59,6 @@ definitions:
         description: Password contains the user’s password settings and hash.
       pgroup:
         description: Pgroup is the user’s primary group ID.
-        example: 2001
         type: integer
       shell:
         description: Shell is the user’s default shell.
@@ -67,7 +66,6 @@ definitions:
         type: string
       uid:
         description: Uid is the user’s numeric ID.
-        example: 1001
         type: integer
       username:
         description: |-

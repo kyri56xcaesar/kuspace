@@ -4,7 +4,7 @@ metadata:
   name: minio
   labels:
     app: minio
-  namespace: ${NAMESPACE}
+  namespace: kuspace
 spec:
   selector:
     app: minio

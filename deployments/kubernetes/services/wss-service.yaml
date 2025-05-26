@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: wss
+  labels:
+    app: wss
+  namespace: kuspace
+spec: 
+  selector: 
+    app: wss
+  ports:
+    - name: wss 
+      port: 8082 
+      targetPort: 8082

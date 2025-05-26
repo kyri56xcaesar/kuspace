@@ -283,12 +283,14 @@
         <input type="file" id="fileInput" multiple style="display:none">
       </div>
       <button 
-        class="red"
         id="delete-volume-btn"
         hx-delete="/api/v1/verified/admin/volumedel?volume={{ $v.Name }}"
         hx-swap="none"
         hx-confirm="Are you sure you want to delete volume {{ $v.Name }}"
       >Delete Volume</button>
+    </div>
+    <div class="feedback hidden">
+
     </div>
   </div>
   {{end}} 

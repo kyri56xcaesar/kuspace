@@ -1,6 +1,7 @@
 package uspace
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"os"
@@ -137,10 +138,18 @@ func (je JDockerExecutor) ExecuteJob(job ut.Job) error {
 	job.Duration = duration.Abs().Seconds()
 
 	// output should be streamed back ...
+	ws_chan := make(chan []byte, 100)
+	// ws_chan_err := make(chan []byte, 100)
+
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Printf("error creating stdout pipe: %v", err)
 		return err
+	}
+	scanner := bufio.NewScanner(stdout)
+	for scanner.Scan() {
+		line := scanner.Text()
+		ws_chan <- []byte(line)
 	}
 
 	// Start the command
@@ -151,7 +160,7 @@ func (je JDockerExecutor) ExecuteJob(job ut.Job) error {
 		return err
 	}
 	log.Printf("streaming to socket")
-	go streamToSocketWS(job.Jid, stdout)
+	go streamToSocketWS(job.Jid, ws_chan)
 
 	log.Printf("waiting...")
 	err = cmd.Wait()

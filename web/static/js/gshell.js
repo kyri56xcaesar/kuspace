@@ -31,7 +31,7 @@ function giveFunctionality(element) {
   const terminalInput = element.querySelector('#terminal-input');
   terminalBody.scrollIntoView(false);
   // websocket 
-  const socket = new WebSocket("ws://"+IP+":8081/gshell");
+  const socket = new WebSocket("ws://"+WS_ADDRESS+"/get-session?role=jack&jid=0");
 
   socket.onopen = function () {
     console.log("Connected to WebSocket server");

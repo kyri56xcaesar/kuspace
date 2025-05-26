@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	ut "kyri56xcaesar/kuspace/internal/utils"
 
@@ -68,6 +69,10 @@ func (srv *UService) handleVolumes(c *gin.Context) {
 		err := srv.storage.RemoveVolume(vid)
 		if err != nil {
 			log.Printf("failed to delete the volume: %v", err)
+			if strings.Contains(err.Error(), "not empty") {
+				c.JSON(http.StatusForbidden, gin.H{"error": "cannot delete bucket if not empty"})
+				return
+			}
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete the volume"})
 			return
 		}
@@ -136,6 +141,26 @@ func (srv *UService) handleVolumes(c *gin.Context) {
 	}
 }
 
+// handleUserVolumes manages user volume registration and updates.
+//
+// @Summary Manage user volumes
+// @Description Insert single or multiple user volume objects.
+// @Tags volumes, users
+//
+// @Accept json
+// @Produce json
+//
+// @Param userVolume body ut.UserVolume true "Single user volume"
+// @Param userVolumes body []ut.UserVolume true "Array of user volumes"
+//
+// @Success 201 {object} map[string]string "User volume(s) inserted"
+// @Failure 400 {object} map[string]string "Bad request (binding or decoding error)"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Failure 405 {object} map[string]string "Method not allowed"
+//
+// @Router /admin/user/volume [post]
+// @Router /admin/user/volume [patch]
+// @Router /admin/user/volume [delete]
 func (srv *UService) handleUserVolumes(c *gin.Context) {
 	switch c.Request.Method {
 	case http.MethodPost:

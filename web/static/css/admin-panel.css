@@ -145,11 +145,11 @@ select {
 }
 
 .green {
-  color: #4bb74b;
+  color: #4bb74b !important;
 }
 
 .red {
-  color: #b74b4b;
+  color: #b74b4b !important;
 }
 
 
@@ -1762,12 +1762,97 @@ select {
 }
 
 #new-job {
-  margin-top: 20px;
-  position: relative;
-  border-radius: 12px;
-  box-shadow: 0 2px 6px;
-  padding-top: 10px;
-  height: 840px;
+
+  & > div {
+    margin-top: 20px;
+    position: relative;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px;
+    padding-top: 10px;
+  }
+
+  & > div:nth-child(1) {
+    height: 830px;
+  }
+
+  & #job-feedback {
+    position: relative;
+    color: whitesmoke;
+    min-height: 30vh;
+    max-height: 30vh;
+    padding: 1rem;
+    margin-top: 5rem;
+    border: 2px solid cadetblue;
+    border-radius: 5px;
+    background-color: #0e141a;
+    border-top: unset;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    transition: max-height 0.3s ease-in-out;
+    transition: min-height 0.3s ease-in-out;
+    & .feedback-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      border-bottom: 2px solid wheat;
+
+      & .feedback-title {
+        font-size: 0.9rem;
+        font-weight: bold;
+        /* color: #00c8ff; */
+        & h4 {
+          margin: 0;
+        }
+      }
+
+      & .feedback-options {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        & i {
+          padding: 0.5rem 1rem;
+          background-color: #00c8ff;
+          color: black;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: background-color 0.2s ease;
+        }
+  
+        & i:hover {
+          background-color: #00a8dd;
+        }
+      }
+
+    }
+
+    & .feedback-messages {
+      position: relative;
+      overflow-y: scroll;
+      scroll-behavior: smooth;
+      max-height: 24vh;
+      padding-left: 5px;
+      & p {
+        margin: 0;
+        animation: dropFadeIn 1.4s ease-out;
+        font-size: 0.9rem;
+        word-break: nobreak;
+        overflow-x: hidden;
+      }
+    }
+  }
+
+  & #job-feedback.minimized {
+    max-height: 10vh;
+    min-height: 10vh;
+
+    & .feedback-messages {
+      overflow-y: hidden;
+      max-height: 2vh;
+      min-height: 2vh;
+    }
+  }
+
 
   & h4 {
     text-align: center;
@@ -1817,13 +1902,10 @@ select {
       display: flex;
       justify-content: space-between;
     }
-
-    
     & :is(#description) {
       height: 75%;
       resize: none;
     }
-    
   }
 
   & #job-create-form-editor {
@@ -1909,10 +1991,6 @@ select {
 .CodeMirror-cursor {
   border-left: 1px solid white !important;
 }
-
-
-
-
 
 
 
@@ -2019,81 +2097,7 @@ select {
   background-color: rgb(46, 42, 42) !important;
 }
 
-#job-feedback {
-
-  position: relative;
-  color: whitesmoke;
-
-  min-height: 25vh;
-  max-height: 25vh;
-
-  padding: 1rem;
-
-  border: 2px solid cadetblue;
-  border-radius: 5px;
-  background-color: #0e141a;
-  border-top: unset;
-
-  overflow-y: auto;
-  scroll-behavior: smooth;
-
-  
-  #feedback-messages {
-    position: relative;
-    overflow-y: auto;
-  }
-
-  & p {
-    margin: 0;
-    animation: dropFadeIn 1.4s ease-out;
-
-    word-break: nobreak;
-    overflow-x: hidden;
-  }
-
-  #job-feedback-minimizer {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-  
-    padding: 8px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  
-    width: 24px;
-    height: 24px;
-    background-color: transparent;
-
-    z-index: 5;
-  
-    & polygon {
-      fill: cadetblue;
-    }
-  
-    &:hover polygon {
-      fill: lightblue;
-    }
-  }
-
-  #j-feedback-copy-btn {
-    position: absolute;
-    bottom: 8px;
-    right: 8px;
-    cursor: pointer;
-    z-index: 2; /* Optional: keep it above scroll content */
-  }
-  
-}
-
-#job-feedback.minimized {
-  max-height: 10vh;
-  min-height: 10vh;
-}
-
 /* apps display */
-
 #apps-list-display {
   font-family: 'Segoe UI', sans-serif;
   padding: 1.5rem;
@@ -2101,7 +2105,6 @@ select {
   .apps-title {
     font-size: 1.8rem;
     margin-bottom: 1rem;
-    color: #1a202c;
   }
 
   .apps-list {
@@ -2244,7 +2247,7 @@ select {
   .options {
     flex:none;
     position: absolute;
-    bottom: 35px;
+    bottom: 50px;
     right: 50px;
     opacity: 0;
     transform: translateY(10px) scale(0.95);
@@ -2293,6 +2296,16 @@ select {
     opacity: 1;
     transform: translateY(0) scale(1);
     pointer-events: auto;
+  }
+
+  & .feedback {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
   }
 }
 

@@ -3,10 +3,47 @@
 /**************************************************************************/
 // global variables/constants
 /**************************************************************************/
+cachedUsers = [];
+cachedGroups = [];
+cachedResources = [];
 
 
-
+const PORT = window.location.port || (window.location.protocol === "https:" ? "443" : "80");
+const WS_PORT = "8082"
+const IP = window.location.hostname; 
 let fileUploadModule;
+
+
+let WS_ADDRESS = null;
+async function initWebSocketAddress() {
+  try {
+    const response = await fetch("/conf");
+    if (!response.ok) {
+      throw new Error(`Failed to fetch config: ${response.status}`);
+    }
+
+    const config = await response.json();
+    if (!config.ws_address) {
+      throw new Error("WebSocket address not provided in config");
+    }
+
+    WS_ADDRESS = config.ws_address;
+    console.log("WS_ADDRESS set to:", WS_ADDRESS);
+  } catch (err) {
+    console.error("Error setting WS_ADDRESS:", err);
+    WS_ADDRESS = null;
+  }
+}
+(async () => {
+  await initWebSocketAddress();
+
+  if (!WS_ADDRESS) {
+    console.error("WebSocket address not initialized.");
+    return;
+  }
+
+  // Use socket here...
+})();
 
 
 /************************************************************************** */

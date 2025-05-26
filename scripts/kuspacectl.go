@@ -17,6 +17,7 @@ const (
 	uspace_conf_path   = "configs/uspace.conf"
 	frontapp_conf_path = "configs/frontapp.conf"
 	minioth_conf_path  = "configs/minioth.conf"
+	wss_conf_path      = "configs/wss.conf"
 )
 
 var (
@@ -61,10 +62,15 @@ func main() {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
+		if err := run("docker", "buildx", "build", "-f", "build//Dockerfile.wss", "-t", "kyri56xcaesar/kuspace:wss-latest", "."); err != nil {
+			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
+			os.Exit(1)
+		}
 		if err := run("docker", "buildx", "build", "-f", "internal/uspace/applications/duckdb/Dockerfile.duck", "-t", "kyri56xcaesar/kuspace:applications-duckdb-v1", "internal/uspace/applications/duckdb"); err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
+
 	}
 
 	// PUSH images option
@@ -86,6 +92,10 @@ func main() {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
+		if err := run("docker", "push", "kyri56xcaesar/kuspace:wss-latest"); err != nil {
+			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	// CREATE NAMESPACE
@@ -98,39 +108,55 @@ func main() {
 	// CREATE CONFIG MAPS & deploy
 	{
 		fmt.Println("📝 Transpiling configs to ConfigMaps")
+		// parse minioth conf
 		miniothConf, err := parseConfFile(minioth_conf_path)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ failed to parse configuration: %v", err)
 		}
 		mConfMap := buildConfigMapYAML("minioth", ns, miniothConf)
 
-		err = os.WriteFile(deployments_root+"/minioth/minioth-config-map.yaml", []byte(mConfMap), 0o644)
+		err = os.WriteFile(deployments_root+"/config-maps/minioth-config-map.yaml", []byte(mConfMap), 0o644)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ failed to save confMap yaml: %v", err)
 		}
-		run("kubectl", "apply", "-f", deployments_root+"/minioth/minioth-config-map.yaml")
+		run("kubectl", "apply", "-f", deployments_root+"/config-maps/minioth-config-map.yaml")
 
+		// same for frontapp
 		frontappConf, err := parseConfFile(frontapp_conf_path)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ failed to parse configuration: %v", err)
 		}
 		fConfMap := buildConfigMapYAML("frontapp", ns, frontappConf)
-		err = os.WriteFile(deployments_root+"/frontapp/frontapp-config-map.yaml", []byte(fConfMap), 0o644)
+		err = os.WriteFile(deployments_root+"/config-maps/frontapp-config-map.yaml", []byte(fConfMap), 0o644)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ failed to save confMap yaml: %v", err)
 		}
-		run("kubectl", "apply", "-f", deployments_root+"/frontapp/frontapp-config-map.yaml")
+		run("kubectl", "apply", "-f", deployments_root+"/config-maps/frontapp-config-map.yaml")
 
+		// same for uspace
 		uspaceConf, err := parseConfFile(uspace_conf_path)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ failed to parse configuration: %v", err)
 		}
 		uConfMap := buildConfigMapYAML("uspace", ns, uspaceConf)
-		err = os.WriteFile(deployments_root+"/uspace/uspace-config-map.yaml", []byte(uConfMap), 0o644)
+		err = os.WriteFile(deployments_root+"/config-maps/uspace-config-map.yaml", []byte(uConfMap), 0o644)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ failed to save confMap yaml: %v", err)
 		}
-		run("kubectl", "apply", "-f", deployments_root+"/uspace/uspace-config-map.yaml")
+		run("kubectl", "apply", "-f", deployments_root+"/config-maps/uspace-config-map.yaml")
+
+		// use wss conf for wss
+		wssConf, err := parseConfFile(wss_conf_path)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "❌ failed to parse configuration: %v", err)
+		}
+		wsConfMap := buildConfigMapYAML("wss", ns, wssConf)
+		err = os.WriteFile(deployments_root+"/config-maps/wss-config-map.yaml", []byte(wsConfMap), 0o644)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "❌ failed to save confMap yaml: %v", err)
+		}
+		run("kubectl", "apply", "-f", deployments_root+"/config-maps/wss-config-map.yaml")
+
 	}
 
 	// CREATE SECRETS & deploy
@@ -153,13 +179,96 @@ func main() {
 		}
 	}
 
-	// DEPLOY MANIFESTS 		 1 by 1 in the deployments directory
+	// DEPLOY PV and PVC
+	{
+		err := filepath.Walk(deployments_root+"/pv", func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if !info.IsDir() && strings.HasSuffix(info.Name(), ".yaml") {
+				fmt.Println("📦 Applying:", path)
+				content, err := os.ReadFile(path)
+				if err != nil {
+					return err
+				}
+				yamlStr := string(content)
+				yamlStr = strings.ReplaceAll(yamlStr, "${NAMESPACE}", ns)
+				// save file:
+				err = os.WriteFile(path, []byte(yamlStr), 0o644)
+				if err != nil {
+					fmt.Println("⚠️ failed to overwrite manifest")
+				}
+				apply := exec.Command("kubectl", "apply", "-f", "-")
+				apply.Stdin = strings.NewReader(yamlStr)
+
+				apply.Stdout = os.Stdout
+				apply.Stderr = os.Stderr
+
+				err = apply.Run()
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "⚠️ Warning: failed to apply %s: %v\n", path, err)
+				}
+				return nil
+			}
+			return nil
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error applying manifests: %v\\n", err)
+			os.Exit(1)
+		}
+
+		err = filepath.Walk(deployments_root+"/pvc", func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if !info.IsDir() && strings.HasSuffix(info.Name(), ".yaml") {
+				fmt.Println("📦 Applying:", path)
+				content, err := os.ReadFile(path)
+				if err != nil {
+					return err
+				}
+				yamlStr := string(content)
+				yamlStr = strings.ReplaceAll(yamlStr, "${NAMESPACE}", ns)
+				// save file:
+				err = os.WriteFile(path, []byte(yamlStr), 0o644)
+				if err != nil {
+					fmt.Println("⚠️ failed to overwrite manifest")
+				}
+				apply := exec.Command("kubectl", "apply", "-f", "-")
+				apply.Stdin = strings.NewReader(yamlStr)
+
+				apply.Stdout = os.Stdout
+				apply.Stderr = os.Stderr
+
+				err = apply.Run()
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "⚠️ Warning: failed to apply %s: %v\n", path, err)
+				}
+				return nil
+			}
+			return nil
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error applying manifests: %v\\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Println("⏳ Giving the pv some time...")
+		time.Sleep(time.Second * 3)
+		run("kubectl", "wait", "--namespace", ns, "--for=condition=Available", "pvc/uspace-pv", "--timeout=30s")
+		run("kubectl", "wait", "--namespace", ns, "--for=condition=Available", "pvc/minioth-pv", "--timeout=30s")
+		run("kubectl", "wait", "--namespace", ns, "--for=condition=Available", "pvc/minio-pv", "--timeout=30s")
+
+	}
+	// DEPLOY Services and Deployments
+	// DEPLOY StatefulSets
+	// DEPLOY MANIFESTS (ingress,rbac,storageclass)		 1 by 1 in the deployments directory
 	{
 		err := filepath.Walk(deployments_root, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
-			if !info.IsDir() && strings.HasSuffix(info.Name(), ".yaml") {
+			if !info.IsDir() && strings.HasSuffix(info.Name(), ".yaml") && !strings.Contains(path, "pv") {
 				fmt.Println("📦 Applying:", path)
 				content, err := os.ReadFile(path)
 				if err != nil {
@@ -174,6 +283,12 @@ func main() {
 
 				yamlStr := string(content)
 				yamlStr = strings.ReplaceAll(yamlStr, "${NAMESPACE}", ns)
+
+				// save file:
+				err = os.WriteFile(path, []byte(yamlStr), 0o644)
+				if err != nil {
+					fmt.Println("⚠️ failed to overwrite manifest")
+				}
 
 				apply := exec.Command("kubectl", "apply", "-f", "-")
 				apply.Stdin = strings.NewReader(yamlStr)

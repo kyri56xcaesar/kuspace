@@ -500,6 +500,21 @@ func (srv *UService) handleUpload(c *gin.Context) {
 	})
 }
 
+// handlePreview provides partial content preview of a resource.
+//
+// @Summary Preview a resource
+// @Description Returns a byte-range preview (default 4KB) of a file resource. Assumes user is authorized.
+// @Tags resources
+//
+// @Produce text/plain
+//
+// @Param Range header string false "Byte range to preview (e.g., 'bytes=0-4095')"
+// @Success 206 {string} string "Partial content"
+// @Failure 404 {object} map[string]string "Resource not found"
+// @Failure 416 {object} map[string]string "Requested range exceeds file size"
+// @Failure 500 {object} map[string]string "Internal server error"
+//
+// @Router /resource/preview [get]
 func (srv *UService) handlePreview(c *gin.Context) {
 	// its assumed that the user is privelleged to download (from middleware) (read)
 
@@ -596,6 +611,23 @@ func buildTreeRec(tree map[string]any, entry []string, resource ut.Resource) {
 	buildTreeRec(tree[entry[0]].(map[string]any), entry[1:], resource)
 }
 
+// chmodResourceHandler updates the permission string of a resource.
+//
+// @Summary Change resource permissions
+// @Description Updates permissions for a resource given its ID and a permission string.
+// @Tags resources, admin
+//
+// @Accept application/x-www-form-urlencoded
+// @Produce json
+//
+// @Param rid query string true "Resource ID"
+// @Param permissions formData string true "New permission string (e.g., rwxr-x---)"
+//
+// @Success 200 {object} map[string]string "Resource updated successfully"
+// @Failure 400 {object} map[string]string "Missing or invalid parameters"
+// @Failure 500 {object} map[string]string "Failed to update resource"
+//
+// @Router /resource/permissions [post]
 func (srv *UService) chmodResourceHandler(c *gin.Context) {
 	rid := c.Request.URL.Query().Get("rid")
 	if rid == "" {
@@ -623,6 +655,23 @@ func (srv *UService) chmodResourceHandler(c *gin.Context) {
 	})
 }
 
+// chownResourceHandler changes the owner of a resource.
+//
+// @Summary Change resource owner
+// @Description Updates the owner (user ID) of a resource based on its resource ID.
+// @Tags resources, admin
+//
+// @Accept application/x-www-form-urlencoded
+// @Produce json
+//
+// @Param rid query string true "Resource ID"
+// @Param owner formData string true "New owner user ID"
+//
+// @Success 200 {object} map[string]string "Resource owner updated successfully"
+// @Failure 400 {object} map[string]string "Missing or invalid parameters"
+// @Failure 500 {object} map[string]string "Failed to update resource"
+//
+// @Router /resource/ownership [post]
 func (srv *UService) chownResourceHandler(c *gin.Context) {
 	rid := c.Request.URL.Query().Get("rid")
 	if rid == "" {
@@ -651,6 +700,23 @@ func (srv *UService) chownResourceHandler(c *gin.Context) {
 	})
 }
 
+// chgroupResourceHandler changes the group of a resource.
+//
+// @Summary Change resource group
+// @Description Updates the group (group ID) of a resource based on its resource ID.
+// @Tags resources, admin
+//
+// @Accept application/x-www-form-urlencoded
+// @Produce json
+//
+// @Param rid query string true "Resource ID"
+// @Param group formData string true "New group ID"
+//
+// @Success 200 {object} map[string]string "Resource group updated successfully"
+// @Failure 400 {object} map[string]string "Missing or invalid parameters"
+// @Failure 500 {object} map[string]string "Failed to update resource"
+//
+// @Router /resource/group [post]
 func (srv *UService) chgroupResourceHandler(c *gin.Context) {
 	rid := c.Request.URL.Query().Get("rid")
 	if rid == "" {

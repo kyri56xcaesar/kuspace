@@ -750,6 +750,9 @@ const docTemplatefslitedocs = `{
                 "name": {
                     "type": "string"
                 },
+                "object_count": {
+                    "type": "integer"
+                },
                 "path": {
                     "type": "string"
                 },

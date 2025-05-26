@@ -4,7 +4,7 @@ metadata:
   name: minio
   labels:
     app: minio
-  namespace: ${NAMESPACE}
+  namespace: kuspace
 spec:
   serviceName: minio 
   replicas: 1 
@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: minio
-        image: quay.io/minio/minio:latest
+        image: minio/minio:RELEASE.2025-04-22T22-12-26Z-cpuv1
         env:
         - name: MINIO_ROOT_USER
           value: minioadmin

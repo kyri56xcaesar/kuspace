@@ -4,7 +4,7 @@ metadata:
   name: minioth
   labels:
     app: minioth
-  namespace: ${NAMESPACE}
+  namespace: kuspace
 spec:
   clusterIP: None
   selector:

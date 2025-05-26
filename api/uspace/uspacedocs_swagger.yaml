@@ -1,5 +1,28 @@
 basePath: /api/v1
 definitions:
+  kyri56xcaesar_kuspace_internal_utils.Application:
+    properties:
+      author:
+        type: string
+      author_id:
+        type: integer
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      image:
+        type: string
+      inserted_at:
+        type: string
+      name:
+        type: string
+      status:
+        type: string
+      version:
+        type: string
+    type: object
   kyri56xcaesar_kuspace_internal_utils.Job:
     properties:
       completed:
@@ -61,6 +84,19 @@ definitions:
       uid:
         type: integer
     type: object
+  kyri56xcaesar_kuspace_internal_utils.UserVolume:
+    properties:
+      quota:
+        type: number
+      uid:
+        type: integer
+      updated_at:
+        type: string
+      usage:
+        type: number
+      vid:
+        type: integer
+    type: object
   kyri56xcaesar_kuspace_internal_utils.Volume:
     properties:
       capacity:
@@ -71,6 +107,8 @@ definitions:
         type: boolean
       name:
         type: string
+      object_count:
+        type: integer
       path:
         type: string
       usage:
@@ -85,6 +123,882 @@ info:
   title: Uspace API
   version: "1.0"
 paths:
+  /admin/app:
+    delete:
+      consumes:
+      - application/json
+      description: 'Admin operations for applications: retrieve, insert, update, delete.'
+      parameters:
+      - description: Pagination limit for listing applications
+        in: query
+        name: limit
+        type: string
+      - description: Pagination offset for listing applications
+        in: query
+        name: offset
+        type: string
+      - description: Comma-separated application IDs to fetch or delete
+        in: query
+        name: ids
+        type: string
+      - description: Application name (used with version)
+        in: query
+        name: name
+        type: string
+      - description: Application version (used with name)
+        in: query
+        name: version
+        type: string
+      - description: Single application ID to delete
+        in: query
+        name: id
+        type: string
+      - description: Single application object (POST/PUT)
+        in: body
+        name: app
+        required: true
+        schema:
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Application'
+      - description: Multiple application objects (POST)
+        in: body
+        name: apps
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Application'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success with application(s) content or status
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request (e.g., malformed input)
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Application admin endpoint
+      tags:
+      - admin
+      - apps
+    get:
+      consumes:
+      - application/json
+      description: 'Admin operations for applications: retrieve, insert, update, delete.'
+      parameters:
+      - description: Pagination limit for listing applications
+        in: query
+        name: limit
+        type: string
+      - description: Pagination offset for listing applications
+        in: query
+        name: offset
+        type: string
+      - description: Comma-separated application IDs to fetch or delete
+        in: query
+        name: ids
+        type: string
+      - description: Application name (used with version)
+        in: query
+        name: name
+        type: string
+      - description: Application version (used with name)
+        in: query
+        name: version
+        type: string
+      - description: Single application ID to delete
+        in: query
+        name: id
+        type: string
+      - description: Single application object (POST/PUT)
+        in: body
+        name: app
+        required: true
+        schema:
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Application'
+      - description: Multiple application objects (POST)
+        in: body
+        name: apps
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Application'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success with application(s) content or status
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request (e.g., malformed input)
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Application admin endpoint
+      tags:
+      - admin
+      - apps
+    post:
+      consumes:
+      - application/json
+      description: 'Admin operations for applications: retrieve, insert, update, delete.'
+      parameters:
+      - description: Pagination limit for listing applications
+        in: query
+        name: limit
+        type: string
+      - description: Pagination offset for listing applications
+        in: query
+        name: offset
+        type: string
+      - description: Comma-separated application IDs to fetch or delete
+        in: query
+        name: ids
+        type: string
+      - description: Application name (used with version)
+        in: query
+        name: name
+        type: string
+      - description: Application version (used with name)
+        in: query
+        name: version
+        type: string
+      - description: Single application ID to delete
+        in: query
+        name: id
+        type: string
+      - description: Single application object (POST/PUT)
+        in: body
+        name: app
+        required: true
+        schema:
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Application'
+      - description: Multiple application objects (POST)
+        in: body
+        name: apps
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Application'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success with application(s) content or status
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request (e.g., malformed input)
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Application admin endpoint
+      tags:
+      - admin
+      - apps
+    put:
+      consumes:
+      - application/json
+      description: 'Admin operations for applications: retrieve, insert, update, delete.'
+      parameters:
+      - description: Pagination limit for listing applications
+        in: query
+        name: limit
+        type: string
+      - description: Pagination offset for listing applications
+        in: query
+        name: offset
+        type: string
+      - description: Comma-separated application IDs to fetch or delete
+        in: query
+        name: ids
+        type: string
+      - description: Application name (used with version)
+        in: query
+        name: name
+        type: string
+      - description: Application version (used with name)
+        in: query
+        name: version
+        type: string
+      - description: Single application ID to delete
+        in: query
+        name: id
+        type: string
+      - description: Single application object (POST/PUT)
+        in: body
+        name: app
+        required: true
+        schema:
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Application'
+      - description: Multiple application objects (POST)
+        in: body
+        name: apps
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Application'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success with application(s) content or status
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request (e.g., malformed input)
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Application admin endpoint
+      tags:
+      - admin
+      - apps
+  /admin/job:
+    delete:
+      consumes:
+      - application/json
+      description: Handles CRUD operations for jobs. Supports multiple HTTP methods.
+      parameters:
+      - description: Filter jobs by single user ID
+        in: query
+        name: uid
+        type: integer
+      - description: Comma-separated list of user IDs to filter jobs
+        in: query
+        name: uids
+        type: string
+      - description: Comma-separated list of job IDs to retrieve or delete
+        in: query
+        name: jids
+        type: string
+      - description: Single job ID to retrieve or delete
+        in: query
+        name: jid
+        type: integer
+      - description: Pagination limit for job list
+        in: query
+        name: limit
+        type: string
+      - description: Pagination offset for job list
+        in: query
+        name: offset
+        type: string
+      - description: Job object for POST (single) and PUT
+        in: body
+        name: job
+        required: true
+        schema:
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Job'
+      - description: Job array for POST (multiple)
+        in: body
+        name: jobs
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Job'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success with job(s) content or status message
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request (e.g., parse error)
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Admin job endpoint
+      tags:
+      - admin
+      - jobs
+    get:
+      consumes:
+      - application/json
+      description: Handles CRUD operations for jobs. Supports multiple HTTP methods.
+      parameters:
+      - description: Filter jobs by single user ID
+        in: query
+        name: uid
+        type: integer
+      - description: Comma-separated list of user IDs to filter jobs
+        in: query
+        name: uids
+        type: string
+      - description: Comma-separated list of job IDs to retrieve or delete
+        in: query
+        name: jids
+        type: string
+      - description: Single job ID to retrieve or delete
+        in: query
+        name: jid
+        type: integer
+      - description: Pagination limit for job list
+        in: query
+        name: limit
+        type: string
+      - description: Pagination offset for job list
+        in: query
+        name: offset
+        type: string
+      - description: Job object for POST (single) and PUT
+        in: body
+        name: job
+        required: true
+        schema:
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Job'
+      - description: Job array for POST (multiple)
+        in: body
+        name: jobs
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Job'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success with job(s) content or status message
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request (e.g., parse error)
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Admin job endpoint
+      tags:
+      - admin
+      - jobs
+    post:
+      consumes:
+      - application/json
+      description: Handles CRUD operations for jobs. Supports multiple HTTP methods.
+      parameters:
+      - description: Filter jobs by single user ID
+        in: query
+        name: uid
+        type: integer
+      - description: Comma-separated list of user IDs to filter jobs
+        in: query
+        name: uids
+        type: string
+      - description: Comma-separated list of job IDs to retrieve or delete
+        in: query
+        name: jids
+        type: string
+      - description: Single job ID to retrieve or delete
+        in: query
+        name: jid
+        type: integer
+      - description: Pagination limit for job list
+        in: query
+        name: limit
+        type: string
+      - description: Pagination offset for job list
+        in: query
+        name: offset
+        type: string
+      - description: Job object for POST (single) and PUT
+        in: body
+        name: job
+        required: true
+        schema:
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Job'
+      - description: Job array for POST (multiple)
+        in: body
+        name: jobs
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Job'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success with job(s) content or status message
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request (e.g., parse error)
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Admin job endpoint
+      tags:
+      - admin
+      - jobs
+    put:
+      consumes:
+      - application/json
+      description: Handles CRUD operations for jobs. Supports multiple HTTP methods.
+      parameters:
+      - description: Filter jobs by single user ID
+        in: query
+        name: uid
+        type: integer
+      - description: Comma-separated list of user IDs to filter jobs
+        in: query
+        name: uids
+        type: string
+      - description: Comma-separated list of job IDs to retrieve or delete
+        in: query
+        name: jids
+        type: string
+      - description: Single job ID to retrieve or delete
+        in: query
+        name: jid
+        type: integer
+      - description: Pagination limit for job list
+        in: query
+        name: limit
+        type: string
+      - description: Pagination offset for job list
+        in: query
+        name: offset
+        type: string
+      - description: Job object for POST (single) and PUT
+        in: body
+        name: job
+        required: true
+        schema:
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Job'
+      - description: Job array for POST (multiple)
+        in: body
+        name: jobs
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Job'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success with job(s) content or status message
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request (e.g., parse error)
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Admin job endpoint
+      tags:
+      - admin
+      - jobs
+  /admin/user/volume:
+    delete:
+      consumes:
+      - application/json
+      description: Insert single or multiple user volume objects.
+      parameters:
+      - description: Single user volume
+        in: body
+        name: userVolume
+        required: true
+        schema:
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.UserVolume'
+      - description: Array of user volumes
+        in: body
+        name: userVolumes
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.UserVolume'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User volume(s) inserted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request (binding or decoding error)
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Manage user volumes
+      tags:
+      - volumes
+      - users
+    patch:
+      consumes:
+      - application/json
+      description: Insert single or multiple user volume objects.
+      parameters:
+      - description: Single user volume
+        in: body
+        name: userVolume
+        required: true
+        schema:
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.UserVolume'
+      - description: Array of user volumes
+        in: body
+        name: userVolumes
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.UserVolume'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User volume(s) inserted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request (binding or decoding error)
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Manage user volumes
+      tags:
+      - volumes
+      - users
+    post:
+      consumes:
+      - application/json
+      description: Insert single or multiple user volume objects.
+      parameters:
+      - description: Single user volume
+        in: body
+        name: userVolume
+        required: true
+        schema:
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.UserVolume'
+      - description: Array of user volumes
+        in: body
+        name: userVolumes
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.UserVolume'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User volume(s) inserted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request (binding or decoding error)
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Manage user volumes
+      tags:
+      - volumes
+      - users
+  /app:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves or registers applications. Accepts queries or full application
+        POST payloads.
+      parameters:
+      - description: Pagination limit for listing applications
+        in: query
+        name: limit
+        type: string
+      - description: Pagination offset for listing applications
+        in: query
+        name: offset
+        type: string
+      - description: Comma-separated application IDs to filter
+        in: query
+        name: ids
+        type: string
+      - description: Application name to fetch specific app
+        in: query
+        name: name
+        type: string
+      - description: Application version to fetch specific app
+        in: query
+        name: version
+        type: string
+      - description: Single application object (for POST)
+        in: body
+        name: app
+        required: true
+        schema:
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Application'
+      - description: Multiple applications (for POST)
+        in: body
+        name: apps
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Application'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success with application(s) content or status
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request (e.g., malformed input)
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Application endpoint (user)
+      tags:
+      - apps
+    post:
+      consumes:
+      - application/json
+      description: Retrieves or registers applications. Accepts queries or full application
+        POST payloads.
+      parameters:
+      - description: Pagination limit for listing applications
+        in: query
+        name: limit
+        type: string
+      - description: Pagination offset for listing applications
+        in: query
+        name: offset
+        type: string
+      - description: Comma-separated application IDs to filter
+        in: query
+        name: ids
+        type: string
+      - description: Application name to fetch specific app
+        in: query
+        name: name
+        type: string
+      - description: Application version to fetch specific app
+        in: query
+        name: version
+        type: string
+      - description: Single application object (for POST)
+        in: body
+        name: app
+        required: true
+        schema:
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Application'
+      - description: Multiple applications (for POST)
+        in: body
+        name: apps
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Application'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success with application(s) content or status
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request (e.g., malformed input)
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Application endpoint (user)
+      tags:
+      - apps
   /job:
     get:
       consumes:
@@ -286,6 +1200,48 @@ paths:
       summary: Download a resource
       tags:
       - resources
+  /resource/group:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Updates the group (group ID) of a resource based on its resource
+        ID.
+      parameters:
+      - description: Resource ID
+        in: query
+        name: rid
+        required: true
+        type: string
+      - description: New group ID
+        in: formData
+        name: group
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resource group updated successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Missing or invalid parameters
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Failed to update resource
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Change resource group
+      tags:
+      - resources
+      - admin
   /resource/mv:
     post:
       consumes:
@@ -322,6 +1278,128 @@ paths:
       summary: Move a resource
       tags:
       - resources
+  /resource/ownership:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Updates the owner (user ID) of a resource based on its resource
+        ID.
+      parameters:
+      - description: Resource ID
+        in: query
+        name: rid
+        required: true
+        type: string
+      - description: New owner user ID
+        in: formData
+        name: owner
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resource owner updated successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Missing or invalid parameters
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Failed to update resource
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Change resource owner
+      tags:
+      - resources
+      - admin
+  /resource/permissions:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Updates permissions for a resource given its ID and a permission
+        string.
+      parameters:
+      - description: Resource ID
+        in: query
+        name: rid
+        required: true
+        type: string
+      - description: New permission string (e.g., rwxr-x---)
+        in: formData
+        name: permissions
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resource updated successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Missing or invalid parameters
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Failed to update resource
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Change resource permissions
+      tags:
+      - resources
+      - admin
+  /resource/preview:
+    get:
+      description: Returns a byte-range preview (default 4KB) of a file resource.
+        Assumes user is authorized.
+      parameters:
+      - description: Byte range to preview (e.g., 'bytes=0-4095')
+        in: header
+        name: Range
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "206":
+          description: Partial content
+          schema:
+            type: string
+        "404":
+          description: Resource not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "416":
+          description: Requested range exceeds file size
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Preview a resource
+      tags:
+      - resources
+      - preview
   /resource/rm:
     delete:
       consumes:

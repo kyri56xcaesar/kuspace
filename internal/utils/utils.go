@@ -294,10 +294,10 @@ func ReadFileAt(filePath string, start, end int64) ([]byte, error) {
 	return data, nil
 }
 
-var time_format string = "2006-01-02 15:04:05-07:00"
+var Time_format string = "2006-01-02 15:04:05-07:00"
 
 func CurrentTime() string {
-	return time.Now().UTC().Format(time_format)
+	return time.Now().UTC().Format(Time_format)
 }
 
 func HasInvalidCharacters(s, chars string) bool {

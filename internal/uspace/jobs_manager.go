@@ -106,6 +106,8 @@ func NewJobManager(srv *UService) JobManager {
 		mw = 10 // default size
 	}
 
+	jobs_socket_address = srv.config.J_WS_ADDRESS
+
 	jm := JobManager{
 		mu:  &sync.Mutex{},
 		srv: srv,
@@ -167,10 +169,9 @@ func (js *JobManager) CancelJob(jid int) error {
 	return nil
 }
 
-func streamToSocketWS(jobID int64, pipe io.Reader) {
+func streamToSocketWS(jobID int64, ch <-chan []byte) {
 	jobIDStr := fmt.Sprintf("%d", jobID)
-	wsURL := fmt.Sprintf("ws://"+jobs_socket_address+"/job-stream?jid=%s&role=Producer", jobIDStr)
-	log.Printf("ws_url: %s", wsURL)
+	wsURL := fmt.Sprintf("ws://"+jobs_socket_address+"/get-session?jid=%s&role=Producer", jobIDStr)
 
 	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
@@ -179,11 +180,9 @@ func streamToSocketWS(jobID int64, pipe io.Reader) {
 	}
 	defer conn.Close()
 
-	scanner := bufio.NewScanner(pipe)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if err := conn.WriteMessage(websocket.TextMessage, []byte(line)); err != nil {
-			log.Printf("write failed: %v", err)
+	for msg := range ch {
+		if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+			log.Printf("failed to write to the websocket writer: %v", err)
 			return
 		}
 	}
@@ -201,7 +200,7 @@ func streamToSocket(jobID int, pipe io.Reader) {
 		// log.Printf("line about to be streamed: %s", line)
 
 		_, err := http.Post(
-			fmt.Sprintf("http://"+jobs_socket_address+"/job-stream?jid=%s&role=Producer", jobIDStr),
+			fmt.Sprintf("http://"+jobs_socket_address+"/get-session?jid=%s&role=Producer", jobIDStr),
 			"text/plain",
 			strings.NewReader(line),
 		)

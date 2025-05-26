@@ -12,6 +12,30 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// handleApps handles application registration and retrieval for regular users.
+//
+// @Summary Application endpoint (user)
+// @Description Retrieves or registers applications. Accepts queries or full application POST payloads.
+// @Tags apps
+//
+// @Accept json
+// @Produce json
+//
+// @Param limit query string false "Pagination limit for listing applications"
+// @Param offset query string false "Pagination offset for listing applications"
+// @Param ids query string false "Comma-separated application IDs to filter"
+// @Param name query string false "Application name to fetch specific app"
+// @Param version query string false "Application version to fetch specific app"
+// @Param app body ut.Application true "Single application object (for POST)"
+// @Param apps body []ut.Application true "Multiple applications (for POST)"
+//
+// @Success 200 {object} map[string]interface{} "Success with application(s) content or status"
+// @Failure 400 {object} map[string]string "Bad request (e.g., malformed input)"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Failure 405 {object} map[string]string "Method not allowed"
+//
+// @Router /app [get]
+// @Router /app [post]
 func (srv *UService) handleApps(c *gin.Context) {
 	var (
 		app  ut.Application
@@ -113,6 +137,33 @@ func (srv *UService) handleApps(c *gin.Context) {
 	}
 }
 
+// handleAppsAdmin provides admin-level control over application records.
+//
+// @Summary Application admin endpoint
+// @Description Admin operations for applications: retrieve, insert, update, delete.
+// @Tags admin, apps
+//
+// @Accept json
+// @Produce json
+//
+// @Param limit query string false "Pagination limit for listing applications"
+// @Param offset query string false "Pagination offset for listing applications"
+// @Param ids query string false "Comma-separated application IDs to fetch or delete"
+// @Param name query string false "Application name (used with version)"
+// @Param version query string false "Application version (used with name)"
+// @Param id query string false "Single application ID to delete"
+// @Param app body ut.Application true "Single application object (POST/PUT)"
+// @Param apps body []ut.Application true "Multiple application objects (POST)"
+//
+// @Success 200 {object} map[string]interface{} "Success with application(s) content or status"
+// @Failure 400 {object} map[string]string "Bad request (e.g., malformed input)"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Failure 405 {object} map[string]string "Method not allowed"
+//
+// @Router /admin/app [get]
+// @Router /admin/app [post]
+// @Router /admin/app [put]
+// @Router /admin/app [delete]
 func (srv *UService) handleAppsAdmin(c *gin.Context) {
 	var (
 		app  ut.Application

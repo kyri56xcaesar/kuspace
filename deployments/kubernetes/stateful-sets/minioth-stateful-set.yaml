@@ -4,7 +4,7 @@ metadata:
   name: minioth
   labels:
     app: minioth
-  namespace: ${NAMESPACE}
+  namespace: kuspace
 spec:
   selector:
     matchLabels:
@@ -25,7 +25,7 @@ spec:
           name: web
         volumeMounts: # volume mount linked to a pv for database and perstent storage
         - name: database
-          mountPath: /data
+          mountPath: /root/data
         - name: config # volume mount used for configuration
           mountPath: /root/configs/minioth.conf
           subPath: minioth.conf
@@ -49,13 +49,6 @@ spec:
       - name: config
         configMap:
           name: minioth-config
-  volumeClaimTemplates:
-  - metadata:
-      name: database
-    spec:
-      storageClassName: kuspace-default
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 1Gi
-
+      - name: database
+        persistentVolumeClaim:
+          claimName: minioth-pvc

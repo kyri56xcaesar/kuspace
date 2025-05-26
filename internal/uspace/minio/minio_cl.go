@@ -250,27 +250,20 @@ func (mc *MinioClient) Stat(t any) (any, error) {
 	if FETCHSTAT {
 		cancel, err := mc.fGetObject(object.Vname, object.Name, mc.default_local_space_path+object.Name)
 		if err != nil {
-			log.Printf("failed to get object from minio: %v", err)
 			return nil, err
 		}
 		defer cancel()
-		log.Printf("successfully downloaded the object: %s", object.Name)
 
 		info, err := os.Stat(mc.default_local_space_path + object.Name)
 		if err != nil {
-			log.Printf("failed to stat the object: %v", err)
 			return nil, err
 		}
 		return info, nil
 
 	}
 
-	info, err := mc.statObject(object.Vname, object.Name)
-	if err != nil {
-		log.Printf("faile to stat remote object: %v", err)
-	}
+	return mc.statObject(object.Vname, object.Name)
 
-	return info, err
 }
 
 // ✅
@@ -280,9 +273,8 @@ func (mc *MinioClient) Remove(t any) error {
 		return ut.NewError("failed to cast")
 	}
 
-	err := mc.removeObject(resource.Vname, resource.Name)
+	return mc.removeObject(resource.Vname, resource.Name)
 
-	return err
 }
 
 // ✅
@@ -302,12 +294,8 @@ func (mc *MinioClient) RemoveVolume(t any) error {
 		bucketname = volume.Name
 	}
 
-	err := mc.removeBucket(bucketname)
-	if err != nil {
-		log.Printf("failed to remove bucket")
-	}
+	return mc.removeBucket(bucketname)
 
-	return err
 }
 
 // ✅

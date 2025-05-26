@@ -135,6 +135,12 @@ func (srv *HTTPService) ServeHTTP() {
 				"status": "alive",
 			})
 		})
+
+		root.GET("/conf", func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{
+				"ws_address": srv.Config.J_WS_ADDRESS,
+			})
+		})
 	}
 
 	apiV1 := srv.Engine.Group("/api/" + apiVersion)

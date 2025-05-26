@@ -1,11 +1,5 @@
 // unused currently
-cachedUsers = [];
-cachedGroups = [];
-cachedResources = [];
 
-
-const IP = window.location.hostname; 
-const PORT = window.location.port || (window.location.protocol === "https:" ? "443" : "80");
 
 
 let domReady = (cb) => {
@@ -140,7 +134,6 @@ function hide(container) {
 
 function toggleHidden(targetId, className) {
   let targetDiv = document.querySelector(targetId);
-
   document.querySelectorAll(className).forEach((element) => {
     if (element.id == targetDiv.id) { 
       element.classList.remove('hidden');
@@ -349,10 +342,12 @@ document.addEventListener('htmx:afterSwap', function (event) {
           });
         
           const result = await response.text(); // or response.json()
-          // document.getElementById("uploadResult").innerText = result;
+          const feedback = volume.querySelector(".feedback");
+          feedback.textContent = result;
         } catch (err) {
           console.error("Upload error:", err);
-          // document.getElementById("uploadResult").innerText = "Upload failed";
+          const feedback = volume.querySelector(".feedback");
+          feedback.textContent = result;
         }
       });
 
@@ -488,6 +483,8 @@ document.addEventListener('htmx:beforeRequest', function(event) {
   if (triggeringElement.id === 'inp-text' && triggeringElement.value === '') {
     event.preventDefault();
     document.getElementById("generated-hash").innerText = '';
+  } else if (triggeringElement.id === 'job-create-form') {
+    
   }
 });
 
@@ -870,10 +867,36 @@ document.addEventListener('htmx:afterRequest', function (event) {
   } else if (triggeringElement.id === 'delete-volume-btn') {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
       document.getElementById('fetch-volumes-btn').dispatchEvent(new Event('click'));
+      const feedback = triggeringElement.parentNode.parentNode.querySelector('.feedback');
+      feedback.textContent = event.detail.xhr.responseText.replace(/[{}]/g, '');
+      feedback.classList.add('green');
+      feedback.classList.remove('hidden');
+      setTimeout(() => {
+        feedback.textContent = '';
+        feedback.classList.add('hidden');
+      }, 4000);
     } else if (event.detail.xhr.status < 400) {
       //todo
+      const feedback = triggeringElement.parentNode.parentNode.querySelector('.feedback');
+      feedback.textContent = event.detail.xhr.responseText.replace(/[{}]/g, '');
+      feedback.classList.add('red');
+      feedback.classList.remove('hidden');
+      setTimeout(() => {
+        feedback.textContent = '';
+        feedback.classList.add('hidden');
+
+      }, 4000);
     } else if (event.detail.xhr.status < 500) {
       //todo
+      const feedback = triggeringElement.parentNode.parentNode.querySelector('.feedback');
+      feedback.textContent = event.detail.xhr.responseText.replace(/[{}]/g, '');
+      feedback.classList.add('red');
+      feedback.classList.remove('hidden');
+      setTimeout(() => {
+        feedback.textContent = '';
+        feedback.classList.add('hidden');
+
+      }, 4000);
     }
   } else if (triggeringElement.id === 'create-volume-form') {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
@@ -901,12 +924,15 @@ document.addEventListener('htmx:afterRequest', function (event) {
     const button = triggeringElement.querySelector('button[type="submit"]');
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
       // document.getElementById('reload-btn').dispatchEvent(new Event('click'));
+      const feedBackDiv = document.querySelector("#job-feedback");
+      feedBackDiv.classList.remove('hidden');
+      createFeedbackPanel(JSON.parse(event.detail.xhr.responseText).jid, feedBackDiv.querySelector('.feedback-messages'));
+      feedback.textContent = event.detail.xhr.responseText.replace(/[{}]/g, '');
       setTimeout(() => {
         button.classList.add('check-highlight');
-        feedback.textContent = event.detail.xhr.responseText.replace(/[{}]/g, '');
         setTimeout(()=>{
           button.classList.remove('check-highlight');
-          feedback.textContent = '';
+          // feedback.textContent = '';
         }, 8000);
       }, 2000);
     } else if (event.detail.xhr.status < 400) {

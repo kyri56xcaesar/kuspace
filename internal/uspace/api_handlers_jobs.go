@@ -192,6 +192,34 @@ func (srv *UService) handleJob(c *gin.Context) {
 	}
 }
 
+// handleJobAdmin handles administrative operations on jobs.
+//
+// @Summary Admin job endpoint
+// @Description Handles CRUD operations for jobs. Supports multiple HTTP methods.
+// @Tags admin, jobs
+//
+// @Accept json
+// @Produce json
+//
+// @Param uid query int false "Filter jobs by single user ID"
+// @Param uids query string false "Comma-separated list of user IDs to filter jobs"
+// @Param jids query string false "Comma-separated list of job IDs to retrieve or delete"
+// @Param jid query int false "Single job ID to retrieve or delete"
+// @Param limit query string false "Pagination limit for job list"
+// @Param offset query string false "Pagination offset for job list"
+//
+// @Param job body ut.Job true "Job object for POST (single) and PUT"
+// @Param jobs body []ut.Job true "Job array for POST (multiple)"
+//
+// @Success 200 {object} map[string]interface{} "Success with job(s) content or status message"
+// @Failure 400 {object} map[string]string "Bad request (e.g., parse error)"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Failure 405 {object} map[string]string "Method not allowed"
+//
+// @Router /admin/job [get]
+// @Router /admin/job [post]
+// @Router /admin/job [put]
+// @Router /admin/job [delete]
 func (srv *UService) handleJobAdmin(c *gin.Context) {
 	var (
 		job  ut.Job

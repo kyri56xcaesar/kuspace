@@ -4,7 +4,7 @@ metadata:
   name: minio-pv
   labels:
     type: local
-  namespace: ${NAMESPACE}
+  namespace: kuspace
 spec:
   capacity:
     storage: 20Gi

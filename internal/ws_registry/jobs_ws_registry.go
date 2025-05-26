@@ -1,24 +1,31 @@
 package ws_registry
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"strings"
 	"sync"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
 
 var (
+	Address      = "0.0.0.0:8082"
 	Job_log_path = "data/logs/jobs/"
 
 	// Registry maps jobIDs to their socket servers
 	registry = struct {
 		sync.Mutex
-		servers map[string]*JobSocketServer
+		servers map[string]*SocketServer
 	}{
-		servers: make(map[string]*JobSocketServer),
+		servers: make(map[string]*SocketServer),
 	}
 
 	upgrader = websocket.Upgrader{
@@ -29,8 +36,9 @@ var (
 type Role string
 
 const (
-	Producer Role = "Producer"
-	Consumer Role = "Consumer"
+	Producer        Role = "producer"
+	Consumer        Role = "consumer"
+	JackOfAllTrades Role = "jack"
 )
 
 // client represents a WebSocket connection
@@ -41,8 +49,8 @@ type Client struct {
 	Send chan []byte
 }
 
-// JobSocketServer manages clients for a specific job
-type JobSocketServer struct {
+// SocketServer manages clients for a specific job
+type SocketServer struct {
 	Producers  map[*Client]bool
 	Consumers  map[*Client]bool
 	Broadcast  chan []byte
@@ -54,15 +62,20 @@ type JobSocketServer struct {
 	Logger *log.Logger
 }
 
-func NewJobSocketServer(jid string) *JobSocketServer {
+func NewSocketServer(jid string) *SocketServer {
 	// Create a new logger for the job socket server
-	log_file, err := os.OpenFile(Job_log_path+"job-"+jid+".log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	err := os.MkdirAll(Job_log_path, 0o644)
+	if err != nil {
+		log.Fatalf("failed to create path to logs: %v", err)
+	}
+
+	log_file, err := os.OpenFile(Job_log_path+"ws-server-"+jid+".log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		log.Fatalf("failed to open log file: %v", err)
 	}
-	logger := log.New(log_file, "[JOB-"+jid+" WS-server] ", log.LstdFlags)
+	logger := log.New(log_file, "[WS-"+jid+" WS-server] ", log.LstdFlags)
 
-	return &JobSocketServer{
+	return &SocketServer{
 		Jid:        jid,
 		Logger:     logger,
 		Producers:  make(map[*Client]bool),
@@ -73,28 +86,44 @@ func NewJobSocketServer(jid string) *JobSocketServer {
 	}
 }
 
-func (s *JobSocketServer) Start() {
+func getOrCreateServer(jobID string) *SocketServer {
+	registry.Lock()
+	defer registry.Unlock()
+	server, exists := registry.servers[jobID]
+	if !exists {
+		server = NewSocketServer(jobID)
+		registry.servers[jobID] = server
+		go server.Start()
+	}
+	return server
+}
+
+func (s *SocketServer) Start() {
 	for {
 		select {
 		case client := <-s.Register:
 			s.Lock()
 			if client.Role == Producer {
 				s.Producers[client] = true
+			} else if client.Role == Consumer {
+				s.Consumers[client] = true
 			} else {
+				s.Producers[client] = true
 				s.Consumers[client] = true
 			}
 			s.Unlock()
-
 		case client := <-s.Unregister:
 			s.Lock()
 			if client.Role == Producer {
 				delete(s.Producers, client)
+			} else if client.Role == Consumer {
+				delete(s.Consumers, client)
 			} else {
+				delete(s.Producers, client)
 				delete(s.Consumers, client)
 			}
 			close(client.Send)
 			s.Unlock()
-
 		case msg := <-s.Broadcast:
 			s.Lock()
 			for Consumer := range s.Consumers {
@@ -111,27 +140,15 @@ func (s *JobSocketServer) Start() {
 	}
 }
 
-func getOrCreateServer(jobID string) *JobSocketServer {
-	registry.Lock()
-	defer registry.Unlock()
-	server, exists := registry.servers[jobID]
-	if !exists {
-		server = NewJobSocketServer(jobID)
-		registry.servers[jobID] = server
-		go server.Start()
-	}
-	return server
-}
-
-func HandleJobWS(c *gin.Context) {
-	jobID := c.Query("jid")
-	roleStr := c.Query("role")
-	if jobID == "" || roleStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing job_id or role"})
+func HandleWSsession(c *gin.Context) {
+	id := c.Query("jid")
+	roleStr := strings.ToLower(c.Query("role"))
+	if id == "" || roleStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing jid or role"})
 		return
 	}
 	role := Role(roleStr)
-	if role != Producer && role != Consumer {
+	if role != Producer && role != Consumer && role != JackOfAllTrades {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid role"})
 		return
 	}
@@ -140,25 +157,25 @@ func HandleJobWS(c *gin.Context) {
 		return
 	}
 	client := &Client{
-		Jid:  jobID,
+		Jid:  id,
 		Conn: conn,
 		Role: role,
 		Send: make(chan []byte, 256),
 	}
-	server := getOrCreateServer(jobID)
+	server := getOrCreateServer(id)
 	server.Register <- client
 
 	server.Logger.Printf("client registered: %v\n", client.Role)
 
 	go writeMessages(client)
-	go readMessages(client, server)
+	go broadcastMessages(client, server)
 
 }
 
-func HandleJobWSClose(c *gin.Context) {
+func HandleWSsessionClose(c *gin.Context) {
 	jobID := c.Query("jid")
 	if jobID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing job_id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing jid"})
 		return
 	}
 	registry.Lock()
@@ -176,10 +193,10 @@ func HandleJobWSClose(c *gin.Context) {
 		}
 		delete(registry.servers, jobID)
 	}
-	c.JSON(http.StatusOK, gin.H{"status": "successfully deleted job socket server"})
+	c.JSON(http.StatusOK, gin.H{"status": "successfully deleted socket server"})
 }
 
-func readMessages(client *Client, server *JobSocketServer) {
+func broadcastMessages(client *Client, server *SocketServer) {
 	defer func() {
 		server.Unregister <- client
 		client.Conn.Close()
@@ -191,7 +208,11 @@ func readMessages(client *Client, server *JobSocketServer) {
 		if err != nil {
 			break
 		}
-		if client.Role == Producer {
+		if client.Role == JackOfAllTrades {
+			msg = []byte(fmt.Sprintf("[%s]: %s", client.Conn.RemoteAddr().String(), string(msg)))
+		}
+
+		if client.Role == Producer || client.Role == JackOfAllTrades {
 			server.Logger.Printf("producer broadcasting: %s", msg)
 			server.Broadcast <- msg
 		}
@@ -205,4 +226,41 @@ func writeMessages(client *Client) {
 			break
 		}
 	}
+}
+
+func Serve() {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	engine := gin.Default()
+	engine.GET("/healthz", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "alive"})
+	})
+	engine.GET("/get-session", HandleWSsession)
+	engine.DELETE("/delete-session", HandleWSsessionClose)
+
+	server := &http.Server{
+		Addr:              Address,
+		Handler:           engine,
+		ReadHeaderTimeout: time.Second * 5,
+	}
+
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("listen: %s\n", err)
+		}
+	}()
+	<-ctx.Done()
+
+	stop()
+	log.Println("shutting down gracefully, press Ctrl+C again to force")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatal("Server forced to shutdown: ", err)
+	}
+
+	log.Println("Server exiting")
+
 }

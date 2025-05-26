@@ -178,7 +178,7 @@
     </div>
   </div>
   
-  <!-- Main Content -->
+  <!-- main Content -->
   <div id="main-content-wrapper">
     <header class="admin-header">
       <h1>{{ .message }}, <i>"{{ .username }}"!</i></h1>
@@ -201,7 +201,7 @@
       </div>
     </header>
     <main id="main-content">
-      <!-- users -->
+      <!-- admin authorization -->
       {{ if .elevated }}
       <section id="users" class="content-section hidden">
         <h2>Manage Users </h2>
@@ -367,7 +367,6 @@
           </div>
         </div>
       </section>
-      <!-- groups -->
       <section id="groups" class="content-section hidden">
         <h2>Manage Groups </h2>
         <p class="fading">Perform CRUD operations on groups.</p>
@@ -458,7 +457,6 @@
           </div>
         </div>
       </section>
-      <!-- resources -->    
       <section id="resources" class="content-section hidden">      
         <h2>Manage Resources</h2>
         <p class="fading">View and manage file resources.</p>
@@ -613,7 +611,6 @@
         </div>
         
       </section>
-
       <section id="settings" class="content-section hidden">
         <h2>Settings</h2>
         <p class="fading">Manage settings.</p>
@@ -624,11 +621,10 @@
       </section>
       {{ end }}
 
-      <section id="dashboard" class="content-section">
-
+      <!-- general authorization -->
+      <section id="dashboard" class="content-section hidden">
       </section>
-
-      <section id="job-browser" class="content-section hidden">
+      <section id="job-browser" class="content-section">
         <div class="job-browser-content">
           <h2>Job Browser</h2>
           <div class="row-flex-sb">
@@ -658,176 +654,199 @@
           </div>
 
           <div class="subsection hidden" id="new-job">
-            <h4>Job Submitter</h4>
-            <hr>
-            <!-- job-optional-inputs minimizer -->
-            <div class="minimizer">
-              <i title="Minimize" id="resource-options-dropdown-button" onclick="toggle_job_optionals(document.getElementById('job-create-form'))" class="fa-solid fa-compress"></i>
-            </div>
-            <div class="reset">
-              <i class="fa-solid fa-rotate-left" id="form-reset" onclick="document.querySelector('#job-create-form').reset()"></i>
-            </div>
-            <form 
-              id="job-create-form"
-              hx-post="/api/v1/verified/jobs"
-              hx-swap="none"
-              hx-trigger="submit"
-            >
-              <div class="form-grid-wrapper">
-                <div class="form-grid">
-                  <!-- i/o div -->
-                  <div>
-                    <div class="form-group">
-                      <label for="job-input">Input</label><span style="color:red;">*</span>
-                      <div id="select-resource">
-                        <div id="resource-modal" class="modal hidden">
-                          <div class="modal-content">
-                            <h3>Select a Resource</h3>
-                            <div id="resource-list">
-                              <!-- resource options will be populated dynamically -->
-                            </div>
-                            <button type="button" id="cancel-select">Cancel</button>
-                          </div>
-                        </div>
-                        <button type="button" class="icon-button" id="select-resource-btn-job" title="Select Resource"><i class="fa-solid fa-cube"></i></button>
-                      </div>
-                      <input id="job-input" name="input" type="text" title="Input" placeholder="default-bucket/input.in">
-                    </div>
-                    <div class="form-group">
-                      <label for="job-output">Output</label><span style="color:red;">*</span>
-                      <div id="select-volume">
-                        <div id="volume-modal" class="modal hidden">
-                          <div class="modal-content">
-                            <h3>Select a Volume</h3>
-                            <div id="volume-list">
-                              <!-- Volume options will be populated dynamically -->
-                            </div>
-                            <button type="button" id="cancel-select">Cancel</button>
-                          </div>
-                        </div>
-                        <button type="button" class="icon-button" id="select-volume-btn-job" title="Select Volume"><i class="fa-solid fa-database"></i></button>
-                      </div>
-                      <input id="job-output" name="output" type="text" placeholder="default-bucket/output.out">
-                    </div>
-                  </div>
-                  <!-- semantics -->
-                  <div class="job-optional">
-                    <div class="form-group">
-                      <label for="parallelism">Parallelism</label>
-                      <input type="number" id="parallelism" name="parallelism" class="text-input" min="1" max="8" value="1" />                  
-                    </div>
-                    <div class="form-group">
-                      <label for="j-timeout">Timeout (m)</label>
-                      <input type="number" id="j-timeout" name="timeout" class="text-input" min="0" max="120" />                  
-                    </div>
-                  </div>
-
-                  <div class="job-optional">
-                    <textarea id="description" name="description" class="text-input" rows="2" placeholder="Description (optional)" maxlength="150"></textarea>
-                  </div>
-                </div>
-            
-                <!-- quotas -->
-                <div class="form-grid job-optional">
-                  <!-- memory -->
-                  <div>
-                    <div class="form-group">
-                      <label for="memory_request">Memory Request</label>
-                      <input type="text" id="memory_request" name="memory_request" class="text-input small" placeholder="e.g., 512Mi" />
-                    </div>
-                    <div class="form-group">
-                      <label for="memory_limit">Memory Limit</label>
-                      <input type="text" id="memory_limit" name="memory_limit" class="text-input small" placeholder="1024Mi" />
-                    </div>
-                  </div>
-                  <!-- cpu -->
-                  <div>
-                    <div class="form-group">
-                      <label for="cpu_request">CPU Request</label>
-                      <input type="text" id="cpu_request" name="cpu_request" class="text-input small" placeholder="e.g., 0.5" />
-                    </div>
-                    <div class="form-group">
-                      <label for="cpu_limit">CPU Limit</label>
-                      <input type="text" id="cpu_limit" name="cpu_limit" class="text-input small" placeholder="1"/>
-                    </div>
-                  </div>
-                  <!-- storage -->
-                  <div>
-                    <div class="form-group">
-                      <label for="ephemeral_storage_request">Ephemeral Storage Request</label>
-                      <input type="text" id="ephemeral_storage_request" name="ephimeral_storage_request" class="text-input small" placeholder="e.g., 1Gi" />
-                    </div>
-                    <div class="form-group">
-                      <label for="ephemeral_storage_limit">Ephemeral Storage Limit</label>
-                      <input type="text" id="ephemeral_storage_limit" name="ephimeral_storage_limit" class="text-input small" placeholder="1Gi" />
-                    </div>
-                  </div>
-                </div>
-
-                <div class="collapsible info">
-                  <div>
-                    <p class="target"><strong>Info!</strong> the '#%' FROM clause is required as a 'placeholder' to read from the specified input!</p>
-                    <button type="button" class="toggle-button-collapse collapsible">
-                      <svg class="arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="arrow">
-                        <line x1="19" y1="12" x2="5" y2="12"></line>
-                        <polyline points="12 19 5 12 12 5"></polyline>
-                      </svg>
-                    </button>
-                  </div>
-                  <span class="feedback-message"></span>
-                </div> 
-                <!-- logic -->
-                <div id="job-create-form-editor">
-                  <div id="header">
-                      <i class="fa-solid fa-code"></i>
-                      
-                      <label for="language-selector" class="form-label-group">
-                        Application:
-                        <select id="language-selector" name="logic">
-                          <option value="duckdb" selected>duckdb</option>
-                          <option value="python">Python</option>
-                        </select>
-                      </label>
-
-                      <div>
-                        <label for="code-file-upload" class="custom-file-label"><i class="fa-solid fa-arrow-up"></i></label>
-                        <input type="file" id="code-file-upload" style="display: none;"/>
-                      </div>
-                  </div>
-                  
-                  <div id="j-editor">
-                    <textarea class="code-editor" name="logic_body"></textarea>
-                  </div>
-                </div>
-
-                <!-- submit -->
-                <div class="form-group submit-button-wrapper">
-                  <button type="submit" id="submit-job-button">Submit Job</button>
-                </div>
-                <div id="job-submit-feedback" class="feedback"></div>
-                
+            <div>
+              <h4>Job Submitter</h4>
+              <hr>
+              <!-- job-optional-inputs minimizer -->
+              <div class="minimizer">
+                <i title="Minimize" id="resource-options-dropdown-button" onclick="toggle_job_optionals(document.getElementById('job-create-form'))" class="fa-solid fa-compress"></i>
               </div>
-            </form>
-            <div id="job-submit-loader" class="hidden loader-heartbeat">
-              <!-- From Uiverse.io by ilkhoeri --> 
-              <svg
-                xmlns:xlink="https://www.w3.org/1999/xlink"
-                xmlns="https://www.w3.org/2000/svg"
-                width="550"
-                height="210"
-                viewBox="0 0 550 210"
+              <div class="reset">
+                <i class="fa-solid fa-rotate-left" id="form-reset" onclick="document.querySelector('#job-create-form').reset()"></i>
+              </div>
+              <form 
+                id="job-create-form"
+                hx-post="/api/v1/verified/jobs"
+                hx-swap="none"
+                hx-trigger="submit"
               >
-                <path
-                  d="m0,130.08h44.51c7.08-3.45,11.54-24.65,19.42-24.81s13.23,22.54,21.03,24.81c10.03,2.92,29.69-14.6,39.91-12.4,4.58.98,9.34,12.36,14.02,12.4,3.54.03,7.25-9.31,10.79-9.17,3.24.13,6.17,7.93,9.17,9.17s9.68-1.48,12.4,0c2.4,1.3,3.45,10.3,5.93,9.17,3.23-1.48,2.82-103.01,8.09-103.01,6.96,0,12.35,137.53,16.72,137.53,3.9,0-.09-36.61,8.49-43.69,3.41-2.81,13.69,1.93,17.66,0,7.17-3.49,11.72-24.71,19.69-25.08,8.62-.4,15.39,22.86,23.73,25.08,8.99,2.38,26.51-12.76,35.6-10.79,5.58,1.21,11.46,15.82,17.12,15.1,3.88-.49,4.87-12.59,8.76-12.94,3.01-.28,5.7,7.46,8.49,8.63s9.75-1.43,12.54,0,4.03,9.39,7.01,9.71c4.98.54,2.64-103.55,8.63-103.55,5.16,0,8.8,111.51,12.94,111.64,5.02.16,5.01-15.2,9.3-17.8s15.02,2.06,19.42,0c7.39-3.46,12.74-25.17,20.9-25.08,8.97.09,13.68,25.85,22.38,28.04,9.17,2.31,25.4-15.93,34.79-14.83,4.95.58,11.31,10.3,16.04,11.87h44.51"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  fill="none"
-                  stroke="#DE6262"
-                ></path>
-              </svg>
+                <div class="form-grid-wrapper">
+                  <div class="form-grid">
+                    <!-- i/o div -->
+                    <div>
+                      <div class="form-group">
+                        <label for="job-input">Input</label><span style="color:red;">*</span>
+                        <div id="select-resource">
+                          <div id="resource-modal" class="modal hidden">
+                            <div class="modal-content">
+                              <h3>Select a Resource</h3>
+                              <div id="resource-list">
+                                <!-- resource options will be populated dynamically -->
+                              </div>
+                              <button type="button" id="cancel-select">Cancel</button>
+                            </div>
+                          </div>
+                          <button type="button" class="icon-button" id="select-resource-btn-job" title="Select Resource"><i class="fa-solid fa-cube"></i></button>
+                        </div>
+                        <input id="job-input" name="input" type="text" title="Input" placeholder="default-bucket/input.in">
+                      </div>
+                      <div class="form-group">
+                        <label for="job-output">Output</label><span style="color:red;">*</span>
+                        <div id="select-volume">
+                          <div id="volume-modal" class="modal hidden">
+                            <div class="modal-content">
+                              <h3>Select a Volume</h3>
+                              <div id="volume-list">
+                                <!-- Volume options will be populated dynamically -->
+                              </div>
+                              <button type="button" id="cancel-select">Cancel</button>
+                            </div>
+                          </div>
+                          <button type="button" class="icon-button" id="select-volume-btn-job" title="Select Volume"><i class="fa-solid fa-database"></i></button>
+                        </div>
+                        <input id="job-output" name="output" type="text" placeholder="default-bucket/output.out">
+                      </div>
+                    </div>
+                    <!-- semantics -->
+                    <div class="job-optional">
+                      <div class="form-group">
+                        <label for="parallelism">Parallelism</label>
+                        <input type="number" id="parallelism" name="parallelism" class="text-input" min="1" max="8" value="1" />                  
+                      </div>
+                      <div class="form-group">
+                        <label for="j-timeout">Timeout (m)</label>
+                        <input type="number" id="j-timeout" name="timeout" class="text-input" min="0" max="120" />                  
+                      </div>
+                    </div>
+  
+                    <div class="job-optional">
+                      <textarea id="description" name="description" class="text-input" rows="2" placeholder="Description (optional)" maxlength="150"></textarea>
+                    </div>
+                  </div>
+              
+                  <!-- quotas -->
+                  <div class="form-grid job-optional">
+                    <!-- memory -->
+                    <div>
+                      <div class="form-group">
+                        <label for="memory_request">Memory Request</label>
+                        <input type="text" id="memory_request" name="memory_request" class="text-input small" placeholder="e.g., 512Mi" />
+                      </div>
+                      <div class="form-group">
+                        <label for="memory_limit">Memory Limit</label>
+                        <input type="text" id="memory_limit" name="memory_limit" class="text-input small" placeholder="1024Mi" />
+                      </div>
+                    </div>
+                    <!-- cpu -->
+                    <div>
+                      <div class="form-group">
+                        <label for="cpu_request">CPU Request</label>
+                        <input type="text" id="cpu_request" name="cpu_request" class="text-input small" placeholder="e.g., 0.5" />
+                      </div>
+                      <div class="form-group">
+                        <label for="cpu_limit">CPU Limit</label>
+                        <input type="text" id="cpu_limit" name="cpu_limit" class="text-input small" placeholder="1"/>
+                      </div>
+                    </div>
+                    <!-- storage -->
+                    <div>
+                      <div class="form-group">
+                        <label for="ephemeral_storage_request">Ephemeral Storage Request</label>
+                        <input type="text" id="ephemeral_storage_request" name="ephimeral_storage_request" class="text-input small" placeholder="e.g., 1Gi" />
+                      </div>
+                      <div class="form-group">
+                        <label for="ephemeral_storage_limit">Ephemeral Storage Limit</label>
+                        <input type="text" id="ephemeral_storage_limit" name="ephimeral_storage_limit" class="text-input small" placeholder="1Gi" />
+                      </div>
+                    </div>
+                  </div>
+  
+                  <div class="collapsible info">
+                    <div>
+                      <p class="target"><strong>Info!</strong> the '#%' FROM clause is required as a 'placeholder' to read from the specified input!</p>
+                      <button type="button" class="toggle-button-collapse collapsible">
+                        <svg class="arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="arrow">
+                          <line x1="19" y1="12" x2="5" y2="12"></line>
+                          <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
+                      </button>
+                    </div>
+                    <span class="feedback-message"></span>
+                  </div> 
+                  <!-- logic -->
+                  <div id="job-create-form-editor">
+                    <div id="header">
+                        <i class="fa-solid fa-code"></i>
+                        
+                        <label for="language-selector" class="form-label-group">
+                          Application:
+                          <select id="language-selector" name="logic">
+                            <option value="duckdb" selected>duckdb</option>
+                            <option value="python">Python</option>
+                          </select>
+                        </label>
+  
+                        <div>
+                          <label for="code-file-upload" class="custom-file-label"><i class="fa-solid fa-arrow-up"></i></label>
+                          <input type="file" id="code-file-upload" style="display: none;"/>
+                        </div>
+                    </div>
+                    
+                    <div id="j-editor">
+                      <textarea class="code-editor" name="logic_body"></textarea>
+                    </div>
+                  </div>
+  
+                  <!-- submit -->
+                  <div class="form-group submit-button-wrapper">
+                    <button type="submit" id="submit-job-button">Submit Job</button>
+                  </div>
+                  <div id="job-submit-feedback" class="feedback"></div>
+                  
+                </div>
+              </form>
+              <div id="job-submit-loader" class="hidden loader-heartbeat">
+                <!-- From Uiverse.io by ilkhoeri --> 
+                <svg
+                  xmlns:xlink="https://www.w3.org/1999/xlink"
+                  xmlns="https://www.w3.org/2000/svg"
+                  width="550"
+                  height="210"
+                  viewBox="0 0 550 210"
+                >
+                  <path
+                    d="m0,130.08h44.51c7.08-3.45,11.54-24.65,19.42-24.81s13.23,22.54,21.03,24.81c10.03,2.92,29.69-14.6,39.91-12.4,4.58.98,9.34,12.36,14.02,12.4,3.54.03,7.25-9.31,10.79-9.17,3.24.13,6.17,7.93,9.17,9.17s9.68-1.48,12.4,0c2.4,1.3,3.45,10.3,5.93,9.17,3.23-1.48,2.82-103.01,8.09-103.01,6.96,0,12.35,137.53,16.72,137.53,3.9,0-.09-36.61,8.49-43.69,3.41-2.81,13.69,1.93,17.66,0,7.17-3.49,11.72-24.71,19.69-25.08,8.62-.4,15.39,22.86,23.73,25.08,8.99,2.38,26.51-12.76,35.6-10.79,5.58,1.21,11.46,15.82,17.12,15.1,3.88-.49,4.87-12.59,8.76-12.94,3.01-.28,5.7,7.46,8.49,8.63s9.75-1.43,12.54,0,4.03,9.39,7.01,9.71c4.98.54,2.64-103.55,8.63-103.55,5.16,0,8.8,111.51,12.94,111.64,5.02.16,5.01-15.2,9.3-17.8s15.02,2.06,19.42,0c7.39-3.46,12.74-25.17,20.9-25.08,8.97.09,13.68,25.85,22.38,28.04,9.17,2.31,25.4-15.93,34.79-14.83,4.95.58,11.31,10.3,16.04,11.87h44.51"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    fill="none"
+                    stroke="#DE6262"
+                  ></path>
+                </svg>
+              </div>
             </div>
 
+            <div id="job-feedback" class="hidden">
+              <div class="feedback-header">
+                <div class="feedback-title">
+                  <h3>Job Feedback</h3>
+                </div>
+                <div class="feedback-options">
+                  <div class="feedback-copy">
+                    <i title="Copy feedback" class="fa-solid fa-copy" id="feedback-copy" onclick="copyToClipboard('#job-feedback .feedback-messages', 'feedback-copy')"></i>
+                  </div>
+                  <div class="feedback-reset">
+                    <i title="Reset feedback" class="fa-solid fa-rotate-left" id="feedback-reset" onclick="document.querySelector('#job-feedback').querySelector('.feedback-messages').textContent=''"></i>
+                  </div>
+                  <div class="feedback-minimizer">
+                    <i title="Minimize" id="resource-options-dropdown-button" onclick="document.querySelector('#job-feedback').classList.toggle('minimized')" class="fa-solid fa-compress"></i>
+                  </div>
+                </div>
+
+              </div>
+              <div class="feedback-messages"></div>
+            </div>
           </div>
+
 
           <div class="subsection hidden" id="job-feedback-view">
           <div id="existing-jobs-container-2">
@@ -870,12 +889,10 @@
         </div>
         
       </section>
-
       <section id="access-profile" class="content-section hidden">
         <h2>Access-Profile</h2>
         <p class="fading">User information, management</p>
-        <hr>
-        
+        <hr>  
         <div id="profile-settings-section">
           <div id="user-profile" >
             <div id="user-info" class="user-info-container darkened">

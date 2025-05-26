@@ -18,7 +18,7 @@
 #   labels:
 #     app: minio
 #   name: minio
-#   namespace: ${NAMESPACE}
+#   namespace: kuspace
 # spec:
 #   volumes:
 #     - name: minio-storage

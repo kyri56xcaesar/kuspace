@@ -1218,8 +1218,7 @@ const docTemplateminiothdocs = `{
                 },
                 "pgroup": {
                     "description": "Pgroup is the user’s primary group ID.",
-                    "type": "integer",
-                    "example": 2001
+                    "type": "integer"
                 },
                 "shell": {
                     "description": "Shell is the user’s default shell.",
@@ -1228,8 +1227,7 @@ const docTemplateminiothdocs = `{
                 },
                 "uid": {
                     "description": "Uid is the user’s numeric ID.",
-                    "type": "integer",
-                    "example": 1001
+                    "type": "integer"
                 },
                 "username": {
                     "description": "Username is the unique login name of the user.\n@example johndoe",

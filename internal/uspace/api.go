@@ -194,10 +194,10 @@ func (srv *UService) RegisterRoutes() {
 	*    to the permissions of the user. For now, we will just implement the endpoints without any
 	* */
 	apiV1 := srv.Engine.Group("/api" + VERSION)
+	apiV1.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.InstanceName("uspacedocs")))
 	if strings.ToLower(srv.config.API_GIN_MODE) != "debug" {
 		apiV1.Use(serviceAuth(srv))
 	}
-	apiV1.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.InstanceName("uspacedocs")))
 	{
 		// jobs can be run from anyone
 		// job related

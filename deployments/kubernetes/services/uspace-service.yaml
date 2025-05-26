@@ -4,7 +4,7 @@ metadata:
   name: uspace
   labels:
     app: uspace
-  namespace: ${NAMESPACE}
+  namespace: kuspace
 spec:
   selector:
     app: uspace

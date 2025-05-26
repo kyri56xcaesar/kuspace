@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontapp-config
+  namespace: kuspace
+data:
+  frontapp.conf: |
+    API_PORT=8079
+    ALLOWED_HEADERS=Origin,Content-Type,Authorization,Access-Control-Allow-Origin
+    J_MAX_CPU=1
+    PROFILE=container
+    API_ADDRESS=uspace
+    FRONT_PORT=8080
+    FRONT_ADDRESS=frontapp
+    AUTH_ADDRESS=minioth
+    J_MAX_TIMEOUT=10
+    API_GIN_MODE=release
+    AUTH_PORT=9090
+    J_WS_ADDRESS=localhost:30082
+    ALLOWED_ORIGINS=*
+    ALLOWED_METHODS=GET,POST,PATCH,DELETE,PUT
+    J_MAX_PARALLELISM=4
+    J_MAX_LOGIC_CHARS=1000000
+    IP=0.0.0.0
+    J_MAX_MEM=33000
+    J_MAX_STORAGE=4
+    MINIO_DEFAULT_BUCKET=uspace-default

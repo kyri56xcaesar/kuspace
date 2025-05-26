@@ -109,34 +109,46 @@ function setupJobSubmitter(element) {
 }
  
  
-function createFeedbackPanel(jid) {
-    // create the display element, what should it be?
-    const feedbackMessagesDiv = document.getElementById("feedback-messages");
-    feedbackMessagesDiv.classList.add("minimizable");
+function createFeedbackPanel(jid, div) {
+  if (!div) {
+    return;
+  }
+  // console.log("id :", jid);
+  // create the display element, what should it be?
+  const socket = new WebSocket('ws://'+WS_ADDRESS+'/get-session?jid='+jid+'&role=Consumer');
+  const prefix = "job-"+jid+":\t";
+  socket.onmessage = (event) => {
+    const message = document.createElement("p");
+    const prefixSpan = document.createElement("span");
 
-    const socket = new WebSocket('ws://'+IP+':8082/job-stream?jid='+jid+'&role=Consumer');
+    prefixSpan.textContent = prefix;
+    prefixSpan.classList.add("blue");
 
-    const prefix = "job-"+jid+":\t";
-    socket.onmessage = (event) => {
-        const message = document.createElement("p");
-        const prefixSpan = document.createElement("span");
-        prefixSpan.textContent = prefix;
-        prefixSpan.classList.add("blue");
- 
-        const messageSpan = document.createElement("span");
-        messageSpan.textContent = event.data;
- 
-        message.appendChild(prefixSpan);
-        message.appendChild(messageSpan);
-        feedbackMessagesDiv.appendChild(message);
-        feedbackMessagesDiv.scrollTop = feedbackMessagesDiv.scrollHeight;
-    };
-    socket.onopen = function () {
-        console.log("Connected to Jobs Websocket server");
-    };
-    socket.onclose = (event) => {
-        console.log("Disconnected from Jobs Websocket server");
-    }
+    const messageSpan = document.createElement("span");
+    messageSpan.textContent = event.data;
+    message.appendChild(prefixSpan);
+    message.appendChild(messageSpan);
+    div.appendChild(message);
+    div.scrollTop = div.scrollHeight;
+  };
+  socket.onopen = function () {
+      console.log("Connected to Jobs Websocket server");
+  };
+  socket.onclose = (event) => {
+      console.log("Disconnected from Jobs Websocket server");
+      resp = fetch({
+        method: 'DELETE',
+        url: '/delete-session?jid='+jid,
+      }).then(response => {
+        if (response.ok) {
+          console.log("Session deleted successfully");
+        } else {
+          console.error("Failed to delete session");
+        }
+      }).catch(error => {
+        console.error("Error deleting session:", error);
+      });
+  }
  }
   
 function normalizeIndentation(code) {
