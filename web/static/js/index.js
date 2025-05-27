@@ -107,7 +107,6 @@ function toggleCollapses() {
     el.classList.toggle("hidden");
   });
   const tipsBtn = document.getElementById("tips-mode-toggle");
-  console.log(tipsBtn);
   if (tipsBtn) {
     localStorage.setItem("tipsMode", tipsBtn.checked);
   }

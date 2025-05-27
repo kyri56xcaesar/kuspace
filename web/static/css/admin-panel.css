@@ -921,7 +921,14 @@ select {
 }
 
 #add-user-div, #add-group-div {
+  position: relative;
   padding: 1rem;
+}
+
+#user-add-feedback {
+  position: absolute;
+  top: 0;
+  right: 30%;
 }
 
 /* add user form container */
@@ -2082,6 +2089,7 @@ select {
   overflow: hidden;
   transition: 1s all ease;
   user-select: text;
+  position: relative;
 
   
   & div {
@@ -2168,6 +2176,7 @@ select {
     display: flex;
     flex-direction: column;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
 
     &:hover {
       transform: translateY(-2px);

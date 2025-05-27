@@ -3,11 +3,12 @@ package uspace
 import (
 	"encoding/json"
 	"io"
-	ut "kyri56xcaesar/kuspace/internal/utils"
 	"log"
 	"net/http"
 	"strconv"
 	"strings"
+
+	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -277,7 +278,7 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "update success"})
 
 	case http.MethodDelete:
-		id := c.GetString("id")
+		id := c.Query("id")
 		if id != "" {
 			id_int, err := strconv.Atoi(id)
 			if err != nil {
@@ -294,7 +295,7 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"status": "sucess"})
 			return
 		}
-		ids := c.GetString("ids")
+		ids := c.Query("ids")
 		if ids != "" {
 			ids_int, err := ut.SplitToInt(strings.TrimSpace(ids), ",")
 			if err != nil {

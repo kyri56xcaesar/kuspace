@@ -50,23 +50,23 @@ func main() {
 	// BUILD images option
 	if b {
 		fmt.Println("🔧 Building all images")
-		if err := run("docker", "buildx", "build", "-f", "build/Dockerfile.minioth", "-t", "kyri56xcaesar/kuspace:minioth-latest", "."); err != nil {
+		if err := run("docker", "build", "-f", "build/Dockerfile.minioth", "-t", "kyri56xcaesar/kuspace:minioth-latest", "."); err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
-		if err := run("docker", "buildx", "build", "-f", "build/Dockerfile.uspace", "-t", "kyri56xcaesar/kuspace:uspace-latest", "."); err != nil {
+		if err := run("docker", "build", "-f", "build/Dockerfile.uspace", "-t", "kyri56xcaesar/kuspace:uspace-latest", "."); err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
-		if err := run("docker", "buildx", "build", "-f", "build/Dockerfile.frontapp", "-t", "kyri56xcaesar/kuspace:frontapp-latest", "."); err != nil {
+		if err := run("docker", "build", "-f", "build/Dockerfile.frontapp", "-t", "kyri56xcaesar/kuspace:frontapp-latest", "."); err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
-		if err := run("docker", "buildx", "build", "-f", "build//Dockerfile.wss", "-t", "kyri56xcaesar/kuspace:wss-latest", "."); err != nil {
+		if err := run("docker", "build", "-f", "build//Dockerfile.wss", "-t", "kyri56xcaesar/kuspace:wss-latest", "."); err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
-		if err := run("docker", "buildx", "build", "-f", "internal/uspace/applications/duckdb/Dockerfile.duck", "-t", "kyri56xcaesar/kuspace:applications-duckdb-v1", "internal/uspace/applications/duckdb"); err != nil {
+		if err := run("docker", "build", "-f", "internal/uspace/applications/duckdb/Dockerfile.duck", "-t", "kyri56xcaesar/kuspace:applications-duckdb-v1", "internal/uspace/applications/duckdb"); err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
@@ -304,13 +304,11 @@ func main() {
 			}
 			return nil
 		})
-
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error applying manifests: %v\\n", err)
 			os.Exit(1)
 		}
 	}
-
 }
 
 func run(cmd string, args ...string) error {

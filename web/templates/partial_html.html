@@ -208,6 +208,15 @@
         <div>
           <span class="jid"> #JobId: {{ .Jid }}</span>
           <span class="uid"> by {{ .Uid }} </span>
+          <div class="options" id="job-options">
+            <button id="modButton">Modify</button>
+            <button 
+              id="delete-job-btn"
+              hx-delete="/api/v1/verified/admin/job?jid={{ .Jid }}"
+              hx-swap="none"
+              hx-confirm="Are you sure you want to delete job {{ .Jid }}"
+            >Delete</button>
+          </div>
         </div>
         <div>
           <div>
@@ -250,6 +259,15 @@
         <div><strong>Created:</strong> {{ .CreatedAt }}</div>
       </div>
       <p class="app-description">{{ .Description }}</p>
+      <div class="options" id="app-options">
+        <button id="modButton">Modify</button>
+        <button 
+          id="delete-app-btn"
+          hx-delete="/api/v1/verified/admin/app?id={{ .Id }}"
+          hx-swap="none"
+          hx-confirm="Are you sure you want to delete the app {{ .Name }}"
+        >Delete</button>
+        </div>
     </div>
     {{ end }}
   </div>
