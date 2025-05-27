@@ -239,7 +239,7 @@ func (u *RegisterClaim) validateUser() error {
 		return fmt.Errorf("info field is too long: maximum allowed length is 100 characters")
 	}
 
-	if !ut.IsAlphanumericPlus(u.User.Info) {
+	if !ut.IsAlphanumericPlusSome(u.User.Info) {
 		return fmt.Errorf("email %q is invalid: only alphanumeric characters[+@_] are allowed", u.User.Info)
 	}
 

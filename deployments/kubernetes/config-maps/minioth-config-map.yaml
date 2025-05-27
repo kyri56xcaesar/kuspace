@@ -5,22 +5,23 @@ metadata:
   namespace: kuspace
 data:
   minioth.conf: |
-    API_GIN_MODE=release
-    PROFILE=container
-    API_PORT=9090
-    ALLOWED_METHODS=GET,POST,DELETE,PUT,OPTIONS,HEAD
-    API_USE_TLS=false
-    MINIOTH_DB_DRIVER=duckdb
-    MINIOTH_ACCESS_KEY=kuspaceadmin
-    MINIOTH_AUDIT_LOGS=data/logs/minioth/minioth_audit.log
     MINIOTH_AUDIT_LOGS_MAX_FETCH=1000
-    ALLOWED_HEADERS=Origin,Content-Type,Authorization,Access-Control-Allow-Origin
-    API_CERT_FILE=data/certs/minioth.crt
-    API_KEY_FILE=data/certs/minioth.key
-    ISSUER=minioth
-    MINIOTH_DB=data/db/minioth/minioth.db
-    MINIOTH_HANDLER=database
-    ALLOWED_ORIGINS=*
-    JWT_VALIDITY_HOURS=2
-    HASH_COST=4
+    API_USE_TLS=false
     IP=0.0.0.0
+    API_GIN_MODE=release
+    VERBOSE=true
+    API_PORT=9090
+    MINIOTH_AUDIT_LOGS=data/logs/minioth/minioth_audit.log
+    API_KEY_FILE=data/certs/minioth.key
+    HASH_COST=4
+    MINIOTH_DB=data/db/minioth/minioth.db
+    MINIOTH_ACCESS_KEY=kuspaceadmin
+    MINIOTH_HANDLER=database
+    ALLOWED_HEADERS=Origin,Content-Type,Authorization,Access-Control-Allow-Origin
+    ALLOWED_METHODS=GET,POST,DELETE,PUT,OPTIONS,HEAD
+    API_CERT_FILE=data/certs/minioth.crt
+    ISSUER=minioth
+    JWT_VALIDITY_HOURS=2
+    PROFILE=container
+    MINIOTH_DB_DRIVER=duckdb
+    ALLOWED_ORIGINS=*

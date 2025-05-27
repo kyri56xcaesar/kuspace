@@ -72,7 +72,7 @@ func (adm *Admin) validate() error {
 func (fsl *FsLite) insertAdmin(username, password string) (admin Admin, err error) {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
-		log.Printf("failed to retrieve db conn: %v", err)
+		log.Printf("[FSL_ADMIN_insert] failed to retrieve db conn: %v", err)
 		return Admin{}, err
 	}
 
@@ -84,7 +84,7 @@ func (fsl *FsLite) insertAdmin(username, password string) (admin Admin, err erro
 	}
 	err = admin.validate()
 	if err != nil {
-		log.Printf("failed to validate the user: %v", err)
+		log.Printf("[FSL_ADMIN_insert] failed to validate the user: %v", err)
 		return Admin{}, err
 	}
 
@@ -102,11 +102,13 @@ func (fsl *FsLite) insertAdmin(username, password string) (admin Admin, err erro
 	}
 	admin.Password = string(hashpass)
 
-	log.Printf("inserting default user: %+v", admin)
+	if verbose {
+		log.Printf("[FSL_ADMIN_insert] inserting default user: %+v", admin)
+	}
 
 	_, err = db.Exec(query, id, username, hashpass)
 	if err != nil {
-		log.Printf("failed to execute query: %v", err)
+		log.Printf("[FSL_ADMIN_insert] failed to execute query: %v", err)
 	}
 
 	return admin, err
@@ -117,7 +119,7 @@ func (fsl *FsLite) insertAdmin(username, password string) (admin Admin, err erro
 func (fsl *FsLite) authenticateAdmin(username, password string) (token string, err error) {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
-		log.Printf("failed to retrieve db conn: %v", err)
+		log.Printf("[FSL_ADMIN_auth] failed to retrieve db conn: %v", err)
 		return "", err
 	}
 	query := `SELECT * FROM user_admin WHERE username = ?`
@@ -125,19 +127,19 @@ func (fsl *FsLite) authenticateAdmin(username, password string) (token string, e
 	admin := Admin{}
 	err = db.QueryRow(query, username).Scan(admin.ptrFields()...)
 	if err != nil {
-		log.Printf("failed to query and scan correctly: %v", err)
+		log.Printf("[FSL_ADMIN_auth] failed to query and scan correctly: %v", err)
 		return "", err
 	}
 
 	err = verifyPass(admin.Password, password)
 	if err != nil {
-		log.Printf("password didn't match: %v", err)
+		log.Printf("[FSL_ADMIN_auth] password didn't match: %v", err)
 		return "", err
 	}
 
 	token, err = generateAccessJWT(admin.ID.String(), admin.Username)
 	if err != nil {
-		log.Printf("failed generating jwt token: %v", err)
+		log.Printf("[FSL_ADMIN_auth] failed generating jwt token: %v", err)
 		return "", err
 	}
 	return token, err
@@ -204,13 +206,13 @@ func decodeJWT(tokenString string) (bool, *CustomClaims, error) {
 	})
 
 	if err != nil {
-		log.Printf("%v token, exiting", token)
+		log.Printf("[FSL_ADMIN_decjwt] %v token, exiting", token)
 		return false, nil, err
 	}
 
 	claims, ok := token.Claims.(*CustomClaims)
 	if !ok {
-		log.Printf("not okay when retrieving claims")
+		log.Printf("[FSL_ADMIN_decjwt] not okay when retrieving claims")
 		return false, nil, errors.New("invalid claims")
 	}
 

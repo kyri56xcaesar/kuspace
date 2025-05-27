@@ -141,7 +141,7 @@ select {
 
 
 .blue {
-  color: #4b4bb7;
+  color: #4b4bb7 !important;
 }
 
 .green {
@@ -157,6 +157,21 @@ select {
   margin-left: 20px;
   font-weight: bold;
   font-size: 0.9rem;
+}
+
+.modal-feedback {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 1100;
+  background: rgba(30,30,30,0.95);
+  color: #fff;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  font-size: 1rem;
+  pointer-events: none;
 }
 
 .hidden {
@@ -199,7 +214,7 @@ select {
 }
 
 .reset {
-  position: absolute;
+  position: absolute !important;
   top: 1.5rem;
   right: 3rem;
 
@@ -348,14 +363,25 @@ select {
 /*  dark mode classes  */
 .darkened.dark-mode {
   background: linear-gradient(90deg, rgba(18,17,29,1) 20%, rgba(30,30,34,1) 45%, rgba(29,34,39,1) 56%, rgba(28,59,65,1) 100%) !important;
-  color: white !important;
   & :is(label), & :is(.section-title), & :is(.submenu-title), & :is(p) {
     color: white !important;
   }
 
+  & :is(input[type="text"]), & :is(input[type="password"]), & :is(input[type="email"]), & :is(input[type="number"]), & :is(input[type="search"]), & :is(input[type="url"]) {
+    background-color: #2d3b48 !important;
+    /* color: black !important; */
+    border: 1px solid #555 !important;
+  }
+
+  & :is(select) {
+    background-color: #2d3b48 !important;
+    color: white !important;
+    border: 1px solid #555 !important;
+  }
+
   & :is(div),
   & :is(div) {
-    color: white !important;
+    color: white;
   }
 
   & :is(#generated-hash) {
@@ -1247,7 +1273,23 @@ select {
   border: 2px solid cadetblue;
 }
 
-/*  resources management section */
+
+
+
+
+#resources-display-container {
+  padding: 1rem;
+  position: relative;
+  
+  & :is(#resources-feedback) {
+    position: absolute;
+    top: 105px;
+    right: 35%;
+
+  }
+  /*  resources management section */
+}  
+
 #resources-header {
   display: flex;
   justify-content: space-between;
@@ -1267,7 +1309,7 @@ select {
   }
 
 }
-/* resources content display */
+
 #resources-main {
   margin-top: 20px;
   padding-left: 20px;
@@ -1281,7 +1323,6 @@ select {
     margin-top: 10px;
   }
 }
-
 #resource-list-table {
   font-family: system-ui;
   border-collapse: collapse;
@@ -1609,7 +1650,9 @@ select {
     
     & > div {
       display: flex;
-      gap: 50px;
+      gap: 30px;
+      padding: 0 0 2rem 0;
+
     }
 
     & label {
@@ -1710,15 +1753,6 @@ select {
 
 
 
-
-
-
-
-
-
-
-
-
 /* J BROWSER */
 .row-flex-sb {
   display: flex;
@@ -1749,7 +1783,7 @@ select {
     border-radius: 5px;
     height: 100%;
     width: 50px;
-    background-color: aliceblue;
+    background-color: #98b6d0;
     color: black;
     text-decoration: none;
   }
@@ -1975,6 +2009,19 @@ select {
     align-items: center;
     margin-top: 10px;
     padding: 0.5rem 1rem;
+  }
+}
+
+#resource-list, #volume-list {
+  & > button {
+    transition: box-shadow 0.3s ease, background-color 0.3s ease, transform 0.2s ease;
+  }
+
+  & > button:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    background-color: #00c8ff;
+    color: black;
+    transform: translateX(-2px);
   }
 }
 /* codemirror */
@@ -2552,6 +2599,7 @@ select {
   background-color: #f9f9f9;
   border-radius: 12px;
   box-shadow: 0 2px 6px;
+  position: relative;
 }
 
 .user-summary {
@@ -2629,13 +2677,19 @@ select {
 	padding: 1rem;
 	border: 1px solid #ddd;
 	border-radius: 5px;
-
 	background-color: #f9f9f9;
-  	border-radius: 12px;
-  	box-shadow: 0 2px 6px; 
-  
+  border-radius: 12px;
+  box-shadow: 0 2px 6px; 
 	min-height: 30vw;
 	max-height: 30vw;
+  position: relative;
+
+  & :is(#vfs-feedback) {
+    position: absolute;
+    right: 0px;
+    bottom: -45px;
+    ;
+  }
 
 	& > h3 {
 	  border-bottom: 1px solid black;
@@ -2675,7 +2729,6 @@ select {
 		font-weight: bold;
 	}
 	.file {
-		color: #111;
 		cursor: pointer;
 	}
 	

@@ -36,7 +36,7 @@ func (fsl *FsLite) loginHandler(c *gin.Context) {
 	if password == "" || username == "" {
 		err := c.BindJSON(&admin)
 		if err != nil {
-			log.Printf("failed to find query params and to bind...")
+			log.Printf("[FSL_API_login] failed to find query params and to bind...")
 			c.JSON(http.StatusBadRequest, gin.H{"error": "must provide data"})
 			return
 		}
@@ -45,7 +45,7 @@ func (fsl *FsLite) loginHandler(c *gin.Context) {
 	}
 	token, err := fsl.authenticateAdmin(username, password)
 	if err != nil {
-		log.Printf("failed to authenticate admin: %v", err)
+		log.Printf("[FSL_API_login] failed to authenticate admin: %v", err)
 		c.JSON(http.StatusForbidden, gin.H{"error": "failed to authenticate"})
 		return
 	}
@@ -73,7 +73,7 @@ func (fsl *FsLite) registerHandler(c *gin.Context) {
 	if password == "" || username == "" {
 		err := c.ShouldBind(&admin)
 		if err != nil {
-			log.Printf("failed to find query params and to bind...")
+			log.Printf("[FSL_API_register] failed to find query params and to bind...")
 			c.JSON(http.StatusBadRequest, gin.H{"error": "must provide data"})
 			return
 		}
@@ -82,7 +82,7 @@ func (fsl *FsLite) registerHandler(c *gin.Context) {
 	}
 	adm, err := fsl.insertAdmin(username, password)
 	if err != nil {
-		log.Printf("failed to insert admin user into the system")
+		log.Printf("[FSL_API_register] failed to insert admin user into the system")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "couldn't perform registration"})
 		return
 	}
@@ -103,7 +103,7 @@ func (fsl *FsLite) newVolumeHandler(c *gin.Context) {
 	volume := ut.Volume{}
 	err := c.BindJSON(&volume)
 	if err != nil {
-		log.Printf("error binding request body to struct: %v", err)
+		log.Printf("[FSL_API_newVolume] error binding request body to struct: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
 		})
@@ -112,7 +112,7 @@ func (fsl *FsLite) newVolumeHandler(c *gin.Context) {
 
 	err = fsl.CreateVolume(volume)
 	if err != nil {
-		log.Printf("failed to create volume: %v", err)
+		log.Printf("[FSL_API_newVolume] failed to create volume: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
 		})
@@ -135,7 +135,7 @@ func (fsl *FsLite) deleteVolumeHandler(c *gin.Context) {
 	volume := ut.Volume{}
 	err := c.BindJSON(&volume)
 	if err != nil {
-		log.Printf("error binding request body to struct: %v, trying query", err)
+		log.Printf("[FSL_API_delVolume] error binding request body to struct: %v, trying query", err)
 		vname := c.Request.URL.Query().Get("name")
 		if vname == "" {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -148,7 +148,7 @@ func (fsl *FsLite) deleteVolumeHandler(c *gin.Context) {
 
 	err = fsl.RemoveVolume(volume)
 	if err != nil {
-		log.Printf("failed to delete volume: %v", err)
+		log.Printf("[FSL_API_delVolume] failed to delete volume: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
 		})
@@ -173,7 +173,7 @@ func (fsl *FsLite) getVolumeHandler(c *gin.Context) {
 
 	volumes, err := fsl.SelectVolumes(map[string]any{"name": vname, "vid": vid})
 	if err != nil {
-		log.Printf("failed to get volume: %v", err)
+		log.Printf("[FSL_API_getVolume] failed to get volume: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
 		})
@@ -195,11 +195,13 @@ func (fsl *FsLite) statResourceHandler(c *gin.Context) {
 	resource := c.Request.URL.Query().Get("resource")
 
 	if resource == "" {
+		log.Printf("[FSL_API_statResource] no resource argument provided")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide args"})
 		return
 	}
 	parts := strings.Split(resource, "/")
 	if len(parts) != 2 {
+		log.Printf("[FSL_API_statResource] resource argument bad format")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "inv source format <volume_name>/<object_name>"})
 		return
 	}
@@ -208,12 +210,12 @@ func (fsl *FsLite) statResourceHandler(c *gin.Context) {
 
 	res, err := fsl.Stat(ut.Resource{Vname: resource_vname, Name: resource_name})
 	if err != nil {
+		log.Printf("[FSL_API_statResource] failed to stat resource")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to stat"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"content": res})
-
 }
 
 // @Summary Get one or more resources
@@ -237,7 +239,7 @@ func (fsl *FsLite) getResourceHandler(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"status": "empty"})
 			return
 		}
-		log.Printf("failed to get resource: %v", err)
+		log.Printf("[FSL_API_getResource] failed to get resource: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
 		})
@@ -265,7 +267,7 @@ func (fsl *FsLite) deleteResourceHandler(c *gin.Context) {
 	if !ok || !ok2 {
 		log.Printf("uid wasn't set properly.")
 		if strings.ToLower(fsl.config.API_GIN_MODE) == "debug" {
-			log.Printf("mode = [debug], entering default uid")
+			log.Printf("[FSL_API_delResource] mode = [debug], entering default uid")
 			uid = "0"
 			id = "0"
 		} else {
@@ -276,7 +278,7 @@ func (fsl *FsLite) deleteResourceHandler(c *gin.Context) {
 	resource := ut.Resource{}
 	err := c.BindJSON(&resource)
 	if err != nil || resource.Name == "" {
-		log.Printf("error binding request body to struct: %v, trying query", err)
+		log.Printf("[FSL_API_delResource] error binding request body to struct: %v, trying query", err)
 		name := c.Request.URL.Query().Get("name")
 		if name == "" {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -338,7 +340,7 @@ func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
 	uid_str, ok2 := id.(string)
 	uid, err := strconv.Atoi(uid_str)
 	if !ok || !ok2 || err != nil {
-		log.Printf("uid wasn't set properly.")
+		log.Printf("[FSL_API_uploadResource] uid wasn't set properly.")
 		if strings.ToLower(fsl.config.API_GIN_MODE) == "debug" {
 			log.Printf("mode = [debug], entering default uid")
 			uid = 0
@@ -356,7 +358,7 @@ func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
 
 	err = c.Request.ParseMultipartForm(10 << 10)
 	if err != nil {
-		log.Printf("failed to parse multipart form: %v", err)
+		log.Printf("[FSL_API_uploadResource] failed to parse multipart form: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to parse multipart form"})
 		return
 	}
@@ -453,7 +455,7 @@ func (fsl *FsLite) downloadResourceHandler(c *gin.Context) {
 		return
 	}
 	if r.Reader == nil {
-		log.Printf("resource reader is nil")
+		log.Printf("[FSL_API_downloadResource] resource reader is nil")
 		c.JSON(http.StatusNotFound, gin.H{"error": "resource not found"})
 		return
 	}

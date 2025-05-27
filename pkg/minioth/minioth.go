@@ -37,6 +37,7 @@ var (
 		"sudo",
 	}
 	HASH_COST int = 16
+	verbose       = true
 )
 
 /*
@@ -98,6 +99,7 @@ func NewMinioth(cfgPath string) Minioth {
 	newM.Service = NewMSerivce(&newM)
 	newM.handler.Init()
 
+	verbose = newM.Config.VERBOSE
 	return newM
 }
 

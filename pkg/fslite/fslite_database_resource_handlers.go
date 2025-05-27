@@ -58,25 +58,24 @@ func insertResource(db *sql.DB, resource ut.Resource) error {
 	resource.Updated_at = ut.CurrentTime()
 	_, err := db.Exec(query, resource.FieldsNoId()...)
 	if err != nil {
-		log.Printf("failed to insert the resource: %v", err)
+		log.Printf("[FSL_DB_insRes] failed to insert the resource: %v", err)
 		return err
 	}
 	return nil
 }
 
 func insertResourceUniqueName(db *sql.DB, resource ut.Resource) error {
-
 	// Check if a resource with the same name and UID already exists
 	queryCheck := `SELECT 1 FROM resources WHERE name = ? LIMIT 1;`
 	var exists int
 	err := db.QueryRow(queryCheck, resource.Name).Scan(&exists)
 
 	if err == nil {
-		log.Printf("resource with name '%s' already exists", resource.Name)
+		log.Printf("[FSL_DB_insResUnique] resource with name '%s' already exists", resource.Name)
 		return fmt.Errorf("resource with name '%s' already exists", resource.Name)
 	} else if err != sql.ErrNoRows {
 		// Return any other query errors
-		log.Printf("error checking name uniqueness: %v", err)
+		log.Printf("[FSL_DB_insResUnique] error checking name uniqueness: %v", err)
 		return err
 	}
 
@@ -92,7 +91,7 @@ func insertResourceUniqueName(db *sql.DB, resource ut.Resource) error {
 
 	_, err = db.Exec(queryInsert, resource.FieldsNoId()...)
 	if err != nil {
-		log.Printf("failed to insert the resource: %v", err)
+		log.Printf("[FSL_DB_insResUnique] failed to insert the resource: %v", err)
 		return err
 	}
 
@@ -102,7 +101,7 @@ func insertResourceUniqueName(db *sql.DB, resource ut.Resource) error {
 func insertResources(db *sql.DB, resources []ut.Resource) error {
 	tx, err := db.Begin()
 	if err != nil {
-		log.Printf("failed to begin transacation: %v", err)
+		log.Printf("[FSL_DB_insRess] failed to begin transacation: %v", err)
 		return err
 	}
 
@@ -114,7 +113,7 @@ func insertResources(db *sql.DB, resources []ut.Resource) error {
 
 	stmt, err := tx.Prepare(query)
 	if err != nil {
-		log.Printf("error preparing transaction: %v", err)
+		log.Printf("[FSL_DB_insRess] error preparing transaction: %v", err)
 		return err
 	}
 	defer stmt.Close()
@@ -125,14 +124,14 @@ func insertResources(db *sql.DB, resources []ut.Resource) error {
 		r.Updated_at = ut.CurrentTime()
 		_, err = stmt.Exec(r.FieldsNoId()...)
 		if err != nil {
-			log.Printf("error executing transaction: %v", err)
+			log.Printf("[FSL_DB_insRess] error executing transaction: %v", err)
 			return err
 		}
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		log.Printf("failed to commit transaction: %v", err)
+		log.Printf("[FSL_DB_insRess] failed to commit transaction: %v", err)
 		return err
 	}
 
@@ -214,7 +213,7 @@ func getAllResourcesAt(db *sql.DB, path string) ([]ut.Resource, error) {
       name LIKE ?
   `, path)
 	if err != nil {
-		log.Printf("error querying db: %v", err)
+		log.Printf("[FSL_DB_getRess] error querying db: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -224,7 +223,7 @@ func getAllResourcesAt(db *sql.DB, path string) ([]ut.Resource, error) {
 		var r ut.Resource
 		err = rows.Scan(r.PtrFields()...)
 		if err != nil {
-			log.Printf("failed to scan resource: %v", err)
+			log.Printf("[FSL_DB_getRess] failed to scan resource: %v", err)
 			return nil, err
 		}
 
@@ -241,7 +240,7 @@ func getAllResources(db *sql.DB) ([]ut.Resource, error) {
     FROM 
       resources`)
 	if err != nil {
-		log.Printf("error querying db: %v", err)
+		log.Printf("[FSL_DB_getRess] error querying db: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -251,7 +250,7 @@ func getAllResources(db *sql.DB) ([]ut.Resource, error) {
 		var r ut.Resource
 		err = rows.Scan(r.PtrFields()...)
 		if err != nil {
-			log.Printf("error scanning row: %v", err)
+			log.Printf("[FSL_DB_getRess] error scanning row: %v", err)
 			return nil, err
 		}
 
@@ -284,7 +283,7 @@ func getResourcesByIds(db *sql.DB, rids []int) ([]ut.Resource, error) {
 
 	rows, err := db.Query(query, args...)
 	if err != nil {
-		log.Printf("error querying db: %v", err)
+		log.Printf("[FSL_DB_getResByIds] error querying db: %v", err)
 		return nil, err
 	}
 
@@ -293,7 +292,7 @@ func getResourcesByIds(db *sql.DB, rids []int) ([]ut.Resource, error) {
 		var r ut.Resource
 		err = rows.Scan(r.PtrFields()...)
 		if err != nil {
-			log.Printf("error scanning row: %v", err)
+			log.Printf("[FSL_DB_getResByIds] error scanning row: %v", err)
 			return nil, err
 		}
 
@@ -312,7 +311,7 @@ func getResourcesByName(db *sql.DB, name string) ([]ut.Resource, error) {
 
 	rows, err := db.Query("SELECT * FROM resources WHERE name = ?", name)
 	if err != nil {
-		log.Printf("error performing query: %v", err)
+		log.Printf("[FSL_DB_getResByName] error performing query: %v", err)
 		return resources, err
 	}
 
@@ -320,7 +319,7 @@ func getResourcesByName(db *sql.DB, name string) ([]ut.Resource, error) {
 		var r ut.Resource
 		err = rows.Scan(r.PtrFields()...)
 		if err != nil {
-			log.Printf("failed to scan resource")
+			log.Printf("[FSL_DB_getResByName] failed to scan resource")
 			return resources, err
 		}
 		resources = append(resources, r)
@@ -350,7 +349,7 @@ func getResourcesByNameLike(db *sql.DB, name string) ([]ut.Resource, error) {
 	WHERE
 		name LIKE ?`, "%"+name+"%")
 	if err != nil {
-		log.Printf("error querying db: %v", err)
+		log.Printf("[FSL_DB_getResByNameLike] error querying db: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -360,7 +359,7 @@ func getResourcesByNameLike(db *sql.DB, name string) ([]ut.Resource, error) {
 		var r ut.Resource
 		err = rows.Scan(r.PtrFields()...)
 		if err != nil {
-			log.Printf("error scanning row: %v", err)
+			log.Printf("[FSL_DB_getResByNameLike] error scanning row: %v", err)
 			return nil, err
 		}
 
@@ -377,13 +376,13 @@ func getResourcesByNameLike(db *sql.DB, name string) ([]ut.Resource, error) {
 func deleteResourcesByIds(db *sql.DB, rids []string) (int64, error) {
 	// can't have empty arg (might be destructive)
 	if len(rids) == 0 {
-		log.Printf("empty argument, returning...")
+		log.Printf("[FSL_DB_delResByIds] empty argument, returning...")
 		return 0, fmt.Errorf("must provide input ids")
 	}
 
 	tx, err := db.Begin()
 	if err != nil {
-		log.Printf("error starting transaction: %v", err)
+		log.Printf("[FSL_DB_delResByIds] error starting transaction: %v", err)
 		return 0, err
 	}
 
@@ -402,13 +401,13 @@ func deleteResourcesByIds(db *sql.DB, rids []string) (int64, error) {
 
 	sres, err := tx.Query(squery, args...)
 	if err != nil {
-		log.Printf("failed to execute query: %v", err)
+		log.Printf("[FSL_DB_delResByIds] failed to execute query: %v", err)
 		return 0, err
 	}
 
 	res, err := tx.Exec(query, args...)
 	if err != nil {
-		log.Printf("failed to execute query: %v", err)
+		log.Printf("[FSL_DB_delResByIds] failed to execute query: %v", err)
 		return 0, err
 	}
 
@@ -416,7 +415,7 @@ func deleteResourcesByIds(db *sql.DB, rids []string) (int64, error) {
 		var current_size int64
 		err = sres.Scan(&current_size)
 		if err != nil {
-			log.Printf("error scanning size of resource: %v", err)
+			log.Printf("[FSL_DB_delResByIds] error scanning size of resource: %v", err)
 			return 0, err
 		}
 		size += current_size
@@ -425,16 +424,18 @@ func deleteResourcesByIds(db *sql.DB, rids []string) (int64, error) {
 
 	rAff, err := res.RowsAffected()
 	if err != nil {
-		log.Printf("failed to get rows affected: %v", err)
+		log.Printf("[FSL_DB_delResByIds] failed to get rows affected: %v", err)
 		return 0, err
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		log.Printf("failed to commit transaction: %v", err)
+		log.Printf("[FSL_DB_delResByIds] failed to commit transaction: %v", err)
 		return 0, err
 	}
-	log.Printf("deleted %v rows", rAff)
+	if verbose {
+		log.Printf("[FSL_DB_delResByIds] deleted %v rows", rAff)
+	}
 
 	return size, nil
 }
@@ -442,27 +443,29 @@ func deleteResourcesByIds(db *sql.DB, rids []string) (int64, error) {
 func deleteResourceByName(db *sql.DB, name string) error {
 	tx, err := db.Begin()
 	if err != nil {
-		log.Printf("error starting transaction: %v", err)
+		log.Printf("[FSL_DB_delResByName] error starting transaction: %v", err)
 		return err
 	}
 
 	res, err := tx.Exec("DELETE FROM resources WHERE name = ?", name)
 	if err != nil {
-		log.Printf("failed to execute query: %v", err)
+		log.Printf("[FSL_DB_delResByName] failed to execute query: %v", err)
 		return err
 	}
 
 	rAff, err := res.RowsAffected()
 	if err != nil {
-		log.Printf("failed to get rows affected")
+		log.Printf("[FSL_DB_delResByName] failed to get rows affected")
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		log.Printf("failed to commit transaction: %v", err)
+		log.Printf("[FSL_DB_delResByName] failed to commit transaction: %v", err)
 		return err
 	}
-	log.Printf("deleted %v rows", rAff)
+	if verbose {
+		log.Printf("[FSL_DB_delResByNameVolume] deleted %v rows", rAff)
+	}
 
 	return nil
 }
@@ -470,27 +473,29 @@ func deleteResourceByName(db *sql.DB, name string) error {
 func deleteResourceByNameAndVolume(db *sql.DB, name, volume string) error {
 	tx, err := db.Begin()
 	if err != nil {
-		log.Printf("error starting transaction: %v", err)
+		log.Printf("[FSL_DB_delResByNameVolume] error starting transaction: %v", err)
 		return err
 	}
 
 	res, err := tx.Exec("DELETE FROM resources WHERE name = ? AND vname = ?", name, volume)
 	if err != nil {
-		log.Printf("failed to execute query: %v", err)
+		log.Printf("[FSL_DB_delResByNameVolume] failed to execute query: %v", err)
 		return err
 	}
 
 	rAff, err := res.RowsAffected()
 	if err != nil {
-		log.Printf("failed to get rows affected")
+		log.Printf("[FSL_DB_delResByNameVolume] failed to get rows affected")
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		log.Printf("failed to commit transaction: %v", err)
+		log.Printf("[FSL_DB_delResByNameVolume] failed to commit transaction: %v", err)
 		return err
 	}
-	log.Printf("deleted %v rows", rAff)
+	if verbose {
+		log.Printf("[FSL_DB_delResByNameVolume] deleted %v rows", rAff)
+	}
 
 	return nil
 }
@@ -498,10 +503,9 @@ func deleteResourceByNameAndVolume(db *sql.DB, name, volume string) error {
 func updateResourceNameById(db *sql.DB, rid, name string) error {
 	tx, err := db.Begin()
 	if err != nil {
-		log.Printf("error starting transaction: %v", err)
+		log.Printf("[FSL_DB_updateResNameById] error starting transaction: %v", err)
 		return err
 	}
-
 	query := `
     UPDATE 
       resources 
@@ -510,24 +514,26 @@ func updateResourceNameById(db *sql.DB, rid, name string) error {
     WHERE 
       rid = ?;
   `
-
 	res, err := tx.Exec(query, name, ut.CurrentTime(), ut.CurrentTime(), rid)
 	if err != nil {
-		log.Printf("error executing query: %v", err)
+		log.Printf("[FSL_DB_updateResNameById] error executing query: %v", err)
 		return err
 	}
 
 	rAff, err := res.RowsAffected()
 	if err != nil {
-		log.Printf("failed to get rows affected")
+		log.Printf("[FSL_DB_updateResNameById] failed to get rows affected")
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		log.Printf("error committing transaction: %v", err)
+		log.Printf("[FSL_DB_updateResNameById] error committing transaction: %v", err)
 		return err
 	}
-	log.Printf("updated %v rows", rAff)
+	if verbose {
+		log.Printf("[FSL_DB_updateResNameById] updated %v rows", rAff)
+
+	}
 
 	return nil
 }
@@ -535,7 +541,7 @@ func updateResourceNameById(db *sql.DB, rid, name string) error {
 func updateResourceNameAndVolByName(db *sql.DB, name, newname, vol string) error {
 	tx, err := db.Begin()
 	if err != nil {
-		log.Printf("error starting transaction: %v", err)
+		log.Printf("[FSL_DB_updateResNameVolumeById] error starting transaction: %v", err)
 		return err
 	}
 
@@ -550,21 +556,24 @@ func updateResourceNameAndVolByName(db *sql.DB, name, newname, vol string) error
 
 	res, err := tx.Exec(query, newname, vol, ut.CurrentTime(), ut.CurrentTime(), name)
 	if err != nil {
-		log.Printf("error executing query: %v", err)
+		log.Printf("[FSL_DB_updateResNameVolumeById] error executing query: %v", err)
 		return err
 	}
 
 	rAff, err := res.RowsAffected()
 	if err != nil {
-		log.Printf("failed to get rows affected")
+		log.Printf("[FSL_DB_updateResNameVolumeById] failed to get rows affected")
+		return err
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		log.Printf("error committing transaction: %v", err)
+		log.Printf("[FSL_DB_updateResNameVolumeById] error committing transaction: %v", err)
 		return err
 	}
-	log.Printf("updated %v rows", rAff)
+	if verbose {
+		log.Printf("[FSL_DB_updateResNameVolumeById] updated %v rows", rAff)
+	}
 
 	return nil
 }
@@ -572,7 +581,7 @@ func updateResourceNameAndVolByName(db *sql.DB, name, newname, vol string) error
 func updateResourcePermsById(db *sql.DB, rid, perms string) error {
 	tx, err := db.Begin()
 	if err != nil {
-		log.Printf("error starting transaction: %v", err)
+		log.Printf("[FSL_DB_updateResPermsById] error starting transaction: %v", err)
 		return err
 	}
 
@@ -587,21 +596,24 @@ func updateResourcePermsById(db *sql.DB, rid, perms string) error {
 
 	res, err := tx.Exec(query, perms, ut.CurrentTime(), ut.CurrentTime(), rid)
 	if err != nil {
-		log.Printf("error executing query: %v", err)
+		log.Printf("[FSL_DB_updateResPermsById] error executing query: %v", err)
 		return err
 	}
 
 	rAff, err := res.RowsAffected()
 	if err != nil {
-		log.Printf("failed to get rows affected")
+		log.Printf("[FSL_DB_updateResPermsById] failed to get rows affected")
+		return err
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		log.Printf("error committing transaction: %v", err)
+		log.Printf("[FSL_DB_updateResPermsById] error committing transaction: %v", err)
 		return err
 	}
-	log.Printf("updated %v rows", rAff)
+	if verbose {
+		log.Printf("[FSL_DB_updateResPermsById] updated %v rows", rAff)
+	}
 
 	return nil
 }
@@ -609,10 +621,9 @@ func updateResourcePermsById(db *sql.DB, rid, perms string) error {
 func updateResourceOwnerById(db *sql.DB, rid, uid int) error {
 	tx, err := db.Begin()
 	if err != nil {
-		log.Printf("error starting transaction: %v", err)
+		log.Printf("[FSL_DB_updateResOwnerById] error starting transaction: %v", err)
 		return err
 	}
-
 	query := `
     UPDATE 
       resources 
@@ -624,21 +635,24 @@ func updateResourceOwnerById(db *sql.DB, rid, uid int) error {
 
 	res, err := tx.Exec(query, uid, ut.CurrentTime(), ut.CurrentTime(), rid)
 	if err != nil {
-		log.Printf("error executing query: %v", err)
+		log.Printf("[FSL_DB_updateResOwnerById] error executing query: %v", err)
 		return err
 	}
 
 	rAff, err := res.RowsAffected()
 	if err != nil {
-		log.Printf("failed to get rows affected")
+		log.Printf("[FSL_DB_updateResOwnerById] failed to get rows affected")
+		return err
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		log.Printf("error committing transaction: %v", err)
+		log.Printf("[FSL_DB_updateResOwnerById] error committing transaction: %v", err)
 		return err
 	}
-	log.Printf("updated %v rows", rAff)
+	if verbose {
+		log.Printf("[FSL_DB_updateResOwnerById] updated %v rows", rAff)
+	}
 
 	return nil
 }
@@ -646,7 +660,7 @@ func updateResourceOwnerById(db *sql.DB, rid, uid int) error {
 func updateResourceGroupById(db *sql.DB, rid, gid int) error {
 	tx, err := db.Begin()
 	if err != nil {
-		log.Printf("error starting transaction: %v", err)
+		log.Printf("[FSL_DB_updateResGroupById] error starting transaction: %v", err)
 		return err
 	}
 
@@ -661,21 +675,23 @@ func updateResourceGroupById(db *sql.DB, rid, gid int) error {
 
 	res, err := tx.Exec(query, gid, ut.CurrentTime(), ut.CurrentTime(), rid)
 	if err != nil {
-		log.Printf("error executing query: %v", err)
+		log.Printf("[FSL_DB_updateResGroupById] error executing query: %v", err)
 		return err
 	}
 
 	rAff, err := res.RowsAffected()
 	if err != nil {
-		log.Printf("failed to get rows affected")
+		log.Printf("[FSL_DB_updateResGroupById] failed to get rows affected")
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		log.Printf("error committing transaction: %v", err)
+		log.Printf("[FSL_DB_updateResGroupById] error committing transaction: %v", err)
 		return err
 	}
-	log.Printf("updated %v rows", rAff)
+	if verbose {
+		log.Printf("[FSL_DB_updateResGroupById] updated %v rows", rAff)
+	}
 
 	return nil
 }
@@ -710,7 +726,7 @@ func getResources(db *sql.DB, sel, table, by, byvalue string, limit int) ([]any,
 
 	rows, err := db.Query(query, args...)
 	if err != nil {
-		log.Printf("error querying db: %v", err)
+		log.Printf("[FSL_DB_getResources] error querying db: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -720,7 +736,7 @@ func getResources(db *sql.DB, sel, table, by, byvalue string, limit int) ([]any,
 		var r ut.Resource
 		err = rows.Scan(r.PtrFields()...)
 		if err != nil {
-			log.Printf("error scanning row: %v", err)
+			log.Printf("[FSL_DB_getResources] error scanning row: %v", err)
 			return nil, err
 		}
 
@@ -739,7 +755,7 @@ func getResource(db *sql.DB, sel, table, by, byvalue string) (any, error) {
 	var r ut.Resource
 	err := db.QueryRow(query, byvalue).Scan(r.PtrFields()...)
 	if err != nil {
-		log.Printf("error scanning row: %v", err)
+		log.Printf("[FSL_DB_getResource] error scanning row: %v", err)
 		return r, err
 	}
 
@@ -775,7 +791,7 @@ func get[T any](db *sql.DB, sel, table, by, byvalue string, limit int, scanFn fu
 
 	rows, err := db.Query(query, args...)
 	if err != nil {
-		log.Printf("error querying db: %v", err)
+		log.Printf("[FSL_DB_get] error querying db: %v", err)
 		return nil, err
 	}
 	defer rows.Close()

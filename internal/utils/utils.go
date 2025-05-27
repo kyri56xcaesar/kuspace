@@ -327,7 +327,12 @@ func IsAlphanumeric(s string) bool {
 	return re.MatchString(s)
 }
 
-func IsAlphanumericPlus(s string) bool {
+func IsAlphanumericPlus(s, plus string) bool {
+	re := regexp.MustCompile(fmt.Sprintf(`^[a-zA-Z0-9%s]+$`, plus))
+	return re.MatchString(s)
+}
+
+func IsAlphanumericPlusSome(s string) bool {
 	re := regexp.MustCompile(`^[a-zA-Z0-9@_]+$`)
 	return re.MatchString(s)
 }

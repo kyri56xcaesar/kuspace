@@ -31,6 +31,7 @@ import (
 type EnvConfig struct {
 	ConfigPath string // path of the .conf file
 	PROFILE    string // baremeta or container
+	VERBOSE    bool
 
 	// ###################################
 	// API CONFS
@@ -148,6 +149,7 @@ func LoadConfig(path string) EnvConfig {
 	config := EnvConfig{
 		ConfigPath: split[len(split)-1],
 		PROFILE:    getEnv("PROFILE", "baremetal"),
+		VERBOSE:    getBoolEnv("VERBOSE", "true"),
 
 		API_PORT:           getEnv("API_PORT", "8079"),
 		API_ADDRESS:        getEnv("API_ADDRESS", "localhost"),
@@ -214,9 +216,9 @@ func LoadConfig(path string) EnvConfig {
 		ALLOWED_HEADERS:    getEnvs("ALLOWED_HEADERS", nil),
 		ALLOWED_METHODS:    getEnvs("ALLOWED_METHODS", nil),
 		ISSUER:             getEnv("ISSUER", "http://localhost:9090"),
-		JWT_SECRET_KEY:     getSecretKey("JWT_SECRET_KEY"),
+		JWT_SECRET_KEY:     getSecretKey("JWT_SECRET_KEY", true),
 		JWT_VALIDITY_HOURS: getFloatEnv("JWT_VALIDITY_HOURS", 1),
-		SERVICE_SECRET_KEY: getSecretKey("SERVICE_SECRET_KEY"),
+		SERVICE_SECRET_KEY: getSecretKey("SERVICE_SECRET_KEY", true),
 		JWKS:               getEnv("JWKS", "data/jwks/jwks.json"),
 		HASH_COST:          getEnv("HASH_COST", "4"),
 
@@ -334,10 +336,14 @@ func (env *EnvConfig) DeepCopy() EnvConfig {
 	return copied
 }
 
-func getSecretKey(envVar string) []byte {
+func getSecretKey(envVar string, fail bool) []byte {
 	secret := os.Getenv(envVar)
 	if secret == "" {
-		log.Fatalf("Config variable %s must not be empty", envVar)
+		if fail {
+			log.Fatalf("[CONF] Config variable %s must not be empty", envVar)
+		} else {
+			log.Printf("[CONF] config secret %s wasn't set", envVar)
+		}
 	}
 	return []byte(secret)
 }

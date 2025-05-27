@@ -31,6 +31,10 @@ const (
 	MAX_DEFAULT_VOLUME_CAPACITY = 100
 )
 
+var (
+	verbose bool = true
+)
+
 /*
 	Structure containing all needed aspects of this service
 
@@ -115,6 +119,7 @@ func NewUService(conf string) UService {
 	copy_cfg := cfg.DeepCopy()
 	copy_cfg.FSL_LOCALITY = false
 	copy_cfg.FSL_SERVER = false
+	copy_cfg.DB_FSL = "fsl_local.db"
 
 	srv.fsl = fslite.NewFsLite(copy_cfg)
 
@@ -123,20 +128,20 @@ func NewUService(conf string) UService {
 	err = storage.CreateVolume(default_volume)
 	if err != nil {
 		if strings.Contains(err.Error(), "already exists") {
-			log.Printf("already exists... continuing")
+			log.Printf("[USPACE_init] default volume already exists... continuing")
 		} else {
-			log.Fatal("failed to create the default bucket: ", err)
+			log.Fatal("[USPACE_init] failed to create the default volume: ", err)
 		}
 	}
-	log.Printf("default bucket ready: %s", cfg.MINIO_DEFAULT_BUCKET)
+	log.Printf("[USPACE_init] default bucket ready: %s", cfg.MINIO_DEFAULT_BUCKET)
 
 	// store it in local db as well
 	err = srv.fsl.CreateVolume(default_volume)
 	if err != nil {
 		if strings.Contains(err.Error(), "already exists") {
-			log.Printf("already exists in database... continueing")
+			log.Printf("[USPACE_init] default volume already exists in database... continueing")
 		} else {
-			log.Fatalf("failed to save to local fsl db: %v", err)
+			log.Fatalf("[USPACE_init] failed to save to local fsl db: %v", err)
 		}
 	}
 
@@ -160,13 +165,13 @@ func (srv *UService) Serve() {
 	/* listen in a goroutine */
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("listen: %s\n", err)
+			log.Fatalf("[USPACE_SERVER] listen: %s\n", err)
 		}
 	}()
 	<-ctx.Done()
 
 	stop()
-	log.Println("shutting down gracefully, press Ctrl+C again to force")
+	log.Println("[USPACE_SERVER] shutting down gracefully, press Ctrl+C again to force")
 
 	/* don't forgt to close the db conn */
 	srv.jdbh.Close()
@@ -175,10 +180,10 @@ func (srv *UService) Serve() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := server.Shutdown(ctx); err != nil {
-		log.Fatal("Server forced to shutdown: ", err)
+		log.Fatal("[USPACE_SERVER] Server forced to shutdown: ", err)
 	}
 
-	log.Println("Server exiting")
+	log.Println("[USPACE_SERVER] Server exiting")
 }
 
 func (srv *UService) RegisterRoutes() {

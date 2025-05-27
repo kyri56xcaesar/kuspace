@@ -35,9 +35,9 @@ domReady(() => {
     });
   }
 
-  // dark mode memory
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   sleep(1000).then(() => {
+    // dark mode memory
     const tglBtn = document.getElementById("dark-mode-toggle");
     if (tglBtn) {
       const elementsToToggle = document.querySelectorAll(".darkened");
@@ -54,7 +54,35 @@ domReady(() => {
         tglBtn.checked = false;
       }
     }
+    // tips memory
+    const tipsBtn = document.getElementById("tips-mode-toggle");
+    if (tipsBtn) {
+      const collapsibleElmnts = document.querySelectorAll(".collapsible, .fading");
+      if(localStorage.getItem("tipsMode") === "true") {
+        collapsibleElmnts.forEach((el) => {
+          if (el.tagName === "BUTTON") {
+            el.click();
+          } else {
+            el.classList.add("collapsed");
+          }    
+          el.classList.add("hidden");
+        });
+        tipsBtn.checked = true;
+      } else {
+        collapsibleElmnts.forEach((el) => {
+          if (el.tagName === "BUTTON") {
+            el.click();
+          } else {
+            el.classList.remove("collapsed");
+          }    
+          el.classList.remove("hidden");
+        });
+        tipsBtn.checked = false;
+      }
+    }
+
   });
+
 });
 
 function toggleDarkMode() {
@@ -76,15 +104,14 @@ function toggleCollapses() {
     } else {
       el.classList.toggle("collapsed");
     }
-
-    // make is to that  it hides all
-    // el.classList.toggle("fade-out");
-    // setTimeout(()=>{
-    //   el.classList.toggle("hidden");
-    // }, 1000);
-
     el.classList.toggle("hidden");
   });
+  const tipsBtn = document.getElementById("tips-mode-toggle");
+  console.log(tipsBtn);
+  if (tipsBtn) {
+    localStorage.setItem("tipsMode", tipsBtn.checked);
+  }
+
 }
 
 function showSection(sectionId) {
@@ -246,6 +273,9 @@ function getPreviewWindow(inc) {
 document.addEventListener('htmx:afterSettle', function(event) {
   const triggeringElement = event.detail.elt;
   const triggeringElementId = triggeringElement.id;
+
+  // console.log('triggered by:', triggeringElementId);
+
   if (triggeringElementId === 'fetch-users-results')  {
     // the dark mode part for all reload/partial html fethc
     if (localStorage.getItem("darkMode") === "true") {
@@ -260,6 +290,18 @@ document.addEventListener('htmx:afterSettle', function(event) {
       const table = event.detail.target.querySelector('#all-groups-table');
       if (table) {
         table.classList.add('dark-mode');
+      }
+    }
+  } else if (triggeringElementId === 'fetch-jobs-div' || triggeringElementId === 'fetch-jobs-div-2') {
+    // the dark mode part for all reload/partial html fethc
+    if (localStorage.getItem("darkMode") === "true") {
+      const list = event.detail.target.querySelectorAll('.job-display-entry');
+      if (list) {
+        setTimeout(() => {
+          list.forEach((item) => {
+            item.classList.add('dark-mode');
+          });
+        }, 1000);
       }
     }
   }
@@ -491,7 +533,8 @@ document.addEventListener('htmx:beforeRequest', function(event) {
 document.addEventListener('htmx:afterRequest', function (event) {
   const triggeringElement = event.detail.elt;
 
-  // console.log('triggering element: ', triggeringElement);
+  // console.log('triggering element id: ', triggeringElement.id);
+  // console.log('triggering element class: ', triggeringElement.className);
 
   // Handle different cases
   // all users fetch
@@ -513,8 +556,22 @@ document.addEventListener('htmx:afterRequest', function (event) {
 
     }
   
-  } else if (triggeringElement.id === 'reload-btn') {
-  
+  } else if (triggeringElement.id === 'fetch-resources-form') {
+    if (event.detail.xhr.status == 404) {
+      const rtbl = document.getElementById("resource-list-table");
+      if (rtbl) {
+        rtbl.innerHTML = "";
+      }
+      const feedback = document.getElementById("resources-feedback");
+      feedback.classList.remove('hidden');
+      feedback.textContent = "No resources found.";
+      feedback.classList.add('red');
+      setTimeout(() => {
+        feedback.classList.add('hidden');
+        feedback.textContent = '';
+      }, 4000);
+    }
+  } else if (triggeringElement.id === 'reload-btn') { 
   } else if (triggeringElement.id === 'add-user-form') {
     // new user creation (from admin)
     const feedback = triggeringElement.previousElementSibling?.querySelector('.feedback');
@@ -714,42 +771,28 @@ document.addEventListener('htmx:afterRequest', function (event) {
         }, 2000)
       }
   } else if (triggeringElement.className === "r-btn-delete") {
-      if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
-        document.querySelector("#fetch-resources-form").requestSubmit();
-        document.getElementById("fetch-resources-form").scrollTo({ top: 0, behavior: "smooth"});
-
-        const feedback = document.querySelector(".feedback");
-        const msg = document.createElement("p");
-        msg.textContent = "Success";
-        msg.style.color = "green";
-        feedback.appendChild(msg);
-
-        // remove the selected 
-        tableRows = document.querySelectorAll("#resource-list-table tbody tr");
-        resourceDetails = document.getElementById("resource-details");
-
-        tableRows.forEach((row) => {
-            // Remove 'selected' class from all rows
-            tableRows.forEach((r) => r.classList.remove("selected"));
-        });
-        resourceDetails.innerHTML ="";
-
-        setTimeout(() => {
-          msg.remove();
-          hide(document.querySelector(".r-loader"));
-        }, 4000);
-      } else {
-        const feedback = document.querySelector(".feedback");
-        const msg = document.createElement("p");
-        msg.textContent = "Failure";
-        msg.style.color = "red";
-        feedback.appendChild(msg);
-
-        setTimeout(() => {
-          msg.remove();
-          hide(document.querySelector(".r-loader"));
-        }, 4000);
-      }
+    const feedback = document.getElementById("resources-feedback");
+    feedback.classList.remove('hidden');
+    feedback.textContent = event.detail.xhr.responseText.replace(/[{}]/g, '');
+    if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+      document.querySelector("#fetch-resources-form").requestSubmit();
+      document.getElementById("fetch-resources-form").scrollTo({ top: 0, behavior: "smooth"});
+      feedback.classList.add('green');
+      // remove the selected 
+      tableRows = document.querySelectorAll("#resource-list-table tbody tr");
+      resourceDetails = document.getElementById("resource-details");
+      tableRows.forEach((row) => {
+          // Remove 'selected' class from all rows
+          tableRows.forEach((r) => r.classList.remove("selected"));
+      });
+      resourceDetails.innerHTML ="";
+    } else {
+      feedback.classList.add('red');
+    }
+    setTimeout(() => {
+      feedback.classList.add('hidden');
+      feedback.textContent = '';
+    }, 8000);
   } else if (triggeringElement.id === 'root-dashboard-loader') {
       if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
         const profileMenu = document.querySelector(".profile-menu");
@@ -799,19 +842,23 @@ document.addEventListener('htmx:afterRequest', function (event) {
         console.error("Could not parse JSON:", error, rawResponse);
       }
     }
-  } else if (triggeringElement.id === 'load-resources-to-cache' || triggeringElement.id === 'vfs') {
+  } else if (triggeringElement.id === 'load-resources-to-cache' || triggeringElement.id === 'vfs' || triggeringElement.id === 'vfs-reload') {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
       const rawResponse = event.detail.xhr.responseText;
       try {
         cachedResources = JSON.parse(rawResponse); 
-        console.log("Fetched resources:", cachedResources);
-
+        // console.log("Fetched resources:", cachedResources);
         if (triggeringElement.id === 'vfs') {
           // vfs
           currentPath = [];
           vfsRoot = {};
           vfsRoot = buildTree(cachedResources);
           renderVFS(currentPath, triggeringElement, {});
+        } else if (triggeringElement.id === 'vfs-reload') {
+          currentPath = [];
+          vfsRoot = {};
+          vfsRoot = buildTree(cachedResources);
+          renderVFS(currentPath, document.getElementById("vfs"), {});
         }
       } catch (error) {
         console.error("Could not parse JSON:", error, rawResponse);
@@ -820,50 +867,55 @@ document.addEventListener('htmx:afterRequest', function (event) {
     }
 
   } else if (triggeringElement.id === 'change-password-form') {
+    const feedback = document.getElementById("user-actions-feedback");
+    feedback.classList.remove('hidden');
+    feedback.textContent = event.detail.xhr.responseText.replace(/[{}]/g, '');
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
       triggeringElement.reset();
+      feedback.classList.add('green');
       triggeringElement.querySelectorAll('*').forEach((child) => {
         child.style.color = "green";
       });
-      setTimeout(() =>{
-        triggeringElement.querySelectorAll('*').forEach((child) => {
-          child.style.color = "black";
-        });
-        // triggeringElement.style.borderColor = bgc;
-      }, 2000);
     } else {
       triggeringElement.reset();
+      feedback.classList.add('red');
       triggeringElement.querySelectorAll('*').forEach((child) => {
         child.style.color = "red";
       });
-      setTimeout(() =>{
-        triggeringElement.querySelectorAll('*').forEach((child) => {
-          child.style.color = "black";
-        });
-      }, 2000);
     }
+    setTimeout(() =>{
+      feedback.classList.add('hidden');
+      feedback.textContent = '';
+      feedback.classList.remove('green', 'red');
+      triggeringElement.querySelectorAll('*').forEach((child) => {
+        child.style.color = "black";
+      });
+    }, 8000);
   } else if (triggeringElement.id === 'email-change-form') {
+    const feedback = document.getElementById("user-actions-feedback");
+    feedback.classList.remove('hidden');
+    feedback.textContent = event.detail.xhr.responseText.replace(/[{}]/g, '');
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
       triggeringElement.reset();
       triggeringElement.querySelectorAll('*').forEach((child) => {
         child.style.color = "green";
       });
-      setTimeout(() =>{
-        triggeringElement.querySelectorAll('*').forEach((child) => {
-          child.style.color = "black";
-        });
-      }, 2000);
+      feedback.classList.add('green');
     } else {
       triggeringElement.reset();
       triggeringElement.querySelectorAll('*').forEach((child) => {
         child.style.color = "red";
       });
-      setTimeout(() =>{
-        triggeringElement.querySelectorAll('*').forEach((child) => {
-          child.style.color = "black";
-        });
-      }, 2000);
+      feedback.classList.add('red');
     }
+    setTimeout(() =>{
+      feedback.classList.add('hidden');
+      feedback.classList.remove('green', 'red');
+      feedback.textContent = '';
+      triggeringElement.querySelectorAll('*').forEach((child) => {
+        child.style.color = "black";
+      });
+    }, 6000);
   } else if (triggeringElement.id === 'delete-volume-btn') {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
       document.getElementById('fetch-volumes-btn').dispatchEvent(new Event('click'));
@@ -899,15 +951,27 @@ document.addEventListener('htmx:afterRequest', function (event) {
       }, 4000);
     }
   } else if (triggeringElement.id === 'create-volume-form') {
+    const feedback = document.querySelector("#create-volume-modal .feedback");
+    feedback.classList.remove('hidden');
+    feedback.textContent = event.detail.xhr.responseText.replace(/[{}]/g, '');
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
       document.getElementById('create-volume-modal').classList.add("hidden");
       document.getElementById('fetch-volumes-btn').dispatchEvent(new Event('click'));
       triggeringElement.reset();
+      feedback.classList.add('green');
     } else if (event.detail.xhr.status < 400) {
       //todo
+      triggeringElement.reset();
+      feedback.classList.add('red');
     } else if (event.detail.xhr.status < 500) {
       //todo
+      triggeringElement.reset();
+      feedback.classList.add('red');
     }
+    setTimeout(() => {
+      feedback.textContent = '';
+      feedback.classList.add('hidden');
+    }, 8000);
   } else if (triggeringElement.id === 'fetch-volumes-btn' || triggeringElement.id === 'fetch-volumes-display') {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
       const volumeList = document.getElementById('volumes-target');
@@ -946,6 +1010,25 @@ document.addEventListener('htmx:afterRequest', function (event) {
         }, 8000);
       }, 2000);
     }
+  }  
+  
+  if (triggeringElement.className === 'vfs-action-btn') {
+    if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+      if (triggeringElement.id === 'r-btn-delete') {
+        document.querySelector("#vfs-reload").dispatchEvent(new Event('click'));
+      }
+    } else {
+      const feedback = document.querySelector('#vfs-feedback');
+      console.log(feedback);
+      feedback.classList.remove('hidden');
+      feedback.textContent = event.detail.xhr.responseText.replace(/[{}]/g, '');
+      feedback.classList.add('red');
+      feedback.classList.remove('green');
+      setTimeout(() => {
+        feedback.classList.add('hidden');
+        feedback.textContent = '';
+      }, 80000);
+    } 
   }
 });
 

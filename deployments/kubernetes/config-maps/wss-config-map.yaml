@@ -5,9 +5,9 @@ metadata:
   namespace: kuspace
 data:
   wss.conf: |
-    IP=0.0.0.0
-    NAMESPACE=kuspace
-    API_GIN_MODE=release
     PROFILE=container
     J_WS_ADDRESS=0.0.0.0:8082
     J_WS_LOGS_PATH=data/logs/jobs/
+    IP=0.0.0.0
+    NAMESPACE=kuspace
+    API_GIN_MODE=release

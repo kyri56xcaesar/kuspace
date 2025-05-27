@@ -207,7 +207,7 @@ WAIT_FOR_READY:
 			}
 			return fmt.Errorf("error reading log stream: %w", err)
 		}
-		send(line)
+		send(append([]byte("\t[POD]"), line...))
 	}
 	return nil
 }
@@ -216,10 +216,17 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	// llets create a stream channel (for the websocket)
 	ws_chan := make(chan []byte, 100)
 	go streamToSocketWS(job.Jid, ws_chan)
+	go func() {
+		time.Sleep(time.Second * 500)
+		close(ws_chan) // this propably lasts longer than the prev context
 
+	}()
 	jobName := fmt.Sprintf("j-%d", job.Jid)
 	namespace := je.jm.srv.config.NAMESPACE
 
+	ws_chan <- []byte("...")
+	ws_chan <- []byte("=-----------------------------------------------------------------------=")
+	ws_chan <- []byte("...")
 	ws_chan <- []byte(fmt.Sprintf("[executor] formatting Job as job-name: job-%s\n", jobName))
 
 	command, err := formatJobData(je, &job)
@@ -253,12 +260,6 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 		return
 	}
 	startTime := time.Now()
-
-	go func() {
-		time.Sleep(time.Second * 500)
-		close(ws_chan) // this propably lasts longer than the prev context
-
-	}()
 
 	go func() {
 		err = streamJobLogs(clientset, jobName, namespace, func(data []byte) {
@@ -377,11 +378,22 @@ func formatJobData(je *JKubernetesExecutor, job *ut.Job) ([]string, error) {
 	// format job vars
 	job.Output = strings.TrimSpace(job.Output)
 	job.OutputFormat = strings.TrimSpace(job.OutputFormat)
-	if job.OutputFormat == "" { //default format
-		job.OutputFormat = "txt"
+	if job.OutputFormat == "" {
+		p := strings.Split(job.Input, ".")
+		if len(p) == 0 || p[len(p)-1] == "" {
+			job.OutputFormat = "txt" //default format
+		} else {
+			job.OutputFormat = p[len(p)-1]
+		}
 	}
 	if job.InputFormat == "" {
-		job.InputFormat = "txt"
+		// deduce input format
+		p := strings.Split(job.Input, ".")
+		if len(p) == 0 || p[len(p)-1] == "" {
+			job.InputFormat = "txt" //default format
+		} else {
+			job.InputFormat = p[len(p)-1]
+		}
 	}
 	if job.Parallelism == 0 { //default parallelism
 		job.Parallelism = 1

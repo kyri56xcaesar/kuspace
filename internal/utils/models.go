@@ -178,13 +178,30 @@ func (resource *Resource) HasExecutionAccess(userInfo AccessClaim) bool {
 	return false
 }
 
+// this shall check if the resource owner is of the claim OR if the resource group ownership is included in the claim groups
 func (resource *Resource) IsOwner(ac AccessClaim) bool {
 	int_uid, err := strconv.Atoi(ac.Uid)
 	if err != nil {
-		log.Printf("failed to atoi access_claim")
+		log.Printf("[ownership-controller] failed to atoi access_claim")
+		return false
+	} else if resource.Uid == int_uid {
+		log.Printf("[ownership-controller] user id %d matches item id %d", int_uid, resource.Uid)
+		return true
+	}
+
+	int_gids, err := SplitToInt(strings.TrimSpace(ac.Gids), ",")
+	if err != nil {
+		log.Printf("[ownership-controller] failed to atoi group ids")
 		return false
 	}
-	return resource.Uid == int_uid
+	for _, gid := range int_gids {
+		if gid == resource.Gid {
+			log.Printf("[ownership-controller] user group id %d allows item group %d", gid, resource.Gid)
+			return true
+		}
+	}
+	// check for group ownership
+	return false
 }
 
 type Permissions struct {
@@ -298,17 +315,22 @@ func (v *Volume) PtrFieldsNoId() []any {
 	return []any{&v.Name, &v.Path, &v.Dynamic, &v.Capacity, &v.Usage, &v.CreatedAt}
 }
 
-func (v *Volume) Validate(max_capacity, fallback_capacity float64) error {
+func (v *Volume) Validate(max_capacity, fallback_capacity float64, plusChars string) error {
 	// name should be specific
 	// path should exist
 	// vid should exist
 
 	// for starters, check just the name
+	if len(v.Name) < 4 {
+		return fmt.Errorf("volume name cannot be less or equal than 3 characters")
+	}
+
 	if len(v.Name) > 63 {
 		return fmt.Errorf("volume name too large: max 63 chars")
 	}
-	if HasInvalidCharacters(v.Name, "^*|\\/&\"'.,;") {
-		return fmt.Errorf("invalid characters in the name. (^*|\\/&\"_,;) not allowed")
+	log.Printf("name: %v", v.Name)
+	if !IsAlphanumericPlus(v.Name, plusChars) {
+		return fmt.Errorf("volume name must contain only alphanumeric characters and '.' or '-'")
 	}
 
 	if max_capacity > 0 && v.Capacity > max_capacity {

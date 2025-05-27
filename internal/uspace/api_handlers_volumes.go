@@ -55,7 +55,7 @@ func (srv *UService) handleVolumes(c *gin.Context) {
 
 		volumes, err := srv.storage.SelectVolumes(ut.MakeMapFrom(names, values))
 		if err != nil {
-			log.Printf("failed to select volumes: %v", err)
+			log.Printf("[USPACE_API] failed to select volumes: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 			return
 		}
@@ -68,7 +68,7 @@ func (srv *UService) handleVolumes(c *gin.Context) {
 		}
 		err := srv.storage.RemoveVolume(vid)
 		if err != nil {
-			log.Printf("failed to delete the volume: %v", err)
+			log.Printf("[USPACE_API] failed to delete the volume: %v", err)
 			if strings.Contains(err.Error(), "not empty") {
 				c.JSON(http.StatusForbidden, gin.H{"error": "cannot delete bucket if not empty"})
 				return
@@ -82,7 +82,7 @@ func (srv *UService) handleVolumes(c *gin.Context) {
 		// read body
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			log.Printf("failed to read request body: %v", err)
+			log.Printf("[USPACE_API] failed to read request body: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read req body"})
 			return
 		}
@@ -94,22 +94,21 @@ func (srv *UService) handleVolumes(c *gin.Context) {
 			var volume ut.Volume
 			err = json.Unmarshal(body, &volume)
 			if err != nil {
-				log.Printf("failed to bind as a single volume as well, returning. Bad request: %v", err)
+				log.Printf("[USPACE_API] failed to bind as a single volume as well, returning. Bad request: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 				return
 			}
-			log.Printf("volume parse: %+v", volume)
 
-			err = volume.Validate(srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY, srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY)
+			err = volume.Validate(srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY, srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY, "-.")
 			if err != nil {
-				log.Printf("failed to validate the volume info: %v", err)
+				log.Printf("[USPACE_API] failed to validate the volume info: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			}
 			// single volume
 			err = srv.storage.CreateVolume(any(volume))
 			if err != nil {
-				log.Printf("failed to insert volume: %v", err)
+				log.Printf("[USPACE_API] failed to insert volume: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "couldn't insert volume"})
 				return
 			}
@@ -117,15 +116,15 @@ func (srv *UService) handleVolumes(c *gin.Context) {
 		// array of volumes
 		// insert them iteratevly
 		for _, volume := range volumes {
-			err = volume.Validate(srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY, srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY)
+			err = volume.Validate(srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY, srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY, "-.")
 			if err != nil {
-				log.Printf("failed to validate the volume info: %v", err)
+				log.Printf("[USPACE_API] failed to validate the volume info: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			}
 			err = srv.storage.CreateVolume(any(volume))
 			if err != nil {
-				log.Printf("failed to insert volumes: %v", err)
+				log.Printf("[USPACE_API] failed to insert volumes: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "couldn't insert volumes"})
 				return
 			}
@@ -171,7 +170,7 @@ func (srv *UService) handleUserVolumes(c *gin.Context) {
 
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			log.Printf("failed to read request body: %v", err)
+			log.Printf("[USPACE_API] failed to read request body: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read request body"})
 			return
 		}
@@ -181,19 +180,19 @@ func (srv *UService) handleUserVolumes(c *gin.Context) {
 			err = json.Unmarshal(body, &userVolume)
 			// single userVolume
 			if err != nil {
-				log.Printf("fail to bind body: %v", err)
+				log.Printf("[USPACE_API] fail to bind body: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "bad request, failed to bind"})
 				return
 			}
 
 			if capacity, _ := strconv.ParseFloat(srv.config.LOCAL_VOLUMES_DEFAULT_PATH, 64); int(userVolume.Quota) == 0 || userVolume.Quota > float64(capacity) {
-				log.Printf("inserted")
+				log.Printf("[USPACE_API] inserted")
 				userVolume.Quota = float64(capacity)
 			}
 
 			cancelFn, err := srv.fsl.Insert([]any{userVolume})
 			if err != nil {
-				log.Printf("failed to insert user volume: %v", err)
+				log.Printf("[USPACE_API] failed to insert user volume: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert uv"})
 				return
 			}
@@ -205,7 +204,7 @@ func (srv *UService) handleUserVolumes(c *gin.Context) {
 		cancelFn, err := srv.fsl.Insert([]any{userVolumes})
 		defer cancelFn()
 		if err != nil {
-			log.Printf("failed to insert user volumes: %v", err)
+			log.Printf("[USPACE_API] failed to insert user volumes: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert uv"})
 			return
 		}
@@ -228,31 +227,31 @@ func (srv *UService) handleGroupVolumes(c *gin.Context) {
 
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			log.Printf("failed to read request body: %v", err)
+			log.Printf("[USPACE_API] failed to read request body: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read request body"})
 			return
 		}
 
 		err = json.Unmarshal(body, &groupVolumes)
 		if err != nil {
-			log.Printf("didn't bind groupVolumes, lets try a groupVolume..")
+			log.Printf("[USPACE_API] didn't bind groupVolumes, lets try a groupVolume..")
 			err = json.Unmarshal(body, &groupVolume)
 			// single userVolume
 			if err != nil {
-				log.Printf("fail to bind body: %v", err)
+				log.Printf("[USPACE_API] fail to bind body: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "bad request, failed to bind"})
 				return
 			}
 
 			if capacity := min(srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY, MAX_DEFAULT_VOLUME_CAPACITY); int(groupVolume.Quota) == 0 || groupVolume.Quota > float64(capacity) {
-				log.Printf("inserted")
+				log.Printf("[USPACE_API] inserted")
 				groupVolume.Quota = float64(capacity)
 			}
 
 			cancelFn, err := srv.storage.Insert([]any{groupVolume})
 			defer cancelFn()
 			if err != nil {
-				log.Printf("failed to insert group volume: %v", err)
+				log.Printf("[USPACE_API] failed to insert group volume: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert gv"})
 				return
 			}
@@ -264,7 +263,7 @@ func (srv *UService) handleGroupVolumes(c *gin.Context) {
 		cancelFn, err := srv.storage.Insert([]any{groupVolumes})
 		defer cancelFn()
 		if err != nil {
-			log.Printf("failed to insert group volumes: %v", err)
+			log.Printf("[USPACE_API] failed to insert group volumes: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert gv"})
 			return
 		}

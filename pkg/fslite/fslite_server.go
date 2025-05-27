@@ -71,35 +71,35 @@ func (fsl *FsLite) ListenAndServe() {
 
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("listen: %s\n", err)
+			log.Fatalf("[FSL_SERVER] listen: %s\n", err)
 		}
 	}()
 	<-ctx.Done()
 
-	log.Print("closing db connection...")
+	log.Print("[FSL_SERVER] closing db connection...")
 	fsl.dbh.Close()
 
 	stop()
-	log.Println("shutting down gracefully, press Ctrl+C again to force")
+	log.Println("[FSL_SERVER] shutting down gracefully, press Ctrl+C again to force")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := server.Shutdown(ctx); err != nil {
-		log.Fatal("Server forced to shutdown: ", err)
+		log.Fatal("[FSL_SERVER] Server forced to shutdown: ", err)
 	}
 
-	log.Println("Server exiting")
+	log.Println("[FSL_SERVER] Server exiting")
 }
 
 func authmiddleware(cfg ut.EnvConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if s_secret_claim := c.GetHeader("X-Service-Secret"); s_secret_claim != "" {
 			if s_secret_claim == string(cfg.SERVICE_SECRET_KEY) {
-				log.Printf("service secret accepted. access granted.")
+				log.Printf("[FSL_SERVER_middleware] service secret accepted. access granted.")
 				c.Next()
 				return
 			} else {
-				log.Printf("service secret invalid. access not granted")
+				log.Printf("[FSL_SERVER_middleware] service secret invalid. access not granted")
 				c.Abort()
 				return
 			}
@@ -107,6 +107,7 @@ func authmiddleware(cfg ut.EnvConfig) gin.HandlerFunc {
 
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
+			log.Printf("[FSL_SERVER_middleware] authorization header not found")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is required"})
 			c.Abort()
 			return
@@ -115,6 +116,7 @@ func authmiddleware(cfg ut.EnvConfig) gin.HandlerFunc {
 		// Extract the token from the Authorization header
 		tokenString := authHeader[len("Bearer "):]
 		if tokenString == "" {
+			log.Printf("[FSL_SERVER_middleware] bearer token not found")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Bearer token is required"})
 			c.Abort()
 			return
@@ -122,7 +124,7 @@ func authmiddleware(cfg ut.EnvConfig) gin.HandlerFunc {
 
 		ok, claims, err := decodeJWT(tokenString)
 		if err != nil {
-			log.Printf("failed to decode token: %v", err)
+			log.Printf("[FSL_SERVER_middleware] token bad format")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to decode token"})
 			c.Abort()
 			return
@@ -133,6 +135,7 @@ func authmiddleware(cfg ut.EnvConfig) gin.HandlerFunc {
 			c.Set("username", claims.Username)
 			c.Set("uid", claims.ID)
 		} else {
+			log.Printf("[FSL_SERVER_middleware] invalid token claims")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
 			c.Abort()
 			return

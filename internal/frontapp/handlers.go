@@ -929,19 +929,14 @@ func (srv *HTTPService) handleResourcePerms(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
-
 	var (
 		req      *http.Request
 		endpoint string
 	)
-
 	owner := c.PostForm("owner")
 	group := c.PostForm("group")
 	perms := c.PostForm("permissions")
-
-	log.Printf("Received Form Values - Owner: %s, Group: %s, Permissions: %s", owner, group, perms)
 	formData := url.Values{}
-
 	switch {
 	case owner != "":
 		endpoint = "/api/v1/resource/ownership"
@@ -974,7 +969,7 @@ func (srv *HTTPService) handleResourcePerms(c *gin.Context) {
 	}
 
 	whoami, exists := c.Get("user_id")
-	mygroups, gexists := c.Get("groups")
+	mygroup_ids, gexists := c.Get("group_ids")
 	if !exists || !gexists {
 		log.Printf("uid or groups were not set correctly. Authencitation fail")
 		c.JSON(http.StatusInsufficientStorage, gin.H{"error": "failed auth"})
@@ -986,7 +981,7 @@ func (srv *HTTPService) handleResourcePerms(c *gin.Context) {
 	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Access-Target", fmt.Sprintf(":%s:$rids=%s %v:%v", volume, rid, whoami, mygroups))
+	req.Header.Set("Access-Target", fmt.Sprintf(":%s:$rids=%s %v:%v", volume, rid, whoami, mygroup_ids))
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 
@@ -1946,8 +1941,8 @@ func (srv *HTTPService) passwordChangeHandler(c *gin.Context) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		log.Printf("invalid")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid"})
+		log.Printf("invalid password")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "current password not matched"})
 		return
 	}
 
@@ -1964,7 +1959,6 @@ func (srv *HTTPService) passwordChangeHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	passReq.Header.Add("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 	passReq.Header.Add("Authorization", fmt.Sprintf("Bearer %s", access_token))
 
 	resp2, err := http.DefaultClient.Do(passReq)
@@ -2012,7 +2006,6 @@ func (srv *HTTPService) updateUser(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	req.Header.Add("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
 	resp, err := http.DefaultClient.Do(req)
@@ -2029,7 +2022,6 @@ func (srv *HTTPService) updateUser(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	log.Printf("body returned: %+v", string(body))
 
 	var users []ut.User
 	err = json.Unmarshal(body, &users)
@@ -2089,20 +2081,66 @@ func (srv *HTTPService) updateUser(c *gin.Context) {
 }
 
 func (srv *HTTPService) handleAdminPanel(c *gin.Context) {
+	accessToken, ok := c.Get("access_token")
+	if !ok || accessToken == "" {
+		log.Printf("bad state, no access_token found in context, should have been set by middleware")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "shouldn't be here"})
+		return
+	}
 	username := c.GetString("username")
 	groups := c.GetString("groups")
-	info := c.GetString("info")
-	home := c.GetString("home")
 	elevated := 0
 	if strings.Contains(groups, "admin") {
 		elevated = 1
 	}
 
+	req, err := http.NewRequest(http.MethodGet, authServiceURL+authVersion+"/user/me", nil)
+	if err != nil {
+		log.Printf("failed to create a new req: %v", err)
+		c.JSON(http.StatusInternalServerError, nil)
+		c.Abort()
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken.(string))
+	client := &http.Client{Timeout: 10 * time.Second}
+	response, err := client.Do(req)
+	if err != nil {
+		log.Printf("failed to make request: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to validate access"})
+		c.Abort()
+		return
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Printf("failed to read response body: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to read resp body",
+		})
+		c.Abort()
+		return
+	}
+	var resp []ut.User
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		log.Printf("failed to unmarshal response: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to parse response",
+		})
+		c.Abort()
+		return
+	}
+	if resp == nil || len(resp) != 1 {
+		log.Printf("failed to retrieve user information")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user info, bad state"})
+		return
+	}
+
 	c.HTML(http.StatusOK, "admin-panel.html", gin.H{
 		"username": username,
 		"message":  "Welcome to the Admin Panel ",
-		"info":     info,
-		"home":     home,
+		"info":     resp[0].Info,
+		"home":     resp[0].Home,
 		"elevated": elevated,
 		"groups":   groups,
 	})

@@ -58,16 +58,6 @@ func (srv *UService) getResourcesHandler(c *gin.Context) {
 		return
 	}
 	ac := ac_h.(ut.AccessClaim)
-
-	// this is direct from storage
-	// res, err := srv.storage.SelectObjects(
-	// 	map[string]any{
-	// 		"vname":  ac.Vname,
-	// 		"prefix": ac.Target,
-	// 		"limit":  limit,
-	// 	},
-	// )
-
 	// prefer to get from db // must be ensure its in sync
 	res, err := srv.fsl.SelectObjects(
 		map[string]any{
@@ -140,7 +130,6 @@ func (srv *UService) rmResourceHandler(c *gin.Context) {
 		return
 	}
 	ac := ac_h.(ut.AccessClaim)
-	log.Printf("binded access claim: %+v", ac)
 
 	// if this fails perhaps we need to delete the db entry...
 	if err := srv.storage.Remove(ut.Resource{
@@ -189,7 +178,6 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 		return
 	}
 	ac := ac_h.(ut.AccessClaim)
-	log.Printf("binded access claim: %+v", ac)
 
 	dest := c.Request.URL.Query().Get("dest")
 	if dest == "" {
@@ -267,7 +255,6 @@ func (srv *UService) cpResourceHandler(c *gin.Context) {
 		return
 	}
 	ac := ac_h.(ut.AccessClaim)
-	log.Printf("binded access claim: %+v", ac)
 
 	dest := c.Request.URL.Query().Get("dest")
 	if dest == "" {
@@ -336,7 +323,6 @@ func (srv *UService) handleDownload(c *gin.Context) {
 		return
 	}
 	ac := ac_h.(ut.AccessClaim)
-	log.Printf("binded access claim: %+v", ac)
 
 	if strings.HasSuffix(ac.Target, "/") {
 		log.Printf("target should be a file, not a directory")
@@ -725,7 +711,6 @@ func (srv *UService) chgroupResourceHandler(c *gin.Context) {
 		return
 	}
 	newGroup := c.PostForm("group")
-	log.Printf("new gid: %v", newGroup)
 	if newGroup == "" {
 		log.Printf("empty gid, not allowed")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a gid as formvalue"})

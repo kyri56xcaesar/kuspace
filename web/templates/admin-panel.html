@@ -193,7 +193,7 @@
         </div>
         <div id="tips-switch">
           <label class="switch">
-            <input class="toggle" onclick="toggleCollapses()" type="checkbox">
+            <input id="tips-mode-toggle" class="toggle" onclick="toggleCollapses()" type="checkbox">
             <span class="slider"></span>
             <span class="card-side"></span>
           </label>
@@ -482,7 +482,7 @@
           hx-target="#resources-main" 
           hx-swap="innerHTML"
         >
-          <div id="resources-display-container" style="padding: 1rem;">
+          <div id="resources-display-container">
             <div id="resources-header">
               <div class="search-bar">
                 <input id="resource-search" type="text" placeholder="Search by 'name'">
@@ -515,11 +515,9 @@
                 </form>
               </div>
             </div>
-            <div id="resources-main">
-            </div>
-            <div id="resource-details">
-            </div>
-
+            <div id="resources-main"></div>
+            <div id="resource-details"></div>
+            <div id="resources-feedback" class="feedback hidden">
           </div>
         </div>
       </section>
@@ -606,6 +604,8 @@
                 </div>
               </form>
             </div>
+            <div class="feedback hidden modal-feedback">
+            </div>
           </div>
 
         </div>
@@ -634,7 +634,7 @@
               - A Job results  display
             </p>
             
-            <div id="job-browser-options">
+            <div id="job-browser-options" class="">
               <a href="#" onclick="showSubSection('job-browser', 'application-display')">Apps</a>
               <a href="#" onclick="showSubSection('job-browser', 'job-feedback-view')">Jobs</a>
               <a href="#" onclick="showSubSection('job-browser', 'new-job');">New</a>
@@ -929,12 +929,12 @@
                 </div>
               
                 <div class="info-row">
-                  <label>Total #Jobs:</label>
+                  <label>Total Jobs:</label>
                   <span id="total-jobs">{{ .total_jobs }}</span>
                 </div>
               
                 <div class="info-row">
-                  <label>Total #Files:</label>
+                  <label>Total Files:</label>
                   <span id="total-files">{{ .total_files }}</span>
                 </div>
               </div>            
@@ -979,6 +979,7 @@
                   <button type="button" class="cancel-btn" onclick="hide(this.parentNode)"><i class="fa fa-times"></i></button>
                 </form>
               </div>
+              <div class="feedback hidden" id="user-actions-feedback"></div>
             </div>
             <div id="vfs-display" class="darkened">
               <h3>your Files</h3>
@@ -990,10 +991,20 @@
                   hx-target="this"
                   hx-trigger="load"
                 >
-
                 </div>
                 <div id="selected-resource-display" class="hidden">
                 </div>
+              </div>
+              <div id="vfs-feedback" class="feedback hidden"></div>
+              <div class="reset">
+                <i 
+                  class="fa-solid fa-rotate-left" 
+                  id="vfs-reload" 
+                  hx-get="/api/v1/verified/fetch-resources?format=json"
+                  hx-swap="none"
+                  hx-target="#vfs"
+                  hx-trigger="click"
+                  ></i>
               </div>
             </div>
             <div class="fupload darkened">

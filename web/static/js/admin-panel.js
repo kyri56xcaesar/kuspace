@@ -281,14 +281,6 @@ document.addEventListener("DOMContentLoaded", () => {
   
   /**************************************************************************/
   /**************************************************************************/
-  // access profile
-  /**************************************************************************/
-  /**************************************************************************/
-
-
-
-  /**************************************************************************/
-  /**************************************************************************/
   // Volumes
   /**************************************************************************/
   /**************************************************************************/
@@ -511,7 +503,7 @@ function parseAndInjectRTableRowdata(tr, injectTarget) {
       <div class="resource-details-headers">
         <h3>Resource Details</h3>
         <div class="resource-options">
-          <i id="resource-options-dropdown-button"    onclick="this.nextElementSibling.firstElementChild.classList.toggle('open');" class="fa">&#xf078;</i>
+          <i id="resource-options-dropdown-button" onclick="this.nextElementSibling.firstElementChild.classList.toggle('open');" class="fa">&#xf078;</i>
           <div class="resource-options">
             <div class="resource-options-inner dropdown">
               <button 
@@ -532,7 +524,7 @@ function parseAndInjectRTableRowdata(tr, injectTarget) {
 
               <button 
                 class="r-btn-edit"
-                hx-get="/api/v1/verified/edit-form?resourcename=${resource.name}&owner=${resource.owner || 0}&group=${resource.group || 0}&perms=${resource.perms}&rid=${resource.rid}&volume=${resource.vname}"
+                hx-get="/api/v1/verified/edit-form?resourcename=${resource.name}&owner=${resource.owner || 0}&group=${resource.group || 0}&perms=${resource.perms}&rid=${resource.id}&volume=${resource.vname}"
                 hx-swap="innerHTML"
                 hx-trigger="click"
                 hx-target="#edit-modal-2"
