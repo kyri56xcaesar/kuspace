@@ -9,6 +9,7 @@
 *.pub
 *.vscode
 *.idea
+*.exe
 configs/*.env
 tmp/*
 data/volumes/*
@@ -24,5 +25,7 @@ notes
 
 vendor
 external
+
+docs
 
 tmp/big_data.text
