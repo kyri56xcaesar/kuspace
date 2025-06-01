@@ -58,6 +58,7 @@ func (fsl *FsLite) ListenAndServe() {
 		// admin.GET("/resource/share", fsl.shareResourceHandler)
 
 		admin.Match([]string{"GET", "PATCH", "DELETE"}, "/user/volumes", fsl.handleUserVolumes)
+		admin.Match([]string{"GET"}, "/system-conf", fsl.handleSysConf)
 	}
 
 	server := &http.Server{

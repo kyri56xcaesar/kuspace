@@ -21,7 +21,12 @@ import (
 )
 
 var (
-	DUCK_IMAGE = "kyri56xcaesar/kuspace:applications-duckdb-v1"
+	DUCK_IMAGE     = "kyri56xcaesar/kuspace:applications-duckdb-v1"
+	PANDAS_IMAGE   = "kyri56xcaesar/kuspace:applications-pypandas-v1"
+	OCTAVE_IMAGE   = "kyri56xcaesar/kuspace:applications-octave-v1"
+	FFMPEG_IMAGE   = "kyri56xcaesar/kuspace:applications-ffmpeg-v1"
+	CAENGINE_IMAGE = "kyri56xcaesar/kuspace:applications-caengine-v1"
+	BASH_IMAGE     = "kyri56xcaesar/kuspace:applications-bash-v1"
 )
 
 type JKubernetesExecutor struct {
@@ -40,7 +45,12 @@ func (jke JKubernetesExecutor) ExecuteJob(job ut.Job) error {
 	return nil
 }
 func (jke JKubernetesExecutor) CancelJob(job ut.Job) error {
-	cancelJob(k.GetKubeClient(), fmt.Sprintf("job-%d", job.Jid), jke.jm.srv.config.NAMESPACE)
+	client, err := k.GetKubeClient()
+	if err != nil {
+		log.Printf("[executor] could not retrieve k8s client: %v", err)
+		return err
+	}
+	cancelJob(client, fmt.Sprintf("job-%d", job.Jid), jke.jm.srv.config.NAMESPACE)
 	return nil
 
 }
@@ -213,16 +223,17 @@ WAIT_FOR_READY:
 }
 
 func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
+	jobName := fmt.Sprintf("j-%d", job.Jid)
+	namespace := je.jm.srv.config.NAMESPACE
 	// llets create a stream channel (for the websocket)
 	ws_chan := make(chan []byte, 100)
+	// begin streaming channel, also set a deadline,  perhaps a context with a deadline could work
 	go streamToSocketWS(job.Jid, ws_chan)
 	go func() {
 		time.Sleep(time.Second * 500)
 		close(ws_chan) // this propably lasts longer than the prev context
 
 	}()
-	jobName := fmt.Sprintf("j-%d", job.Jid)
-	namespace := je.jm.srv.config.NAMESPACE
 
 	ws_chan <- []byte("...")
 	ws_chan <- []byte("=-----------------------------------------------------------------------=")
@@ -252,7 +263,13 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 
 	ws_chan <- []byte("[executor] launcing job...\n")
 	ws_chan <- []byte(fmt.Sprintf("[executor] specs: {parallelism: %v, timeout: %v, cpu_limit: %v, cpu_request: %v, mem_limit: %v, mem_req: %v, storage_limit: %v, storage_request: %v}\n", job.Parallelism, job.Timeout, job.CpuLimit, job.CpuRequest, job.MemoryLimit, job.MemoryRequest, job.EphimeralStorageLimit, job.EphimeralStorageRequest))
-	clientset := k.GetKubeClient() // from your config
+
+	clientset, err := k.GetKubeClient() // from config
+	if err != nil {
+		log.Printf("[executor] could not retrieve kube client: %v", err)
+		ws_chan <- []byte("could not retrieve k8s client, fatal...\nexiting...")
+		return
+	}
 	err = runJob(clientset, jobSpec, namespace)
 	if err != nil {
 		log.Printf("error starting job: %v", err)
@@ -261,6 +278,7 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	}
 	startTime := time.Now()
 
+	// monitor and stream the logs of that job
 	go func() {
 		err = streamJobLogs(clientset, jobName, namespace, func(data []byte) {
 			ws_chan <- data
@@ -453,11 +471,23 @@ func formatJobCommand(job *ut.Job) ([]string, error) {
 	case "application/duckdb", "duckdb": // check if the given logic is a custom app
 		job.Logic = DUCK_IMAGE
 		return []string{"python", "duckdb_app.py"}, nil
-
+	case "application/pypandas", "pandas", "pypandas":
+		job.Logic = PANDAS_IMAGE
+		return []string{"python", "pypandas_app.py"}, nil
+	case "application/octave", "octave":
+		job.Logic = OCTAVE_IMAGE
+		return []string{"python3", "octave_app.py"}, nil
+	case "application/ffmpeg", "ffmpeg":
+		job.Logic = FFMPEG_IMAGE
+		return []string{"python3", "ffmpeg_app.py"}, nil
+	case "application/caengine", "caengine":
+		job.Logic = CAENGINE_IMAGE
+		return []string{"python3", "caengine_app.py"}, nil
+	case "application/bash", "bash", "sh", "shell":
+		job.Logic = BASH_IMAGE
+		return []string{"python3", "bash_app.py"}, nil
 	case "python", "py":
 		return []string{"/bin/sh", "-c", fmt.Sprintf("python3 -c '%s'", body)}, nil
-	case "bash", "sh", "shell":
-		return []string{"/bin/sh", "-c", fmt.Sprintf("bash -c '%s'", body)}, nil
 	case "go", "golang":
 		return []string{"/bin/sh", "-c", fmt.Sprintf("echo '%s' > /tmp/tmp.go && go run /tmp/tmp.go && rm /tmp/tmp.go", body)}, nil
 	case "java", "javac", "openjdk":

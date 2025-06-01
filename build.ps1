@@ -1,4 +1,5 @@
-
+# less version of the makefile 
+#
 # build.ps1
 
 # Entry point

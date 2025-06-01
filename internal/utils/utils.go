@@ -339,7 +339,7 @@ func IsAlphanumericPlusSome(s string) bool {
 
 func IsValidUTF8String(s string) bool {
 	// Updated regex to include space (\s) and new line (\n) characters
-	re := regexp.MustCompile(`^[\p{L}\p{N}\s\n!@#\$%\^&\*\(\):\?><\.\- ]+$`)
+	re := regexp.MustCompile(`^[\p{L}\p{N}\s\n!@#\$%\^&\*\(\):\?><\.\-_, ]+$`)
 
 	return re.MatchString(s)
 }
@@ -460,6 +460,9 @@ func parseMi(s string) (int, error) {
 		return 0, nil
 	}
 	s = strings.TrimSuffix(s, "Mi")
+	if s == "" {
+		return 0, nil
+	}
 	return strconv.Atoi(s)
 }
 
@@ -468,6 +471,9 @@ func parseGi(s string) (float64, error) {
 		return 0, nil
 	}
 	s = strings.TrimSuffix(s, "Gi")
+	if s == "" {
+		return 0, nil
+	}
 	return strconv.ParseFloat(s, 64)
 }
 

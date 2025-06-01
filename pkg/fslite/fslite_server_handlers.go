@@ -544,3 +544,13 @@ func (fsl *FsLite) handleUserVolumes(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "method not allowed"})
 	}
 }
+
+func (fsl *FsLite) handleSysConf(c *gin.Context) {
+	fslcfg, err := ut.ReadConfig("configs/"+fsl.config.ConfigPath, false)
+	if err != nil {
+		log.Printf("[API_sysConf] failed to read config: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, fslcfg)
+}

@@ -1,10 +1,8 @@
 # Kuspace
 
-##
+## A system platform that provides modular batch processing applications for users to run on an end system
 
-### A system platform that provides modular batch processing applications for users to run on an end system
-
-## Development Instructions
+### Development Instructions
 
 [DEV]
 Run locally:
@@ -17,11 +15,9 @@ use scripts/kuspacectl.go to deploy/destroy/build
 
     go run scripts/kuspacectl.go -h
 
-## Brief Description
+### Description
 
-[BriefDescription]
-
-## A SOA
+### A SOA
 
 - identity/storage provision  
 - central API for submitting "jobs"  
@@ -31,9 +27,7 @@ use scripts/kuspacectl.go to deploy/destroy/build
 - websocket streaming for logs/resuls/output  
 - frontend application for i/o + management  
 
-## More
-
-### [details]
+### More
 
 - storage provider (configurable)
   - minio  
@@ -43,14 +37,15 @@ use scripts/kuspacectl.go to deploy/destroy/build
     or
   - fslite [custom implementation]
             (a pretty basic fs storing mechanism, with an api and a database holding file metadata)
-            (*NOT FULLY FUNCTIONAL YET*)
-            (would be nice to use redis or sth ram oriented for this)
 
-- identity provider
-      - minioth
-        default creds for admin:
-        - miniothadmin
-        - miniothadmin
+- minioth (identity provider) [custom implementation]
+
+    default creds for admin: (miniothadmin, miniothadmin)
+
+    storage as
+
+             - 1. database as storage (sqlite3/duckdb)
+             - 2. plain text as storage (passwd,group,shadow)
 
 - job scheduling mechanism (modular/configurable)
       - simple queue (default)
@@ -63,16 +58,14 @@ use scripts/kuspacectl.go to deploy/destroy/build
 
 - frontend application
 
-### [deps]
+- random data generation and secret generation tools
 
-> go mod tidy
+### Documentation
 
 documantation
 > go install github.com/swaggo/swag/cmd/swag@latest
 >
 > go install github.com/go101/golds@latest
-
-### [docs]
 
 generate documantation using:
 
@@ -80,12 +73,10 @@ generate documantation using:
 
 - make api-docs
 
-## Goals
+### Goals
 
 >
 > - ease of access to an end system (kubernetes)
 >
 > - user environment
 >
-
-     TODO.md

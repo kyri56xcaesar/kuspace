@@ -442,11 +442,11 @@ func (srv *UService) updateJob(jb ut.Job) error {
 	query := `
 		UPDATE jobs
 		SET
-			uid = ?, input = ?, output = ?, logic = ?, status = ?, completed = ?
+			description = ?, uid = ?, status = ?, completed = ?
 		WHERE
 			jid = ?
 	`
-	_, err = db.Exec(query, jb.Uid, jb.Input, jb.Output, jb.Logic, jb.Status, jb.Completed, jb.Jid)
+	_, err = db.Exec(query, jb.Description, jb.Uid, jb.Status, jb.Completed, jb.Jid)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
 		return err

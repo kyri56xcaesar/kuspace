@@ -189,6 +189,12 @@ func (srv *MService) RegisterRoutes() {
 			rotateKey()
 			c.JSON(http.StatusOK, gin.H{"message": "key rotated"})
 		})
+
+		admin.Match(
+			[]string{"GET"},
+			"/system-conf",
+			srv.handleSysConf,
+		)
 	}
 
 	// these endpoints are not fully functional yet since our sign method is HS256 (no key needed)

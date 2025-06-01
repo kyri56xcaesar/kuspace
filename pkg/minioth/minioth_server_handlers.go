@@ -890,3 +890,13 @@ func logAudit(action, actor, target, status, details, source string) {
 	defer f.Close()
 	f.Write(append(data, '\n'))
 }
+
+func (srv *MService) handleSysConf(c *gin.Context) {
+	miniothcfg, err := ut.ReadConfig("configs/"+srv.Minioth.Config.ConfigPath, false)
+	if err != nil {
+		log.Printf("[API_sysConf] failed to read config: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, miniothcfg)
+}

@@ -60,8 +60,6 @@ function editUser(uid, index) {
 
   const originalValues = {};
 
-  console.log(cells)
-
   for (let i = 0; i < cells.length - 1; i++) {
     const cell = cells[i];
     const originalText = cell.textContent.trim();
@@ -108,6 +106,7 @@ function editUser(uid, index) {
   htmx.process(document.getElementById(`submit-btn-${index}`));
 
 }
+
 function getUserPatchValues(uid) {
   let ed1 = document.getElementById("edit-input-"+uid+"-1");
   let ed2 = document.getElementById("edit-input-"+uid+"-2");
@@ -125,6 +124,7 @@ function getUserPatchValues(uid) {
 
   return r
 }
+
 function cancelEdit(index, originalValues) {
   const row = document.getElementById(`table-${index}`);
   if (!row) return;
@@ -155,6 +155,7 @@ function cancelEdit(index, originalValues) {
   htmx.process(document.getElementById(`delete-btn-${index}`));
 
 }
+
 function toggle_job_optionals(jobDiv) {
   if (jobDiv) {
     const jobOptionals = jobDiv.querySelectorAll(".job-optional");
@@ -229,23 +230,48 @@ document.addEventListener("DOMContentLoaded", () => {
 
     
     // must retrieve all the resources from the page somehwere..
-
-    document.querySelector("#resource-list-table > tbody").querySelectorAll("tr").forEach((li) => {
-      let rname = li.querySelector(".name").textContent.trim();
-      rname = rname.startsWith("/") ? rname : "/" + rname
-      let vname =li.querySelector(".volume").textContent.trim();
-      const resourceName =  vname + rname;
-
-      const button = document.createElement("button");
-      button.textContent = resourceName;
-      button.type = "button";
-      button.addEventListener("click", () => {
-        job_input.value = resourceName;
-        document.getElementById("select-resource-btn-job").parentNode.querySelector(".modal").classList.add("hidden");
+    const rTable = document.querySelector("#resource-list-table > tbody");
+    // if not admin you load them from a differnt place
+    if (!rTable) {
+      if (cachedResources) {
+        cachedResources.forEach((li) => {
+          let rname = li.name;
+          rname = rname.startsWith("/") ? rname : "/" + rname
+          const resourceName =  li.vname + rname;
+    
+          const button = document.createElement("button");
+          button.textContent = resourceName;
+          button.type = "button";
+          button.addEventListener("click", () => {
+            job_input.value = resourceName;
+            document.getElementById("select-resource-btn-job").parentNode.querySelector(".modal").classList.add("hidden");
+          });
+          resourceList.appendChild(button);
+        });
+      } else {
+        // we need to fetch the resources...
+      }
+      modal.classList.remove("hidden");
+    } else {
+      rTable.querySelectorAll("tr").forEach((li) => {
+        let rname = li.querySelector(".name").textContent.trim();
+        rname = rname.startsWith("/") ? rname : "/" + rname
+        let vname =li.querySelector(".volume").textContent.trim();
+        const resourceName =  vname + rname;
+  
+        const button = document.createElement("button");
+        button.textContent = resourceName;
+        button.type = "button";
+        button.addEventListener("click", () => {
+          job_input.value = resourceName;
+          document.getElementById("select-resource-btn-job").parentNode.querySelector(".modal").classList.add("hidden");
+        });
+        resourceList.appendChild(button);
       });
-      resourceList.appendChild(button);
-    });
-    modal.classList.remove("hidden");
+      modal.classList.remove("hidden");
+    }
+
+
   });
 
 
@@ -322,9 +348,12 @@ document.addEventListener("DOMContentLoaded", () => {
  
   });
 
-  document.getElementById("cancel-modal-btn").addEventListener("click", () => {
-    document.getElementById("create-volume-modal").classList.add("hidden");
-  });
+  const cancelModalbtn = document.getElementById("cancel-modal-btn");
+  if (cancelModalbtn) {
+    cancelModalbtn.addEventListener("click", () => {
+      document.getElementById("create-volume-modal").classList.add("hidden");
+    });    
+  }
 
   // for choosing a volume when upload
   document.getElementById("select-volume-btn").addEventListener("click", () => {
@@ -368,91 +397,92 @@ document.addEventListener("DOMContentLoaded", () => {
   /**************************************************************************/
   /**************************************************************************/
   const rSearch = document.getElementById("resource-search");
-  let rSearchBy = "name";
-  const rSearchBySelector = document.getElementById("resources-header").querySelector("#search-by");
-  rSearchBySelector.value = rSearchBy;
-  rSearchBySelector.addEventListener("input", (event) => {
-    rSearchBy = rSearchBySelector.value;
-    rSearch.placeholder = "Search by '" + rSearchBy+"'";
-  });
-  rSearch.value = "";
-  rSearch.addEventListener("input", function() {
-    if (cacheResourceResults.length == 0) {// empty cache, must fetch 
-      
-    }
-    searchValue = rSearch.value;
-    // console.log("searching by " + searchBy + " at " + searchValue);
-    // do search and display
-    let r_dets = document.getElementById("resource-details");
-    cacheResourceResults.forEach((li) => {
-      switch (rSearchBy) {
-        case "name":
-          if (!li.querySelector(".name").innerText.includes(searchValue)) {
-            li.classList.add("hidden");
-          } else {
-            li.classList.remove("hidden");
-            parseAndInjectRTableRowdata(li, r_dets);
-          }
-          break;
-        case "volume":
-          if (!li.querySelector(".volume").innerText.includes(searchValue)) {
-            li.classList.add("hidden");
-          } else {
-            li.classList.remove("hidden");
-            parseAndInjectRTableRowdata(li, r_dets);
-          }
-          break;
-        case "createdat":
-          if (!li.querySelector(".createdat").innerText.includes(searchValue)) {
-            li.classList.add("hidden");
-          } else {
-            li.classList.remove("hidden");
-            parseAndInjectRTableRowdata(li, r_dets);
-          }
-          break;
-        case "updatedat":
-          if (!li.querySelector(".updatedat").innerText.includes(searchValue)) {
-            li.classList.add("hidden");
-          } else {
-            li.classList.remove("hidden");
-            parseAndInjectRTableRowdata(li, r_dets);
-          }
-          break;
-        case "accessedat":
-          if (!li.querySelector(".accessedat").innerText.includes(searchValue)) {
-            li.classList.add("hidden");
-          } else {
-            li.classList.remove("hidden");
-            parseAndInjectRTableRowdata(li, r_dets);
-          }
-          break;
-        case "owner":
-          if (!li.querySelector(".owner").innerText.includes(searchValue)) {
-            li.classList.add("hidden");
-          } else {
-            li.classList.remove("hidden");
-            parseAndInjectRTableRowdata(li, r_dets);
-          }
-          break;
-        case "group":
-          if (!li.querySelector(".group").innerText.includes(searchValue)) {
-            li.classList.add("hidden");
-          } else {
-            li.classList.remove("hidden");
-            parseAndInjectRTableRowdata(li, r_dets);
-          }
-          break;
-      }
-
+  if (rSearch) {
+    let rSearchBy = "name";
+    const rSearchBySelector = document.getElementById("resources-header").querySelector("#search-by");
+    rSearchBySelector.value = rSearchBy;
+    rSearchBySelector.addEventListener("input", (event) => {
+      rSearchBy = rSearchBySelector.value;
+      rSearch.placeholder = "Search by '" + rSearchBy+"'";
     });
-
-
-    
-  });
+    rSearch.value = "";
+    rSearch.addEventListener("input", function() {
+      if (cacheResourceResults.length == 0) {// empty cache, must fetch 
+        
+      }
+      searchValue = rSearch.value;
+      // console.log("searching by " + searchBy + " at " + searchValue);
+      // do search and display
+      let r_dets = document.getElementById("resource-details");
+      cacheResourceResults.forEach((li) => {
+        switch (rSearchBy) {
+          case "name":
+            if (!li.querySelector(".name").innerText.includes(searchValue)) {
+              li.classList.add("hidden");
+            } else {
+              li.classList.remove("hidden");
+              parseAndInjectRTableRowdata(li, r_dets);
+            }
+            break;
+          case "volume":
+            if (!li.querySelector(".volume").innerText.includes(searchValue)) {
+              li.classList.add("hidden");
+            } else {
+              li.classList.remove("hidden");
+              parseAndInjectRTableRowdata(li, r_dets);
+            }
+            break;
+          case "createdat":
+            if (!li.querySelector(".createdat").innerText.includes(searchValue)) {
+              li.classList.add("hidden");
+            } else {
+              li.classList.remove("hidden");
+              parseAndInjectRTableRowdata(li, r_dets);
+            }
+            break;
+          case "updatedat":
+            if (!li.querySelector(".updatedat").innerText.includes(searchValue)) {
+              li.classList.add("hidden");
+            } else {
+              li.classList.remove("hidden");
+              parseAndInjectRTableRowdata(li, r_dets);
+            }
+            break;
+          case "accessedat":
+            if (!li.querySelector(".accessedat").innerText.includes(searchValue)) {
+              li.classList.add("hidden");
+            } else {
+              li.classList.remove("hidden");
+              parseAndInjectRTableRowdata(li, r_dets);
+            }
+            break;
+          case "owner":
+            if (!li.querySelector(".owner").innerText.includes(searchValue)) {
+              li.classList.add("hidden");
+            } else {
+              li.classList.remove("hidden");
+              parseAndInjectRTableRowdata(li, r_dets);
+            }
+            break;
+          case "group":
+            if (!li.querySelector(".group").innerText.includes(searchValue)) {
+              li.classList.add("hidden");
+            } else {
+              li.classList.remove("hidden");
+              parseAndInjectRTableRowdata(li, r_dets);
+            }
+            break;
+        }
+  
+      });
+  
+  
+      
+    });
+  }
 
 
 });
-
 
 function addResourceListListeners() {
   tableRows = document.querySelectorAll("#resource-list-table tbody tr");
@@ -626,8 +656,6 @@ function parseAndInjectRTableRowdata(tr, injectTarget) {
 
 }
 
-
-
 function setupSearchBar(jobSearchDiv, cacheJobResults) {
   let searchBy = "jid";
   const jobSearch = jobSearchDiv.querySelector("#job-search");
@@ -719,4 +747,218 @@ function setupSearchBar(jobSearchDiv, cacheJobResults) {
          break;
     }
   });
+}
+
+function modJobModal(div, parentDiv) {
+  if (!div || !parentDiv) {
+    return
+  }
+  const jid = div.querySelector('.jid').textContent.replace("#JobId:", "").trim();
+  const uid = div.querySelector('.uid').textContent.replace("by", "").trim();
+  const status = div.querySelector('.status').textContent.replace("Status:", "").trim();
+  const duration = div.querySelector('.duration').textContent.replace("Duration: ", "").trim();
+  const input = div.querySelector('.input').textContent.replace("Input: ", "").trim();
+  const output = div.querySelector('.output').textContent.replace("Output: ", "").trim();
+  const description = div.querySelector('.description').textContent.replace("Description:", "").trim();
+  const created_at = div.querySelector('.created_at').textContent.replace('Created_at:', '').trim();
+  const completed_at = div.querySelector('.completed_at').textContent.replace('Completed_at:', '').trim();
+  const completed = div.querySelector('.completed').textContent.replace("Completed:", "").trim();
+  const timeout = div.querySelector('.timeout').textContent.trim();
+  const parallelism = div.querySelector('.parallelism').textContent.trim();
+  const priority = div.querySelector('.priority').textContent.trim();
+  const memory_request = div.querySelector('.memory_request').textContent.trim();
+  const cpu_request = div.querySelector('.cpu_request').textContent.trim();
+  const memory_limit = div.querySelector('.memory_limit').textContent.trim();
+  const cpu_limit = div.querySelector('.cpu_limit').textContent.trim();
+  const ephimeral_storage_request = div.querySelector('.ephimeral_storage_request').textContent.trim();
+  const ephimeral_storage_limit = div.querySelector('.ephimeral_storage_limit').textContent.trim();
+  const logic = div.querySelector('.logic').textContent.trim();
+  const logic_body = div.querySelector('.logic_body').textContent.trim();
+  const logic_headers = div.querySelector('.logic_headers').textContent.trim();
+
+  const html = `
+  <div class="modal-content">
+    <h2>Modify Job</h2>
+    <form 
+      id="modify-job-form"
+      hx-put="/api/v1/verified/admin/jobs"
+      hx-swap="none"
+      hx-trigger="submit"
+    >
+    <div class="disabled-display">
+      <div>
+        Job id
+        <input type="number" name="jid" value="${jid}" readonly="readonly">
+      </div><br>
+
+      <div>
+        Duration
+        <input type="text" name="duration" value="${duration}" readonly="readonly">
+      </div><br>
+      <div>
+        Input
+        <input type="text" name="input" value="${input}" readonly="readonly">
+      </div><br>
+      <div>
+        Output
+        <input type="text" name="output" value="${output}" readonly="readonly">
+      </div><br>
+      <div>
+        Created_at
+        <input type="text" name="created_at" value="${created_at}" readonly="readonly">
+      </div><br>
+      <div>
+        Completed_at
+        <input type="text" name="completed_at" value="${completed_at}" readonly="readonly">
+      </div><br>
+      <div>
+        <input type="text" name="logic" value="${logic}" hidden>
+        <input type="text" name="logic_body" value="${logic_body}" hidden>
+        <input type="text" name="logic_headers" value="${logic_headers}" hidden>
+        <input type="text" name="ephimeral_storage_limit" value="${ephimeral_storage_limit}" hidden>
+        <input type="text" name="ephimeral_storage_request" value="${ephimeral_storage_request}" hidden>
+        <input type="text" name="cpu_limit" value="${cpu_limit}" hidden>
+        <input type="text" name="memory_limit" value="${memory_limit}" hidden>
+        <input type="text" name="cpu_request" value="${cpu_request}" hidden>
+        <input type="text" name="memory_request" value="${memory_request}" hidden>
+        <input type="number" name="priority" value="${priority}" hidden>
+        <input type="number" name="parallelism" value="${parallelism}" hidden>
+        <input type="number" name="timeout" value="${timeout}" hidden>
+      </div>
+    </div>
+      <div>
+        Description<br>
+        <textarea name="description" maxlength="150">${description}</textarea>
+      </div><br>
+
+      <div>
+        User id<br>
+        <input type="number" name="uid" value="${uid}" min="0" required>
+      </div><br>
+
+      <div>
+        Status <br>
+        <input type="text" name="status" value="${status}" required>
+      </div><br>
+
+      <div>
+        Completed
+        <input type="checkbox" name="completed" value="true" ${completed === "true" || completed === true ? "checked" : ""}>
+      </div><br>
+
+      <div class="modal-actions">
+        <button type="submit">Submit</button>
+        <button type="button" id="cancel-modal-btn" onclick="this.parentNode.parentNode.parentNode.parentNode.classList.add('hidden');">Cancel</button>
+      </div>
+    </form>
+  </div>
+  <div class="feedback hidden modal-feedback"></div>
+  `;
+
+  const modalExists = parentDiv.querySelector('.modal');
+  if (modalExists) {
+    modalExists.innerHTML = html;
+    modalExists.classList.remove('hidden');
+    htmx.process(modalExists.querySelector("#modify-job-form"));
+  } else {
+    const modJobDiv = document.createElement("div");
+    modJobDiv.className = "modal";
+    modJobDiv.innerHTML = html;
+    htmx.process(modJobDiv.querySelector("#modify-job-form"));
+    parentDiv.appendChild(modJobDiv);
+  }
+}
+
+function modAppModal(div, parentDiv) {
+   if (!div || !parentDiv) {
+    return
+  }
+  const id = div.querySelector('.app-id').textContent.replace("app-id:", "").trim();
+  const name = div.querySelector('.app-name').textContent.trim().split(" ")[0];
+  const version = div.querySelector('.app-version').textContent.replace("v", "").trim();
+  const status = div.querySelector('.app-status').textContent.trim();
+  const image = div.querySelector('.image').textContent.replace("Image:", "").trim();
+  const author = div.querySelector('.author').textContent.replace("Author: ", "").trim();
+  const author_id = div.querySelector('.author_id').textContent.trim();
+  const created_at = div.querySelector('.created_at').textContent.replace("Created: ", "").trim();
+  const inserted_at = div.querySelector('.inserted_at').textContent.trim();
+  const description = div.querySelector('.app-description').textContent.trim();
+ 
+  const html = `
+  <div class="modal-content">
+    <h2>Modify App</h2>
+    <form 
+      id="modify-app-form"
+      class="modify-app"
+      hx-put="/api/v1/verified/admin/apps"
+      hx-swap="none"
+      hx-trigger="submit"
+    >
+      <div class="disabled-display">
+        <div>
+          App id
+          <input type="number" name="id" value="${id}" readonly="readonly"  tabindex="-1">
+        </div><br>
+        <div>
+          Created_at
+          <input type="text" name="created_at" value="${created_at}" readonly="readonly"  tabindex="-1">
+        </div><br>
+        <div>
+          Inserted_at
+          <input type="text" name="inserted_at" value="${inserted_at}" readonly="readonly"  tabindex="-1">
+        </div><br>
+        <div>
+          <input type="hidden" name="author_id" value="${author_id}"  tabindex="-1">
+        </div>
+        
+      </div>
+      <div>
+        Name<br>
+        <input type="text" name="name" value="${name}" required>
+      </div><br>
+      <div>
+        Image<br>
+        <input type="text" name="image" value="${image}" required>
+      </div><br>
+      <div>
+        Version<br>
+        <input type="text" name="version" value="${version}" required>
+      </div><br>
+      <div>
+        Author<br>
+        <input type="text" name="author" value="${author}" required>
+      </div><br>
+
+      <div>
+        Description<br>
+        <textarea name="description" maxlength="150">${description}</textarea>
+      </div><br>
+
+      <div>
+        Status <br>
+        <input type="text" name="status" value="${status}" required>
+      </div><br>
+
+
+      <div class="modal-actions">
+        <button type="submit">Submit</button>
+        <button type="button" id="cancel-modal-btn" onclick="this.parentNode.parentNode.parentNode.parentNode.classList.add('hidden');">Cancel</button>
+      </div>
+    </form>
+  </div>
+  <div class="feedback hidden modal-feedback"></div>
+  `;
+
+  const modalExists = parentDiv.querySelector('.modal');
+  if (modalExists) {
+    modalExists.innerHTML = html;
+    modalExists.classList.remove('hidden');
+    htmx.process(modalExists.querySelector("#modify-app-form"));
+  } else {
+    const modJobDiv = document.createElement("div");
+    modJobDiv.className = "modal";
+    modJobDiv.innerHTML = html;
+    htmx.process(modJobDiv.querySelector("#modify-app-form"));
+    parentDiv.appendChild(modJobDiv);
+  }
 }

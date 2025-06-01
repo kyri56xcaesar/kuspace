@@ -10,6 +10,10 @@ const modeMap = {
     duckdb: "text/x-sql",   // duckdb is SQL-based
     sql: "text/x-sql",
     python: "python",
+    pypandas: "python",
+    octave: "text",
+    caengine: "text",
+    bash: "text/x-sh",
     custom: "python"
   };
   
@@ -28,10 +32,26 @@ const defaultMap = {
   python:`
 def run(data):\n\treturn data
 `,
+  pypandas: `# example\n
+df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")\n
+df = df.rename(columns={"col1": "col1_renamed"})
+  `,
+  octave: `# example\n
+input(:,2) += 5;\n
+output = input;
+  `,
+  ffmpeg: `# example' extract audio then recombine with different bitrate\n
+ffmpeg -i {input} -vn -acodec copy audio.aac && ffmpeg -i {input} -i audio.aac -c:v copy -c:a aac -b:a 128k {output}
+  `,
+  caengine: `states: 2\n
+generations: 20\n
+neighborhood: [[1,1,1],[1,0,1],[1,1,1]]\n
+`,
+  bash: `# example, sort by the second column\ntail -n +2 {input} | sort -t, -k2 -nr > {output}`,
   go:"func run(data string) string {return data}\n",
   c:"void run(char *buffer) {}\n",
   java:"public static String run(String data) {return data;}\n",
-  duckdb:"--example\nCREATE TABLE test_data AS SELECT * FROM #%;\nSELECT * FROM test_data LIMIT 5;\n",
+  duckdb:"--example\nCREATE TABLE test_data AS SELECT * FROM {input};\nSELECT * FROM test_data LIMIT 5;\n",
   sql:"SELECT * FROM table_name;\n",
 }
 

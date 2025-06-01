@@ -113,6 +113,8 @@ select {
   opacity: 0.5;
 }
 
+
+
 .true {
   color: green;
 }
@@ -417,6 +419,19 @@ select {
   padding: 2rem;
   overflow-y: auto;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1392,7 +1407,7 @@ select {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 0px 0px 0px 20px;
+      padding: 0px 20px 0px 20px;
       
 
       & :is(.resource-preview-content) {
@@ -1759,6 +1774,113 @@ select {
 
 
 
+/* dashboard */
+
+#dashboard-metrics-loader {
+  /* Layout */
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    padding: 1rem;
+  }
+  @media (min-width: 768px) {
+    .dashboard-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  @media (min-width: 1280px) {
+    .dashboard-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  /* Cards */
+  .card {
+    border: 1px solid #ccc;
+    border-radius: 12px;
+    padding: 1rem;
+    background-color: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  }
+  .card.wide {
+    grid-column: span 2;
+  }
+  .card.full {
+    grid-column: span 3;
+  }
+  .card.scroll {
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  /* Titles & Text */
+  .section-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+  }
+  .flex-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+  }
+  .flex-row.small {
+    font-size: 0.9rem;
+  }
+  .mono {
+    font-family: monospace;
+  }
+  .value {
+    font-weight: 600;
+  }
+  .metric {
+    margin-bottom: 0.3rem;
+  }
+
+  /* Events */
+  .event-entry {
+    font-size: 0.9rem;
+    padding: 6px 0;
+    border-bottom: 1px solid #eee;
+  }
+  .badge {
+    display: inline-block;
+    background: #eee;
+    padding: 2px 6px;
+    font-size: 0.75rem;
+    border-radius: 6px;
+    margin-right: 6px;
+  }
+  .event-main {
+    font-weight: 500;
+  }
+  .meta {
+    font-size: 0.75rem;
+    color: #666;
+  }
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* J BROWSER */
 .row-flex-sb {
@@ -1894,6 +2016,9 @@ select {
     }
   }
 
+  & #j-description {
+    overflow-x: hidden;
+  }
 
   & h4 {
     text-align: center;
@@ -1938,6 +2063,10 @@ select {
     flex-direction: column;
     gap: 30px;
     padding: 1rem;
+
+    & > div {
+      overflow-x: clip;
+    }
 
     & .form-grid {
       display: flex;
@@ -2090,7 +2219,21 @@ select {
   transition: 1s all ease;
   user-select: text;
   position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 
+
+  &:hover .options {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+
+  & #job-options {
+    display: flex;
+    flex-direction: row;
+    right: 40px;
+    top: 5px;
+  }
   
   & div {
     display: flex;
@@ -2105,14 +2248,24 @@ select {
     font-weight: bold;
     font-size: 16px;
     align-items: start;
-  }
-
-  & > div:nth-child(1) {
     flex-direction: column;
   }
 
   & > div:nth-child(2) {
     border-top: 1px solid black;
+
+    /* details */
+    & >div:nth-child(1) {
+      /* left */
+      text-wrap: nowrap;
+    }
+
+    & >div:nth-child(2) {
+      max-width: 500px;
+      overflow-x: clip;
+      text-overflow: ellipsis; 
+      margin-right: 5px;
+    }
   }
 
   & :is(.jid) {
@@ -2142,10 +2295,18 @@ select {
   }
 }
 
+.job-display-entry:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 0 0 4px #fff;
+  background-color: #bbd2e9;
+  box-shadow: 0 4px 12px rgba(0, 200, 255, 0.2);
+  transform: translateY(-2px);
+}
+
 .job-display-entry div div {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  padding: 9px;
 }
 
 .job-display-entry.dark-mode {
@@ -2157,10 +2318,18 @@ select {
   font-family: 'Segoe UI', sans-serif;
   padding: 1.5rem;
 
-  .apps-title {
-    font-size: 1.8rem;
-    margin-bottom: 1rem;
+  .apps-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    .apps-title {
+      font-size: 1.8rem;
+      margin-bottom: 1rem;
+    }
+
   }
+
 
   .apps-list {
     display: grid;
@@ -2181,6 +2350,23 @@ select {
     &:hover {
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    & #app-options {
+      gap: 10px;
+      right: 0;
+      bottom: 45px;
+    }
+
+    &:hover .options {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+
+    .app-id {
+      font-size: 0.6rem;
+      font-style: none;
     }
 
     .app-header {
@@ -2300,52 +2486,9 @@ select {
     flex: 1;
   }
 
-  .options {
-    flex:none;
-    position: absolute;
+  & #volume-options {
     bottom: 50px;
     right: 50px;
-    opacity: 0;
-    transform: translateY(10px) scale(0.95);
-    transition: opacity 0.3s ease, transform 0.3s ease;
-    pointer-events: none;
-    display: flex;
-    gap: 30px;
-    /* Optional styling for appearance */
-    /* background-color: #333; */
-    color: white;
-    border: none;
-    border-radius: 6px;
-    padding: 4px 8px;
-    font-size: 14px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-
-    & > button {
-      color: white;                  
-      border: none;                  
-      padding: 6px 12px;            
-      border-radius: 4px;            
-      cursor: pointer;               
-      font-weight: 500;
-      transition: background-color 0.3s ease, transform 0.2s ease;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.15); 
-    }
-
-    & :nth-child(2) {
-        background-color: #e53935;     
-    }
-
-  }
-
-  
-  .options button:hover {
-    /* background-color: #c62828; */
-    transform: scale(1.05);    
-  }
-
-  .options button:active {
-    /* background-color: #b71c1c; */
-    transform: scale(0.98);
   }
 
   &:hover .options {
@@ -2383,7 +2526,64 @@ select {
   cursor: pointer;
 }
 
+.options {
+  flex:none;
+  position: absolute;
+  opacity: 0;
+  transform: translateY(10px) scale(0.95);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
+  display: flex;
+  gap: 30px;
+  /* Optional styling for appearance */
+  /* background-color: #333; */
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 14px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  & > button {
+    color: white;                  
+    border: none;                  
+    padding: 6px 12px;            
+    border-radius: 4px;            
+    cursor: pointer;               
+    font-weight: 500;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15); 
+  }
+  & :nth-child(2) {
+      background-color: #e53935;     
+  }
+}
 
+  
+.options button:hover {
+  /* background-color: #c62828; */
+  transform: scale(1.05);    
+}
+
+.options button:active {
+  /* background-color: #b71c1c; */
+  transform: scale(0.98);
+}
+
+
+
+/* configuration section */
+#sys-conf-loader {
+  h1 {font-size: 1.5rem; margin-bottom: 2rem;}
+
+  .service { margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 8px; background-color: #fff; }
+  .service h2 { margin-top: 0; }
+  code {background-color: #eee; padding: 2px 4px; border-radius: 4px; }
+  & table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  & th, td { padding: 8px; border-bottom: 1px solid #2d2525; text-align: left; }
+  & th { background-color: #f2f2f2; }
+
+  .darkened.dark-mode {code {background-color: #0000001c;}; th {background-color: black;}; & th, td{border-bottom: 1px solid #ddd;}}
+}
 
 /* SPINNERS & LOADERS*/
 /* loaders/spinners */
@@ -2539,7 +2739,7 @@ select {
 
 .modal-content {
   background: #1e1e1e;
-  padding: 20px 30px;
+  padding: 20px 50px 20px 30px;
   border-radius: 8px;
   width: 400px;
   color: white;
@@ -2548,6 +2748,21 @@ select {
   & > div {
     max-height: 700px;
     overflow-y: auto;
+  }
+
+  & .disabled-display {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: end;
+    & input {
+      width: unset !important;
+      pointer-events: none !important;
+    }
+    pointer-events: none;
+    opacity: 0.5;
+  }
+  & .disabled-display:hover {
+    cursor: not-allowed;
   }
 }
 
@@ -2558,6 +2773,13 @@ select {
   border-radius: 4px;
   background-color: #2a2a2a;
   color: white;
+}
+
+.modal-content textarea {
+  width: 100%;
+  max-height: 200px;
+  overflow-y: auto;
+  resize: none;
 }
 
 .modal-actions {

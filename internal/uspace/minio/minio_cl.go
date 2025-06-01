@@ -62,9 +62,9 @@ func NewMinioClient(cfg ut.EnvConfig) MinioClient {
 	}
 	var endpoint string
 	if cfg.PROFILE == "baremetal" {
-		endpoint = cfg.MINIO_NODEPORT_ENDPOINT
+		endpoint = strings.TrimPrefix(cfg.MINIO_NODEPORT_ENDPOINT, "http://")
 	} else {
-		endpoint = cfg.MINIO_ENDPOINT
+		endpoint = strings.TrimPrefix(cfg.MINIO_ENDPOINT, "http://")
 	}
 
 	mc := MinioClient{

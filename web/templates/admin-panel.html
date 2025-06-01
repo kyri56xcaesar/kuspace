@@ -27,6 +27,7 @@
   <script src="../js/codemirror/codemirror.min.js"></script>
   <script src="../js/codemirror/mode/python/python.js"></script>
   <script src="../js/codemirror/mode/sql/sql.js"></script>
+  <script src="../js/codemirror/mode/sh/shell.js"></script>
   <script src="../js/codemirror/addon/edit/matchbrackets.js"></script>
   <script src="../js/codemirror/addon/edit/matchtags.js"></script>
   <script src="../js/codemirror/addon/edit/trailingspace.js"></script>
@@ -79,6 +80,16 @@
                   </a>
                 </div>
               </li>
+
+                {{ if not .elevated }}
+              <li>
+                <div class="submenu-item-wrapper">
+                  <a href="#" onclick="showSection('volumes')">
+                    <i class="fa-solid fa-bucket"></i>Volumes
+                  </a>
+                </div>
+              </li>
+              {{ end }}
             </ul>
           </div>
         </li>
@@ -236,8 +247,6 @@
             hx-post="/api/v1/verified/admin/useradd"
             hx-swap="none" 
             hx-trigger="submit" 
-            hx-target=""
-            hx-indicator="#useradd-spinner"
           >
 
             <div class="form-group">
@@ -510,6 +519,22 @@
           </div>
         </div>
       </section>
+      <section id="settings" class="content-section hidden">
+        <h2>Settings</h2>
+        <p class="fading">Manage settings.</p>
+        <hr>
+        <div>
+          <div
+            id="sys-conf-loader"
+            class=""
+            hx-get="/api/v1/verified/admin/system-conf"
+            hx-trigger="load"
+            hx-target="this"
+            hx-swap="innerHTML"
+          >
+          </div>
+        </div>
+      </section>
       <section id="volumes" class="content-section hidden">
         <h2>Manage Volumes</h2>
         <p class="fading">View and manage existing volumes</p>
@@ -550,15 +575,14 @@
               <button
                 id="create-volume-btn"
                 onclick="show(document.getElementById('create-volume-modal'))"
-              ><i class="fa fa-plus" aria-hidden="true"></i>New Volume</button>
-            </div>
-
-          
+              ><i class="fa fa-plus" aria-hidden="true"></i>
+              New Volume
+              </button>
+            </div>     
           </div>
-          <hr>          
-          
+          <hr>                   
           <div id="volumes-target" class="subsection"></div>
-
+          
           <div id="create-volume-modal" class="subsection modal hidden">
             <div class="modal-content">
               <h2>Create Volume</h2>
@@ -597,21 +621,27 @@
             </div>
           </div>
 
-        </div>
-        
-      </section>
-      <section id="settings" class="content-section hidden">
-        <h2>Settings</h2>
-        <p class="fading">Manage settings.</p>
-        <hr>
-        <div>
-          <p>Settings will be here.</p>
-        </div>
+        </div>  
       </section>
       {{ end }}
 
       <!-- general authorization -->
       <section id="dashboard" class="content-section hidden">
+        {{ if .elevated }}
+        <div
+          id="dashboard-metrics-loader"
+          hx-get="/api/v1/verified/admin/system-metrics"
+          hx-target="this"
+          hx-swap="innerHTML"
+          hx-trigger="load"
+        >
+        </div>
+        {{ else }}
+        <div id="user-metrics">
+          <h3>User specific metrics should be here...</h3>
+        </div>
+        {{ end }}
+        
       </section>
       <section id="job-browser" class="content-section">
         <div class="job-browser-content">
@@ -708,7 +738,7 @@
                       </div>
                     </div>
   
-                    <div class="job-optional">
+                    <div class="job-optional" id="j-description">
                       <textarea id="description" name="description" class="text-input" rows="2" placeholder="Description (optional)" maxlength="150"></textarea>
                     </div>
                   </div>
@@ -752,7 +782,7 @@
   
                   <div class="collapsible info">
                     <div>
-                      <p class="target"><strong>Info!</strong> the '#%' FROM clause is required as a 'placeholder' to read from the specified input!</p>
+                      <p class="target"><strong>Info!</strong> the '{input}' FROM clause is required as a 'placeholder' to specify an input!</p>
                       <button type="button" class="toggle-button-collapse collapsible">
                         <svg class="arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="arrow">
                           <line x1="19" y1="12" x2="5" y2="12"></line>
@@ -771,7 +801,6 @@
                           Application:
                           <select id="language-selector" name="logic">
                             <option value="duckdb" selected>duckdb</option>
-                            <option value="python">Python</option>
                           </select>
                         </label>
   
@@ -971,7 +1000,7 @@
               <div class="feedback hidden" id="user-actions-feedback"></div>
             </div>
             <div id="vfs-display" class="darkened">
-              <h3>your Files</h3>
+              <h3>Files</h3>
               <div>
                 <div 
                   id="vfs"
@@ -1054,6 +1083,52 @@
 
         </div>
       </section>
+
+      {{ if not .elevated }}
+      <section id="volumes" class="content-section hidden">
+        <h2>Manage Volumes</h2>
+        <p class="fading">View and manage existing volumes</p>
+        <hr>
+        <div>
+        </div>
+        <div 
+          id="fetch-volumes-display"
+          hx-trigger="load" 
+          hx-get="/api/v1/verified/fetch-volumes" 
+          hx-target="#volumes-target" 
+          hx-swap="innerHTML"
+        >
+        </div>
+        <div class="v-content">
+          <div class="v-header">
+            <div class="search-bar">
+              <input id="volume-search" type="text" placeholder="Search by 'name'">
+              <button type="submit">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+                  <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z">
+                </svg>
+              </button>
+              <select id="search-by">
+                <option value="name" selected>Name</option>
+                <option value="createdat">CreatedAt</option>
+              </select>
+            </div>
+            <div>
+              <button
+                id="fetch-volumes-btn"
+                hx-get="/api/v1/verified/fetch-volumes"
+                hx-target="#volumes-target"
+                hx-swap="innerHTML"
+                hx-trigger="click"
+              ><i class="fas fa-redo"></i>
+              </button>
+            </div>     
+          </div>
+          <hr>                   
+          <div id="volumes-target" class="subsection"></div>
+        </div>
+      </section>
+      {{ end }}
 
     </main>
   </div>

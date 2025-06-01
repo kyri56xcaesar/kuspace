@@ -376,7 +376,7 @@ func (srv *UService) updateApp(a ut.Application) error {
 		WHERE
 			id = ?
 	`
-	_, err = db.Exec(query, a.FieldsNoId(), a.Id)
+	_, err = db.Exec(query, a.Name, a.Image, a.Description, a.Version, a.Author, a.AuthorId, a.Status, a.InsertedAt, a.CreatedAt, a.Id)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
 		return err

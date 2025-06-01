@@ -4,7 +4,7 @@ import sqlparse
 
 
 # get env vars
-placeholder = "#%"
+placeholder = "{input}"
 query = os.getenv("LOGIC", "SELECT * FROM read_csv_auto('input.csv');")
 query = query.replace('"', "'")
 
@@ -16,7 +16,7 @@ output_bucket = os.getenv("OUTPUT_BUCKET", "uspace-default")
 output_object = os.getenv("OUTPUT_OBJECT", "output.csv")
 output_format = os.getenv("OUTPUT_FORMAT", "txt")
 
-minio_endpoint = os.getenv("ENDPOINT", "minio:9000")
+minio_endpoint = os.getenv("ENDPOINT", "http://minio:9000")
 minio_access_key = os.getenv("ACCESS_KEY", "minioadmin")
 minio_secret_key = os.getenv("SECRET_KEY", "minioadmin")
 

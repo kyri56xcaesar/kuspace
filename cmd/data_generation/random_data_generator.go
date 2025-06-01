@@ -16,15 +16,20 @@ import (
 )
 
 const (
-	MAX_FOLD    = 20
-	MAX_LENGTH  = 1000
-	MAX_HEIGHT  = 1000000000
-	outputPath  = "tmp/"
-	charset     = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	charsetPlus = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()€¥"
+	MAX_FOLD           = 20
+	MAX_LENGTH         = 1000
+	MAX_HEIGHT         = 1000000000
+	outputPath         = "tmp/"
+	charsetPlus        = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()€¥"
+	numbers            = "0123456789"
+	characters         = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	caps_characters    = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	lower_characters   = "abcdefghijklmnopqrstuvwxyz"
+	special_characters = "!@#$%^&*()€¥"
 )
 
 var (
+	charset    = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" //default charset
 	output     = flag.String("out", "random_dataset.csv", "specify output file")
 	lineLength = flag.Int("length", 10, "length of each field")
 	lineHeight = flag.Int("lines", 10, "number of lines (rows)")
@@ -35,6 +40,12 @@ var (
 
 	timeout = flag.Int64("timeout", 900, "timeout in seconds")
 	toFile  = flag.Bool("f", false, "write output to file")
+
+	nums    = flag.Bool("numbers", false, "charset only numbers")
+	chars   = flag.Bool("chars", false, "charset characters only")
+	caps    = flag.Bool("caps", false, "charset caps characters only")
+	lower   = flag.Bool("lower", false, "charset lower characters only")
+	special = flag.Bool("special", false, "charset special characters only")
 )
 
 type Row map[string]string
@@ -181,6 +192,18 @@ func parseFlags() {
 		*lineLength = MAX_LENGTH
 	} else if *lineLength <= 0 {
 		*lineLength = 1
+	}
+
+	if *nums {
+		charset = numbers
+	} else if *chars {
+		charset = characters
+	} else if *caps {
+		charset = caps_characters
+	} else if *lower {
+		charset = lower_characters
+	} else if *special {
+		charset = special_characters
 	}
 }
 

@@ -18,6 +18,7 @@ import (
 	"time"
 
 	_ "kyri56xcaesar/kuspace/api/uspace"
+	k "kyri56xcaesar/kuspace/internal/uspace/kubernetes"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 	"kyri56xcaesar/kuspace/pkg/fslite"
 
@@ -259,7 +260,34 @@ func (srv *UService) RegisterRoutes() {
 			"/app",
 			srv.handleAppsAdmin,
 		)
+		// system, metrics, conf
+		{
+			admin.Match(
+				[]string{"GET"},
+				"/system-conf",
+				srv.handleSysConf,
+			)
+
+			admin.GET("/system-metrics", func(c *gin.Context) {
+				k_metrics, err := k.GetSystemMetrics(srv.config.NAMESPACE)
+				if err != nil {
+					log.Printf("[API] system metrics errors: %v", err)
+				}
+				c.JSON(http.StatusOK, k_metrics)
+			})
+
+		}
 	}
+}
+
+func (srv *UService) handleSysConf(c *gin.Context) {
+	uspacecfg, err := ut.ReadConfig("configs/"+srv.config.ConfigPath, false)
+	if err != nil {
+		log.Printf("[API_sysConf] failed to read config: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, uspacecfg)
 }
 
 // this should propably sync users/data from minio or other storage providers.

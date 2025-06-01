@@ -17,6 +17,7 @@ package utils
 * */
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -42,15 +43,16 @@ type EnvConfig struct {
 	API_CERT_FILE string // path to a cert file
 	API_KEY_FILE  string // path to a key file
 
-	API_GIN_MODE       string
-	API_LOGS_PATH      string // path to logs dir
-	API_LOGS_MAX_FETCH int    // max logs size (in MB)
-	API_PORT           string // main service port
-	API_ADDRESS        string // main service address name (default IP)
-	FRONT_PORT         string
-	FRONT_ADDRESS      string
-	AUTH_PORT          string
-	AUTH_ADDRESS       string
+	API_GIN_MODE         string
+	API_LOGS_PATH        string // path to logs dir
+	API_LOGS_MAX_FETCH   int    // max logs size (in MB)
+	API_PORT             string // main service port
+	API_ADDRESS          string // main service address name (default IP)
+	FRONT_PORT           string
+	FRONT_ADDRESS        string
+	AUTH_PORT            string
+	AUTH_ADDRESS         string
+	WSS_ADDRESS_INTERNAL string
 	// front as in the frontend app  // frontend app itself should use api vars
 	// auth as in an authentication app // if an auth app uses this configuration, it should reference api port as itself
 
@@ -187,18 +189,19 @@ func LoadConfig(path string) EnvConfig {
 		OBJECT_SIZE_THRESHOLD:   getEnv("OBJECT_SIZE_THRESHOLD", "400000000"),
 		MINIO_FETCH_STAT:        getBoolEnv("MINIO_FETCH_STAT", "false"),
 
-		J_DISPATCHER:      getEnv("J_DISPATCHER", "default"),
-		J_EXECUTOR:        getEnv("J_EXECUTOR", "docker"),
-		J_QUEUE_SIZE:      getEnv("J_QUEUE_SIZE", "100"),
-		J_MAX_WORKERS:     getEnv("J_MAX_WORKERS", "10"),
-		J_WS_ADDRESS:      getEnv("J_WS_ADDRESS", "localhost:8082"),
-		J_WS_LOGS_PATH:    getEnv("J_WS_LOGS_PATH", "data/logs/jobs/job_ws.log"),
-		J_MAX_CPU:         getInt64Env("J_MAX_CPU", 16),
-		J_MAX_MEM:         getInt64Env("J_MAX_MEM", 65000),
-		J_MAX_STORAGE:     getInt64Env("J_MAX_STORAGE", 20),
-		J_MAX_PARALLELISM: int(getInt64Env("J_MAX_PARALLELISM", 16)),
-		J_MAX_TIMEOUT:     getInt64Env("J_MAX_TIMEOUT", 6000),
-		J_MAX_LOGIC_CHARS: getInt64Env("J_MAX_LOGIC_CHARS", 1000000),
+		J_DISPATCHER:         getEnv("J_DISPATCHER", "default"),
+		J_EXECUTOR:           getEnv("J_EXECUTOR", "docker"),
+		J_QUEUE_SIZE:         getEnv("J_QUEUE_SIZE", "100"),
+		J_MAX_WORKERS:        getEnv("J_MAX_WORKERS", "10"),
+		J_MAX_CPU:            getInt64Env("J_MAX_CPU", 16),
+		J_MAX_MEM:            getInt64Env("J_MAX_MEM", 65000),
+		J_MAX_STORAGE:        getInt64Env("J_MAX_STORAGE", 20),
+		J_MAX_PARALLELISM:    int(getInt64Env("J_MAX_PARALLELISM", 16)),
+		J_MAX_TIMEOUT:        getInt64Env("J_MAX_TIMEOUT", 6000),
+		J_MAX_LOGIC_CHARS:    getInt64Env("J_MAX_LOGIC_CHARS", 1000000),
+		J_WS_ADDRESS:         getEnv("J_WS_ADDRESS", "localhost:8082"),
+		J_WS_LOGS_PATH:       getEnv("J_WS_LOGS_PATH", "data/logs/jobs/job_ws.log"),
+		WSS_ADDRESS_INTERNAL: getEnv("WSS_ADDRESS_INTERNAL", "wss:8082"),
 
 		DB_JOBS:                getEnv("DB_JOBS", "jobs.db"),
 		DB_JOBS_DRIVER:         getEnv("DB_JOBS_DRIVER", "duckdb"),
@@ -456,4 +459,36 @@ func MakeConfig(path string, fields any) error {
 	}
 
 	return nil
+}
+
+func ReadConfig(path string, secrets bool) (map[string]string, error) {
+	cfg, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer cfg.Close()
+
+	cfgV := make(map[string]string)
+
+	scanner := bufio.NewScanner(cfg)
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		line = strings.TrimSpace(line)
+		if len(line) == 0 || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if !secrets && strings.Contains(strings.ToLower(line), "_key") {
+			continue
+		}
+
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			return nil, err
+		}
+		cfgV[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+
+	}
+
+	return cfgV, nil
 }

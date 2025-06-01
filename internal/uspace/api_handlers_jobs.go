@@ -290,6 +290,7 @@ func (srv *UService) handleJobAdmin(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"content": job})
+	// admin post will not submit hte job in the system
 	case http.MethodPost:
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
@@ -314,17 +315,18 @@ func (srv *UService) handleJobAdmin(c *gin.Context) {
 				return
 			}
 
-			// "publish" jobs
-			err = srv.jdp.PublishJobs(jobs)
-			if err != nil {
-				log.Printf("failed to publish the jobs: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to publish jobs"})
-				return
-			}
+			// // "publish" jobs
+			// err = srv.jdp.PublishJobs(jobs)
+			// if err != nil {
+			// 	log.Printf("failed to publish the jobs: %v", err)
+			// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to publish jobs"})
+			// 	return
+			// }
 
 			// respond with status
 			c.JSON(http.StatusOK, gin.H{
 				"status": "job(s) published",
+				"jid":    -1,
 			})
 			return
 		}

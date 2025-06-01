@@ -1,16 +1,15 @@
 FROM golang:latest AS builder
 
 WORKDIR /app
+COPY go.mod go.sum ./
 COPY ./internal/utils/ ./internal/utils/
 COPY ./internal/frontapp/ ./internal/frontapp/
 COPY ./cmd/frontapp/ ./cmd/frontapp/ 
-COPY go.mod go.sum ./
-RUN go mod download
 RUN GOOS=linux go build -o ./cmd/frontapp/frontapp ./cmd/frontapp/main.go 
 
 FROM debian:bookworm-slim
 WORKDIR /root/
-RUN apt-get update && apt-get install -y libstdc++6 
+RUN apt-get update && apt-get install -y libstdc++6 && rm -rf /var/lib/apt/lists/*
 COPY ./web/ ./web/
 COPY --from=builder /app/cmd/frontapp/frontapp .
 

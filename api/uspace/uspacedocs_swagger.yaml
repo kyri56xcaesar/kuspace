@@ -1399,7 +1399,6 @@ paths:
       summary: Preview a resource
       tags:
       - resources
-      - preview
   /resource/rm:
     delete:
       consumes:

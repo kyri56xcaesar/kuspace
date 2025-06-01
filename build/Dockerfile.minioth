@@ -1,17 +1,17 @@
-FROM golang:1.23.4 AS builder
+FROM golang:latest AS builder
 
 WORKDIR /app
+COPY go.mod go.sum ./
 COPY ./internal/utils/ ./internal/utils/
 COPY ./cmd/minioth/ ./cmd/minioth/ 
 COPY ./api/minioth/ ./api/minioth/
 COPY ./pkg/minioth/ ./pkg/minioth/
-COPY go.mod go.sum ./
-RUN go mod download
+# RUN go mod download // no need
 RUN GOOS=linux go build -o ./cmd/minioth/minioth ./cmd/minioth/main.go 
 
 FROM debian:bookworm-slim
 WORKDIR /root/
-RUN apt-get update && apt-get install -y libstdc++6 
+RUN apt-get update && apt-get install -y libstdc++6 && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/cmd/minioth/minioth .
 
 RUN chmod +x /root/minioth

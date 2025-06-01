@@ -201,40 +201,57 @@
 
 
 {{ define "jobs_list_template.html" }}
-  <ul>
-  {{ range . }}
+  <ul>  
+  {{ range .Content }}
+  {{ $j := . }} 
     <li>
       <div class="job-display-entry darkened fade-out">
         <div>
-          <span class="jid"> #JobId: {{ .Jid }}</span>
-          <span class="uid"> by {{ .Uid }} </span>
+          <span class="jid"> #JobId: {{ $j.Jid }}</span>
+          <span class="uid"> by {{ $j.Uid }} </span>
+
+          {{ if $.Admin }}
           <div class="options" id="job-options">
-            <button id="modButton">Modify</button>
+            <button type="button" id="modButton" onclick="modJobModal(this.parentNode.parentNode.parentNode, this.parentNode.parentNode.parentNode.parentNode.parentNode.parentNode)">Modify</button>
             <button 
               id="delete-job-btn"
-              hx-delete="/api/v1/verified/admin/job?jid={{ .Jid }}"
+              hx-delete="/api/v1/verified/admin/jobs?jid={{ .Jid }}"
               hx-swap="none"
               hx-confirm="Are you sure you want to delete job {{ .Jid }}"
             >Delete</button>
           </div>
+          {{ end }}
         </div>
         <div>
           <div>
-            <span class="status {{ if eq .Status "completed" }}success{{ else if eq .Status "pending" }}pending{{ else if eq .Status "failed" }}fail{{ end }}">
-              Status: {{ .Status }}
+            <span class="status {{ if eq $j.Status "completed" }}success{{ else if eq $j.Status "pending" }}pending{{ else if eq $j.Status "failed" }}fail{{ end }}">
+              Status: {{ $j.Status }}
             </span>            
-            <span class="duration"> Duration: {{ .Duration }} </span>
+            <span class="duration"> Duration: {{ $j.Duration }} </span>
           </div>
           <div>
-            <span class="input"> Input: {{ .Input }} </span>
-            <span class="output"> Output: {{ .Output }} </span>
-            <span> Description: {{ .Description }} </span>
+            <span class="input"> Input: {{ $j.Input }} </span>
+            <span class="output"> Output: {{ $j.Output }} </span>
+            <span class="description"> Description: {{ $j.Description }} </span>
           </div>
           <div>
-            <span class="created_at"> Created_at: {{ .Created_at }} </span>
-            <span class="completed_at"> Completed_at: {{ .Completed_at }} </span>
-            <span class="completed"> Completed: {{ .Completed }} </span>
-
+            <span class="created_at"> Created_at: {{ $j.Created_at }} </span>
+            <span class="completed_at"> Completed_at: {{ $j.Completed_at }} </span>
+            <span class="completed"> Completed: {{ $j.Completed }} </span>
+          </div>
+          <div class="hidden">
+            <span class="parallelism">{{ $j.Parallelism }}</span>
+            <span class="priority">{{ $j.Priority }}</span>
+            <span class="memory_request">{{ $j.MemoryRequest }}</span>
+            <span class="cpu_request">{{ $j.CpuRequest }}</span>
+            <span class="memory_limit">{{ $j.MemoryLimit }}</span>
+            <span class="cpu_limit">{{ $j.CpuLimit }}</span>
+            <span class="ephimeral_storage_request">{{ $j.EphimeralStorageRequest }}</span>
+            <span class="ephimeral_storage_limit">{{ $j.EphimeralStorageLimit }}</span>
+            <span class="logic">{{ $j.Logic }}</span>
+            <span class="logic_body">{{ $j.LogicBody }}</span>
+            <span class="logic_headers">{{ $j.LogicHeaders }}</span>
+            <span class="timeout">{{ $j.Timeout }}</span>
           </div>
         </div>
       </div>
@@ -245,29 +262,46 @@
 
 {{ define "apps_list_template.html" }}
 <div id="apps-list-display">
-  <h2 class="apps-title">Available Applications</h2>
+  <div class="apps-header">
+    <h2 class="apps-title">Available Applications</h2>
+    <button
+      id="reload-applications"
+      hx-trigger="click"
+      hx-get="/api/v1/verified/fetch-apps"
+      hx-target="#fetch-applications-display"
+      hx-swap="innerHTML"
+    ><i class="fas fa-redo"></i>
+    </button>
+  </div>
   <div class="apps-list">
-    {{ range . }}
-    <div class="app-card">
+    {{ range .Content }}
+    <div class="app-card darkened">
       <div class="app-header">
         <div class="app-name">{{ .Name }} <span class="app-version">v{{ .Version }}</span></div>
         <div class="app-status {{ .Status | lower }} {{ if eq .Status "available" }}green{{ else }}red{{ end }}">{{ .Status }}</div>
       </div>
       <div class="app-meta">
-        <div><strong>Image:</strong> {{ .Image }}</div>
-        <div><strong>Author:</strong> {{ .Author }}</div>
-        <div><strong>Created:</strong> {{ .CreatedAt }}</div>
+        <div><span class="app-id"> app-id: {{ .Id }} </span></div>
+        <div class="image"><strong>Image:</strong> {{ .Image }}</div>
+        <div class="author"><strong>Author:</strong> {{ .Author }}</div>
+        <div class="created_at"><strong>Created:</strong> {{ .CreatedAt }}</div>
       </div>
       <p class="app-description">{{ .Description }}</p>
+      <div class="hidden">
+        <span class="author_id">{{ .AuthorId }}</span>
+        <span class="inserted_at">{{ .InsertedAt }}</span>
+      </div>
+      {{ if $.Admin }}
       <div class="options" id="app-options">
-        <button id="modButton">Modify</button>
+        <button id="modButton" onclick="modAppModal(this.parentNode.parentNode, document.getElementById('apps-list-display').parentNode)">Modify</button>
         <button 
           id="delete-app-btn"
-          hx-delete="/api/v1/verified/admin/app?id={{ .Id }}"
+          hx-delete="/api/v1/verified/admin/apps?id={{ .Id }}"
           hx-swap="none"
           hx-confirm="Are you sure you want to delete the app {{ .Name }}"
         >Delete</button>
-        </div>
+      </div>
+      {{ end }}
     </div>
     {{ end }}
   </div>
@@ -295,17 +329,19 @@
     <div>
       <p class="createdat">Created at:<br>{{$v.CreatedAt }}</p>
     </div>
-    <div class="options">
+    <div class="options" id="volume-options">
       <div class="volume-container">
         <button id="uploadButton">Upload Files</button>
         <input type="file" id="fileInput" multiple style="display:none">
       </div>
+      {{ if $.elevated }}
       <button 
         id="delete-volume-btn"
         hx-delete="/api/v1/verified/admin/volumedel?volume={{ $v.Name }}"
         hx-swap="none"
         hx-confirm="Are you sure you want to delete volume {{ $v.Name }}"
       >Delete Volume</button>
+      {{ end }}
     </div>
     <div class="feedback hidden">
 
@@ -542,6 +578,98 @@
 
 </div>
 {{ end }}
+
+{{ define "sys_conf_display.html" }}
+<h1>System Configuration Overview</h1>
+{{ range $service, $config := . }}
+<div class="service darkened">
+    <h2>Service: <code>{{ $service }}</code></h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Key</th>
+                <th>Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ range $key, $value := $config }}
+            <tr>
+                <td>{{ $key }}</td>
+                <td><code>{{ $value }}</code></td>
+            </tr>
+            {{ end }}
+        </tbody>
+    </table>
+</div>
+{{ end }}
+{{ end }}
+
+{{ define "metrics_display.html"}}
+<h2>System stats</h2>
+<div id="metrics-display" class="dashboard-grid">
+
+  <!-- 🧩 Pod Status -->
+  <div class="card darkened">
+    <h2 class="section-title">Pod Status</h2>
+    {{ range $status, $count := .pods }}
+      <div class="flex-row">
+        <span>{{ $status }}</span>
+        <span class="value">{{ $count }}</span>
+      </div>
+    {{ end }}
+  </div>
+
+  <!-- 🧠 CPU & Memory -->
+  <div class="card darkened">
+    <h2 class="section-title">Resource Usage</h2>
+    <div class="metric">CPU:
+      <span class="mono">
+       {{ .total_cpu_milli }} 
+      </span>
+    </div>
+    <div class="metric">Memory:
+      <span class="mono">
+        {{ .total_mem_bytes | bytesToMB }} MB
+      </span>
+    </div>
+  </div>
+
+  <!-- 💾 PVCs -->
+  <div class="card wide darkened">
+    <h2 class="section-title">Disk Volumes</h2>
+    {{ range .disk }}
+      <div class="flex-row small">
+        <div><strong>{{ .name }}</strong> ({{ .volumeName }})</div>
+        <div>{{ .capacity }} | {{ .status }}</div>
+      </div>
+    {{ end }}
+  </div>
+
+  <!-- 📢 Events -->
+  <div class="card full scroll darkened">
+    <h2 class="section-title">Recent Events</h2>
+    {{ range .recent_events }}
+      <div class="event-entry">
+        <span class="badge">{{ .type }}</span>
+        <span class="event-main"><strong>{{ .reason }}</strong>: {{ .message }}</span><br>
+        <span class="meta">Obj: {{ .involvedKind }}/{{ .involved }}</span> · 
+        <span class="meta">Seen {{ .count }}x · {{ .lastSeen | ago }}</span>
+      </div>
+    {{ end }}
+  </div>
+
+  <!-- 🔧 Build Info -->
+  <div class="card darkened">
+    <h2 class="section-title">System Info</h2>
+    <div class="meta"><strong>Version:</strong> {{ .build_info.version }}</div>
+    <div class="meta"><strong>Built at:</strong> {{ .build_info.builtAt }}</div>
+    <div class="meta"><strong>Uptime:</strong> {{ .build_info.uptime }}</div>
+  </div>
+
+</div>
+
+{{ end }}
+
 
 {{ define "empty_template" }}
 

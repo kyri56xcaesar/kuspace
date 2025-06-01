@@ -14,6 +14,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+
+	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
 var (
@@ -228,13 +230,25 @@ func writeMessages(client *Client) {
 	}
 }
 
-func Serve() {
+func Serve(cfg ut.EnvConfig) {
+	Job_log_path = cfg.J_WS_LOGS_PATH
+	Address = cfg.J_WS_ADDRESS
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	engine := gin.Default()
 	engine.GET("/healthz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "alive"})
+	})
+	engine.GET("/system-conf", func(c *gin.Context) {
+		wss, err := ut.ReadConfig("configs/"+cfg.ConfigPath, false)
+		if err != nil {
+			log.Printf("[API_sysConf] failed to read frontapp config: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, wss)
 	})
 	engine.GET("/get-session", HandleWSsession)
 	engine.DELETE("/delete-session", HandleWSsessionClose)

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os/signal"
 	"reflect"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -48,7 +49,11 @@ func NewService(conf string) HTTPService {
 
 	authServiceURL = fmt.Sprintf("http://%s:%s", service.Config.AUTH_ADDRESS, service.Config.AUTH_PORT)
 	apiServiceURL = fmt.Sprintf("http://%s:%s", service.Config.API_ADDRESS, service.Config.API_PORT)
-
+	if strings.ToLower(service.Config.PROFILE) == "container" {
+		wssServiceURL = fmt.Sprintf("http://%s", service.Config.WSS_ADDRESS_INTERNAL)
+	} else {
+		wssServiceURL = fmt.Sprintf("http://%s", service.Config.J_WS_ADDRESS)
+	}
 	return service
 }
 
@@ -113,7 +118,9 @@ func (srv *HTTPService) ServeHTTP() {
 			b, _ := json.Marshal(v)
 			return template.JS(b)
 		},
-		"lower": strings.ToLower,
+		"lower":     strings.ToLower,
+		"bytesToMB": bytesToMB,
+		"ago":       ago,
 	}
 
 	// set a template eng
@@ -123,6 +130,10 @@ func (srv *HTTPService) ServeHTTP() {
 	srv.Engine.SetHTMLTemplate(tmpl)
 	srv.Engine.Use(static.Serve("/api/"+apiVersion, static.LocalFile(staticsPath, true)))
 	srv.Engine.Use(cors.New(corsconfig))
+
+	if srv.Config.API_GIN_MODE == "release" {
+		// srv.Engine.Use(securityMiddleWare)
+	}
 
 	root := srv.Engine.Group("/")
 	{
@@ -186,24 +197,15 @@ func (srv *HTTPService) ServeHTTP() {
 	verified := apiV1.Group("/verified")
 	verified.Use(AuthMiddleware("user,admin"))
 	{
-		// main pages after login
-		verified.GET("/admin-panel", srv.handleAdminPanel)
-
-		// user
+		// actions
 		verified.POST("/passwd", srv.passwordChangeHandler)
 		verified.PUT("/user-update", srv.updateUser)
-
-		// actions for logged in users
-		verified.GET("/fetch-resources", srv.handleFetchResources) // we want to allow users as well
-		verified.GET("/fetch-volumes", srv.handleFetchVolumes)
 		verified.POST("/upload", srv.handleResourceUpload)
 		verified.GET("/download", srv.handleResourceDownload)
 		verified.GET("/preview", srv.handleResourcePreview)
 		verified.PATCH("/mv", srv.handleResourceMove)
 		verified.POST("/cp", srv.handleResourceCopy)
 		verified.DELETE("/rm", srv.handleResourceDelete)
-		verified.GET("/edit-form", srv.editFormHandler)
-
 		// shell (experimental)
 		verified.GET("/gshell", func(c *gin.Context) {
 			whoami, exists := c.Get("username")
@@ -213,10 +215,16 @@ func (srv *HTTPService) ServeHTTP() {
 			c.HTML(http.StatusOK, "gshell-display.html", gin.H{"whoami": whoami})
 		})
 
+		// render page
+		verified.GET("/admin-panel", srv.handleAdminPanel)
+		verified.GET("/edit-form", srv.editFormHandler)
+		// fetch data
 		// jobs
+
 		verified.POST("/jobs", srv.jobsHandler)
+		verified.GET("/fetch-resources", srv.handleFetchResources) // we want to allow users as well
+		verified.GET("/fetch-volumes", srv.handleFetchVolumes)
 		verified.GET("/fetch-jobs", srv.jobsHandler)
-		// apps
 		verified.GET("/fetch-apps", srv.appsHandler)
 
 		admin := verified.Group("/admin")
@@ -224,6 +232,24 @@ func (srv *HTTPService) ServeHTTP() {
 		admin.Use(AuthMiddleware("admin"))
 		/* minioth will verify token no need to worry here.*/
 		{
+			admin.Match(
+				[]string{"GET"},
+				"/system-conf",
+				srv.handleSysConf,
+			)
+
+			admin.GET("/system-metrics", srv.handleSysMetrics)
+
+			admin.Match(
+				[]string{"GET", "POST", "PUT", "DELETE"},
+				"/jobs",
+				srv.jobAdminHandler,
+			)
+			admin.Match(
+				[]string{"GET", "POST", "PUT", "DELETE"},
+				"/apps",
+				srv.appAdminHandler,
+			)
 			admin.GET("/fetch-users", srv.handleFetchUsers)
 			admin.GET("/fetch-groups", srv.handleFetchGroups)
 
@@ -291,5 +317,47 @@ func setGinMode(mode string) {
 		gin.SetMode(gin.TestMode)
 	default:
 		gin.SetMode(gin.DebugMode)
+	}
+}
+
+func bytesToMB(bytes any) string {
+	switch v := bytes.(type) {
+	case int64:
+		return fmt.Sprintf("%.1f", float64(v)/1024.0/1024.0)
+	case float64:
+		return fmt.Sprintf("%.1f", v/1024.0/1024.0)
+	case string:
+		if num, err := strconv.ParseInt(v, 10, 64); err == nil {
+			return fmt.Sprintf("%.1f", float64(num)/1024.0/1024.0)
+		}
+	}
+	return "N/A"
+}
+
+func ago(t any) string {
+	var parsed time.Time
+	switch v := t.(type) {
+	case time.Time:
+		parsed = v
+	case string:
+		var err error
+		parsed, err = time.Parse(time.RFC3339, v)
+		if err != nil {
+			return "invalid time"
+		}
+	default:
+		return "unknown time"
+	}
+
+	diff := time.Since(parsed)
+	switch {
+	case diff < time.Minute:
+		return "just now"
+	case diff < time.Hour:
+		return fmt.Sprintf("%d min ago", int(diff.Minutes()))
+	case diff < 24*time.Hour:
+		return fmt.Sprintf("%d hr ago", int(diff.Hours()))
+	default:
+		return fmt.Sprintf("%d days ago", int(diff.Hours()/24))
 	}
 }

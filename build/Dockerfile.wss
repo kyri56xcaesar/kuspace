@@ -1,10 +1,9 @@
-FROM golang:1.23.4 AS builder
+FROM golang:latest AS builder
 WORKDIR /app
+COPY go.mod go.sum ./
 COPY ./internal/utils/ ./internal/utils/
 COPY ./internal/ws_registry/ ./internal/ws_registry/
 COPY ./cmd/wss/ ./cmd/wss/
-COPY go.mod go.sum ./
-RUN go mod download
 RUN GOOS=linux go build -o ./cmd/wss/ws_registry ./cmd/wss/main.go
 
 FROM debian:bookworm-slim

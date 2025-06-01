@@ -36,6 +36,7 @@ var (
 	authVersion    string = "/v1"
 
 	apiServiceURL string
+	wssServiceURL string
 )
 
 /*
@@ -1039,12 +1040,18 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch volumes"})
 		return
 	}
-	combinedData := gin.H{
-		"volumes": volumeResp.Content,
-	}
-
 	format := c.Request.URL.Query().Get("format")
 
+	groups := c.GetString("groups")
+	elevated := 0
+	if strings.Contains(groups, "admin") {
+		elevated = 1
+	}
+
+	combinedData := gin.H{
+		"volumes":  volumeResp.Content,
+		"elevated": elevated,
+	}
 	// Render the HTML template
 	respondInFormat(c, format, combinedData, "volumes_template.html")
 }
@@ -1181,6 +1188,184 @@ func (srv *HTTPService) jobsHandler(c *gin.Context) {
 
 		var jobResp struct {
 			Content []ut.Job `json:"content"`
+			Admin   int
+		}
+
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			log.Printf("failed to read response body: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
+			return
+		}
+
+		err = json.Unmarshal(body, &jobResp)
+		if err != nil {
+			log.Printf("failed to unmarshal response: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
+			return
+		}
+
+		// sort on given argument
+		sortBy := c.Request.URL.Query().Get("sort")
+
+		switch sortBy {
+		case "output":
+			sort.Slice(jobResp.Content, func(i, j int) bool {
+				return jobResp.Content[i].Output > jobResp.Content[j].Output
+			})
+		case "uid":
+			sort.Slice(jobResp.Content, func(i, j int) bool {
+				return jobResp.Content[i].Uid > jobResp.Content[j].Uid
+			})
+		case "jid":
+			sort.Slice(jobResp.Content, func(i, j int) bool {
+				return jobResp.Content[i].Jid > jobResp.Content[j].Jid
+			})
+		case "status":
+			sort.Slice(jobResp.Content, func(i, j int) bool {
+				return compareStatus(jobResp.Content[i].Status, jobResp.Content[j].Status)
+			})
+		case "created_at", "time":
+			// sort users on time
+			sort.Slice(jobResp.Content, func(i, j int) bool {
+				t1, err1 := time.Parse(ut.Time_format, jobResp.Content[i].Created_at)
+				t2, err2 := time.Parse(ut.Time_format, jobResp.Content[j].Created_at)
+
+				// Handle parsing errors gracefully (e.g., keep original order)
+				if err1 != nil || err2 != nil {
+					return false
+				}
+
+				return t1.After(t2)
+			})
+		default:
+			// sort users on time
+			sort.Slice(jobResp.Content, func(i, j int) bool {
+				t1, err1 := time.Parse(ut.Time_format, jobResp.Content[i].Created_at)
+				t2, err2 := time.Parse(ut.Time_format, jobResp.Content[j].Created_at)
+
+				// Handle parsing errors gracefully (e.g., keep original order)
+				if err1 != nil || err2 != nil {
+					return false
+				}
+
+				return t1.After(t2)
+			})
+		}
+
+		// answer according to format
+		format := c.Request.URL.Query().Get("format")
+
+		groups := c.GetString("groups")
+		elevated := 0
+		if strings.Contains(groups, "admin") {
+			elevated = 1
+		}
+		jobResp.Admin = elevated
+
+		// Render the HTML template
+		respondInFormat(c, format, jobResp, "jobs_list_template.html")
+	case http.MethodPost:
+		// lets fix the uid (identify ourselves)
+		var job ut.Job
+		err := c.ShouldBind(&job)
+		if err != nil {
+			log.Printf("failed to bind json body: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to bind"})
+			return
+		}
+
+		err = job.ValidateForm(srv.Config.J_MAX_CPU, srv.Config.J_MAX_MEM, srv.Config.J_MAX_STORAGE, int64(srv.Config.J_MAX_PARALLELISM), srv.Config.J_MAX_TIMEOUT, srv.Config.J_MAX_LOGIC_CHARS)
+		if err != nil {
+			log.Printf("failed to validate form: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// our uid
+		uid, exists := c.Get("user_id")
+		if !exists {
+			log.Printf("uid not set correctly... should be unreachable")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "incosiderable"})
+			return
+		}
+		job.Uid, err = strconv.Atoi(uid.(string))
+		if err != nil {
+			log.Printf("failed to atoi uid value: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to atoi uid"})
+			return
+		}
+		job_json, err := json.Marshal(job)
+		if err != nil {
+			log.Printf("failed to marshal job: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to marshal job"})
+			return
+		}
+		jobReq, err := http.NewRequest(http.MethodPost, apiServiceURL+"/api/v1/job", bytes.NewBuffer(job_json))
+		if err != nil {
+			log.Printf("failed to create request: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			return
+		}
+		jobReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+
+		client := &http.Client{Timeout: 10 * time.Second}
+		response, err := client.Do(jobReq)
+		if err != nil {
+			log.Printf("failed to make request: %v", err)
+			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch jobs"})
+			return
+		}
+
+		var resp struct {
+			Jid    int    `json:"jid"`
+			Status string `json:"status"`
+		}
+
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			log.Printf("failed to read response body: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
+			return
+		}
+		defer response.Body.Close()
+
+		err = json.Unmarshal(body, &resp)
+		if err != nil {
+			log.Printf("failed to unmarshal response body: %v", err)
+			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to retrieve expected response"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"jid": resp.Jid, "status": resp.Status, "output": job.Output})
+	default:
+		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "method not supported"})
+	}
+}
+
+func (srv *HTTPService) jobAdminHandler(c *gin.Context) {
+	switch c.Request.Method {
+	case http.MethodGet:
+		jobReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/job", nil)
+		if err != nil {
+			log.Printf("failed to create request: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			return
+		}
+		jobReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+		jobReq.Header.Set("Access-Target", "0::/ 0:0")
+
+		client := &http.Client{Timeout: 10 * time.Second}
+		response, err := client.Do(jobReq)
+		if err != nil {
+			log.Printf("failed to make request: %v", err)
+			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch jobs"})
+			return
+		}
+		defer response.Body.Close()
+
+		var jobResp struct {
+			Content []ut.Job `json:"content"`
 		}
 
 		body, err := io.ReadAll(response.Body)
@@ -1286,13 +1471,14 @@ func (srv *HTTPService) jobsHandler(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to marshal job"})
 			return
 		}
-		jobReq, err := http.NewRequest(http.MethodPost, apiServiceURL+"/api/v1/job", bytes.NewBuffer(job_json))
+		jobReq, err := http.NewRequest(http.MethodPost, apiServiceURL+"/api/v1/admin/job", bytes.NewBuffer(job_json))
 		if err != nil {
 			log.Printf("failed to create request: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 			return
 		}
 		jobReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+		jobReq.Header.Set("Access-Target", "0::/ 0:0")
 
 		client := &http.Client{Timeout: 10 * time.Second}
 		response, err := client.Do(jobReq)
@@ -1323,15 +1509,205 @@ func (srv *HTTPService) jobsHandler(c *gin.Context) {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"jid": resp.Jid, "status": resp.Status, "output": job.Output})
+	case http.MethodPut:
+		var job ut.Job
+		err := c.ShouldBind(&job)
+		if err != nil {
+			log.Printf("failed to bind json body: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to bind"})
+			return
+		}
 
+		log.Printf("job incoming: %+v", job)
+
+		err = job.ValidateForm(srv.Config.J_MAX_CPU, srv.Config.J_MAX_MEM, srv.Config.J_MAX_STORAGE, int64(srv.Config.J_MAX_PARALLELISM), srv.Config.J_MAX_TIMEOUT, srv.Config.J_MAX_LOGIC_CHARS)
+		if err != nil {
+			log.Printf("failed to validate form: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		job_json, err := json.Marshal(job)
+		if err != nil {
+			log.Printf("failed to marshal job: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to marshal job"})
+			return
+		}
+		jobReq, err := http.NewRequest(http.MethodPut, apiServiceURL+"/api/v1/admin/job", bytes.NewBuffer(job_json))
+		if err != nil {
+			log.Printf("failed to create request: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			return
+		}
+		jobReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+		jobReq.Header.Set("Access-Target", "0::/ 0:0")
+		client := &http.Client{Timeout: 10 * time.Second}
+		response, err := client.Do(jobReq)
+		if err != nil {
+			log.Printf("failed to make request: %v", err)
+			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch jobs"})
+			return
+		}
+		defer response.Body.Close()
+
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			log.Printf("failed to read response body: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
+			return
+		}
+		c.Data(response.StatusCode, "application/json", body)
+	case http.MethodDelete:
+		jid := c.Query("jid")
+		if jid == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a jid"})
+			return
+		}
+		jobReq, err := http.NewRequest(http.MethodDelete, apiServiceURL+"/api/v1/admin/job?jid="+jid, nil)
+		if err != nil {
+			log.Printf("failed to create request: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			return
+		}
+		jobReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+		jobReq.Header.Set("Access-Target", "0::/ 0:0")
+
+		client := &http.Client{Timeout: 10 * time.Second}
+		response, err := client.Do(jobReq)
+		if err != nil {
+			log.Printf("failed to make request: %v", err)
+			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to delete job"})
+			return
+		}
+		defer response.Body.Close()
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			log.Printf("failed to read response body: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
+			return
+		}
+		c.Data(response.StatusCode, "application/json", body)
 	default:
 		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "method not supported"})
 
 	}
-
 }
 
 func (srv *HTTPService) appsHandler(c *gin.Context) {
+	switch c.Request.Method {
+	case http.MethodGet:
+		appReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/app", nil)
+		if err != nil {
+			log.Printf("failed to create request: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			return
+		}
+		appReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+
+		client := &http.Client{Timeout: 10 * time.Second}
+		response, err := client.Do(appReq)
+		if err != nil {
+			log.Printf("failed to make request: %v", err)
+			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch data"})
+			return
+		}
+		defer response.Body.Close()
+
+		var resp struct {
+			Content []ut.Application `json:"content"`
+			Admin   int
+		}
+
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			log.Printf("failed to read response body: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
+			return
+		}
+
+		err = json.Unmarshal(body, &resp)
+		if err != nil {
+			log.Printf("failed to unmarshal response: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
+			return
+		}
+
+		// sort on given argument
+		sortBy := c.Request.URL.Query().Get("sort")
+
+		switch sortBy {
+		case "name":
+			sort.Slice(resp.Content, func(i, j int) bool {
+				return resp.Content[i].Name > resp.Content[j].Name
+			})
+		case "image":
+			sort.Slice(resp.Content, func(i, j int) bool {
+				return resp.Content[i].Image > resp.Content[j].Image
+			})
+		case "version":
+			sort.Slice(resp.Content, func(i, j int) bool {
+				return resp.Content[i].Version > resp.Content[j].Version
+			})
+		case "status":
+			sort.Slice(resp.Content, func(i, j int) bool {
+				return compareStatus(resp.Content[i].Status, resp.Content[j].Status)
+			})
+		case "author":
+			sort.Slice(resp.Content, func(i, j int) bool {
+				return resp.Content[i].Author > resp.Content[j].Author
+			})
+		case "author_id":
+			sort.Slice(resp.Content, func(i, j int) bool {
+				return resp.Content[i].AuthorId > resp.Content[j].AuthorId
+			})
+		case "created_at", "time":
+			// sort users on time
+			sort.Slice(resp.Content, func(i, j int) bool {
+				t1, err1 := time.Parse(ut.Time_format, resp.Content[i].CreatedAt)
+				t2, err2 := time.Parse(ut.Time_format, resp.Content[j].CreatedAt)
+
+				// Handle parsing errors gracefully (e.g., keep original order)
+				if err1 != nil || err2 != nil {
+					return false
+				}
+
+				return t1.After(t2)
+			})
+		case "inserted_at":
+			// sort users on time
+			sort.Slice(resp.Content, func(i, j int) bool {
+				t1, err1 := time.Parse(ut.Time_format, resp.Content[i].InsertedAt)
+				t2, err2 := time.Parse(ut.Time_format, resp.Content[j].InsertedAt)
+
+				// Handle parsing errors gracefully (e.g., keep original order)
+				if err1 != nil || err2 != nil {
+					return false
+				}
+
+				return t1.After(t2)
+			})
+
+		}
+
+		// answer according to format
+		format := c.Request.URL.Query().Get("format")
+
+		groups := c.GetString("groups")
+		elevated := 0
+		if strings.Contains(groups, "admin") {
+			elevated = 1
+		}
+		resp.Admin = elevated
+
+		// Render the HTML template
+		respondInFormat(c, format, resp, "apps_list_template.html")
+
+	default:
+		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "method not supported"})
+	}
+}
+
+func (srv *HTTPService) appAdminHandler(c *gin.Context) {
 	switch c.Request.Method {
 	case http.MethodGet:
 		appReq, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/app", nil)
@@ -1432,49 +1808,34 @@ func (srv *HTTPService) appsHandler(c *gin.Context) {
 		// Render the HTML template
 		respondInFormat(c, format, resp.Content, "apps_list_template.html")
 	case http.MethodPost:
-
 		// lets fix the uid (identify ourselves)
-		var job ut.Job
-		err := c.ShouldBindJSON(&job)
+		var app ut.Application
+		err := c.ShouldBind(&app)
 		if err != nil {
 			log.Printf("failed to bind json body: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to bind"})
 			return
 		}
-
-		// log.Printf("%+v", job)
-		// our uid
-		uid, exists := c.Get("user_id")
-		if !exists {
-			log.Printf("uid not set correctly... should be unreachable")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "incosiderable"})
-			return
-		}
-		job.Uid, err = strconv.Atoi(uid.(string))
+		app_json, err := json.Marshal(app)
 		if err != nil {
-			log.Printf("failed to atoi uid value: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to atoi uid"})
+			log.Printf("failed to marshal app: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to marshal app"})
 			return
 		}
-		job_json, err := json.Marshal(job)
-		if err != nil {
-			log.Printf("failed to marshal job: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to marshal job"})
-			return
-		}
-		jobReq, err := http.NewRequest(http.MethodPost, apiServiceURL+"/api/v1/job", bytes.NewBuffer(job_json))
+		req, err := http.NewRequest(http.MethodPost, apiServiceURL+"/api/v1/admin/app", bytes.NewBuffer(app_json))
 		if err != nil {
 			log.Printf("failed to create request: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 			return
 		}
-		jobReq.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+		req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+		req.Header.Set("Access-Target", "0::/ 0:0")
 
 		client := &http.Client{Timeout: 10 * time.Second}
-		response, err := client.Do(jobReq)
+		response, err := client.Do(req)
 		if err != nil {
 			log.Printf("failed to make request: %v", err)
-			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch jobs"})
+			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to post app"})
 			return
 		}
 		defer response.Body.Close()
@@ -1490,11 +1851,83 @@ func (srv *HTTPService) appsHandler(c *gin.Context) {
 			log.Printf("failed to write response: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write response"})
 		}
+	case http.MethodPut:
+		var app ut.Application
+		err := c.ShouldBind(&app)
+		if err != nil {
+			log.Printf("failed to bind json body: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to bind"})
+			return
+		}
+
+		app_json, err := json.Marshal(app)
+		if err != nil {
+			log.Printf("failed to marshal app: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to marshal app"})
+			return
+		}
+		req, err := http.NewRequest(http.MethodPut, apiServiceURL+"/api/v1/admin/app", bytes.NewBuffer(app_json))
+		if err != nil {
+			log.Printf("failed to create request: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			return
+		}
+		req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+		req.Header.Set("Access-Target", "0::/ 0:0")
+
+		client := &http.Client{Timeout: 10 * time.Second}
+		response, err := client.Do(req)
+		if err != nil {
+			log.Printf("failed to make request: %v", err)
+			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to put app"})
+			return
+		}
+		defer response.Body.Close()
+		c.Status(response.StatusCode)
+		for key, values := range response.Header {
+			for _, value := range values {
+				c.Header(key, value)
+			}
+		}
+
+		_, err = io.Copy(c.Writer, response.Body)
+		if err != nil {
+			log.Printf("failed to write response: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write response"})
+		}
+	case http.MethodDelete:
+		id := c.Query("id")
+		if id == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a id"})
+			return
+		}
+		req, err := http.NewRequest(http.MethodDelete, apiServiceURL+"/api/v1/admin/app?id="+id, nil)
+		if err != nil {
+			log.Printf("failed to create request: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			return
+		}
+		req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+		req.Header.Set("Access-Target", "0::/ 0:0")
+
+		client := &http.Client{Timeout: 10 * time.Second}
+		response, err := client.Do(req)
+		if err != nil {
+			log.Printf("failed to make request: %v", err)
+			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to delete app"})
+			return
+		}
+		defer response.Body.Close()
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			log.Printf("failed to read response body: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
+			return
+		}
+		c.Data(response.StatusCode, "application/json", body)
 	default:
 		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "method not supported"})
-
 	}
-
 }
 
 /*
@@ -2145,6 +2578,162 @@ func (srv *HTTPService) handleAdminPanel(c *gin.Context) {
 		"groups":   groups,
 	})
 
+}
+
+func (srv *HTTPService) handleSysConf(c *gin.Context) {
+	services := c.Query("services")
+	if services == "" || services == "*" {
+		services = "uspace,wss,frontapp,minioth"
+	}
+	parts := strings.Split(strings.TrimSpace(services), ",")
+	serv := map[string]map[string]string{}
+	for _, service := range parts {
+		switch service {
+		case "uspace":
+			// get uspace conf
+			req, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/system-conf", nil)
+			if err != nil {
+				log.Printf("[API] failed to create a new request: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create a request"})
+				return
+			}
+			req.Header.Set("Access-Target", "0::/ 0:0")
+			req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				log.Printf("failed to perform the request: %v", err)
+				c.JSON(http.StatusBadGateway, gin.H{"error": "internal server error"})
+				return
+			}
+			defer resp.Body.Close()
+			var uspacecfg map[string]string
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				log.Printf("[API] failed to read response body: %v", err)
+				c.JSON(http.StatusBadGateway, gin.H{"error": "failed to read response body"})
+				return
+			}
+			err = json.Unmarshal(body, &uspacecfg)
+			if err != nil {
+				log.Printf("[API] failed to unmarshal response body: %v", err)
+				c.JSON(http.StatusBadGateway, gin.H{"error": "failed to unmarshal response body"})
+				return
+			}
+			serv["uspace"] = uspacecfg
+		case "frontapp":
+			// send our conf
+			ucfg, err := ut.ReadConfig("configs/"+srv.Config.ConfigPath, false)
+			if err != nil {
+				log.Printf("[API_sysConf] failed to read frontapp config: %v", err)
+				continue
+			}
+			serv["frontapp"] = ucfg
+		case "wss":
+			// get wss conf
+			req, err := http.NewRequest(http.MethodGet, wssServiceURL+"/system-conf", nil)
+			if err != nil {
+				log.Printf("[API] failed to create a new request: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create a request"})
+				return
+			}
+			req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				log.Printf("failed to perform the request: %v", err)
+				c.JSON(http.StatusBadGateway, gin.H{"error": "internal server error"})
+				return
+			}
+			defer resp.Body.Close()
+			var wsscfg map[string]string
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				log.Printf("[API] failed to read response body: %v", err)
+				c.JSON(http.StatusBadGateway, gin.H{"error": "failed to read response body"})
+				return
+			}
+			err = json.Unmarshal(body, &wsscfg)
+			if err != nil {
+				log.Printf("[API] failed to unmarshal response body: %v", err)
+				c.JSON(http.StatusBadGateway, gin.H{"error": "failed to unmarshal response body"})
+				return
+			}
+			serv["wss"] = wsscfg
+		case "minioth":
+			// get minioth conf
+			req, err := http.NewRequest(http.MethodGet, authServiceURL+authVersion+"/admin/system-conf", nil)
+			if err != nil {
+				log.Printf("[API] failed to create a new request: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create a request"})
+				return
+			}
+			accessToken := c.GetString("access_token")
+			if accessToken == "" {
+				log.Printf("[API] could not retrieve access token from context, bad state, should not be here")
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "bad state"})
+				return
+			}
+			req.Header.Set("Authorization", "Bearer "+accessToken)
+			req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				log.Printf("failed to perform the request: %v", err)
+				c.JSON(http.StatusBadGateway, gin.H{"error": "internal server error"})
+				return
+			}
+			defer resp.Body.Close()
+			var miniothcfg map[string]string
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				log.Printf("[API] failed to read response body: %v", err)
+				c.JSON(http.StatusBadGateway, gin.H{"error": "failed to read response body"})
+				return
+			}
+			err = json.Unmarshal(body, &miniothcfg)
+			if err != nil {
+				log.Printf("[API] failed to unmarshal response body: %v", err)
+				c.JSON(http.StatusBadGateway, gin.H{"error": "failed to unmarshal response body"})
+				return
+			}
+			serv["minioth"] = miniothcfg
+		}
+	}
+	format := c.Query("format")
+	respondInFormat(c, format, serv, "sys_conf_display.html")
+}
+
+func (srv *HTTPService) handleSysMetrics(c *gin.Context) {
+	req, err := http.NewRequest(http.MethodGet, apiServiceURL+"/api/v1/admin/system-metrics", nil)
+	if err != nil {
+		log.Printf("[API] failed to create a new request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create a forward request"})
+		return
+	}
+	req.Header.Set("X-Service-Secret", string(srv.Config.SERVICE_SECRET_KEY))
+	req.Header.Set("Access-Target", "0::/ 0:0")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Printf("[API] failed to perform forward request")
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to forward request"})
+		return
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("[API] failed to read response body: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to read response body"})
+		return
+	}
+	var respB map[string]any
+	err = json.Unmarshal(body, &respB)
+	if err != nil {
+		log.Printf("[API] failed to unmarshal response body: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to unmarshal response body"})
+		return
+	}
+	// log.Printf("metrics: %+v", respB)
+
+	format := c.Query("format")
+	respondInFormat(c, format, respB, "metrics_display.html")
 }
 
 /*

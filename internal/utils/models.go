@@ -328,7 +328,7 @@ func (v *Volume) Validate(max_capacity, fallback_capacity float64, plusChars str
 	if len(v.Name) > 63 {
 		return fmt.Errorf("volume name too large: max 63 chars")
 	}
-	log.Printf("name: %v", v.Name)
+
 	if !IsAlphanumericPlus(v.Name, plusChars) {
 		return fmt.Errorf("volume name must contain only alphanumeric characters and '.' or '-'")
 	}
@@ -565,11 +565,11 @@ func GidsToString(groups []Group) string {
 }
 
 type Job struct {
-	Jid int64 `json:"jid,omitempty"`
-	Uid int   `json:"uid"`
+	Jid int64 `json:"jid,omitempty" form:"jid"`
+	Uid int   `json:"uid" form:"uid"`
 
 	Parallelism int `json:"parallelism,omitempty" form:"parallelism"`
-	Priority    int `json:"priority,omitempty"`
+	Priority    int `json:"priority,omitempty" form:"priority"`
 
 	MemoryRequest string `json:"memory_request,omitempty" form:"memory_request"`
 	CpuRequest    string `json:"cpu_request,omitempty" form:"cpu_request"`
@@ -580,7 +580,7 @@ type Job struct {
 	EphimeralStorageLimit   string `json:"ephimeral_storage_limit,omitempty" form:"ephimeral_storage_limit"`
 
 	Description string  `json:"description,omitempty" form:"description"`
-	Duration    float64 `json:"duration,omitempty"`
+	Duration    float64 `json:"duration,omitempty" form:"duration"`
 
 	Input   string `json:"input" form:"input"`
 	Output  string `json:"output" form:"output"`
@@ -597,10 +597,10 @@ type Job struct {
 	LogicHeaders string   `json:"logic_headers,omitempty" form:"logic_headers"`
 	Params       []string `json:"params,omitempty" form:"params"`
 
-	Status       string `json:"status,omitempty"`
-	Completed    bool   `json:"completed,omitempty"`
-	Completed_at string `json:"completed_at,omitempty"`
-	Created_at   string `json:"created_at,omitempty"`
+	Status       string `json:"status,omitempty" form:"status"`
+	Completed    bool   `json:"completed,omitempty" form:"completed"`
+	Completed_at string `json:"completed_at,omitempty" form:"completed_at"`
+	Created_at   string `json:"created_at,omitempty" form:"created_at"`
 }
 
 func (j *Job) ValidateForm(max_cpu, max_mem, max_storage, max_paral, max_timeout, max_chars int64) error {
@@ -737,16 +737,16 @@ type APIResponse[T any] struct {
 }
 
 type Application struct {
-	Id          int64  `json:"id,omitempty"`
-	Name        string `json:"name"`
-	Image       string `json:"image"`
-	Description string `json:"description,omitempty"`
-	Version     string `json:"version"`
-	Author      string `json:"author"`
+	Id          int64  `json:"id,omitempty" form:"id"`
+	Name        string `json:"name" form:"name"`
+	Image       string `json:"image" form:"image"`
+	Description string `json:"description,omitempty" form:"description"`
+	Version     string `json:"version" form:"version"`
+	Author      string `json:"author" form:"author"`
 	AuthorId    int    `json:"author_id,omitempty"`
-	Status      string `json:"status"`
-	InsertedAt  string `json:"inserted_at,omitempty"`
-	CreatedAt   string `json:"created_at,omitempty"`
+	Status      string `json:"status" form:"status"`
+	InsertedAt  string `json:"inserted_at,omitempty" form:"inserted_at"`
+	CreatedAt   string `json:"created_at,omitempty" form:"created_at"`
 }
 
 func (a *Application) FieldsNoId() []any {

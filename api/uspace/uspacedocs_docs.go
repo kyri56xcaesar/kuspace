@@ -1864,8 +1864,7 @@ const docTemplateuspacedocs = `{
                     "text/plain"
                 ],
                 "tags": [
-                    "resources",
-                    "preview"
+                    "resources"
                 ],
                 "summary": "Preview a resource",
                 "parameters": [
