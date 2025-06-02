@@ -8,7 +8,7 @@
 >
 > 4. [x] update resource/volume management with minio... 9/10
 >
-> 5. [ ] implement more apps (octave, pandas, ..more)integrate code jobs
+> 5. [x] implement more apps (octave, pandas, ..more)integrate code jobs
 >
 > 6. [x] installation/uninstallation method
 >
