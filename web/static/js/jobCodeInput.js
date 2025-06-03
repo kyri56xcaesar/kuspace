@@ -43,10 +43,7 @@ output = input;
   ffmpeg: `# example' extract audio then recombine with different bitrate\n
 ffmpeg -i {input} -vn -acodec copy audio.aac && ffmpeg -i {input} -i audio.aac -c:v copy -c:a aac -b:a 128k {output}
   `,
-  caengine: `states: 2\n
-generations: 20\n
-neighborhood: [[1,1,1],[1,0,1],[1,1,1]]\n
-`,
+  caengine: `states: 2\ngenerations: 20\nneighborhood: [[1,1,1],[1,0,1],[1,1,1]]\n`,
   bash: `# example, sort by the second column\ntail -n +2 {input} | sort -t, -k2 -nr > {output}`,
   go:"func run(data string) string {return data}\n",
   c:"void run(char *buffer) {}\n",

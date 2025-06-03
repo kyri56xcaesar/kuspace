@@ -144,7 +144,6 @@ function showSubSection(divId, sectionId) {
   }
 }
 
-
 /* removes the hidden class */
 function show(container) {
   if (container){
@@ -819,7 +818,6 @@ document.addEventListener('htmx:afterRequest', function (event) {
         const profileMenu = document.querySelector(".profile-menu");
         const profileButton = document.querySelector(".profile-button");
         profileButton.addEventListener("click", () => {
-            console.log("test");
             profileMenu.classList.toggle("open");
         });
         document.addEventListener("click", (event) => {
@@ -847,7 +845,7 @@ document.addEventListener('htmx:afterRequest', function (event) {
       const rawResponse = event.detail.xhr.responseText;
       try {
         cachedUsers = JSON.parse(rawResponse); 
-        console.log("Fetched users:", cachedUsers);
+        // console.log("Fetched users:", cachedUsers);
       } catch (error) {
         console.error("Could not parse JSON:", error, rawResponse);
       }
@@ -858,7 +856,7 @@ document.addEventListener('htmx:afterRequest', function (event) {
       const rawResponse = event.detail.xhr.responseText;
       try {
         cachedGroups = JSON.parse(rawResponse); 
-        console.log("Fetched groups:", cachedGroups);
+        // console.log("Fetched groups:", cachedGroups);
       } catch (error) {
         console.error("Could not parse JSON:", error, rawResponse);
       }
@@ -1082,7 +1080,6 @@ document.addEventListener('htmx:afterRequest', function (event) {
       }
     } else {
       const feedback = document.querySelector('#vfs-feedback');
-      console.log(feedback);
       feedback.classList.remove('hidden');
       feedback.textContent = event.detail.xhr.responseText.replace(/[{}]/g, '');
       feedback.classList.add('red');

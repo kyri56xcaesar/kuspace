@@ -27,7 +27,8 @@ async function initWebSocketAddress() {
       throw new Error("WebSocket address not provided in config");
     }
 
-    WS_ADDRESS = config.ws_address;
+    const port = config.ws_address.trim().split(":")[1]
+    WS_ADDRESS = IP + ":" + port;
     console.log("WS_ADDRESS set to:", WS_ADDRESS);
   } catch (err) {
     console.error("Error setting WS_ADDRESS:", err);
