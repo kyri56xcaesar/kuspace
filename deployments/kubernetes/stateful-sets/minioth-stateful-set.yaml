@@ -52,3 +52,6 @@ spec:
       - name: database
         persistentVolumeClaim:
           claimName: minioth-pvc
+      #nodeSelector:
+        #kubernetes.io/hostname: docker-desktop
+        #kubernetes.io/hostname: minikube

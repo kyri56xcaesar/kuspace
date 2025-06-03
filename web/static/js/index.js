@@ -305,18 +305,19 @@ document.addEventListener('htmx:afterSettle', function(event) {
   } else if (triggeringElementId === 'fetch-applications-display') {
     const appSelector = document.getElementById('language-selector');
     appSelector.innerHTML = '';
+    const list = event.detail.target.querySelectorAll('.app-card');
+    list.forEach((item) => {
+      const option = document.createElement('option');
+      const appName = item.querySelector('.app-name').innerHTML.split(" ")[0];
+      option.value=appName;
+      option.innerHTML=appName
+      if (appName === "duckdb") {
+        option.selected = true;
+      }
+      appSelector.appendChild(option);
+    });
+
     if (localStorage.getItem("darkMode") === "true") {
-      const list = event.detail.target.querySelectorAll('.app-card');
-      list.forEach((item) => {
-        const option = document.createElement('option');
-        const appName = item.querySelector('.app-name').innerHTML.split(" ")[0];
-        option.value=appName;
-        option.innerHTML=appName
-        if (appName === "duckdb") {
-          option.selected = true;
-        }
-        appSelector.appendChild(option);
-      })
       setTimeout(() => {
         list.forEach((item) => {
           item.classList.add('dark-mode');

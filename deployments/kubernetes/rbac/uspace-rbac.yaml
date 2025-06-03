@@ -14,7 +14,7 @@ rules:
   resources: ["jobs"]
   verbs: ["create", "get", "list", "watch", "delete"]
 - apiGroups: [""]
-  resources: ["pods", "pods/log", "events"]
+  resources: ["pods", "pods/log", "events", "persistentvolumeclaims", "persistenvolumes"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["metrics.k8s.io"]
   resources: ["pods"]
