@@ -12,41 +12,43 @@ import (
 )
 
 const (
-
 	// Conf paths
-	DEFAULT_conf_name string = "config"
-	Alt1_conf_name    string = "gshell.conf"
-	Alt2_conf_name    string = "gconf.conf"
+	defaultConfName = "config"
+	alt1ConfName    = "gshell.conf"
+	alt2ConfName    = "gconf.conf"
 
-	DEFAULT_conf_path string = "configs/"
-	Alt1_conf_path    string = "~/.gshell/"
-	Alt2_conf_path    string = "~/.config/gshell/"
+	defaultConfPath = "configs/"
+	alt1ConfPath    = "~/.gshell/"
+	alt2ConfPath    = "~/.config/gshell/"
 
 	// Logs
-	DEFAULT_logfile_path string = "logfile.log"
-	DEFAULT_infolog_path string = "infofile.log"
-	DEFAULT_errlog_path  string = "errfile.log"
-	DEFAULT_warnlog_path string = "warnfile.log"
+	defaultLogPath     = "logfile.log"
+	defaultInfologPath = "infofile.log"
+	defaultErrlogPath  = "errfile.log"
+	defaultWarnlogPath = "warnfile.log"
 
 	// Cosmetics
-	DEFAULT_shell_sign string = "k_G_s>"
-	DEFAULT_delimitter string = "<-?->"
+	defaultShellSign  = "k_G_s>"
+	defaultDelimitter = "<-?->"
 )
 
+// Sconfig as in Shell Config
 var Sconfig SConfig
 
+// SPrompt as in the data of the displayed line of the Shell prompt
 type SPrompt struct {
 	sign       string
 	delimitter string
 
 	datetime string
 
-	gitbranch  string
-	gitstatus  string
-	dt_active  bool
-	git_active bool
+	gitbranch string
+	gitstatus string
+	dtActive  bool
+	gitActive bool
 }
 
+// SCosmetics as in the variable data regarding display style
 type SCosmetics struct {
 	// text
 
@@ -74,6 +76,7 @@ type SCosmetics struct {
 // gitbranch string
 // gitstatus string
 
+// SConfig as in the configuration variables of the Shell
 type SConfig struct {
 	// logger info
 	logFilePath string
@@ -92,8 +95,8 @@ func (sconfig *SConfig) setDefaults() {
 	// prompt
 	sconfig.theme = SCosmetics{
 		prompt: SPrompt{
-			sign:       DEFAULT_shell_sign,
-			delimitter: DEFAULT_delimitter,
+			sign:       defaultShellSign,
+			delimitter: defaultDelimitter,
 			datetime:   "",
 			gitbranch:  "",
 			gitstatus:  "",
@@ -108,10 +111,10 @@ func (sconfig *SConfig) setDefaults() {
 	sconfig.logLevel = 0
 	sconfig.logVerbose = true
 	sconfig.logSplit = false
-	sconfig.logFilePath = DEFAULT_logfile_path
-	sconfig.errLogPath = DEFAULT_errlog_path
-	sconfig.infoLogPath = DEFAULT_infolog_path
-	sconfig.warnLogPath = DEFAULT_warnlog_path
+	sconfig.logFilePath = defaultLogPath
+	sconfig.errLogPath = defaultErrlogPath
+	sconfig.infoLogPath = defaultInfologPath
+	sconfig.warnLogPath = defaultWarnlogPath
 }
 
 func (sconfig *SConfig) setDefaultColors() {
@@ -124,20 +127,24 @@ func newConfig() SConfig {
 	return SConfig{}
 }
 
+// LoadConfig loads config from a file and sets all the variables required
 func LoadConfig() SConfig {
 	Sconfig.setDefaults()
-
 	// Should Look for the Config files in order
 	// Priority
 	// Lets work with default for now.
-
-	configFile, err := os.Open(DEFAULT_conf_path + DEFAULT_conf_name)
+	configFile, err := os.Open(defaultConfPath + defaultConfName)
 	if err != nil {
 		// it means there is an error opening the file
-		logger.Printf("Error opening config file at %s", DEFAULT_conf_path+DEFAULT_conf_name)
+		logger.Printf("Error opening config file at %s", defaultConfPath+defaultConfName)
 		return Sconfig
 	}
-	defer configFile.Close()
+	defer func() {
+		err := configFile.Close()
+		if err != nil {
+			logger.Printf("failed to close file: %v", err)
+		}
+	}()
 
 	scanner := bufio.NewScanner(configFile)
 	for scanner.Scan() {
@@ -177,7 +184,7 @@ func LoadConfig() SConfig {
 		case "dt":
 			bvalue, err := strconv.ParseBool(value)
 			if err == nil {
-				Sconfig.theme.prompt.dt_active = bvalue
+				Sconfig.theme.prompt.dtActive = bvalue
 				if bvalue {
 					Sconfig.theme.prompt.datetime = time.Now().Format("HH:MM:SS")
 				}
@@ -186,7 +193,7 @@ func LoadConfig() SConfig {
 		case "git":
 			bvalue, err := strconv.ParseBool(value)
 			if err == nil {
-				Sconfig.theme.prompt.git_active = bvalue
+				Sconfig.theme.prompt.gitActive = bvalue
 				//if bvalue {
 				//}
 			}

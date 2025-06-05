@@ -180,7 +180,7 @@ function displaySelectedResource(resourcePath) {
         <p><strong>Type:</strong> ${resource.type}</p>
         <p><strong>Size:</strong> ${resource.size}</p>
         <p><strong>Permissions:</strong> ${resource.perms}</p>
-        <p><strong>Created At:</strong> ${resource.created_at}</p>
+        <p><strong>Created At:</strong> ${resource.createdAt}</p>
         <p><strong>Updated At:</strong> ${resource.updated_at}</p>
         <p><strong>Accessed At:</strong> ${resource.accessed_at}</p>
         <p><strong>Owner:</strong> ${resource.uid || 0}</p>

@@ -1,3 +1,4 @@
+// Package shell asgsag
 package shell
 
 import (
@@ -98,6 +99,7 @@ func usage() {
 	}
 }
 
+// Run will begin the runtime of the shell
 func Run() error {
 	LoadConfig()
 

@@ -51,13 +51,13 @@ func (srv *UService) getResourcesHandler(c *gin.Context) {
 	}
 
 	// get header
-	ac_h, exists := c.Get("accessTarget")
+	acH, exists := c.Get("accessTarget")
 	if !exists {
 		log.Printf("access target header was not set properly")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
 		return
 	}
-	ac := ac_h.(ut.AccessClaim)
+	ac := acH.(ut.AccessClaim)
 	// prefer to get from db // must be ensure its in sync
 	res, err := srv.fsl.SelectObjects(
 		map[string]any{
@@ -123,13 +123,13 @@ func (srv *UService) getResourcesHandler(c *gin.Context) {
 func (srv *UService) rmResourceHandler(c *gin.Context) {
 	// its assumed that the user is privelleged to download (from middleware) (write)
 	// get header
-	ac_h, exists := c.Get("accessTarget")
+	acH, exists := c.Get("accessTarget")
 	if !exists {
 		log.Printf("access target header was not set properly")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
 		return
 	}
-	ac := ac_h.(ut.AccessClaim)
+	ac := acH.(ut.AccessClaim)
 
 	// if this fails perhaps we need to delete the db entry...
 	if err := srv.storage.Remove(ut.Resource{
@@ -171,13 +171,13 @@ func (srv *UService) rmResourceHandler(c *gin.Context) {
 func (srv *UService) mvResourcesHandler(c *gin.Context) {
 	// its assumed that the user is privelleged to download (from middleware) (write)
 	// get header
-	ac_h, exists := c.Get("accessTarget")
+	acH, exists := c.Get("accessTarget")
 	if !exists {
 		log.Printf("access target header was not set properly")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
 		return
 	}
-	ac := ac_h.(ut.AccessClaim)
+	ac := acH.(ut.AccessClaim)
 
 	dest := c.Request.URL.Query().Get("dest")
 	if dest == "" {
@@ -248,13 +248,13 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 func (srv *UService) cpResourceHandler(c *gin.Context) {
 	// its assumed that the user is privelleged to download (from middleware) read
 	// get header
-	ac_h, exists := c.Get("accessTarget")
+	acH, exists := c.Get("accessTarget")
 	if !exists {
 		log.Printf("access target header was not set properly")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
 		return
 	}
-	ac := ac_h.(ut.AccessClaim)
+	ac := acH.(ut.AccessClaim)
 
 	dest := c.Request.URL.Query().Get("dest")
 	if dest == "" {
@@ -316,13 +316,13 @@ func (srv *UService) handleDownload(c *gin.Context) {
 	// its assumed that the user is privelleged to download (from middleware)
 	/* 1]: parse location from header*/
 	// get header
-	ac_h, exists := c.Get("accessTarget")
+	acH, exists := c.Get("accessTarget")
 	if !exists {
 		log.Printf("access target header was not set properly")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
 		return
 	}
-	ac := ac_h.(ut.AccessClaim)
+	ac := acH.(ut.AccessClaim)
 
 	if strings.HasSuffix(ac.Target, "/") {
 		log.Printf("target should be a file, not a directory")
@@ -347,9 +347,9 @@ func (srv *UService) handleDownload(c *gin.Context) {
 		Vid:   vid,
 		Size:  -1,
 	}
-	var a_r any = resource
+	var aR any = resource
 
-	cancelFn, err := srv.storage.Download(&a_r)
+	cancelFn, err := srv.storage.Download(&aR)
 	if err != nil {
 		log.Printf("failed to retrieve resource: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to retrieve resource"})
@@ -388,13 +388,13 @@ func (srv *UService) handleDownload(c *gin.Context) {
 func (srv *UService) handleUpload(c *gin.Context) {
 	/* 1]: parse location from header*/
 	// get header
-	ac_h, exists := c.Get("accessTarget")
+	acH, exists := c.Get("accessTarget")
 	if !exists {
 		log.Printf("access target header was not set properly")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
 		return
 	}
-	ac, ok := ac_h.(ut.AccessClaim)
+	ac, ok := acH.(ut.AccessClaim)
 	if !ok {
 		log.Printf("failed to cast, ac wasn't set properly")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target wasn't set properly"})
@@ -427,7 +427,7 @@ func (srv *UService) handleUpload(c *gin.Context) {
 	// 4]: perform the upload stream
 	/* I would like to do this concurrently perpahps*/
 	for _, fileHeader := range c.Request.MultipartForm.File["files"] {
-		uid, err := strconv.Atoi(ac.Uid)
+		uid, err := strconv.Atoi(ac.UID)
 		if err != nil {
 			log.Printf("failed to atoi uid: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "bad uid"})
@@ -446,7 +446,12 @@ func (srv *UService) handleUpload(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "fatal, failed to read uploaded files"})
 			return
 		}
-		defer file.Close()
+		defer func() {
+			err := file.Close()
+			if err != nil {
+				log.Printf("failed to close file: %v", err)
+			}
+		}()
 
 		currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 		/* Insert the appropriate metadata as a resource */
@@ -458,13 +463,13 @@ func (srv *UService) handleUpload(c *gin.Context) {
 			Type:   "file",
 			Reader: file,
 
-			Created_at:  currentTime,
-			Updated_at:  currentTime,
-			Accessed_at: currentTime,
-			Perms:       "rw-r--r--",
-			Uid:         uid,
-			Gid:         uid,
-			Size:        int64(fileHeader.Size),
+			CreatedAt:  currentTime,
+			UpdatedAt:  currentTime,
+			AccessedAt: currentTime,
+			Perms:      "rw-r--r--",
+			UID:        uid,
+			Gid:        uid,
+			Size:       int64(fileHeader.Size),
 		}
 
 		_, err = srv.storage.Insert(resource)
@@ -506,13 +511,13 @@ func (srv *UService) handlePreview(c *gin.Context) {
 
 	// parse resource target header:
 	// get header
-	ac_h, exists := c.Get("accessTarget")
+	acH, exists := c.Get("accessTarget")
 	if !exists {
 		log.Printf("access target header was not set properly")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
 		return
 	}
-	ac := ac_h.(ut.AccessClaim)
+	ac := acH.(ut.AccessClaim)
 
 	// get the resource info
 	resource := &ut.Resource{

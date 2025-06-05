@@ -11,6 +11,7 @@ import (
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
+// BindAccessTarget function, used by middleware
 /* A custom HTTP header parser
 *
 * AccessTarget=<what_signature> <who_signature>
@@ -22,20 +23,20 @@ import (
 *
 * <who>:your_user_id:[group_id,groupd_id,...]
 *
-*	the 'who_signature' describes the user_id and the groupids
+*	the 'who_signature' describes the userID and the groupids
 * 	delimitted by ':'
-*	 	(group_ids (delimitted by commas)).
+*	 	(groupIDs (delimitted by commas)).
 *
 *
 * */
-func BindAccessTarget(http_header string) (ut.AccessClaim, error) {
+func BindAccessTarget(httpHeader string) (ut.AccessClaim, error) {
 	var (
 		ac                              ut.AccessClaim = ut.AccessClaim{}
 		vid, vname, resource, uid, gids string
 		target                          string
 	)
 
-	parts := strings.SplitN(http_header, " ", 2)
+	parts := strings.SplitN(httpHeader, " ", 2)
 	if len(parts) != 2 {
 		return ac, fmt.Errorf("invalid header format:all")
 	}
@@ -92,7 +93,7 @@ func BindAccessTarget(http_header string) (ut.AccessClaim, error) {
 	ac.Vid = vid
 	ac.Vname = vname
 	ac.Target = target
-	ac.Uid = uid
+	ac.UID = uid
 	ac.Gids = gids
 
 	return ac, nil
@@ -109,7 +110,7 @@ func bindHeadersMiddleware() gin.HandlerFunc {
 		}
 		// save variables to gin context
 		c.Set("accessTarget", ac)
-		log.Printf("[Middleware] Request header binded: \t(who) %v:%v \t(what) %v:%v:%v\tkeyword?: %v", ac.Uid, ac.Gids, ac.Vid, ac.Vname, ac.Target, ac.HasKeyword)
+		log.Printf("[Middleware] Request header binded: \t(who) %v:%v \t(what) %v:%v:%v\tkeyword?: %v", ac.UID, ac.Gids, ac.Vid, ac.Vname, ac.Target, ac.HasKeyword)
 
 	}
 }
@@ -121,8 +122,8 @@ authentication to service-to-service comms.
 */
 func serviceAuth(srv *UService) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if s_secret_claim := c.GetHeader("X-Service-Secret"); s_secret_claim != "" {
-			if s_secret_claim == string(srv.config.SERVICE_SECRET_KEY) {
+		if sSecretClaim := c.GetHeader("X-Service-Secret"); sSecretClaim != "" {
+			if sSecretClaim == string(srv.config.ServiceSecretKey) {
 				c.Next()
 				return
 			}
@@ -151,7 +152,7 @@ func isOwner(srv *UService) gin.HandlerFunc {
 			return
 		}
 		// root user is owner and father of all
-		if ac.Uid == "0" {
+		if ac.UID == "0" {
 			log.Printf("[Middleware-Ownership] root access detected, free pass...")
 			c.Next()
 			return
@@ -209,7 +210,7 @@ func isOwner(srv *UService) gin.HandlerFunc {
 				}
 			}
 		}
-		log.Printf("[Middleware-Ownership] user: %v cleared ownership of resource: %v", ac.Uid, ac.Target)
+		log.Printf("[Middleware-Ownership] user: %v cleared ownership of resource: %v", ac.UID, ac.Target)
 
 	}
 }
@@ -222,14 +223,14 @@ func isOwner(srv *UService) gin.HandlerFunc {
 func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// get header
-		ac_h, exists := c.Get("accessTarget")
+		acH, exists := c.Get("accessTarget")
 		if !exists {
 			log.Printf("[Middleware-Access] failed to bind access-target header")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
 			c.Abort()
 			return
 		}
-		ac, ok := ac_h.(ut.AccessClaim)
+		ac, ok := acH.(ut.AccessClaim)
 		if !ok {
 			log.Printf("[Middleware-Access] failed to cast ac, :?corrupt data?, should have been set already")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "acces-target setup error"})
@@ -238,7 +239,7 @@ func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
 		}
 
 		// root user has access to all
-		if ac.Uid == "0" {
+		if ac.UID == "0" {
 			log.Printf("[Middleware-Access] root access detected, free pass...")
 			c.Next()
 			return
@@ -339,6 +340,6 @@ func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
 			}
 
 		}
-		log.Printf("[Middleware-Access] user: %v cleared access for resource: %v", ac.Uid, ac.Target)
+		log.Printf("[Middleware-Access] user: %v cleared access for resource: %v", ac.UID, ac.Target)
 	}
 }

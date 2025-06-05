@@ -1226,7 +1226,7 @@ const docTemplateminiothdocs = `{
                     "example": "/bin/bash"
                 },
                 "uid": {
-                    "description": "Uid is the user’s numeric ID.",
+                    "description": "UID is the user’s numeric ID.",
                     "type": "integer"
                 },
                 "username": {

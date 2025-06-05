@@ -6,7 +6,7 @@ definitions:
         type: string
       author_id:
         type: integer
-      created_at:
+      createdAt:
         type: string
       description:
         type: string
@@ -14,7 +14,7 @@ definitions:
         type: integer
       image:
         type: string
-      inserted_at:
+      insertedAt:
         type: string
       name:
         type: string
@@ -33,7 +33,7 @@ definitions:
         type: string
       cpu_request:
         type: string
-      created_at:
+      createdAt:
         type: string
       description:
         type: string
@@ -101,7 +101,7 @@ definitions:
     properties:
       capacity:
         type: number
-      created_at:
+      createdAt:
         type: string
       dynamic:
         type: boolean

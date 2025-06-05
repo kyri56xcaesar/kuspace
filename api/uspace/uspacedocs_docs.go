@@ -2623,7 +2623,7 @@ const docTemplateuspacedocs = `{
                 "author_id": {
                     "type": "integer"
                 },
-                "created_at": {
+                "createdAt": {
                     "type": "string"
                 },
                 "description": {
@@ -2635,7 +2635,7 @@ const docTemplateuspacedocs = `{
                 "image": {
                     "type": "string"
                 },
-                "inserted_at": {
+                "insertedAt": {
                     "type": "string"
                 },
                 "name": {
@@ -2664,7 +2664,7 @@ const docTemplateuspacedocs = `{
                 "cpu_request": {
                     "type": "string"
                 },
-                "created_at": {
+                "createdAt": {
                     "type": "string"
                 },
                 "description": {
@@ -2766,7 +2766,7 @@ const docTemplateuspacedocs = `{
                 "capacity": {
                     "type": "number"
                 },
-                "created_at": {
+                "createdAt": {
                     "type": "string"
                 },
                 "dynamic": {

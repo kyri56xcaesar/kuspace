@@ -691,7 +691,7 @@ const docTemplatefslitedocs = `{
                 "accessed_at": {
                     "type": "string"
                 },
-                "created_at": {
+                "createdAt": {
                     "type": "string"
                 },
                 "gid": {
@@ -741,7 +741,7 @@ const docTemplatefslitedocs = `{
                 "capacity": {
                     "type": "number"
                 },
-                "created_at": {
+                "createdAt": {
                     "type": "string"
                 },
                 "dynamic": {

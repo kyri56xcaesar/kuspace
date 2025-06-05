@@ -12,37 +12,38 @@ import (
 )
 
 const (
-	MINIOTH_PASSWD   string = "data/plain/minioth/mpasswd"
-	MINIOTH_GROUP    string = "data/plain/minioth/mgroup"
-	MINIOTH_SHADOW   string = "data/plain/minioth/mshadow"
-	PLACEHOLDER_PASS string = "bcrypted_password_hash" // what is shown in passwd for password
-	DEL              string = ":"                      //delimitter
+	miniothPasswd       = "data/plain/minioth/mpasswd"
+	miniothGroup        = "data/plain/minioth/mgroup"
+	miniothShadow       = "data/plain/minioth/mshadow"
+	placeholderPass     = "bcrypted_password_hash" // what is shown in passwd for password
+	del                 = ":"                      //delimitter
+	entryMPasswdFormat  = "%s" + del + "%s" + del + "%v" + del + "%v" + del + "%s" + del + "%s" + del + "%s\n"
+	entryMPshadowFormat = "%s" + del + "%s" + del + "%s" + del + "%s" + del + "%s" + del + "%s" + del + "%s" + del + "%s" + del + "%v\n"
+	entryMGroupFormat   = "%s" + del + "%v" + del + "%v\n"
 	// username:password ref:uuid:guid:info:home:shell
-	ENTRY_MPASSWD_FORMAT string = "%s" + DEL + "%s" + DEL + "%v" + DEL + "%v" + DEL + "%s" + DEL + "%s" + DEL + "%s\n"
 	// username:hashed_pass:last_password_change:min_password_age:max_password_age:warning_period:inactivity_period:expiration_date: (bunch of times)
-	ENTRY_MSHADOW_FORMAT string = "%s" + DEL + "%s" + DEL + "%s" + DEL + "%s" + DEL + "%s" + DEL + "%s" + DEL + "%s" + DEL + "%s" + DEL + "%v\n"
 	// groupname:group_id:users
-	ENTRY_MGROUP_FORMAT string = "%s" + DEL + "%v" + DEL + "%v\n"
 )
 
 var (
-	writeLock            = sync.Mutex{}
-	current_admin_id int = 0
-	current_mod_id   int = 100
-	current_user_id  int = 1000
-	current_group_id int = 1000
+	writeLock      = sync.Mutex{}
+	currentAdminID = 0
+	currentModID   = 100
+	currentUserID  = 1000
+	currentGroupID = 1000
 )
 
+// PlainHandler struct holding of the Plain Minioth Handler,
+// holds reference to centralle..
 type PlainHandler struct {
 	minioth *Minioth
 }
 
-/*  */
-/* initialization routines. check if data directory is there, check if root user exists...*/
+// Init method has initialization routines. check if data directory is there, check if root user exists...*/
 func (m *PlainHandler) Init() {
-	dir := strings.Split(MINIOTH_GROUP, "/")
+	dir := strings.Split(miniothGroup, "/")
 	if len(dir) == 0 {
-		log.Fatalf("bad constant: %v", MINIOTH_GROUP)
+		log.Fatalf("bad constant: %v", miniothGroup)
 	}
 	err := os.MkdirAll(strings.Join(dir[:len(dir)-1], "/"), 0o644)
 	if err != nil {
@@ -51,15 +52,15 @@ func (m *PlainHandler) Init() {
 
 	log.Print("[INIT]Checking if plain dir exists...")
 	// Should check if root exists...
-	if err := verifyFilePrefix(MINIOTH_PASSWD, m.minioth.Config.MINIOTH_ACCESS_KEY); err != nil {
+	if err := verifyFilePrefix(miniothPasswd, m.minioth.Config.MinioAccessKey); err != nil {
 		// Add root user
-		m.insertAdminAndMainGroups(
+		err = m.insertAdminAndMainGroups(
 			ut.User{
-				Username: m.minioth.Config.MINIOTH_ACCESS_KEY,
+				Username: m.minioth.Config.MinioAccessKey,
 				Password: ut.Password{
-					Hashpass: m.minioth.Config.MINIOTH_SECRET_KEY,
+					Hashpass: m.minioth.Config.MiniothSecretKey,
 				},
-				Uid:    0,
+				UID:    0,
 				Pgroup: 0,
 				Info:   "administrator",
 				Home:   "/",
@@ -71,7 +72,7 @@ func (m *PlainHandler) Init() {
 					Gid:       0,
 					Users: []ut.User{
 						{
-							Username: m.minioth.Config.MINIOTH_ACCESS_KEY,
+							Username: m.minioth.Config.MinioAccessKey,
 						},
 					},
 				},
@@ -87,35 +88,53 @@ func (m *PlainHandler) Init() {
 				},
 			},
 		)
+		if err != nil {
+			log.Printf("failed to insert main user and groups: %v", err)
+		}
 	}
 
 	log.Print("[INIT]Syncing user ids")
-	syncCurrentIds()
+	syncCurrentIDs()
 
 }
 
 func (m *PlainHandler) insertAdminAndMainGroups(user ut.User, groups []ut.Group) error {
 	// Open/Create files first to handle all file errors at once.
-	file, err := os.OpenFile(MINIOTH_PASSWD, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o644)
+	file, err := os.OpenFile(miniothPasswd, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o644)
 	if err != nil {
 		log.Printf("error opening file: %v", err)
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		err := file.Close()
+		if err != nil {
+			log.Printf("failed to close the file: %v", err)
+		}
+	}()
 
-	pfile, err := os.OpenFile(MINIOTH_SHADOW, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o600)
+	pfile, err := os.OpenFile(miniothShadow, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o600)
 	if err != nil {
 		log.Printf("error opening file: %v", err)
 		return err
 	}
-	defer pfile.Close()
+	defer func() {
+		err := pfile.Close()
+		if err != nil {
+			log.Printf("failed to close the file: %v", err)
+		}
+	}()
 
-	gfile, err := os.OpenFile(MINIOTH_GROUP, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o644)
+	gfile, err := os.OpenFile(miniothGroup, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o644)
 	if err != nil {
 		log.Printf("error opening file: %v", err)
 		return err
 	}
-	defer gfile.Close()
+	defer func() {
+		err := gfile.Close()
+		if err != nil {
+			log.Printf("failed to close the file: %v", err)
+		}
+	}()
 
 	// Generate password early, return early if failed...
 	hashPass, err := hash([]byte(user.Password.Hashpass))
@@ -124,41 +143,65 @@ func (m *PlainHandler) insertAdminAndMainGroups(user ut.User, groups []ut.Group)
 		return err
 	}
 
-	uid := current_admin_id
-	current_admin_id += 1
+	uid := currentAdminID
+	currentAdminID++
 
-	fmt.Fprintf(file, ENTRY_MPASSWD_FORMAT, user.Username, PLACEHOLDER_PASS, uid, uid, user.Info, user.Home, user.Shell)
-	fmt.Fprintf(pfile, ENTRY_MSHADOW_FORMAT, user.Username, hashPass, user.Password.LastPasswordChange, user.Password.MinimumPasswordAge, user.Password.MaximumPasswordAge, user.Password.WarningPeriod, user.Password.InactivityPeriod, user.Password.ExpirationDate, len(user.Password.Hashpass))
-
+	_, err = fmt.Fprintf(file, entryMPasswdFormat, user.Username, placeholderPass, uid, uid, user.Info, user.Home, user.Shell)
+	if err != nil {
+		log.Printf("failed to write entry: %v", err)
+	}
+	_, err = fmt.Fprintf(pfile, entryMPshadowFormat, user.Username, hashPass, user.Password.LastPasswordChange, user.Password.MinimumPasswordAge, user.Password.MaximumPasswordAge, user.Password.WarningPeriod, user.Password.InactivityPeriod, user.Password.ExpirationDate, len(user.Password.Hashpass))
+	if err != nil {
+		log.Printf("failed to write entry: %v", err)
+	}
 	for _, group := range groups {
-		fmt.Fprintf(gfile, ENTRY_MGROUP_FORMAT, group.Groupname, group.Gid, ut.UsersToString(group.Users))
+		_, err = fmt.Fprintf(gfile, entryMGroupFormat, group.Groupname, group.Gid, ut.UsersToString(group.Users))
+		if err != nil {
+			log.Printf("failed to write entry: %v", err)
+		}
 	}
 
 	return nil
 }
 
+// Useradd method of the Plain Minioth Handler
 func (m *PlainHandler) Useradd(user ut.User) (int, int, error) {
 	// Open/Create files first to handle all file errors at once.
-	file, err := os.OpenFile(MINIOTH_PASSWD, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o644)
+	file, err := os.OpenFile(miniothPasswd, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o644)
 	if err != nil {
 		log.Printf("error opening file: %v", err)
 		return -1, -1, err
 	}
-	defer file.Close()
+	defer func() {
+		err := file.Close()
+		if err != nil {
+			log.Printf("failed to close the file: %v", err)
+		}
+	}()
 
-	pfile, err := os.OpenFile(MINIOTH_SHADOW, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o600)
+	pfile, err := os.OpenFile(miniothShadow, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o600)
 	if err != nil {
 		log.Printf("error opening file: %v", err)
 		return -1, -1, err
 	}
-	defer pfile.Close()
+	defer func() {
+		err := pfile.Close()
+		if err != nil {
+			log.Printf("failed to close the file: %v", err)
+		}
+	}()
 
-	gfile, err := os.OpenFile(MINIOTH_GROUP, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o644)
+	gfile, err := os.OpenFile(miniothGroup, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o644)
 	if err != nil {
 		log.Printf("error opening file: %v", err)
 		return -1, -1, err
 	}
-	defer gfile.Close()
+	defer func() {
+		err := gfile.Close()
+		if err != nil {
+			log.Printf("failed to close the file: %v", err)
+		}
+	}()
 
 	// Check if exists
 	err = exists(user.Username, "users")
@@ -173,31 +216,45 @@ func (m *PlainHandler) Useradd(user ut.User) (int, int, error) {
 		log.Printf("failed to hash the pass... :%v", err)
 		return -1, -1, err
 	}
-	uid := current_user_id
-	current_user_id += 1
+	uid := currentUserID
+	currentUserID++
 
 	// obtain writelock
 	writeLock.Lock()
 	defer writeLock.Unlock()
 
-	fmt.Fprintf(file, ENTRY_MPASSWD_FORMAT, user.Username, PLACEHOLDER_PASS, uid, uid, user.Info, user.Home, user.Shell)
-	fmt.Fprintf(pfile, ENTRY_MSHADOW_FORMAT, user.Username, hashPass, user.Password.LastPasswordChange, user.Password.MinimumPasswordAge, user.Password.MaximumPasswordAge, user.Password.WarningPeriod, user.Password.InactivityPeriod, user.Password.ExpirationDate, len(user.Password.Hashpass))
+	_, err = fmt.Fprintf(file, entryMPasswdFormat, user.Username, placeholderPass, uid, uid, user.Info, user.Home, user.Shell)
+	if err != nil {
+		log.Printf("failed to write to file: %v", err)
+		return -1, -1, err
+	}
+	_, err = fmt.Fprintf(pfile, entryMPshadowFormat, user.Username, hashPass, user.Password.LastPasswordChange, user.Password.MinimumPasswordAge, user.Password.MaximumPasswordAge, user.Password.WarningPeriod, user.Password.InactivityPeriod, user.Password.ExpirationDate, len(user.Password.Hashpass))
+	if err != nil {
+		log.Printf("failed to write to file: %v", err)
+		return -1, -1, err
+	}
 
 	return uid, -1, nil
 }
 
+// Userdel method of the Plain Minioth Handler
 func (m *PlainHandler) Userdel(uid string) error {
 	if uid == "" {
 		log.Print("must provide a uid")
 		return fmt.Errorf("must provide a uid")
 	}
 
-	f, err := os.OpenFile(MINIOTH_PASSWD, os.O_RDWR, 0o600)
+	f, err := os.OpenFile(miniothPasswd, os.O_RDWR, 0o600)
 	if err != nil {
 		fmt.Printf("error opening file: %v", err)
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			log.Printf("failed to close the file: %v", err)
+		}
+	}()
 
 	scanner := bufio.NewScanner(f)
 
@@ -205,7 +262,7 @@ func (m *PlainHandler) Userdel(uid string) error {
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		parts := strings.Split(line, DEL)
+		parts := strings.Split(line, del)
 		if len(parts) < 3 {
 			continue
 		}
@@ -217,12 +274,17 @@ func (m *PlainHandler) Userdel(uid string) error {
 	writeLock.Lock()
 	defer writeLock.Unlock()
 
-	f, err = os.Create(MINIOTH_PASSWD)
+	f, err = os.Create(miniothPasswd)
 	if err != nil {
 		log.Print("failed to create the file")
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			log.Printf("failed to close the file: %v", err)
+		}
+	}()
 
 	writer := bufio.NewWriter(f)
 	for _, line := range updated {
@@ -236,48 +298,59 @@ func (m *PlainHandler) Userdel(uid string) error {
 		return fmt.Errorf("failed to flush writer: %w", err)
 	}
 
-	current_user_id -= 1
+	currentUserID--
 
 	return nil
 }
 
+// Usermod method of the Plain Minioth Handler
 func (m *PlainHandler) Usermod(user ut.User) error {
-	f, err := os.OpenFile(MINIOTH_PASSWD, os.O_RDWR, 0o600)
+	f, err := os.OpenFile(miniothPasswd, os.O_RDWR, 0o600)
 	if err != nil {
 		fmt.Printf("error opening file: %v", err)
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			log.Printf("failed to close the file: %v", err)
+		}
+	}()
 	scanner := bufio.NewScanner(f)
 
 	var updated []string
 	for scanner.Scan() {
 		line := scanner.Text()
-		parts := strings.Split(line, DEL)
+		parts := strings.Split(line, del)
 		if len(parts) < 3 {
 			continue
 		}
 
-		if parts[2] != strconv.Itoa(user.Uid) {
+		if parts[2] != strconv.Itoa(user.UID) {
 			updated = append(updated, line)
 		} else {
 			parts[0] = user.Username
 			parts[4] = user.Info
 			parts[5] = user.Home
 			parts[6] = user.Shell
-			updated = append(updated, strings.Join(parts, DEL))
+			updated = append(updated, strings.Join(parts, del))
 		}
 	}
 
 	writeLock.Lock()
 	defer writeLock.Unlock()
 
-	f, err = os.Create(MINIOTH_PASSWD)
+	f, err = os.Create(miniothPasswd)
 	if err != nil {
 		log.Print("failed to create the file")
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			log.Printf("failed to close the file: %v", err)
+		}
+	}()
 
 	writer := bufio.NewWriter(f)
 	for _, line := range updated {
@@ -293,19 +366,25 @@ func (m *PlainHandler) Usermod(user ut.User) error {
 	return nil
 }
 
+// Userpatch method of the Plain Minioth Handler
 func (m *PlainHandler) Userpatch(uid string, fields map[string]any) error {
-	f, err := os.OpenFile(MINIOTH_PASSWD, os.O_RDWR, 0o600)
+	f, err := os.OpenFile(miniothPasswd, os.O_RDWR, 0o600)
 	if err != nil {
 		fmt.Printf("error opening file: %v", err)
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			log.Printf("failed to close the file: %v", err)
+		}
+	}()
 	scanner := bufio.NewScanner(f)
 
 	var updated []string
 	for scanner.Scan() {
 		line := scanner.Text()
-		parts := strings.Split(line, DEL)
+		parts := strings.Split(line, del)
 		if len(parts) < 3 {
 			continue
 		}
@@ -337,19 +416,24 @@ func (m *PlainHandler) Userpatch(uid string, fields map[string]any) error {
 			if exists && s.(string) != "" {
 				parts[6] = s.(string)
 			}
-			updated = append(updated, strings.Join(parts, DEL))
+			updated = append(updated, strings.Join(parts, del))
 		}
 	}
 
 	writeLock.Lock()
 	defer writeLock.Unlock()
 
-	f, err = os.Create(MINIOTH_PASSWD)
+	f, err = os.Create(miniothPasswd)
 	if err != nil {
 		log.Print("failed to create the file")
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			log.Printf("failed to close the file: %v", err)
+		}
+	}()
 
 	writer := bufio.NewWriter(f)
 	for _, line := range updated {
@@ -365,47 +449,63 @@ func (m *PlainHandler) Userpatch(uid string, fields map[string]any) error {
 	return nil
 }
 
+// Groupadd method of the Plain Minioth Handler
 func (m *PlainHandler) Groupadd(group ut.Group) (int, error) {
-	file, err := os.OpenFile(MINIOTH_GROUP, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o644)
+	file, err := os.OpenFile(miniothGroup, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o644)
 	if err != nil {
 		log.Printf("error opening file: %v", err)
 		return -1, err
 	}
-	defer file.Close()
+	defer func() {
+		err := file.Close()
+		if err != nil {
+			log.Printf("failed to close the file: %v", err)
+		}
+	}()
+
 	err = exists(group.Groupname, "groups")
 	if err != nil {
 		log.Printf("error: group already exists: %v", err)
 		return -1, err
 	}
 
-	gid := current_group_id
-	current_group_id += 1
+	gid := currentGroupID
+	currentGroupID++
 
 	writeLock.Lock()
 	defer writeLock.Unlock()
-	fmt.Fprintf(file, ENTRY_MGROUP_FORMAT, group.Groupname, gid, group.Users)
+	_, err = fmt.Fprintf(file, entryMGroupFormat, group.Groupname, gid, group.Users)
+	if err != nil {
+		log.Printf("failed to write to file: %v", err)
+	}
 
-	return -1, nil
+	return -1, err
 }
 
+// Groupdel method of the Plain Minioth Handler
 func (m *PlainHandler) Groupdel(gid string) error {
 	if gid == "" {
 		log.Print("must provide a uid")
 		return fmt.Errorf("must provide a uid")
 	}
 
-	f, err := os.OpenFile(MINIOTH_GROUP, os.O_RDWR, 0o600)
+	f, err := os.OpenFile(miniothGroup, os.O_RDWR, 0o600)
 	if err != nil {
 		fmt.Printf("error opening file: %v", err)
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			log.Printf("failed to close the file: %v", err)
+		}
+	}()
 	scanner := bufio.NewScanner(f)
 
 	var updated []string
 	for scanner.Scan() {
 		line := scanner.Text()
-		parts := strings.Split(line, DEL)
+		parts := strings.Split(line, del)
 		if len(parts) < 3 {
 			continue
 		}
@@ -417,12 +517,17 @@ func (m *PlainHandler) Groupdel(gid string) error {
 	writeLock.Lock()
 	defer writeLock.Unlock()
 
-	f, err = os.Create(MINIOTH_GROUP)
+	f, err = os.Create(miniothGroup)
 	if err != nil {
 		log.Print("failed to create the file")
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			log.Printf("failed to close the file: %v", err)
+		}
+	}()
 
 	writer := bufio.NewWriter(f)
 	for _, line := range updated {
@@ -434,23 +539,29 @@ func (m *PlainHandler) Groupdel(gid string) error {
 	if err := writer.Flush(); err != nil {
 		return fmt.Errorf("failed to flush writer: %w", err)
 	}
-	current_group_id -= 1
+	currentGroupID--
 	return nil
 }
 
+// Groupmod method of the Plain Minioth Handler
 func (m *PlainHandler) Groupmod(group ut.Group) error {
-	f, err := os.OpenFile(MINIOTH_GROUP, os.O_RDWR, 0o600)
+	f, err := os.OpenFile(miniothGroup, os.O_RDWR, 0o600)
 	if err != nil {
 		fmt.Printf("error opening file: %v", err)
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			log.Printf("failed to close the file: %v", err)
+		}
+	}()
 	scanner := bufio.NewScanner(f)
 
 	var updated []string
 	for scanner.Scan() {
 		line := scanner.Text()
-		parts := strings.Split(line, DEL)
+		parts := strings.Split(line, del)
 		if len(parts) < 3 {
 			continue
 		}
@@ -458,19 +569,24 @@ func (m *PlainHandler) Groupmod(group ut.Group) error {
 			updated = append(updated, line)
 		} else {
 			parts[0] = group.Groupname
-			updated = append(updated, strings.Join(parts, DEL))
+			updated = append(updated, strings.Join(parts, del))
 		}
 	}
 
 	writeLock.Lock()
 	defer writeLock.Unlock()
 
-	f, err = os.Create(MINIOTH_GROUP)
+	f, err = os.Create(miniothGroup)
 	if err != nil {
 		log.Print("failed to create the file")
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			log.Printf("failed to close the file: %v", err)
+		}
+	}()
 
 	writer := bufio.NewWriter(f)
 	for _, line := range updated {
@@ -485,28 +601,34 @@ func (m *PlainHandler) Groupmod(group ut.Group) error {
 	return nil
 }
 
+// Grouppatch method of the Plain Minioth Hadler
 func (m *PlainHandler) Grouppatch(gid string, fields map[string]any) error {
-	f, err := os.OpenFile(MINIOTH_GROUP, os.O_RDWR, 0o600)
+	f, err := os.OpenFile(miniothGroup, os.O_RDWR, 0o600)
 	if err != nil {
 		fmt.Printf("error opening file: %v", err)
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			log.Printf("failed to close the file: %v", err)
+		}
+	}()
 	scanner := bufio.NewScanner(f)
 
 	var updated []string
 	for scanner.Scan() {
 		line := scanner.Text()
-		parts := strings.Split(line, DEL)
+		parts := strings.Split(line, del)
 		if len(parts) < 3 {
 			continue
 		}
 		if parts[1] != gid {
 			updated = append(updated, line)
 		} else {
-			newgr_name, exists := fields["groupname"]
-			if exists && newgr_name.(string) != "" {
-				parts[0] = newgr_name.(string)
+			newgrName, exists := fields["groupname"]
+			if exists && newgrName.(string) != "" {
+				parts[0] = newgrName.(string)
 			}
 
 			newgid, exists := fields["gid"]
@@ -519,19 +641,24 @@ func (m *PlainHandler) Grouppatch(gid string, fields map[string]any) error {
 				parts[2] = u.(string)
 			}
 
-			updated = append(updated, strings.Join(parts, DEL))
+			updated = append(updated, strings.Join(parts, del))
 		}
 	}
 
 	writeLock.Lock()
 	defer writeLock.Unlock()
 
-	f, err = os.Create(MINIOTH_GROUP)
+	f, err = os.Create(miniothGroup)
 	if err != nil {
 		log.Print("failed to create the file")
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			log.Printf("failed to close the file: %v", err)
+		}
+	}()
 
 	writer := bufio.NewWriter(f)
 	for _, line := range updated {
@@ -546,37 +673,49 @@ func (m *PlainHandler) Grouppatch(gid string, fields map[string]any) error {
 	return nil
 }
 
+// Select method of the Plain Minioth Handler
 func (m *PlainHandler) Select(id string) any {
 	var param, value string
 	parts := strings.Split(id, "?")
 	if len(parts) > 1 {
 		id = parts[0]
-		parts_2 := strings.Split(parts[1], "=")
-		if len(parts_2) > 1 {
-			param = parts_2[0]
-			value = parts_2[1]
+		parts2 := strings.Split(parts[1], "=")
+		if len(parts2) > 1 {
+			param = parts2[0]
+			value = parts2[1]
 		}
 	}
 	switch id {
 	case "users":
 		var users []ut.User
-		f, err := os.Open(MINIOTH_PASSWD)
+		f, err := os.Open(miniothPasswd)
 		if err != nil {
 			log.Printf("error reading file: %v", err)
 			return nil
 		}
-		defer f.Close()
+		defer func() {
+			err := f.Close()
+			if err != nil {
+				log.Printf("failed to close the file: %v", err)
+			}
+		}()
 		if param != "" && value != "" { // select a specified entry
-			entry, err := getUserEntryById(value, f)
+			entry, err := getUserEntryByID(value, f)
 			if err != nil {
 				log.Printf("failed to get entry")
 				return nil
 			}
-			g, err := os.Open(MINIOTH_GROUP)
+			g, err := os.Open(miniothGroup)
 			if err != nil {
 				log.Printf("error reading file: %v", err)
 				return nil
 			}
+			defer func() {
+				err := g.Close()
+				if err != nil {
+					log.Printf("failed to close the file: %v", err)
+				}
+			}()
 			groups, err := getUserGroups(entry.Username, g)
 			if err != nil {
 				log.Printf("error getting user groups")
@@ -585,38 +724,42 @@ func (m *PlainHandler) Select(id string) any {
 			entry.Groups = groups
 
 			return entry
-		} else {
-			users, err = getUserEntries(f)
-			if err != nil {
-				log.Printf("failed to get group entries")
-				return nil
-			}
-			return users
 		}
+		users, err = getUserEntries(f)
+		if err != nil {
+			log.Printf("failed to get group entries")
+			return nil
+		}
+		return users
+
 	case "groups":
 		var groups []ut.Group
-		f, err := os.Open(MINIOTH_GROUP)
+		f, err := os.Open(miniothGroup)
 		if err != nil {
 			log.Printf("error reading file: %v", err)
 			return nil
 		}
-		defer f.Close()
+		defer func() {
+			err := f.Close()
+			if err != nil {
+				log.Printf("failed to close the file: %v", err)
+			}
+		}()
 
 		if param != "" && value != "" { // select a specified entry
-			entry, err := getGroupEntryById(value, f)
+			entry, err := getGroupEntryByID(value, f)
 			if err != nil {
 				log.Printf("failed to get entry")
 				return nil
 			}
 			return entry
-		} else {
-			groups, err = getGroupEntries(f)
-			if err != nil {
-				log.Printf("failed to get group entries")
-				return nil
-			}
-			return groups
 		}
+		groups, err = getGroupEntries(f)
+		if err != nil {
+			log.Printf("failed to get group entries")
+			return nil
+		}
+		return groups
 
 	default:
 		log.Print("Invalid id: " + id)
@@ -624,16 +767,22 @@ func (m *PlainHandler) Select(id string) any {
 	}
 }
 
+// Authenticate method of the Plain Minioth Handler
 /* approval of minioth means, user exists and password is valid */
 func (m *PlainHandler) Authenticate(username, password string) (ut.User, error) {
 	var user ut.User
 
-	pfile, err := os.Open(MINIOTH_SHADOW)
+	pfile, err := os.Open(miniothShadow)
 	if err != nil {
 		log.Printf("failed to open file: %v", err)
 		return user, err
 	}
-	defer pfile.Close()
+	defer func() {
+		err := pfile.Close()
+		if err != nil {
+			log.Printf("failed to close the file: %v", err)
+		}
+	}()
 
 	passline, pline, err := getEntry(username, pfile)
 	if err != nil || pline == -1 {
@@ -641,7 +790,7 @@ func (m *PlainHandler) Authenticate(username, password string) (ut.User, error) 
 		return user, err
 	}
 
-	p := strings.SplitN(passline, DEL, 3)
+	p := strings.SplitN(passline, del, 3)
 	if len(p) != 3 {
 		return user, fmt.Errorf("invalid shadow line retrieved")
 	}
@@ -649,12 +798,17 @@ func (m *PlainHandler) Authenticate(username, password string) (ut.User, error) 
 
 	if verifyPass([]byte(hashpass), []byte(password)) {
 		// fetch other userinformation.
-		file, err := os.Open(MINIOTH_PASSWD)
+		file, err := os.Open(miniothPasswd)
 		if err != nil {
 			log.Printf("failed to open file: %v", err)
 			return user, err
 		}
-		defer pfile.Close()
+		defer func() {
+			err := pfile.Close()
+			if err != nil {
+				log.Printf("failed to close the file: %v", err)
+			}
+		}()
 
 		userline, pline, err := getEntry(username, file)
 		if err != nil || pline == -1 {
@@ -667,7 +821,7 @@ func (m *PlainHandler) Authenticate(username, password string) (ut.User, error) 
 		}
 		user.Username = username
 		user.Password = ut.Password{}
-		user.Uid, err = strconv.Atoi(p[2])
+		user.UID, err = strconv.Atoi(p[2])
 		if err != nil {
 			return user, fmt.Errorf("failed to atoi user id")
 		}
@@ -680,12 +834,17 @@ func (m *PlainHandler) Authenticate(username, password string) (ut.User, error) 
 		user.Shell = p[6]
 
 		// we need to fetch his groups as well
-		gfile, err := os.Open(MINIOTH_GROUP)
+		gfile, err := os.Open(miniothGroup)
 		if err != nil {
 			log.Printf("failed to open file: %v", err)
 			return user, err
 		}
-		defer gfile.Close()
+		defer func() {
+			err := gfile.Close()
+			if err != nil {
+				log.Printf("failed to close the file: %v", err)
+			}
+		}()
 		groups, err := getUserGroups(username, gfile)
 		if err != nil {
 			log.Printf("failed to get the user groups: %v", err)
@@ -694,24 +853,29 @@ func (m *PlainHandler) Authenticate(username, password string) (ut.User, error) 
 		user.Groups = groups
 
 		return user, nil
-	} else {
-		return user, fmt.Errorf("failed to authenticate, bad creds")
 	}
+	return user, fmt.Errorf("failed to authenticate, bad creds")
 }
 
+// Passwd method of the Plain Minioth Handler
 func (m *PlainHandler) Passwd(username, password string) error {
-	f, err := os.OpenFile(MINIOTH_SHADOW, os.O_RDWR, 0o600)
+	f, err := os.OpenFile(miniothShadow, os.O_RDWR, 0o600)
 	if err != nil {
 		log.Printf("error opening file: %v", err)
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			log.Printf("failed to close the file: %v", err)
+		}
+	}()
 	scanner := bufio.NewScanner(f)
 
 	var updated []string
 	for scanner.Scan() {
 		line := scanner.Text()
-		parts := strings.Split(line, DEL)
+		parts := strings.Split(line, del)
 		if len(parts) < 3 {
 			continue
 		}
@@ -726,19 +890,24 @@ func (m *PlainHandler) Passwd(username, password string) error {
 			}
 			parts[1] = string(newPass)
 
-			updated = append(updated, strings.Join(parts, DEL))
+			updated = append(updated, strings.Join(parts, del))
 		}
 	}
 
 	writeLock.Lock()
 	defer writeLock.Unlock()
 
-	f, err = os.Create(MINIOTH_SHADOW)
+	f, err = os.Create(miniothShadow)
 	if err != nil {
 		log.Print("failed to create the file")
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			log.Printf("failed to close file: %v", err)
+		}
+	}()
 
 	writer := bufio.NewWriter(f)
 	for _, line := range updated {
@@ -755,8 +924,53 @@ func (m *PlainHandler) Passwd(username, password string) error {
 	return nil
 }
 
+// Purge method of the Plain Minioth Handler
+/* NOTE: irrelevant atm
+* delete the 3 state files */
+// Purge (equivalent to Destrutor) is supposed to destroy the object and its deps.
+func (m *PlainHandler) Purge() {
+	log.Print("Purging everything...")
+
+	_, err := os.Stat("data/plain")
+	if err == nil {
+		log.Print("data/plain dir exist")
+
+		err = os.Remove(miniothPasswd)
+		if err != nil {
+			log.Print(err)
+		}
+		err = os.Remove(miniothGroup)
+		if err != nil {
+			log.Print(err)
+		}
+		err = os.Remove(miniothShadow)
+		if err != nil {
+			log.Print(err)
+		}
+		err = os.Remove("data/plain")
+		if err != nil {
+			log.Print(err)
+		}
+	}
+
+	_, err = os.Stat("data/db")
+	if err == nil {
+		log.Print("data/db dir exists")
+		err = os.Remove("data/*.db")
+		if err != nil {
+			log.Print(err)
+		}
+
+		err = os.Remove("data/db")
+		if err != nil {
+			log.Print(err)
+		}
+	}
+}
+
+// Close method of the Plain Minioth Handler
 // unused for this handler
-func (p *PlainHandler) Close() {
+func (m *PlainHandler) Close() {
 }
 
 /* just read the first 256 bytes from a file...
@@ -766,7 +980,12 @@ func verifyFilePrefix(filePath, prefix string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		err := file.Close()
+		if err != nil {
+			log.Printf("failed to close file: %v", err)
+		}
+	}()
 
 	buffer := make([]byte, 256)
 
@@ -784,23 +1003,33 @@ func verifyFilePrefix(filePath, prefix string) error {
 
 func exists(who, what string) error {
 	if what == "users" {
-		file, err := os.Open(MINIOTH_PASSWD)
+		file, err := os.Open(miniothPasswd)
 		if err != nil {
 			log.Printf("error opening file: %v", err)
 			return err
 		}
-		defer file.Close()
+		defer func() {
+			err := file.Close()
+			if err != nil {
+				log.Printf("failed to close file: %v", err)
+			}
+		}()
 		_, line, err := getEntry(who, file)
 		if err == nil && line != -1 {
 			return fmt.Errorf("user already exists")
 		}
 	} else if what == "groups" {
-		file, err := os.Open(MINIOTH_GROUP)
+		file, err := os.Open(miniothGroup)
 		if err != nil {
 			log.Printf("error opening file: %v", err)
 			return err
 		}
-		defer file.Close()
+		defer func() {
+			err := file.Close()
+			if err != nil {
+				log.Printf("failed to close file: %v", err)
+			}
+		}()
 		_, line, err := getEntry(who, file)
 		if err == nil && line != -1 {
 			return fmt.Errorf("group already exists")
@@ -820,7 +1049,7 @@ func getEntry(name string, file *os.File) (string, int, error) {
 	lineIndex := 0
 	for scanner.Scan() {
 		line := scanner.Text()
-		parts := strings.SplitN(line, DEL, 2)
+		parts := strings.SplitN(line, del, 2)
 		if len(parts) != 2 {
 			return "", -1, fmt.Errorf("no content found")
 		}
@@ -840,7 +1069,7 @@ func getUserEntries(f *os.File) ([]ut.User, error) {
 		return nil, fmt.Errorf("must provide a file pointer")
 	}
 	// store shadow contents in mem
-	sf, err := os.Open(MINIOTH_SHADOW)
+	sf, err := os.Open(miniothShadow)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open shadow file")
 	}
@@ -849,7 +1078,7 @@ func getUserEntries(f *os.File) ([]ut.User, error) {
 	scanner := bufio.NewScanner(sf)
 	for scanner.Scan() {
 		line := scanner.Text()
-		p := strings.SplitN(line, DEL, 8)
+		p := strings.SplitN(line, del, 8)
 		if len(p) != 8 {
 			return nil, fmt.Errorf("invalid shadow entries format")
 		}
@@ -864,13 +1093,17 @@ func getUserEntries(f *os.File) ([]ut.User, error) {
 		}
 		shadowMap[p[0]] = pass
 	}
-	sf.Close()
+	err = sf.Close()
+	if err != nil {
+		log.Printf("failed to close the shadow file: %v", err)
+		return nil, err
+	}
 
 	var users []ut.User
 	scanner = bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := scanner.Text()
-		p := strings.SplitN(line, DEL, 7)
+		p := strings.SplitN(line, del, 7)
 		if len(p) != 7 {
 			return nil, fmt.Errorf("invalid passwd entries format")
 		}
@@ -885,7 +1118,7 @@ func getUserEntries(f *os.File) ([]ut.User, error) {
 		user := ut.User{
 			Username: p[0],
 			Password: shadowMap[p[0]],
-			Uid:      uid,
+			UID:      uid,
 			Pgroup:   pgroup,
 			Info:     p[4],
 			Home:     p[5],
@@ -898,33 +1131,38 @@ func getUserEntries(f *os.File) ([]ut.User, error) {
 	return users, nil
 }
 
-func getUserEntryById(id string, f *os.File) (ut.User, error) {
+func getUserEntryByID(id string, f *os.File) (ut.User, error) {
 	if f == nil {
 		return ut.User{}, fmt.Errorf("must provide a file pointer")
 	}
 	scanner := bufio.NewScanner(f)
 
-	sf, err := os.Open(MINIOTH_SHADOW)
+	sf, err := os.Open(miniothShadow)
 	if err != nil {
 		log.Printf("failed to open shadow file")
 		return ut.User{}, fmt.Errorf("failed to open shadow file: %v", err)
 	}
-	defer sf.Close()
+	defer func() {
+		err := sf.Close()
+		if err != nil {
+			log.Printf("failed to close the file: %v", err)
+		}
+	}()
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		parts := strings.SplitN(line, DEL, 7)
+		parts := strings.SplitN(line, del, 7)
 		if len(parts) != 7 {
 			return ut.User{}, fmt.Errorf("no content found")
 		}
 		if id == parts[2] {
-			pass_line, _, err := getEntry(parts[0], sf)
+			passLine, _, err := getEntry(parts[0], sf)
 			if err != nil {
 				log.Printf("failed to retrieve password entry: %v", err)
 				return ut.User{}, fmt.Errorf("failed to retrieve password entry")
 			}
 			// parse password
-			pp := strings.SplitN(pass_line, DEL, 8)
+			pp := strings.SplitN(passLine, del, 8)
 			if len(pp) != 8 {
 				return ut.User{}, fmt.Errorf("invalid shadow entry")
 			}
@@ -949,7 +1187,7 @@ func getUserEntryById(id string, f *os.File) (ut.User, error) {
 			u := ut.User{
 				Username: parts[0],
 				Password: pass,
-				Uid:      uid,
+				UID:      uid,
 				Pgroup:   pgroup,
 				Info:     parts[4],
 				Home:     parts[5],
@@ -970,7 +1208,7 @@ func getGroupEntries(f *os.File) ([]ut.Group, error) {
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := scanner.Text()
-		parts := strings.SplitN(line, DEL, 3)
+		parts := strings.SplitN(line, del, 3)
 		if len(parts) != 3 {
 			return nil, fmt.Errorf("invalid entry format")
 		}
@@ -992,7 +1230,7 @@ func getGroupEntries(f *os.File) ([]ut.Group, error) {
 	return groups, nil
 }
 
-func getGroupEntryById(gid string, file *os.File) (ut.Group, error) {
+func getGroupEntryByID(gid string, file *os.File) (ut.Group, error) {
 	if gid == "" || file == nil {
 		return ut.Group{}, fmt.Errorf("must provide parameter")
 	}
@@ -1000,7 +1238,7 @@ func getGroupEntryById(gid string, file *os.File) (ut.Group, error) {
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		parts := strings.SplitN(line, DEL, 3)
+		parts := strings.SplitN(line, del, 3)
 		if len(parts) != 3 {
 			return ut.Group{}, fmt.Errorf("no content found")
 		}
@@ -1036,7 +1274,7 @@ func getUserGroups(username string, file *os.File) ([]ut.Group, error) {
 	var groups []ut.Group
 	for scanner.Scan() {
 		line := scanner.Text()
-		parts := strings.SplitN(line, DEL, 3)
+		parts := strings.SplitN(line, del, 3)
 		if len(parts) != 3 {
 			return nil, fmt.Errorf("invalid group format entry")
 		}
@@ -1056,19 +1294,24 @@ func getUserGroups(username string, file *os.File) ([]ut.Group, error) {
 	return groups, nil
 }
 
-func syncCurrentIds() {
-	f, err := os.Open(MINIOTH_PASSWD)
+func syncCurrentIDs() {
+	f, err := os.Open(miniothPasswd)
 	if err != nil {
 		panic("couldn't open passwd")
 	}
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			log.Printf("failed to close file: %v", err)
+		}
+	}()
 
 	currentUids := []string{}
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := scanner.Text()
-		parts := strings.Split(line, DEL)
+		parts := strings.Split(line, del)
 		if len(parts) != 7 {
 			continue
 		}
@@ -1076,33 +1319,38 @@ func syncCurrentIds() {
 		currentUids = append(currentUids, id)
 	}
 
-	for _, str_id := range currentUids {
-		iuid, err := strconv.Atoi(str_id)
+	for _, strID := range currentUids {
+		iuid, err := strconv.Atoi(strID)
 		if err != nil {
 			log.Fatalf("failed to parse id: %v", err)
 		}
 
 		if iuid < 100 {
-			current_admin_id = max(iuid, current_admin_id) + 1
+			currentAdminID = max(iuid, currentAdminID) + 1
 		} else if iuid < 1000 {
-			current_mod_id = max(iuid, current_mod_id) + 1
+			currentModID = max(iuid, currentModID) + 1
 		} else {
-			current_user_id = max(iuid, current_user_id) + 1
+			currentUserID = max(iuid, currentUserID) + 1
 		}
 	}
 
-	f, err = os.Open(MINIOTH_GROUP)
+	f, err = os.Open(miniothGroup)
 	if err != nil {
 		panic("couldn't open group")
 	}
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			log.Printf("failed to close file: %v", err)
+		}
+	}()
 
 	currentGids := []string{}
 
 	scanner = bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := scanner.Text()
-		parts := strings.Split(line, DEL)
+		parts := strings.Split(line, del)
 		if len(parts) != 3 {
 			continue
 		}
@@ -1110,12 +1358,12 @@ func syncCurrentIds() {
 		currentGids = append(currentGids, id)
 	}
 
-	for _, str_id := range currentGids {
-		igid, err := strconv.Atoi(str_id)
+	for _, strID := range currentGids {
+		igid, err := strconv.Atoi(strID)
 		if err != nil {
 			log.Fatalf("failed to parse id: %v", err)
 		}
-		current_group_id = max(igid, current_mod_id) + 1
+		currentGroupID = max(igid, currentModID) + 1
 	}
 
 }

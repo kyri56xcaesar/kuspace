@@ -1,3 +1,4 @@
+// Package main includes the main definition
 package main
 
 import (

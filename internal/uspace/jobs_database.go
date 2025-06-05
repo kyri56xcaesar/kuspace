@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	initSqlJobs = `
+	initSQLJobs = `
 	CREATE TABLE IF NOT EXISTS jobs (
 		jid INTEGER PRIMARY KEY,
 		uid INTEGER,
@@ -38,7 +38,7 @@ const (
 		status TEXT,
 		completed BOOLEAN,
 		completed_at DATETIME,
-		created_at DATETIME,
+		createdAt DATETIME,
 		parallelism INTEGER,
 		priority INTEGER,
 		memory_request TEXT,
@@ -57,8 +57,8 @@ const (
 		author TEXT,
 		author_id INTEGER,
 		status TEXT,
-		inserted_at DATETIME,
-		created_at DATETIME
+		insertedAt DATETIME,
+		createdAt DATETIME
 	);
 	CREATE SEQUENCE IF NOT EXISTS seq_jobid START 1;
 	CREATE SEQUENCE IF NOT EXISTS seq_appid START 1;
@@ -76,14 +76,14 @@ func (srv *UService) insertJob(jb ut.Job) (int64, error) {
 	currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 	query := `
 		INSERT INTO 
-			jobs (jid, uid, description, duration, input, input_format, output, output_format, logic, logic_body, logic_headers, parameters, status, completed, created_at, parallelism, priority, memory_request, cpu_request, memory_limit, cpu_limit, ephimeral_storage_request, ephimeral_storage_limit)
+			jobs (jid, uid, description, duration, input, input_format, output, output_format, logic, logic_body, logic_headers, parameters, status, completed, createdAt, parallelism, priority, memory_request, cpu_request, memory_limit, cpu_limit, ephimeral_storage_request, ephimeral_storage_limit)
 		VALUES
 			(nextval('seq_jobid'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING (jid);
 	`
 
 	var jid int64
-	err = db.QueryRow(query, jb.Uid, jb.Description, jb.Duration, jb.Input, jb.InputFormat, jb.Output, jb.OutputFormat, jb.Logic, jb.LogicBody, jb.LogicHeaders, strings.Join(jb.Params, ","), "pending", jb.Completed, currentTime, jb.Parallelism, jb.Priority, jb.MemoryRequest, jb.CpuRequest, jb.MemoryLimit, jb.CpuLimit, jb.EphimeralStorageRequest, jb.EphimeralStorageLimit).Scan(&jid)
+	err = db.QueryRow(query, jb.UID, jb.Description, jb.Duration, jb.Input, jb.InputFormat, jb.Output, jb.OutputFormat, jb.Logic, jb.LogicBody, jb.LogicHeaders, strings.Join(jb.Params, ","), "pending", jb.Completed, currentTime, jb.Parallelism, jb.Priority, jb.MemoryRequest, jb.CPURequest, jb.MemoryLimit, jb.CPULimit, jb.EphimeralStorageRequest, jb.EphimeralStorageLimit).Scan(&jid)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
 		return -1, err
@@ -105,7 +105,7 @@ func (srv *UService) insertJobs(jobs []ut.Job) error {
 	}
 	query := `
 		INSERT INTO 
-			jobs (jid, uid, description, duration, input, input_format, output, output_format, logic, logic_body, logic_headers, parameters, status, completed, created_at, parallelism, priority, memory_request, cpu_request, memory_limit, cpu_limit, ephimeral_storage_request, ephimeral_storage_limit)
+			jobs (jid, uid, description, duration, input, input_format, output, output_format, logic, logic_body, logic_headers, parameters, status, completed, createdAt, parallelism, priority, memory_request, cpu_request, memory_limit, cpu_limit, ephimeral_storage_request, ephimeral_storage_limit)
 		VALUES
 			(nextval('seq_jobid'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING (jid);
@@ -122,18 +122,26 @@ func (srv *UService) insertJobs(jobs []ut.Job) error {
 		log.Printf("failed to prepare statement: %v", err)
 		return err
 	}
-	defer stmt.Close()
+	defer func() {
+		err := stmt.Close()
+		if err != nil {
+			log.Printf("failed to close statement: %v", err)
+		}
+	}()
 
 	for i := range jobs {
 		jb := &(jobs)[i]
 
 		currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 		var jid int64
-		err = db.QueryRow(query, jb.Uid, jb.Description, jb.Duration, jb.Input, jb.InputFormat, jb.Output, jb.OutputFormat, jb.Logic, jb.LogicBody, jb.LogicHeaders, strings.Join(jb.Params, ","), "pending", jb.Completed, currentTime).Scan(&jid)
+		err = db.QueryRow(query, jb.UID, jb.Description, jb.Duration, jb.Input, jb.InputFormat, jb.Output, jb.OutputFormat, jb.Logic, jb.LogicBody, jb.LogicHeaders, strings.Join(jb.Params, ","), "pending", jb.Completed, currentTime).Scan(&jid)
 		if err != nil {
-			tx.Rollback()
+			err = tx.Rollback()
+			if err != nil {
+				return err
+			}
 			log.Printf("failed to execute statement: %v", err)
-			return err
+			return fmt.Errorf("failed to execute insertion query: %v", err)
 		}
 		jb.Jid = jid
 	}
@@ -189,13 +197,21 @@ func (srv *UService) removeJobs(jids []int) error {
 		log.Printf("failed to prepare statement: %v", err)
 		return err
 	}
-	defer stmt.Close()
+	defer func() {
+		err := stmt.Close()
+		if err != nil {
+			log.Printf("failed to close statement: %v", err)
+		}
+	}()
 	for _, jid := range jids {
 		_, err := stmt.Exec(jid)
 		if err != nil {
-			tx.Rollback()
+			err = tx.Rollback()
+			if err != nil {
+				return err
+			}
 			log.Printf("failed to execute statement: %v", err)
-			return err
+			return fmt.Errorf("failed to execute delete query: %v", err)
 		}
 	}
 	err = tx.Commit()
@@ -206,7 +222,7 @@ func (srv *UService) removeJobs(jids []int) error {
 	return nil
 }
 
-func (srv *UService) getJobById(jid int) (ut.Job, error) {
+func (srv *UService) getJobByID(jid int) (ut.Job, error) {
 	var job ut.Job
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
@@ -222,23 +238,23 @@ func (srv *UService) getJobById(jid int) (ut.Job, error) {
 			jid = ?
 	`
 	var params string
-	var cmplted_at, created_at sql.NullString
+	var completedAt, createdAt sql.NullString
 
-	err = db.QueryRow(query, jid).Scan(&job.Jid, &job.Uid, &job.Description, &job.Duration, &job.Input, &job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status, &job.Completed, &cmplted_at, &created_at, &job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CpuRequest, &job.MemoryLimit, &job.CpuLimit, &job.EphimeralStorageRequest, &job.EphimeralStorageLimit)
+	err = db.QueryRow(query, jid).Scan(&job.Jid, &job.UID, &job.Description, &job.Duration, &job.Input, &job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status, &job.Completed, &completedAt, &createdAt, &job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest, &job.MemoryLimit, &job.CPULimit, &job.EphimeralStorageRequest, &job.EphimeralStorageLimit)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
 		return job, err
 	}
 
-	if cmplted_at.Valid {
-		job.Completed_at = cmplted_at.String
+	if completedAt.Valid {
+		job.CompletedAt = completedAt.String
 	} else {
-		job.Completed_at = ""
+		job.CompletedAt = ""
 	}
-	if created_at.Valid {
-		job.Created_at = created_at.String
+	if createdAt.Valid {
+		job.CreatedAt = createdAt.String
 	} else {
-		job.Created_at = ""
+		job.CreatedAt = ""
 	}
 
 	job.Params = strings.Split(strings.TrimSpace(params), ",")
@@ -246,7 +262,7 @@ func (srv *UService) getJobById(jid int) (ut.Job, error) {
 	return job, nil
 }
 
-func (srv *UService) getJobsByUid(uid int) ([]ut.Job, error) {
+func (srv *UService) getJobsByUID(uid int) ([]ut.Job, error) {
 	var jobs []ut.Job
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
@@ -269,25 +285,25 @@ func (srv *UService) getJobsByUid(uid int) ([]ut.Job, error) {
 
 	var (
 		params                 string
-		cmplted_at, created_at sql.NullString
+		completedAt, createdAt sql.NullString
 	)
 	for rows.Next() {
 		var job ut.Job
 
-		err = rows.Scan(&job.Jid, &job.Uid, &job.Description, &job.Duration, &job.Input, &job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status, &job.Completed, &cmplted_at, &created_at, &job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CpuRequest, &job.MemoryLimit, &job.CpuLimit, &job.EphimeralStorageRequest, &job.EphimeralStorageLimit)
+		err = rows.Scan(&job.Jid, &job.UID, &job.Description, &job.Duration, &job.Input, &job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status, &job.Completed, &completedAt, &createdAt, &job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest, &job.MemoryLimit, &job.CPULimit, &job.EphimeralStorageRequest, &job.EphimeralStorageLimit)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
 			return nil, err
 		}
-		if cmplted_at.Valid {
-			job.Completed_at = cmplted_at.String
+		if completedAt.Valid {
+			job.CompletedAt = completedAt.String
 		} else {
-			job.Completed_at = ""
+			job.CompletedAt = ""
 		}
-		if created_at.Valid {
-			job.Created_at = created_at.String
+		if createdAt.Valid {
+			job.CreatedAt = createdAt.String
 		} else {
-			job.Created_at = ""
+			job.CreatedAt = ""
 		}
 
 		job.Params = strings.Split(strings.TrimSpace(params), ",")
@@ -332,29 +348,34 @@ func (srv *UService) getJobsByUids(uids []int) ([]ut.Job, error) {
 		log.Printf("failed to query row: %v", err)
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 
 	var (
 		params                 string
-		cmplted_at, created_at sql.NullString
+		completedAt, createdAt sql.NullString
 	)
 	for rows.Next() {
 		var job ut.Job
 
-		err = rows.Scan(&job.Jid, &job.Uid, &job.Description, &job.Duration, &job.Input, &job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status, &job.Completed, &cmplted_at, &created_at, &job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CpuRequest, &job.MemoryLimit, &job.CpuLimit, &job.EphimeralStorageRequest, &job.EphimeralStorageLimit)
+		err = rows.Scan(&job.Jid, &job.UID, &job.Description, &job.Duration, &job.Input, &job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status, &job.Completed, &completedAt, &createdAt, &job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest, &job.MemoryLimit, &job.CPULimit, &job.EphimeralStorageRequest, &job.EphimeralStorageLimit)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
 			return nil, err
 		}
-		if cmplted_at.Valid {
-			job.Completed_at = cmplted_at.String
+		if completedAt.Valid {
+			job.CompletedAt = completedAt.String
 		} else {
-			job.Completed_at = ""
+			job.CompletedAt = ""
 		}
-		if created_at.Valid {
-			job.Created_at = created_at.String
+		if createdAt.Valid {
+			job.CreatedAt = createdAt.String
 		} else {
-			job.Created_at = ""
+			job.CreatedAt = ""
 		}
 		job.Params = strings.Split(strings.TrimSpace(params), ",")
 
@@ -405,24 +426,24 @@ func (srv *UService) getAllJobs(limit, offset string) ([]ut.Job, error) {
 
 	var (
 		params                 string
-		cmplted_at, created_at sql.NullString
+		completedAt, createdAt sql.NullString
 	)
 	for rows.Next() {
 		var job ut.Job
-		err = rows.Scan(&job.Jid, &job.Uid, &job.Description, &job.Duration, &job.Input, &job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status, &job.Completed, &cmplted_at, &created_at, &job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CpuRequest, &job.MemoryLimit, &job.CpuLimit, &job.EphimeralStorageRequest, &job.EphimeralStorageLimit)
+		err = rows.Scan(&job.Jid, &job.UID, &job.Description, &job.Duration, &job.Input, &job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status, &job.Completed, &completedAt, &createdAt, &job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest, &job.MemoryLimit, &job.CPULimit, &job.EphimeralStorageRequest, &job.EphimeralStorageLimit)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
 			return nil, err
 		}
-		if cmplted_at.Valid {
-			job.Completed_at = cmplted_at.String
+		if completedAt.Valid {
+			job.CompletedAt = completedAt.String
 		} else {
-			job.Completed_at = ""
+			job.CompletedAt = ""
 		}
-		if created_at.Valid {
-			job.Created_at = created_at.String
+		if createdAt.Valid {
+			job.CreatedAt = createdAt.String
 		} else {
-			job.Created_at = ""
+			job.CreatedAt = ""
 		}
 		job.Params = strings.Split(strings.TrimSpace(params), ",")
 
@@ -446,7 +467,7 @@ func (srv *UService) updateJob(jb ut.Job) error {
 		WHERE
 			jid = ?
 	`
-	_, err = db.Exec(query, jb.Description, jb.Uid, jb.Status, jb.Completed, jb.Jid)
+	_, err = db.Exec(query, jb.Description, jb.UID, jb.Status, jb.Completed, jb.Jid)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
 		return err

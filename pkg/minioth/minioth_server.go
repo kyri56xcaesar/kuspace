@@ -1,3 +1,4 @@
+// Package minioth description
 // @title           Minioth Auth API
 // @version         1.0
 // @description     API for user authentication and management using JWT.
@@ -23,6 +24,7 @@ import (
 
 	ut "kyri56xcaesar/kuspace/internal/utils"
 
+	// swagger documentation
 	_ "kyri56xcaesar/kuspace/api/minioth"
 
 	"github.com/gin-gonic/gin"
@@ -34,15 +36,16 @@ import (
 *
 * Constants */
 const (
-	VERSION = "v1"
+	version = "v1"
 )
 
 var (
-	mu                  = sync.Mutex{}
-	log_max_fetch       = 1000
-	audit_log_max_fetch = 1000
+	mu               = sync.Mutex{}
+	logMaxFetch      = 1000
+	auditLogMaxFetch = 1000
 )
 
+// MService as a struct to encompass data for this server
 /*
 *
 * minioth server central object.
@@ -58,25 +61,24 @@ type MService struct {
 	Minioth *Minioth
 }
 
-/*
-*
-* "constructor of minioth server central object" */
+// NewMService function as a constructor for MService
+// * "constructor of minioth server central object" */
 func NewMSerivce(m *Minioth) MService {
-	setGinMode(m.Config.API_GIN_MODE)
+	setGinMode(m.Config.APIGinMode)
 	srv := MService{
 		Minioth: m,
 		Engine:  gin.Default(),
 	}
-	jwtSecretKey = srv.Minioth.Config.JWT_SECRET_KEY
-	jwksFilePath = srv.Minioth.Config.JWKS
-	jwtValidityHours = srv.Minioth.Config.JWT_VALIDITY_HOURS
-	issuer = srv.Minioth.Config.ISSUER
+	jwtSecretKey = srv.Minioth.Config.JwtSecretKey
+	jwksFilePath = srv.Minioth.Config.Jwks
+	jwtValidityHours = srv.Minioth.Config.JwtValidityHours
+	issuer = srv.Minioth.Config.Issuer
 
-	audit_log_max_fetch = srv.Minioth.Config.MINIOTH_AUDIT_LOGS_MAX_FETCH
-	log_max_fetch = srv.Minioth.Config.API_LOGS_MAX_FETCH
-	_, err := os.Stat(audit_log_path)
+	auditLogMaxFetch = srv.Minioth.Config.MiniothAuditLogsMaxFetch
+	logMaxFetch = srv.Minioth.Config.APILogsMaxFetch
+	_, err := os.Stat(auditLogPath)
 	if err != nil {
-		p := strings.Split(audit_log_path, "/")
+		p := strings.Split(auditLogPath, "/")
 		if len(p) < 2 {
 			log.Fatalf("bad audit logs path")
 		}
@@ -84,19 +86,27 @@ func NewMSerivce(m *Minioth) MService {
 		if err != nil {
 			log.Fatalf("couldn't make path directory: %v", err)
 		}
-		f, err := os.Create(audit_log_path)
+		f, err := os.Create(auditLogPath)
 		if err != nil {
 			log.Fatalf("failed to touch the audit log file")
 		}
-		f.WriteString("==> minioth - audit logs <==\n")
-		defer f.Close()
+		_, err = f.WriteString("==> minioth - audit logs <==\n")
+		if err != nil {
+			log.Printf("failed to write audit log header string...: %v", err)
+		}
+		defer func() {
+			err := f.Close()
+			if err != nil {
+				log.Printf("failed to close file: %v", err)
+			}
+		}()
 	}
 
 	log.Printf("[INIT]updating jwt key...: %s", jwtSecretKey)
 	log.Printf("[INIT]updating jwks path...: %s", jwksFilePath)
 	log.Printf("[INIT]setting issuer to: %s", issuer)
-	log.Printf("[INIT]setting audit max fetch...: %d", audit_log_max_fetch)
-	log.Printf("[INIT]setting log max fetch...: %d", log_max_fetch)
+	log.Printf("[INIT]setting audit max fetch...: %d", auditLogMaxFetch)
+	log.Printf("[INIT]setting log max fetch...: %d", logMaxFetch)
 
 	rotateKey()
 	log.Printf("[INIT]rotating to new key: %v", signingKeys[currentKID])
@@ -104,6 +114,7 @@ func NewMSerivce(m *Minioth) MService {
 	return srv
 }
 
+// ServeHTTP will launch the server listener
 /* Should implement the following endpoints:
  * /login,  /register, /user/token, /token/refresh,
  * /groups, /groups/{groupID}/assign/{userID}
@@ -115,7 +126,7 @@ func (srv *MService) ServeHTTP() {
 	srv.RegisterRoutes()
 
 	server := &http.Server{
-		Addr:              srv.Minioth.Config.Addr(srv.Minioth.Config.API_PORT),
+		Addr:              srv.Minioth.Config.Addr(srv.Minioth.Config.APIPort),
 		Handler:           srv.Engine,
 		ReadHeaderTimeout: time.Second * 5,
 	}
@@ -124,8 +135,8 @@ func (srv *MService) ServeHTTP() {
 	defer stop()
 
 	go func() {
-		if srv.Minioth.Config.API_USE_TLS {
-			if err := server.ListenAndServeTLS(srv.Minioth.Config.API_CERT_FILE, srv.Minioth.Config.API_KEY_FILE); err != nil && err != http.ErrServerClosed {
+		if srv.Minioth.Config.APIUseTLS {
+			if err := server.ListenAndServeTLS(srv.Minioth.Config.APICertFile, srv.Minioth.Config.APIKeyFile); err != nil && err != http.ErrServerClosed {
 				log.Fatalf("listen: %s\n", err)
 			}
 		} else {
@@ -152,8 +163,9 @@ func (srv *MService) ServeHTTP() {
 	log.Println("Server exiting")
 }
 
+// RegisterRoutes method will simply attach the endpoints to the server
 func (srv *MService) RegisterRoutes() {
-	apiV1 := srv.Engine.Group("/" + VERSION)
+	apiV1 := srv.Engine.Group("/" + version)
 	apiV1.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.InstanceName("miniothdocs")))
 	{
 		apiV1.POST("/register", srv.handleRegister)
@@ -166,7 +178,7 @@ func (srv *MService) RegisterRoutes() {
 
 	/* admin endpoints */
 	admin := apiV1.Group("/admin")
-	if strings.ToLower(srv.Minioth.Config.API_GIN_MODE) != "debug" {
+	if strings.ToLower(srv.Minioth.Config.APIGinMode) != "debug" {
 		admin.Use(AuthMiddleware("admin", srv))
 	}
 	{
@@ -202,8 +214,8 @@ func (srv *MService) RegisterRoutes() {
 	wellknown := apiV1.Group("/.well-known")
 	{
 		wellknown.GET("/minioth", health)
-		wellknown.GET("/openid-configuration", srv.openid_configuration)
-		wellknown.GET("/jwks.json", jwks_handler)
+		wellknown.GET("/openid-configuration", srv.openidConfiguration)
+		wellknown.GET("/jwks.json", jwksHandler)
 	}
 }
 
@@ -262,7 +274,7 @@ func (u *RegisterClaim) validateUser() error {
 /* functions */
 /* just a function to see if a given name is in input */
 func offLimits(str string) bool {
-	for _, name := range forbidden_names {
+	for _, name := range forbiddenNames {
 		if str == name {
 			return true
 		}
@@ -270,11 +282,12 @@ func offLimits(str string) bool {
 	return false
 }
 
-/* Incoming Register and Login requests binding structs */
+/* RegisterClaim struct covers Regist and Login requests binds */
 type RegisterClaim struct {
 	User ut.User `json:"user"`
 }
 
+// LoginCliam struct covers Login requests
 type LoginClaim struct {
 	Username string `json:"username"`
 	Password string `json:"password"`

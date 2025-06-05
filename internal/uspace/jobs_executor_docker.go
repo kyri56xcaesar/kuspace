@@ -13,16 +13,16 @@ import (
 )
 
 var (
-	default_v_path          string = "data/volumes"
-	tmp_path                string = "tmp/"
-	python_io_skeleton_code string = `%s
+	defaultVPath         = "data/volumes"
+	tmpPath              = "tmp/"
+	pythonIoSkeletonCode = `%s
 
 with open('%s', 'r') as input:
 	with open('%s', 'w') as output:
 		output.write(run(input.read()))
 
 `
-	node_io_skeleton_code string = `%s
+	nodeIoSkeletonCode = `%s
 
 const fs = require('fs');
 
@@ -34,7 +34,7 @@ fs.readFile('%s', 'utf8', (err, data) => {
 });
 
 `
-	java_io_skeleton_code string = `import java.nio.file.Files;
+	javaIoSkeletonCode = `import java.nio.file.Files;
 import java.nio.file.Paths;
 %s
 public class Main {
@@ -47,7 +47,7 @@ public class Main {
 }
 
 `
-	c_io_skeleton_code string = `#include <stdio.h>
+	cIoSkeletonCode = `#include <stdio.h>
 #define BUFFER_SIZE 1024
 %s
 %s
@@ -72,7 +72,7 @@ int main() {
 	fclose(out_fp);
 	return 0;
 }`
-	go_io_skeleton_code string = `package main
+	goIoSkeletonCode = `package main
 	import "os"
 %s
 
@@ -90,18 +90,22 @@ func main() {
 `
 )
 
+// JDockerExecutor struct impelementing the JobExecutor interface
+// responsible for executing jobs in the docker engine
 type JDockerExecutor struct {
 	jm *JobManager
 }
 
+// NewJDockerExecutor function as a constructor
 func NewJDockerExecutor(jm *JobManager) JDockerExecutor {
-	default_v_path = jm.srv.storage.DefaultVolume(true)
+	defaultVPath = jm.srv.storage.DefaultVolume(true)
 
 	return JDockerExecutor{
 		jm: jm,
 	}
 }
 
+// ExecuteJob method, the core logic of execution
 func (je JDockerExecutor) ExecuteJob(job ut.Job) error {
 	// log.Printf("executing job: %+v", job)
 	defer func() { <-je.jm.workerPool }() // Release worker slot
@@ -138,7 +142,7 @@ func (je JDockerExecutor) ExecuteJob(job ut.Job) error {
 	job.Duration = duration.Abs().Seconds()
 
 	// output should be streamed back ...
-	ws_chan := make(chan []byte, 100)
+	wsChan := make(chan []byte, 100)
 	// ws_chan_err := make(chan []byte, 100)
 
 	stdout, err := cmd.StdoutPipe()
@@ -149,7 +153,7 @@ func (je JDockerExecutor) ExecuteJob(job ut.Job) error {
 	scanner := bufio.NewScanner(stdout)
 	for scanner.Scan() {
 		line := scanner.Text()
-		ws_chan <- []byte(line)
+		wsChan <- []byte(line)
 	}
 
 	// Start the command
@@ -160,7 +164,7 @@ func (je JDockerExecutor) ExecuteJob(job ut.Job) error {
 		return err
 	}
 	log.Printf("streaming to socket")
-	go streamToSocketWS(job.Jid, ws_chan)
+	go streamToSocketWS(job.Jid, wsChan)
 
 	log.Printf("waiting...")
 	err = cmd.Wait()
@@ -183,7 +187,8 @@ func (je JDockerExecutor) ExecuteJob(job ut.Job) error {
 	return err
 }
 
-func (je JDockerExecutor) CancelJob(job ut.Job) error {
+// CancelJob method, the logic that halts job execution
+func (je JDockerExecutor) CancelJob(_ ut.Job) error {
 	return nil
 }
 
@@ -220,7 +225,7 @@ func formatJobCommandD(job ut.Job, fileSave bool) ([]string, error) {
 	}
 
 	// how should we handle multiple input files? 1] lets combine (append) them to a single file for now...
-	// err = ut.MergeFiles(fmt.Sprintf("%sinput-%d", tmp_path, job.Jid), default_v_path+"/", job.Input)
+	// err = ut.MergeFiles(fmt.Sprintf("%sinput-%d", tmpPath, job.Jid), defaultVPath+"/", job.Input)
 	// if err != nil {
 	// 	log.Printf("failed to merge input files: %v", err)
 	// 	return nil, err
@@ -236,18 +241,18 @@ func formatJobCommandD(job ut.Job, fileSave bool) ([]string, error) {
 		version = parts[1]
 	}
 
-	var command []string = []string{"run"}
+	var command = []string{"run"}
 	switch language {
 	case "python":
 		if fileSave {
-			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.py", job.Jid), []byte(fmt.Sprintf(python_io_skeleton_code, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
+			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.py", job.Jid), []byte(fmt.Sprintf(pythonIoSkeletonCode, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
 			if err != nil {
 				log.Printf("failed to write file: %v", err)
 				return nil, fmt.Errorf("failed to write tmp file script: %v", err)
 			}
 			command = append(command, []string{
-				"-v", cwd + "/" + tmp_path + inp + ":/input/" + inp, // input
-				"-v", cwd + "/" + default_v_path + "output:/output", // output,
+				"-v", cwd + "/" + tmpPath + inp + ":/input/" + inp, // input
+				"-v", cwd + "/" + defaultVPath + "output:/output", // output,
 				"-v", cwd + fmt.Sprintf("/tmp/job-%d.py", job.Jid) + ":/script.py", // script to run
 				language + ":" + version, // image
 				"python", "./script.py",
@@ -256,19 +261,19 @@ func formatJobCommandD(job ut.Job, fileSave bool) ([]string, error) {
 
 			return command, nil
 		}
-		// return "python -c " + fmt.Sprintf(python_io_skeleton_code, job.LogicBody, "/input/"+inp[len(inp)-1], "/output/"+out[len(out)-1])
+		// return "python -c " + fmt.Sprintf(pythonIOSkeletonCode, job.LogicBody, "/input/"+inp[len(inp)-1], "/output/"+out[len(out)-1])
 
 	case "node", "javascript":
 		language = "node"
 		if fileSave {
-			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.js", job.Jid), []byte(fmt.Sprintf(node_io_skeleton_code, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
+			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.js", job.Jid), []byte(fmt.Sprintf(nodeIoSkeletonCode, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
 			if err != nil {
 				log.Printf("failed to write file: %v", err)
 				return nil, fmt.Errorf("failed to write tmp file script: %v", err)
 			}
 			command = append(command, []string{
-				"-v", cwd + "/" + tmp_path + inp + ":/input/" + inp, // input
-				"-v", cwd + "/" + default_v_path + "/output:/output", // output,
+				"-v", cwd + "/" + tmpPath + inp + ":/input/" + inp, // input
+				"-v", cwd + "/" + defaultVPath + "/output:/output", // output,
 				"-v", cwd + fmt.Sprintf("/tmp/job-%d.js", job.Jid) + ":/script.js", // script to run
 				language + ":" + version, // image
 				"node", "./script.js",
@@ -279,14 +284,14 @@ func formatJobCommandD(job ut.Job, fileSave bool) ([]string, error) {
 	case "go", "golang":
 		language = "golang"
 		if fileSave {
-			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.go", job.Jid), []byte(fmt.Sprintf(go_io_skeleton_code, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
+			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.go", job.Jid), []byte(fmt.Sprintf(goIoSkeletonCode, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
 			if err != nil {
 				log.Printf("failed to write file: %v", err)
 				return nil, fmt.Errorf("failed to write tmp file script: %v", err)
 			}
 			command = append(command, []string{
-				"-v", cwd + "/" + tmp_path + inp + ":/input/" + inp, // input
-				"-v", cwd + "/" + default_v_path + "/output:/output", // output,
+				"-v", cwd + "/" + tmpPath + inp + ":/input/" + inp, // input
+				"-v", cwd + "/" + defaultVPath + "/output:/output", // output,
 				"-v", cwd + fmt.Sprintf("/tmp/job-%d.go", job.Jid) + ":/script.go", // script to run
 				language + ":" + version, // image
 				"go", "run", "/script.go",
@@ -297,14 +302,14 @@ func formatJobCommandD(job ut.Job, fileSave bool) ([]string, error) {
 	case "openjdk", "java": // java
 		language = "openjdk"
 		if fileSave {
-			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.java", job.Jid), []byte(fmt.Sprintf(java_io_skeleton_code, job.LogicHeaders, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
+			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.java", job.Jid), []byte(fmt.Sprintf(javaIoSkeletonCode, job.LogicHeaders, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
 			if err != nil {
 				log.Printf("failed to write file: %v", err)
 				return nil, fmt.Errorf("failed to write tmp file script: %v", err)
 			}
 			command = append(command, []string{
-				"-v", cwd + "/" + tmp_path + inp + ":/input/" + inp, // input
-				"-v", cwd + "/" + default_v_path + "/output:/output", // output,
+				"-v", cwd + "/" + tmpPath + inp + ":/input/" + inp, // input
+				"-v", cwd + "/" + defaultVPath + "/output:/output", // output,
 				"-v", cwd + fmt.Sprintf("/tmp/job-%d.java", job.Jid) + ":/Main.java", // script to run
 				language + ":" + version,      // image
 				"sh", "-c", "java /Main.java", // compile and run
@@ -315,14 +320,14 @@ func formatJobCommandD(job ut.Job, fileSave bool) ([]string, error) {
 		}
 	case "c", "gcc":
 		if fileSave {
-			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.c", job.Jid), []byte(fmt.Sprintf(c_io_skeleton_code, job.LogicHeaders, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
+			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.c", job.Jid), []byte(fmt.Sprintf(cIoSkeletonCode, job.LogicHeaders, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
 			if err != nil {
 				log.Printf("failed to write file: %v", err)
 				return nil, fmt.Errorf("failed to write tmp file script: %v", err)
 			}
 			command = append(command, []string{
-				"-v", cwd + "/" + tmp_path + inp + ":/input/" + inp, // input
-				"-v", cwd + "/" + default_v_path + "/output:/output", // output,
+				"-v", cwd + "/" + tmpPath + inp + ":/input/" + inp, // input
+				"-v", cwd + "/" + defaultVPath + "/output:/output", // output,
 				"-v", cwd + fmt.Sprintf("/tmp/job-%d.c", job.Jid) + ":/program.c", // script to run
 				language + ":" + version,                             // image
 				"sh", "-c", "gcc /program.c -o program && ./program", // compile and run
@@ -349,26 +354,26 @@ func (je *JDockerExecutor) updateJobStatus(jid int64, status string, duration ti
 }
 
 func (je *JDockerExecutor) syncOutputResource(job ut.Job) {
-	fInfo, err := os.Stat(default_v_path + "/output/" + job.Output)
+	fInfo, err := os.Stat(defaultVPath + "/output/" + job.Output)
 	if err != nil {
 		log.Printf("failed to find/stat the output file: %v", err)
 		return
 	}
 
-	current_time := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
+	currentTime := ut.CurrentTime()
 	resource := ut.Resource{
-		Name:        "/output/" + job.Output,
-		Type:        "file",
-		Created_at:  current_time,
-		Updated_at:  current_time,
-		Accessed_at: current_time,
-		Perms:       "rw-r--r--",
-		Rid:         0,
-		Uid:         job.Uid,
-		Vid:         0,
-		Gid:         job.Uid,
-		Size:        fInfo.Size(),
-		Links:       0,
+		Name:       "/output/" + job.Output,
+		Type:       "file",
+		CreatedAt:  currentTime,
+		UpdatedAt:  currentTime,
+		AccessedAt: currentTime,
+		Perms:      "rw-r--r--",
+		Rid:        0,
+		UID:        job.UID,
+		Vid:        0,
+		Gid:        job.UID,
+		Size:       fInfo.Size(),
+		Links:      0,
 	}
 
 	cancelFn, err := je.jm.srv.storage.Insert([]any{resource})

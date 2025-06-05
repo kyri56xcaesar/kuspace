@@ -7,11 +7,8 @@ import (
 	"log"
 )
 
-//  should add a "Resource Info Struct"
-/*
- *
- *
- */
+// StorageSystem interface describes what a struct aspiring to integrate
+// and become a storage for this system should implement
 type StorageSystem interface {
 	DefaultVolume(local bool) string
 
@@ -34,14 +31,15 @@ type StorageSystem interface {
 	Share(method string, t any) (any, error)
 }
 
+// StorageShipment delivers the desired StorageSystem struct according to configuration
 func StorageShipment(storageType string, srv *UService) StorageSystem {
 	switch storageType {
 	case "default", "local", "fslite":
 		fslite := fslite.NewFsLite(srv.config)
 		return &fslite
 	case "minio", "remote":
-		minio_cl := minio.NewMinioClient(srv.config)
-		return &minio_cl
+		minioCl := minio.NewMinioClient(srv.config)
+		return &minioCl
 	default:
 		log.Fatal("not a valid storage system, cannot operate")
 		return nil

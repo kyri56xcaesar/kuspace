@@ -1,8 +1,9 @@
+// Package main includes the main definition
 package main
 
 import (
 	"kyri56xcaesar/kuspace/internal/utils"
-	wsr "kyri56xcaesar/kuspace/internal/ws_registry"
+	wsr "kyri56xcaesar/kuspace/internal/wss"
 )
 
 func main() {

@@ -131,9 +131,9 @@
           >
             {{range .users}}
               <option
-                value="{{.Uid}}"
-                {{if eq .Uid $.owner}}selected{{end}}
-              >uid:{{.Uid}} - username:{{ .Username }}</option>
+                value="{{.UID}}"
+                {{if eq .UID $.owner}}selected{{end}}
+              >uid:{{.UID}} - username:{{ .Username }}</option>
             {{end}}
           </select>  
         </div>
@@ -208,7 +208,7 @@
       <div class="job-display-entry darkened fade-out">
         <div>
           <span class="jid"> #JobId: {{ $j.Jid }}</span>
-          <span class="uid"> by {{ $j.Uid }} </span>
+          <span class="uid"> by {{ $j.UID }} </span>
 
           {{ if $.Admin }}
           <div class="options" id="job-options">
@@ -235,17 +235,17 @@
             <span class="description"> Description: {{ $j.Description }} </span>
           </div>
           <div>
-            <span class="created_at"> Created_at: {{ $j.Created_at }} </span>
-            <span class="completed_at"> Completed_at: {{ $j.Completed_at }} </span>
+            <span class="createdAt"> CreatedAt: {{ $j.CreatedAt }} </span>
+            <span class="completed_at"> CompletedAt: {{ $j.CompletedAt }} </span>
             <span class="completed"> Completed: {{ $j.Completed }} </span>
           </div>
           <div class="hidden">
             <span class="parallelism">{{ $j.Parallelism }}</span>
             <span class="priority">{{ $j.Priority }}</span>
             <span class="memory_request">{{ $j.MemoryRequest }}</span>
-            <span class="cpu_request">{{ $j.CpuRequest }}</span>
+            <span class="cpu_request">{{ $j.CPURequest }}</span>
             <span class="memory_limit">{{ $j.MemoryLimit }}</span>
-            <span class="cpu_limit">{{ $j.CpuLimit }}</span>
+            <span class="cpu_limit">{{ $j.CPULimit }}</span>
             <span class="ephimeral_storage_request">{{ $j.EphimeralStorageRequest }}</span>
             <span class="ephimeral_storage_limit">{{ $j.EphimeralStorageLimit }}</span>
             <span class="logic">{{ $j.Logic }}</span>
@@ -281,22 +281,22 @@
         <div class="app-status {{ .Status | lower }} {{ if eq .Status "available" }}green{{ else }}red{{ end }}">{{ .Status }}</div>
       </div>
       <div class="app-meta">
-        <div><span class="app-id"> app-id: {{ .Id }} </span></div>
+        <div><span class="app-id"> app-id: {{ .ID }} </span></div>
         <div class="image"><strong>Image:</strong> {{ .Image }}</div>
         <div class="author"><strong>Author:</strong> {{ .Author }}</div>
-        <div class="created_at"><strong>Created:</strong> {{ .CreatedAt }}</div>
+        <div class="createdAt"><strong>Created:</strong> {{ .CreatedAt }}</div>
       </div>
       <p class="app-description">{{ .Description }}</p>
       <div class="hidden">
-        <span class="author_id">{{ .AuthorId }}</span>
-        <span class="inserted_at">{{ .InsertedAt }}</span>
+        <span class="author_id">{{ .AuthorID }}</span>
+        <span class="insertedAt">{{ .InsertedAt }}</span>
       </div>
       {{ if $.Admin }}
       <div class="options" id="app-options">
         <button id="modButton" onclick="modAppModal(this.parentNode.parentNode, document.getElementById('apps-list-display').parentNode)">Modify</button>
         <button 
           id="delete-app-btn"
-          hx-delete="/api/v1/verified/admin/apps?id={{ .Id }}"
+          hx-delete="/api/v1/verified/admin/apps?id={{ .ID }}"
           hx-swap="none"
           hx-confirm="Are you sure you want to delete the app {{ .Name }}"
         >Delete</button>
@@ -465,7 +465,7 @@
       <tbody id="users-body">
         {{ range $index, $user := . }}
         <tr id="table-{{ $index }}">
-          <td class="uid">{{ $user.Uid }}</td>
+          <td class="uid">{{ $user.UID }}</td>
           <td class="name">{{ $user.Username }}</td>
           <td>{{ $user.Password.Hashpass }}</td>
           <td class="email">{{ $user.Info}}</td>
@@ -481,15 +481,15 @@
           </td>
           <td>
             <div id="actions-btns">
-              <button id="edit-btn-{{ $index }}" onclick="editUser('{{ $user.Uid }}', '{{ $index }}')">Edit</button>
-              {{ if ne $user.Uid 0 }}
+              <button id="edit-btn-{{ $index }}" onclick="editUser('{{ $user.UID }}', '{{ $index }}')">Edit</button>
+              {{ if ne $user.UID 0 }}
               <button 
                 id="delete-btn-{{ $index }}"
-                hx-delete="/api/v1/verified/admin/userdel?uid={{ .Uid }}"
+                hx-delete="/api/v1/verified/admin/userdel?uid={{ .UID }}"
                 hx-swap="none"
                 hx-trigger="click"
                 hx-target="#table-{{ $index }}"
-                hx-confirm="Are you sure you want to delete user {{ .Uid }}?"
+                hx-confirm="Are you sure you want to delete user {{ .UID }}?"
               > Delete</button>
               {{ end }}
             </div>
@@ -533,10 +533,10 @@
             <td>{{ .Type }}</td>
             <td>{{ .Size }}</td>
             <td>{{ .Perms }}</td>
-            <td class="createdat">{{ .Created_at }}</td>
-            <td class="updatedat">{{ .Updated_at }}</td>
-            <td class="accessedat">{{ .Accessed_at }}</td>
-            <td class="owner">{{ .Uid }}</td>
+            <td class="createdat">{{ .CreatedAt }}</td>
+            <td class="updatedat">{{ .UpdatedAt }}</td>
+            <td class="accessedat">{{ .AccessedAt }}</td>
+            <td class="owner">{{ .UID }}</td>
             <td class="group">{{ .Gid }}</td>
             <td>{{ .Vid }}</td>
         </tr>

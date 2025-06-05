@@ -33,7 +33,10 @@ func TestRegisterLoginPasswd(t *testing.T) {
 
 	// Optionally check response content
 	var resp map[string]any
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	if err != nil {
+		t.Errorf("failed to unmarshal: %v", err)
+	}
 	if _, ok := resp["message"]; !ok {
 		t.Error("Expected message in response")
 	}
@@ -51,7 +54,10 @@ func TestRegisterLoginPasswd(t *testing.T) {
 
 	// Optionally check response content
 
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	err = json.Unmarshal(w.Body.Bytes(), &resp)
+	if err != nil {
+		t.Errorf("failed to unmarshal: %v", err)
+	}
 	if _, ok := resp["error"]; !ok {
 		t.Error("Expected error in response")
 	}
@@ -68,9 +74,12 @@ func TestRegisterLoginPasswd(t *testing.T) {
 
 	// Optionally check response content
 
-	json.Unmarshal(w.Body.Bytes(), &resp)
-	if _, ok := resp["access_token"]; !ok {
-		t.Error("Expected access_token in response")
+	err = json.Unmarshal(w.Body.Bytes(), &resp)
+	if err != nil {
+		t.Errorf("failed to unmarshal: %v", err)
+	}
+	if _, ok := resp["accessToken"]; !ok {
+		t.Error("Expected accessToken in response")
 	}
 
 	// perform password change

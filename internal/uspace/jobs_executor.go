@@ -9,7 +9,7 @@ package uspace
 
 import ut "kyri56xcaesar/kuspace/internal/utils"
 
-// can be expanded
+// JobExecutor interface defining what a JobExecutor must implement
 type JobExecutor interface {
 	ExecuteJob(job ut.Job) error
 	CancelJob(job ut.Job) error

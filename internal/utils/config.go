@@ -29,118 +29,118 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// EnvConfig struct holds all info needed for the microservices configurations
 type EnvConfig struct {
 	ConfigPath string // path of the .conf file
-	PROFILE    string // baremeta or container
-	VERBOSE    bool
+	Profile    string // baremeta or container
+	Verbose    bool
+	AsOperator bool   // not used rn
+	Namespace  string // kubernetes namespace deployment
 
 	// ###################################
 	// API CONFS
 	// api as a general api (used for uspace)
-	IP            string
-	ISSUER        string
-	API_USE_TLS   bool
-	API_CERT_FILE string // path to a cert file
-	API_KEY_FILE  string // path to a key file
-
-	API_GIN_MODE         string
-	API_LOGS_PATH        string // path to logs dir
-	API_LOGS_MAX_FETCH   int    // max logs size (in MB)
-	API_PORT             string // main service port
-	API_ADDRESS          string // main service address name (default IP)
-	FRONT_PORT           string
-	FRONT_ADDRESS        string
-	AUTH_PORT            string
-	AUTH_ADDRESS         string
-	WSS_ADDRESS_INTERNAL string
+	IP                 string
+	Issuer             string
+	APIUseTLS          bool
+	APICertFile        string // path to a cert file
+	APIKeyFile         string // path to a key file
+	APIGinMode         string
+	APILogsPath        string // path to logs dir
+	APILogsMaxFetch    int    // max logs size (in MB)
+	APIPort            string // main service port
+	APIAddress         string // main service address name (default IP)
+	FrontPort          string
+	FrontAddress       string
+	AuthPort           string
+	AuthAddress        string
+	WssAddressInternal string
 	// front as in the frontend app  // frontend app itself should use api vars
 	// auth as in an authentication app // if an auth app uses this configuration, it should reference api port as itself
 
 	// service (main) authentication info
-	JWKS               string // used by (minioth)
-	JWT_VALIDITY_HOURS float64
-	JWT_SECRET_KEY     []byte
-	SERVICE_SECRET_KEY []byte
-	ALLOWED_ORIGINS    []string
-	ALLOWED_HEADERS    []string
-	ALLOWED_METHODS    []string
-	HASH_COST          string // used by (minioth) //bcrypt
-
-	AS_OPERATOR bool   // not used rn
-	NAMESPACE   string // kubernetes namespace deployment
+	Jwks             string // used by (minioth)
+	JwtValidityHours float64
+	JwtSecretKey     []byte
+	ServiceSecretKey []byte
+	AllowedOrigins   []string
+	AllowedHeaders   []string
+	AllowedMethods   []string
+	HashCost         string // used by (minioth) //bcrypt
 
 	// ###################################
 	// storage/jobs
 	// ###################################
-	STORAGE_SYSTEM string // a storage system the service might use
+	StorageSystem string // a storage system the service might use
 
 	// 1. can use fslite
 	// fslite conf
-	DB_FSL                string // name of the database
-	DB_FSL_PATH           string // path of the database
-	DB_FSL_DRIVER         string // type of database driver, either duckdb or sqlite3
-	DB_FSL_MAX_OPEN_CONNS string // maximum allowed simutanious open connections
-	DB_FSL_MAX_IDLE_CONNS string // maximum allowed idle connections
-	DB_FSL_MAX_LIFETIME   string // lifetime of an idle connection
-	FSL_ACCESS_KEY        string // "root" or admin username for authentication
-	FSL_SECRET_KEY        string // "root" or admin password for authentication
-	FSL_SERVER            bool
-	FSL_LOCALITY          bool
+	FslDb             string // name of the database
+	FslDbPath         string // path of the database
+	FslDbDriver       string // type of database driver, either duckdb or sqlite3
+	FslDbMaxOpenConns string // maximum allowed simutanious open connections
+	FslDbMaxIdleConns string // maximum allowed idle connections
+	FslDbMaxLifetime  string // lifetime of an idle connection
+	FslAccessKey      string // "root" or admin username for authentication
+	FslSecretKey      string // "root" or admin password for authentication
+	FslServer         bool
+	FslLocality       bool
 
 	// fslite uses a local data directory for storage
-	LOCAL_VOLUMES_DEFAULT_PATH     string  // path to the data directory
-	LOCAL_VOLUMES_DEFAULT_CAPACITY float64 // default capacity of the storage
+	LocalVolumesDefaultPath     string  // path to the data directory
+	LocalVolumesDefaultCapacity float64 // default capacity of the storage
 
 	// 2. can use minio
 	// minio conf
-	MINIO_NODEPORT_ENDPOINT string // minio API endpoint if running inside kube and exposed via nodeport
-	MINIO_ENDPOINT          string // minio API endpoint
-	MINIO_ACCESS_KEY        string // "root" or admin username for authentication
-	MINIO_SECRET_KEY        string // "root" or admin password for authentication
-	MINIO_USE_SSL           string // boolean (if https or not)
-	MINIO_DEFAULT_BUCKET    string // default bucket name
-	MINIO_OBJECT_LOCKING    bool   // boolean (object locking)
-	OBJECT_SHARED           bool   // boolean (object sharing)
-	OBJECT_SHARE_EXPIRE     string // expriation date
-	ONLY_PRESIGNED_UPLOAD   bool   // upload only via presigned urls
-	OBJECT_SIZE_THRESHOLD   string // object size
-	MINIO_FETCH_STAT        bool
+	MinioNodeportEndpoint   string // minio API endpoint if running inside kube and exposed via nodeport
+	MinioEndpoint           string // minio API endpoint
+	MinioAccessKey          string // "root" or admin username for authentication
+	MinioSecretKey          string // "root" or admin password for authentication
+	MinioUseSSL             string // boolean (if https or not)
+	MinioDefaultBucket      string // default bucket name
+	MinioObjectLocking      bool   // boolean (object locking)
+	MinioFetchStat          bool
+	ObjectSharing           bool   // boolean (object sharing)
+	ObjectSharingExpiration string // expriation date
+	ObjectSizeThreshold     string // object size
+	PresignedUploadOnly     bool   // upload only via presigned urls
 
 	// Main api (uspace) is using a manager/dispatcher/scheduler mechanism
 	// configuration here.
-	J_DISPATCHER      string
-	J_QUEUE_SIZE      string
-	J_MAX_WORKERS     string
-	J_EXECUTOR        string
-	J_WS_ADDRESS      string
-	J_WS_LOGS_PATH    string
-	J_MAX_CPU         int64
-	J_MAX_MEM         int64
-	J_MAX_STORAGE     int64
-	J_MAX_PARALLELISM int
-	J_MAX_TIMEOUT     int64
-	J_MAX_LOGIC_CHARS int64
+	WssAddress              string
+	WssLogsPath             string
+	UspaceDispatcher        string
+	UspaceJobQueueSize      string
+	UspaceJobMaxWorkers     string
+	UspaceJobExecutor       string
+	UspaceJobMaxCPU         int64
+	UspaceJobMaxMemory      int64
+	UspaceJobMaxStorage     int64
+	UspaceJobMaxParallelism int
+	UspaceJobMaxTimeout     int64
+	UspaceJobMaxLogicSize   int64
 	// database storage of the jobs
-	DB_JOBS                string
-	DB_JOBS_DRIVER         string
-	DB_JOBS_PATH           string
-	DB_JOBS_MAX_OPEN_CONNS string
-	DB_JOBS_MAX_IDLE_CONNS string
-	DB_JOBS_MAX_LIFETIME   string
+	UspaceJobsDb             string
+	UspaceJobsDbDriver       string
+	UspaceJobsDbPath         string
+	UspaceJobsDbMaxOpenConns string // maximum allowed simutanious open connections
+	UspaceJobsDbMaxIdleConns string // maximum allowed idle connections
+	UspaceJobsDbMaxLifetime  string // lifetime of an idle connection
 
 	// ###################################
 	// authentication (minioth),
 	// 	- uses a storage handler rather than a storage system
 	// ###################################
-	MINIOTH_ACCESS_KEY           string
-	MINIOTH_SECRET_KEY           string
-	MINIOTH_DB                   string // a path + name of the database
-	MINIOTH_DB_DRIVER            string
-	MINIOTH_HANDLER              string // either database/db or plain/text
-	MINIOTH_AUDIT_LOGS           string
-	MINIOTH_AUDIT_LOGS_MAX_FETCH int
+	MiniothAccessKey         string
+	MiniothSecretKey         string
+	MiniothDb                string // a path + name of the database
+	MiniothDbDriver          string
+	MiniothHandler           string // either database/db or plain/text
+	MiniothAuditLogs         string
+	MiniothAuditLogsMaxFetch int
 }
 
+// LoadConfig loads the config path to the environment and also creates and returns a ConfigStruct
 func LoadConfig(path string) EnvConfig {
 	if err := godotenv.Load(path); err != nil {
 		log.Printf("Could not load %s config file. Using default variables", path)
@@ -150,193 +150,94 @@ func LoadConfig(path string) EnvConfig {
 
 	config := EnvConfig{
 		ConfigPath: split[len(split)-1],
-		PROFILE:    getEnv("PROFILE", "baremetal"),
-		VERBOSE:    getBoolEnv("VERBOSE", "true"),
+		Profile:    getEnv("PROFILE", "baremetal"),
+		Verbose:    getBoolEnv("VERBOSE", "true"),
+		AsOperator: getBoolEnv("AS_OPERATOR", "false"),
+		Namespace:  getEnv("NAMESPACE", "default"),
 
-		API_PORT:           getEnv("API_PORT", "8079"),
-		API_ADDRESS:        getEnv("API_ADDRESS", "localhost"),
-		API_USE_TLS:        getBoolEnv("API_USE_TLS", "false"),
-		API_CERT_FILE:      getEnv("API_CERT_FILE", "localhost.pem"),
-		API_KEY_FILE:       getEnv("API_KEY_FILE", "localhost-key.pem"),
-		API_LOGS_PATH:      getEnv("API_LOGS_PATH", "data/logs/jobs/job.log"),
-		API_LOGS_MAX_FETCH: int(getInt64Env("API_LOGS_MAX_FETCH", 100)),
-		API_GIN_MODE:       getEnv("API_GIN_MODE", "debug"),
-		STORAGE_SYSTEM:     getEnv("STORAGE_SYSTEM", "local"),
+		APIPort:          getEnv("API_PORT", "8079"),
+		APIAddress:       getEnv("API_ADDRESS", "localhost"),
+		APIUseTLS:        getBoolEnv("API_USE_TLS", "false"),
+		APICertFile:      getEnv("API_CERT_FILE", "localhost.pem"),
+		APIKeyFile:       getEnv("API_KEY_FILE", "localhost-key.pem"),
+		APILogsPath:      getEnv("API_LOGS_PATH", "data/logs/jobs/job.log"),
+		APILogsMaxFetch:  int(getInt64Env("API_LOGS_MAX_FETCH", 100)),
+		APIGinMode:       getEnv("API_GIN_MODE", "debug"),
+		IP:               getEnv("IP", "0.0.0.0"),
+		FrontPort:        getEnv("FRONT_PORT", "8080"),
+		FrontAddress:     getEnv("FRONT_ADDRESS", "localhost"),
+		AuthPort:         getEnv("AUTH_PORT", "9090"),
+		AuthAddress:      getEnv("AUTH_ADDRESS", "localhost"),
+		AllowedOrigins:   getEnvs("ALLOWED_ORIGINS", []string{"None"}),
+		AllowedHeaders:   getEnvs("ALLOWED_HEADERS", nil),
+		AllowedMethods:   getEnvs("ALLOWED_METHODS", nil),
+		Issuer:           getEnv("ISSUER", "http://localhost:9090"),
+		JwtSecretKey:     getSecretKey("JWT_SECRET_KEY", true),
+		JwtValidityHours: getFloatEnv("JWT_VALIDITY_HOURS", 1),
+		ServiceSecretKey: getSecretKey("SERVICE_SECRET_KEY", true),
+		Jwks:             getEnv("JWKS", "data/jwks/jwks.json"),
 
-		FSL_SERVER:                     getBoolEnv("FSL_SERVER", "true"),
-		FSL_LOCALITY:                   getBoolEnv("FSL_LOCALITY", "true"),
-		DB_FSL:                         getEnv("DB_FSL", "database.db"),
-		DB_FSL_DRIVER:                  getEnv("DB_FSL_DRIVER", "duckdb"),
-		DB_FSL_PATH:                    getEnv("DB_FSL_PATH", "data/db/fslite"),
-		DB_FSL_MAX_OPEN_CONNS:          getEnv("DB_FSL_MAX_OPEN_CONNS", "50"),
-		DB_FSL_MAX_IDLE_CONNS:          getEnv("DB_FSL_MAX_IDLE_CONNS", "10"),
-		DB_FSL_MAX_LIFETIME:            getEnv("DB_FSL_MAX_LIFETIME", "10"),
-		FSL_ACCESS_KEY:                 getEnv("FSL_ACCESS_KEY", "fsladmin"),
-		FSL_SECRET_KEY:                 getEnv("FSL_SECRET_KEY", "fsladmin"),
-		LOCAL_VOLUMES_DEFAULT_CAPACITY: getFloatEnv("LOCAL_VOLUMES_DEFAULT_CAPACITY", 20),
-		LOCAL_VOLUMES_DEFAULT_PATH:     getEnv("LOCAL_VOLUMES_DEFAULT_PATH", "data/volumes/fslite"),
+		StorageSystem:               getEnv("STORAGE_SYSTEM", "local"),
+		LocalVolumesDefaultCapacity: getFloatEnv("LOCAL_VOLUMES_DEFAULT_CAPACITY", 20),
+		LocalVolumesDefaultPath:     getEnv("LOCAL_VOLUMES_DEFAULT_PATH", "data/volumes/fslite"),
 
-		MINIO_ENDPOINT:          getEnv("MINIO_ENDPOINT", "minio:9000"),
-		MINIO_NODEPORT_ENDPOINT: getEnv("MINIO_NODEPORT_ENDPOINT", "localhost:30101"),
-		MINIO_ACCESS_KEY:        getEnv("MINIO_ACCESS_KEY", "minioadmin"),
-		MINIO_SECRET_KEY:        getEnv("MINIO_SECRET_KEY", "minioadmin"),
-		MINIO_USE_SSL:           getEnv("MINIO_USE_SSL", "false"),
-		MINIO_DEFAULT_BUCKET:    getEnv("MINIO_DEFAULT_BUCKET", "default"),
-		MINIO_OBJECT_LOCKING:    getBoolEnv("MINIO_OBJECT_LOCKING", "false"),
-		OBJECT_SHARED:           getBoolEnv("OBJECT_SHARED", "false"),
-		OBJECT_SHARE_EXPIRE:     getEnv("OBJECT_SHARE_EXPIRE", "1440"),
-		ONLY_PRESIGNED_UPLOAD:   getBoolEnv("ONLY_PRESIGNED_UPLOAD", "false"),
-		OBJECT_SIZE_THRESHOLD:   getEnv("OBJECT_SIZE_THRESHOLD", "400000000"),
-		MINIO_FETCH_STAT:        getBoolEnv("MINIO_FETCH_STAT", "false"),
+		FslServer:         getBoolEnv("FSL_SERVER", "true"),
+		FslLocality:       getBoolEnv("FSL_LOCALITY", "true"),
+		FslDb:             getEnv("DB_FSL", "database.db"),
+		FslDbDriver:       getEnv("DB_FSL_DRIVER", "duckdb"),
+		FslDbPath:         getEnv("DB_FSL_PATH", "data/db/fslite"),
+		FslDbMaxOpenConns: getEnv("DB_FSL_MAX_OPEN_CONNS", "50"),
+		FslDbMaxIdleConns: getEnv("DB_FSL_MAX_IDLE_CONNS", "10"),
+		FslDbMaxLifetime:  getEnv("DB_FSL_MAX_LIFETIME", "10"),
+		FslAccessKey:      getEnv("FSL_ACCESS_KEY", "fsladmin"),
+		FslSecretKey:      getEnv("FSL_SECRET_KEY", "fsladmin"),
 
-		J_DISPATCHER:         getEnv("J_DISPATCHER", "default"),
-		J_EXECUTOR:           getEnv("J_EXECUTOR", "docker"),
-		J_QUEUE_SIZE:         getEnv("J_QUEUE_SIZE", "100"),
-		J_MAX_WORKERS:        getEnv("J_MAX_WORKERS", "10"),
-		J_MAX_CPU:            getInt64Env("J_MAX_CPU", 16),
-		J_MAX_MEM:            getInt64Env("J_MAX_MEM", 65000),
-		J_MAX_STORAGE:        getInt64Env("J_MAX_STORAGE", 20),
-		J_MAX_PARALLELISM:    int(getInt64Env("J_MAX_PARALLELISM", 16)),
-		J_MAX_TIMEOUT:        getInt64Env("J_MAX_TIMEOUT", 6000),
-		J_MAX_LOGIC_CHARS:    getInt64Env("J_MAX_LOGIC_CHARS", 1000000),
-		J_WS_ADDRESS:         getEnv("J_WS_ADDRESS", "localhost:8082"),
-		J_WS_LOGS_PATH:       getEnv("J_WS_LOGS_PATH", "data/logs/jobs/job_ws.log"),
-		WSS_ADDRESS_INTERNAL: getEnv("WSS_ADDRESS_INTERNAL", "wss:8082"),
+		MinioEndpoint:           getEnv("MINIO_ENDPOINT", "minio:9000"),
+		MinioNodeportEndpoint:   getEnv("MINIO_NODEPORT_ENDPOINT", "localhost:30101"),
+		MinioAccessKey:          getEnv("MINIO_ACCESS_KEY", "minioadmin"),
+		MinioSecretKey:          getEnv("MINIO_SECRET_KEY", "minioadmin"),
+		MinioUseSSL:             getEnv("MINIO_USE_SSL", "false"),
+		MinioDefaultBucket:      getEnv("MINIO_DEFAULT_BUCKET", "default"),
+		MinioObjectLocking:      getBoolEnv("MINIO_OBJECT_LOCKING", "false"),
+		MinioFetchStat:          getBoolEnv("MINIO_FETCH_STAT", "false"),
+		ObjectSharing:           getBoolEnv("OBJECT_SHARED", "false"),
+		ObjectSharingExpiration: getEnv("OBJECT_SHARE_EXPIRE", "1440"),
+		ObjectSizeThreshold:     getEnv("OBJECT_SIZE_THRESHOLD", "400000000"),
+		PresignedUploadOnly:     getBoolEnv("ONLY_PRESIGNED_UPLOAD", "false"),
 
-		DB_JOBS:                getEnv("DB_JOBS", "jobs.db"),
-		DB_JOBS_DRIVER:         getEnv("DB_JOBS_DRIVER", "duckdb"),
-		DB_JOBS_PATH:           getEnv("DB_JOBS_PATH", "data/db/uspace"),
-		DB_JOBS_MAX_OPEN_CONNS: getEnv("DB_JOBS_MAX_OPEN_CONNS", "50"),
-		DB_JOBS_MAX_IDLE_CONNS: getEnv("DB_JOBS_MAX_IDLE_CONNS", "10"),
-		DB_JOBS_MAX_LIFETIME:   getEnv("DB_JOBS_MAX_LIFETIME", "10"),
+		UspaceDispatcher:         getEnv("J_DISPATCHER", "default"),
+		UspaceJobExecutor:        getEnv("J_EXECUTOR", "docker"),
+		UspaceJobQueueSize:       getEnv("J_QUEUE_SIZE", "100"),
+		UspaceJobMaxWorkers:      getEnv("J_MAX_WORKERS", "10"),
+		UspaceJobMaxCPU:          getInt64Env("J_MAX_CPU", 16),
+		UspaceJobMaxMemory:       getInt64Env("J_MAX_MEM", 65000),
+		UspaceJobMaxStorage:      getInt64Env("J_MAX_STORAGE", 20),
+		UspaceJobMaxParallelism:  int(getInt64Env("J_MAX_PARALLELISM", 16)),
+		UspaceJobMaxTimeout:      getInt64Env("J_MAX_TIMEOUT", 6000),
+		UspaceJobMaxLogicSize:    getInt64Env("J_MAX_LOGIC_CHARS", 1000000),
+		UspaceJobsDb:             getEnv("DB_JOBS", "jobs.db"),
+		UspaceJobsDbDriver:       getEnv("DB_JOBS_DRIVER", "duckdb"),
+		UspaceJobsDbPath:         getEnv("DB_JOBS_PATH", "data/db/uspace"),
+		UspaceJobsDbMaxOpenConns: getEnv("DB_JOBS_MAX_OPEN_CONNS", "50"),
+		UspaceJobsDbMaxIdleConns: getEnv("DB_JOBS_MAX_IDLE_CONNS", "10"),
+		UspaceJobsDbMaxLifetime:  getEnv("DB_JOBS_MAX_LIFETIME", "10"),
 
-		IP:                 getEnv("IP", "0.0.0.0"),
-		FRONT_PORT:         getEnv("FRONT_PORT", "8080"),
-		FRONT_ADDRESS:      getEnv("FRONT_ADDRESS", "localhost"),
-		AUTH_PORT:          getEnv("AUTH_PORT", "9090"),
-		AUTH_ADDRESS:       getEnv("AUTH_ADDRESS", "localhost"),
-		ALLOWED_ORIGINS:    getEnvs("ALLOWED_ORIGINS", []string{"None"}),
-		ALLOWED_HEADERS:    getEnvs("ALLOWED_HEADERS", nil),
-		ALLOWED_METHODS:    getEnvs("ALLOWED_METHODS", nil),
-		ISSUER:             getEnv("ISSUER", "http://localhost:9090"),
-		JWT_SECRET_KEY:     getSecretKey("JWT_SECRET_KEY", true),
-		JWT_VALIDITY_HOURS: getFloatEnv("JWT_VALIDITY_HOURS", 1),
-		SERVICE_SECRET_KEY: getSecretKey("SERVICE_SECRET_KEY", true),
-		JWKS:               getEnv("JWKS", "data/jwks/jwks.json"),
-		HASH_COST:          getEnv("HASH_COST", "4"),
+		WssAddress:         getEnv("J_WS_ADDRESS", "localhost:8082"),
+		WssLogsPath:        getEnv("J_WS_LOGS_PATH", "data/logs/jobs/job_ws.log"),
+		WssAddressInternal: getEnv("WSS_ADDRESS_INTERNAL", "wss:8082"),
 
-		AS_OPERATOR: getBoolEnv("AS_OPERATOR", "false"),
-		NAMESPACE:   getEnv("NAMESPACE", "default"),
-
-		MINIOTH_ACCESS_KEY:           getEnv("MINIOTH_ACCESS_KEY", "root"),
-		MINIOTH_SECRET_KEY:           getEnv("MINIOTH_SECRET_KEY", "root"),
-		MINIOTH_DB:                   getEnv("MINIOTH_DB", "data/db/minioth/minioth.db"),
-		MINIOTH_DB_DRIVER:            getEnv("MINIOTH_DB_DRIVER", "duckdb"),
-		MINIOTH_HANDLER:              getEnv("MINIOTH_HANDLER", "database"),
-		MINIOTH_AUDIT_LOGS:           getEnv("MINIOTH_AUDIT_LOGS", "data/logs/minioth/audit.logs"),
-		MINIOTH_AUDIT_LOGS_MAX_FETCH: int(getInt64Env("MINIOTH_AUDIT_LOGS_MAX_FETCH", 100)),
+		MiniothAccessKey:         getEnv("MINIOTH_ACCESS_KEY", "root"),
+		MiniothSecretKey:         getEnv("MINIOTH_SECRET_KEY", "root"),
+		MiniothDb:                getEnv("MINIOTH_DB", "data/db/minioth/minioth.db"),
+		MiniothDbDriver:          getEnv("MINIOTH_DB_DRIVER", "duckdb"),
+		MiniothHandler:           getEnv("MINIOTH_HANDLER", "database"),
+		MiniothAuditLogs:         getEnv("MINIOTH_AUDIT_LOGS", "data/logs/minioth/audit.logs"),
+		MiniothAuditLogsMaxFetch: int(getInt64Env("MINIOTH_AUDIT_LOGS_MAX_FETCH", 100)),
+		HashCost:                 getEnv("HASH_COST", "4"),
 	}
 
 	log.Print(config.ToString())
 	return config
-}
-
-func (env *EnvConfig) DeepCopy() EnvConfig {
-	// Copy all fields by value
-	if env == nil {
-		return EnvConfig{}
-	}
-
-	copied := EnvConfig{
-		ConfigPath:                     env.ConfigPath,
-		ISSUER:                         env.ISSUER,
-		API_USE_TLS:                    env.API_USE_TLS,
-		API_CERT_FILE:                  env.API_CERT_FILE,
-		API_KEY_FILE:                   env.API_KEY_FILE,
-		API_GIN_MODE:                   env.API_GIN_MODE,
-		API_LOGS_PATH:                  env.API_LOGS_PATH,
-		API_LOGS_MAX_FETCH:             env.API_LOGS_MAX_FETCH,
-		API_PORT:                       env.API_PORT,
-		API_ADDRESS:                    env.API_ADDRESS,
-		FRONT_PORT:                     env.FRONT_PORT,
-		FRONT_ADDRESS:                  env.FRONT_ADDRESS,
-		AUTH_PORT:                      env.AUTH_PORT,
-		AUTH_ADDRESS:                   env.AUTH_ADDRESS,
-		JWKS:                           env.JWKS,
-		JWT_VALIDITY_HOURS:             env.JWT_VALIDITY_HOURS,
-		HASH_COST:                      env.HASH_COST,
-		AS_OPERATOR:                    env.AS_OPERATOR,
-		NAMESPACE:                      env.NAMESPACE,
-		STORAGE_SYSTEM:                 env.STORAGE_SYSTEM,
-		DB_FSL:                         env.DB_FSL,
-		DB_FSL_PATH:                    env.DB_FSL_PATH,
-		DB_FSL_DRIVER:                  env.DB_FSL_DRIVER,
-		DB_FSL_MAX_OPEN_CONNS:          env.DB_FSL_MAX_OPEN_CONNS,
-		DB_FSL_MAX_IDLE_CONNS:          env.DB_FSL_MAX_IDLE_CONNS,
-		DB_FSL_MAX_LIFETIME:            env.DB_FSL_MAX_LIFETIME,
-		FSL_ACCESS_KEY:                 env.FSL_ACCESS_KEY,
-		FSL_SECRET_KEY:                 env.FSL_SECRET_KEY,
-		FSL_SERVER:                     env.FSL_SERVER,
-		FSL_LOCALITY:                   env.FSL_LOCALITY,
-		LOCAL_VOLUMES_DEFAULT_PATH:     env.LOCAL_VOLUMES_DEFAULT_PATH,
-		LOCAL_VOLUMES_DEFAULT_CAPACITY: env.LOCAL_VOLUMES_DEFAULT_CAPACITY,
-		MINIO_ACCESS_KEY:               env.MINIO_ACCESS_KEY,
-		MINIO_SECRET_KEY:               env.MINIO_SECRET_KEY,
-		MINIO_ENDPOINT:                 env.MINIO_ENDPOINT,
-		MINIO_USE_SSL:                  env.MINIO_USE_SSL,
-		MINIO_DEFAULT_BUCKET:           env.MINIO_DEFAULT_BUCKET,
-		MINIO_OBJECT_LOCKING:           env.MINIO_OBJECT_LOCKING,
-		OBJECT_SHARED:                  env.OBJECT_SHARED,
-		OBJECT_SHARE_EXPIRE:            env.OBJECT_SHARE_EXPIRE,
-		ONLY_PRESIGNED_UPLOAD:          env.ONLY_PRESIGNED_UPLOAD,
-		OBJECT_SIZE_THRESHOLD:          env.OBJECT_SIZE_THRESHOLD,
-		MINIO_FETCH_STAT:               env.MINIO_FETCH_STAT,
-		J_DISPATCHER:                   env.J_DISPATCHER,
-		J_QUEUE_SIZE:                   env.J_QUEUE_SIZE,
-		J_MAX_WORKERS:                  env.J_MAX_WORKERS,
-		J_EXECUTOR:                     env.J_EXECUTOR,
-		J_WS_ADDRESS:                   env.J_WS_ADDRESS,
-		J_WS_LOGS_PATH:                 env.J_WS_LOGS_PATH,
-		DB_JOBS:                        env.DB_JOBS,
-		DB_JOBS_DRIVER:                 env.DB_JOBS_DRIVER,
-		DB_JOBS_PATH:                   env.DB_JOBS_PATH,
-		DB_JOBS_MAX_OPEN_CONNS:         env.DB_JOBS_MAX_OPEN_CONNS,
-		DB_JOBS_MAX_IDLE_CONNS:         env.DB_JOBS_MAX_IDLE_CONNS,
-		DB_JOBS_MAX_LIFETIME:           env.DB_JOBS_MAX_LIFETIME,
-		MINIOTH_ACCESS_KEY:             env.MINIOTH_ACCESS_KEY,
-		MINIOTH_SECRET_KEY:             env.MINIOTH_SECRET_KEY,
-		MINIOTH_DB:                     env.MINIOTH_DB,
-		MINIOTH_DB_DRIVER:              env.MINIOTH_DB_DRIVER,
-		MINIOTH_HANDLER:                env.MINIOTH_HANDLER,
-		MINIOTH_AUDIT_LOGS:             env.MINIOTH_AUDIT_LOGS,
-		MINIOTH_AUDIT_LOGS_MAX_FETCH:   env.MINIOTH_AUDIT_LOGS_MAX_FETCH,
-	}
-
-	if env.JWT_SECRET_KEY != nil {
-		copied.JWT_SECRET_KEY = make([]byte, len(env.JWT_SECRET_KEY))
-		copy(copied.JWT_SECRET_KEY, env.JWT_SECRET_KEY)
-	}
-
-	if env.SERVICE_SECRET_KEY != nil {
-		copied.SERVICE_SECRET_KEY = make([]byte, len(env.SERVICE_SECRET_KEY))
-		copy(copied.SERVICE_SECRET_KEY, env.SERVICE_SECRET_KEY)
-	}
-
-	if env.ALLOWED_ORIGINS != nil {
-		copied.ALLOWED_ORIGINS = make([]string, len(env.ALLOWED_ORIGINS))
-		copy(copied.ALLOWED_ORIGINS, env.ALLOWED_ORIGINS)
-	}
-
-	if env.ALLOWED_HEADERS != nil {
-		copied.ALLOWED_HEADERS = make([]string, len(env.ALLOWED_HEADERS))
-		copy(copied.ALLOWED_HEADERS, env.ALLOWED_HEADERS)
-	}
-	if env.ALLOWED_METHODS != nil {
-		copied.ALLOWED_METHODS = make([]string, len(env.ALLOWED_METHODS))
-		copy(copied.ALLOWED_METHODS, env.ALLOWED_METHODS)
-	}
-
-	return copied
 }
 
 func getSecretKey(envVar string, fail bool) []byte {
@@ -344,9 +245,8 @@ func getSecretKey(envVar string, fail bool) []byte {
 	if secret == "" {
 		if fail {
 			log.Fatalf("[CONF] Config variable %s must not be empty", envVar)
-		} else {
-			log.Printf("[CONF] config secret %s wasn't set", envVar)
 		}
+		log.Printf("[CONF] config secret %s wasn't set", envVar)
 	}
 	return []byte(secret)
 }
@@ -360,22 +260,22 @@ func getEnv(key, fallback string) string {
 
 func getInt64Env(key string, fallback int64) int64 {
 	key = getEnv(key, "")
-	key_int, err := strconv.ParseInt(key, 10, 64)
+	keyInt, err := strconv.ParseInt(key, 10, 64)
 	if err != nil {
 		log.Printf("failed to parse int64 from var %v: %v\nfalling back to %v", key, err, fallback)
 		return fallback
 	}
-	return key_int
+	return keyInt
 }
 
 func getFloatEnv(key string, fallback float64) float64 {
 	key = getEnv(key, "")
-	key_float, err := strconv.ParseFloat(key, 64)
+	keyFloat, err := strconv.ParseFloat(key, 64)
 	if err != nil {
 		log.Printf("failed to parse float64 from variable %v: %v\nfalling back... to %v", key, err, fallback)
 		return fallback
 	}
-	return key_float
+	return keyFloat
 }
 
 func getBoolEnv(key, fallback string) bool {
@@ -397,8 +297,108 @@ func getEnvs(key string, fallback []string) []string {
 	return fallback
 }
 
-// CertFile string, KeyFile string, HTTPPort string, HTTPSPort string, IP string, DBfile string, AllowedOrigins []string, AllowedHeaders []string
-// AllowedMethods []string
+// DeepCopy method with create an identicall deep copy of the given config
+func (cfg *EnvConfig) DeepCopy() EnvConfig {
+	// Copy all fields by value
+	if cfg == nil {
+		return EnvConfig{}
+	}
+
+	copied := EnvConfig{
+		ConfigPath:                  cfg.ConfigPath,
+		Issuer:                      cfg.Issuer,
+		APIUseTLS:                   cfg.APIUseTLS,
+		APICertFile:                 cfg.APICertFile,
+		APIKeyFile:                  cfg.APIKeyFile,
+		APIGinMode:                  cfg.APIGinMode,
+		APILogsPath:                 cfg.APILogsPath,
+		APILogsMaxFetch:             cfg.APILogsMaxFetch,
+		APIPort:                     cfg.APIPort,
+		APIAddress:                  cfg.APIAddress,
+		FrontPort:                   cfg.FrontPort,
+		FrontAddress:                cfg.FrontAddress,
+		AuthPort:                    cfg.AuthPort,
+		AuthAddress:                 cfg.AuthAddress,
+		Jwks:                        cfg.Jwks,
+		JwtValidityHours:            cfg.JwtValidityHours,
+		HashCost:                    cfg.HashCost,
+		AsOperator:                  cfg.AsOperator,
+		Namespace:                   cfg.Namespace,
+		StorageSystem:               cfg.StorageSystem,
+		FslDb:                       cfg.FslDb,
+		FslDbPath:                   cfg.FslDbPath,
+		FslDbDriver:                 cfg.FslDbDriver,
+		FslDbMaxOpenConns:           cfg.FslDbMaxOpenConns,
+		FslDbMaxIdleConns:           cfg.FslDbMaxIdleConns,
+		FslDbMaxLifetime:            cfg.FslDbMaxLifetime,
+		FslAccessKey:                cfg.FslAccessKey,
+		FslSecretKey:                cfg.FslSecretKey,
+		FslServer:                   cfg.FslServer,
+		FslLocality:                 cfg.FslLocality,
+		LocalVolumesDefaultPath:     cfg.LocalVolumesDefaultPath,
+		LocalVolumesDefaultCapacity: cfg.LocalVolumesDefaultCapacity,
+		MinioAccessKey:              cfg.MinioAccessKey,
+		MinioSecretKey:              cfg.MinioSecretKey,
+		MinioEndpoint:               cfg.MinioEndpoint,
+		MinioNodeportEndpoint:       cfg.MinioNodeportEndpoint,
+		MinioUseSSL:                 cfg.MinioUseSSL,
+		MinioDefaultBucket:          cfg.MinioDefaultBucket,
+		MinioObjectLocking:          cfg.MinioObjectLocking,
+		ObjectSharing:               cfg.ObjectSharing,
+		ObjectSharingExpiration:     cfg.ObjectSharingExpiration,
+		PresignedUploadOnly:         cfg.PresignedUploadOnly,
+		ObjectSizeThreshold:         cfg.ObjectSizeThreshold,
+		MinioFetchStat:              cfg.MinioFetchStat,
+		UspaceDispatcher:            cfg.UspaceDispatcher,
+		UspaceJobQueueSize:          cfg.UspaceJobQueueSize,
+		UspaceJobMaxWorkers:         cfg.UspaceJobMaxWorkers,
+		UspaceJobExecutor:           cfg.UspaceJobExecutor,
+		WssAddress:                  cfg.WssAddress,
+		WssAddressInternal:          cfg.WssAddressInternal,
+		WssLogsPath:                 cfg.WssLogsPath,
+		UspaceJobsDb:                cfg.UspaceJobsDb,
+		UspaceJobsDbDriver:          cfg.UspaceJobsDbDriver,
+		UspaceJobsDbPath:            cfg.UspaceJobsDbPath,
+		UspaceJobsDbMaxOpenConns:    cfg.UspaceJobsDbMaxOpenConns,
+		UspaceJobsDbMaxIdleConns:    cfg.UspaceJobsDbMaxIdleConns,
+		UspaceJobsDbMaxLifetime:     cfg.UspaceJobsDbMaxLifetime,
+		MiniothAccessKey:            cfg.MiniothAccessKey,
+		MiniothSecretKey:            cfg.MiniothSecretKey,
+		MiniothDb:                   cfg.MiniothDb,
+		MiniothDbDriver:             cfg.MiniothDbDriver,
+		MiniothHandler:              cfg.MiniothHandler,
+		MiniothAuditLogs:            cfg.MiniothAuditLogs,
+		MiniothAuditLogsMaxFetch:    cfg.MiniothAuditLogsMaxFetch,
+	}
+
+	if cfg.JwtSecretKey != nil {
+		copied.JwtSecretKey = make([]byte, len(cfg.JwtSecretKey))
+		copy(copied.JwtSecretKey, cfg.JwtSecretKey)
+	}
+
+	if cfg.ServiceSecretKey != nil {
+		copied.ServiceSecretKey = make([]byte, len(cfg.ServiceSecretKey))
+		copy(copied.ServiceSecretKey, cfg.ServiceSecretKey)
+	}
+
+	if cfg.AllowedOrigins != nil {
+		copied.AllowedOrigins = make([]string, len(cfg.AllowedOrigins))
+		copy(copied.AllowedOrigins, cfg.AllowedOrigins)
+	}
+
+	if cfg.AllowedHeaders != nil {
+		copied.AllowedHeaders = make([]string, len(cfg.AllowedHeaders))
+		copy(copied.AllowedHeaders, cfg.AllowedHeaders)
+	}
+	if cfg.AllowedMethods != nil {
+		copied.AllowedMethods = make([]string, len(cfg.AllowedMethods))
+		copy(copied.AllowedMethods, cfg.AllowedMethods)
+	}
+
+	return copied
+}
+
+// ToString method formats and returns its structure to a string
 func (cfg *EnvConfig) ToString() string {
 	var strBuilder strings.Builder
 
@@ -435,12 +435,14 @@ func (cfg *EnvConfig) ToString() string {
 	return strBuilder.String()
 }
 
+// Addr method returns the IP+Port of this config
 func (cfg *EnvConfig) Addr(port string) string {
 	return cfg.IP + ":" + port
 }
 
+// MakeConfig writes to a file the given config as a map
 func MakeConfig(path string, fields any) error {
-	json_data, err := json.Marshal(fields)
+	jsonData, err := json.Marshal(fields)
 	if err != nil {
 		log.Printf("failed to marshal: %v", err)
 		return err
@@ -452,7 +454,7 @@ func MakeConfig(path string, fields any) error {
 		return err
 	}
 
-	err = os.WriteFile(cpth+"/"+path, json_data, os.ModePerm)
+	err = os.WriteFile(cpth+"/"+path, jsonData, os.ModePerm)
 	if err != nil {
 		log.Printf("failed to write config.json: %v", err)
 		return err
@@ -461,12 +463,12 @@ func MakeConfig(path string, fields any) error {
 	return nil
 }
 
+// ReadConfig reads fields from a file and creates a string to string map
 func ReadConfig(path string, secrets bool) (map[string]string, error) {
 	cfg, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	defer cfg.Close()
 
 	cfgV := make(map[string]string)
 
@@ -484,10 +486,19 @@ func ReadConfig(path string, secrets bool) (map[string]string, error) {
 
 		parts := strings.SplitN(line, "=", 2)
 		if len(parts) != 2 {
+			err1 := cfg.Close()
+			if err1 != nil {
+				return nil, err1
+			}
 			return nil, err
 		}
 		cfgV[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
 
+	}
+
+	err = cfg.Close()
+	if err != nil {
+		return nil, err
 	}
 
 	return cfgV, nil

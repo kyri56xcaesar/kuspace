@@ -8,22 +8,21 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// AuthMiddleware middleware function, for authorization control
 /* For this service, authorization is required only for admin role. */
 func AuthMiddleware(role string, srv *MService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// if service secret exists and validated, grant access
-		if s_secret_claim := c.GetHeader("X-Service-Secret"); s_secret_claim != "" {
-			if s_secret_claim == string(srv.Minioth.Config.SERVICE_SECRET_KEY) {
+		if secretClaim := c.GetHeader("X-Service-Secret"); secretClaim != "" {
+			if secretClaim == string(srv.Minioth.Config.ServiceSecretKey) {
 				log.Printf("service secret accepted. access granted.")
 				c.Next()
 				return
-			} else {
-				log.Printf("service secret invalid. access not granted")
-				c.Abort()
-				return
 			}
+			log.Printf("service secret invalid. access not granted")
+			c.Abort()
+			return
 		}
-
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is required"})
@@ -62,7 +61,7 @@ func AuthMiddleware(role string, srv *MService) gin.HandlerFunc {
 					c.Set("uid", claims.Subject)
 					c.Set("username", claims.Username)
 					c.Set("groups", claims.Groups)
-					c.Set("gids", claims.GroupIDS)
+					c.Set("gids", claims.GroupIDs)
 					ok = true
 					break
 				}

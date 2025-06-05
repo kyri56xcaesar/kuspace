@@ -12,7 +12,7 @@ import (
 
 // WebSocket Upgrader
 var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
+	CheckOrigin: func(_ *http.Request) bool { return true },
 }
 
 // Client Connection Structure
@@ -21,7 +21,7 @@ type Client struct {
 	Send chan []byte
 }
 
-// WebSocket Server
+// WebSocketServer struct defines a set of channels and a map of its clients that register on the channels
 type WebSocketServer struct {
 	Clients    map[*Client]bool
 	Broadcast  chan []byte
@@ -30,6 +30,7 @@ type WebSocketServer struct {
 	sync.Mutex
 }
 
+// Server main variable
 var Server = WebSocketServer{
 	Clients:    make(map[*Client]bool),
 	Broadcast:  make(chan []byte),
@@ -37,6 +38,7 @@ var Server = WebSocketServer{
 	Unregister: make(chan *Client),
 }
 
+// Start listening
 func (s *WebSocketServer) Start() {
 	for {
 		select {
@@ -114,7 +116,10 @@ func handleGShellWs(c *gin.Context) {
 func readMessages(client *Client) {
 	defer func() {
 		Server.Unregister <- client
-		client.Conn.Close()
+		err := client.Conn.Close()
+		if err != nil {
+			log.Printf("failed to close the connection: %v", err)
+		}
 	}()
 
 	for {
@@ -130,7 +135,12 @@ func readMessages(client *Client) {
 }
 
 func writeMessages(client *Client) {
-	defer client.Conn.Close()
+	defer func() {
+		err := client.Conn.Close()
+		if err != nil {
+			log.Printf("failed to close the connection: %v", err)
+		}
+	}()
 	for message := range client.Send {
 		err := client.Conn.WriteMessage(websocket.TextMessage, message)
 		if err != nil {
@@ -139,6 +149,7 @@ func writeMessages(client *Client) {
 	}
 }
 
+// Serve http + websocket conns
 func Serve() error {
 	r := gin.Default()
 	r.GET("/gshell", handleGShellWs)
@@ -146,7 +157,7 @@ func Serve() error {
 	go Server.Start()
 
 	log.Println("WebSocket Server started on :8081")
-	r.Run(":8081")
+	log.Fatal(r.Run(":8081"))
 
 	return nil
 }

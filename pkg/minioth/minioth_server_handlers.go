@@ -82,8 +82,8 @@ func (srv *MService) handleRegister(c *gin.Context) {
 // @Failure 404 {object} map[string]string "User not found"
 // @Router /login [post]
 func (srv *MService) handleLogin(c *gin.Context) {
-	var login_claim LoginClaim
-	err := c.BindJSON(&login_claim)
+	var loginClaim LoginClaim
+	err := c.BindJSON(&loginClaim)
 	if err != nil {
 		log.Printf("error binding request body to struct: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "binding error"})
@@ -91,7 +91,7 @@ func (srv *MService) handleLogin(c *gin.Context) {
 	}
 
 	// Verify user credentials
-	err = login_claim.validateClaim()
+	err = loginClaim.validateClaim()
 	if err != nil {
 		log.Printf("failed to validate: %v", err)
 		c.JSON(400, gin.H{
@@ -100,7 +100,7 @@ func (srv *MService) handleLogin(c *gin.Context) {
 		return
 	}
 
-	user, err := srv.Minioth.Authenticate(login_claim.Username, login_claim.Password)
+	user, err := srv.Minioth.Authenticate(loginClaim.Username, loginClaim.Password)
 	if err != nil {
 		log.Printf("error: %v", err)
 		if strings.Contains(err.Error(), "not found") {
@@ -124,9 +124,9 @@ func (srv *MService) handleLogin(c *gin.Context) {
 	var token string
 	switch signingAlg {
 	case "RS256":
-		token, err = GenerateAccessRS256JWT(strconv.Itoa(user.Uid), login_claim.Username, strGroups, strGids)
+		token, err = GenerateAccessRS256JWT(strconv.Itoa(user.UID), loginClaim.Username, strGroups, strGids)
 	default:
-		token, err = GenerateAccessHS256JWT(strconv.Itoa(user.Uid), login_claim.Username, strGroups, strGids)
+		token, err = GenerateAccessHS256JWT(strconv.Itoa(user.UID), loginClaim.Username, strGroups, strGids)
 	}
 	if err != nil {
 		log.Printf("failed to generate jwt: %v", err)
@@ -138,13 +138,13 @@ func (srv *MService) handleLogin(c *gin.Context) {
 	if !ok {
 		username = "[debug]admin"
 	}
-	logAudit("login", username.(string), fmt.Sprintf("%+v", login_claim), "success", "admin", c.ClientIP())
+	logAudit("login", username.(string), fmt.Sprintf("%+v", loginClaim), "success", "admin", c.ClientIP())
 	// for now return detailed information so that frontend is accomodated
 	// and followup authorization is provided (ids needed)
 	// NOTE: use Authorization header for now.
 	c.JSON(200, gin.H{
-		"user":         user,
-		"access_token": token,
+		"user":        user,
+		"accessToken": token,
 	})
 }
 
@@ -160,12 +160,12 @@ func (srv *MService) handleLogin(c *gin.Context) {
 // @Router       /token/refresh [post]
 func handleTokenRefresh(c *gin.Context) {
 	var requestBody struct {
-		Token string `json:"access_token" binding:"required"`
+		Token string `json:"accessToken" binding:"required"`
 	}
 
 	if err := c.BindJSON(&requestBody); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "access_token required",
+			"error": "accessToken required",
 		})
 		return
 	}
@@ -195,20 +195,20 @@ func handleTokenRefresh(c *gin.Context) {
 	var newAccessToken string
 	switch token.Header["alg"].(string) {
 	case "HS256":
-		newAccessToken, err = GenerateAccessHS256JWT(claims.Subject, claims.Username, claims.Groups, claims.GroupIDS)
+		newAccessToken, err = GenerateAccessHS256JWT(claims.Subject, claims.Username, claims.Groups, claims.GroupIDs)
 		if err != nil {
 			log.Printf("error generating new hs access token: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "error generating access_token",
+				"error": "error generating accessToken",
 			})
 			return
 		}
 	case "RS256":
-		newAccessToken, err = GenerateAccessRS256JWT(claims.Subject, claims.Username, claims.Groups, claims.GroupIDS)
+		newAccessToken, err = GenerateAccessRS256JWT(claims.Subject, claims.Username, claims.Groups, claims.GroupIDs)
 		if err != nil {
 			log.Printf("error generating new rs access token: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "error generating access_token",
+				"error": "error generating accessToken",
 			})
 			return
 		}
@@ -219,8 +219,8 @@ func handleTokenRefresh(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":      "new access token generated",
-		"access_token": newAccessToken,
+		"message":     "new access token generated",
+		"accessToken": newAccessToken,
 	})
 }
 
@@ -274,10 +274,10 @@ func handleTokenInfo(c *gin.Context) {
 
 	response := make(map[string]string)
 	response["valid"] = strconv.FormatBool(token.Valid)
-	response["user_id"] = claims.Subject
+	response["userID"] = claims.Subject
 	response["username"] = claims.Username
 	response["groups"] = claims.Groups
-	response["group_ids"] = claims.GroupIDS
+	response["groupIDs"] = claims.GroupIDs
 	response["issued_at"] = claims.IssuedAt.String()
 	response["expires_at"] = claims.ExpiresAt.String()
 
@@ -342,9 +342,9 @@ func (srv *MService) handleTokenUserInfo(c *gin.Context) {
 	if user == nil {
 		c.JSON(http.StatusNotFound, gin.H{"status": "not found"})
 		return
-	} else {
-		c.JSON(http.StatusOK, user)
 	}
+	c.JSON(http.StatusOK, user)
+
 }
 
 /* This endpoint should change a user password. It must "authenticate" the user. User can only change his password. */
@@ -420,10 +420,10 @@ func (srv *MService) handlePasswd(c *gin.Context) {
 func handleAuditLogs(c *gin.Context) {
 	mx, err := strconv.Atoi(c.Query("max"))
 	if err != nil || mx <= 0 {
-		mx = audit_log_max_fetch
+		mx = auditLogMaxFetch
 	}
 
-	lines, err := ut.TailFileLines(audit_log_path, mx)
+	lines, err := ut.TailFileLines(auditLogPath, mx)
 	if err != nil {
 		log.Printf("failed to read audit logs: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read audit log"})
@@ -508,7 +508,7 @@ func handleHasher(c *gin.Context) {
 		return
 	}
 
-	hashed, err := hash_cost([]byte(b.Text), b.HashCost)
+	hashed, err := hashCost([]byte(b.Text), b.HashCost)
 	if err != nil {
 		log.Printf("error hasing the text: %v", err)
 		c.JSON(500, gin.H{"error": "hashing"})
@@ -886,9 +886,17 @@ func logAudit(action, actor, target, status, details, source string) {
 		"details":   details,
 	}
 	data, _ := json.Marshal(entry)
-	f, _ := os.OpenFile(audit_log_path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	defer f.Close()
-	f.Write(append(data, '\n'))
+	f, _ := os.OpenFile(auditLogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			log.Printf("failed to close file: %v", err)
+		}
+	}()
+	_, err := f.Write(append(data, '\n'))
+	if err != nil {
+		log.Printf("failed to write audit log entry: %v", err)
+	}
 }
 
 func (srv *MService) handleSysConf(c *gin.Context) {

@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	// fslite swagger docs
 	_ "kyri56xcaesar/kuspace/api/fslite"
 
 	swaggerFiles "github.com/swaggo/files"
@@ -22,6 +23,10 @@ const (
 	version string = "/"
 )
 
+// ListenAndServe starts the FsLite HTTP server with all configured routes and middleware.
+// It sets up health check, authentication, admin, and resource management endpoints.
+// The server listens for system interrupt signals to gracefully shut down, closing
+// database connections and waiting for in-flight requests to complete before exiting.
 func (fsl *FsLite) ListenAndServe() {
 	srv := fsl.engine
 
@@ -37,7 +42,7 @@ func (fsl *FsLite) ListenAndServe() {
 
 	admin := api.Group("/admin")
 	// have authentication only on release
-	if strings.ToLower(fsl.config.API_GIN_MODE) != "debug" {
+	if strings.ToLower(fsl.config.APIGinMode) != "debug" {
 		admin.Use(authmiddleware(fsl.config))
 	}
 	{
@@ -62,7 +67,7 @@ func (fsl *FsLite) ListenAndServe() {
 	}
 
 	server := &http.Server{
-		Addr:              fsl.config.Addr(fsl.config.API_PORT),
+		Addr:              fsl.config.Addr(fsl.config.APIPort),
 		Handler:           srv,
 		ReadHeaderTimeout: time.Second * 5,
 	}
@@ -94,18 +99,16 @@ func (fsl *FsLite) ListenAndServe() {
 
 func authmiddleware(cfg ut.EnvConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if s_secret_claim := c.GetHeader("X-Service-Secret"); s_secret_claim != "" {
-			if s_secret_claim == string(cfg.SERVICE_SECRET_KEY) {
+		if sSecretClaim := c.GetHeader("X-Service-Secret"); sSecretClaim != "" {
+			if sSecretClaim == string(cfg.ServiceSecretKey) {
 				log.Printf("[FSL_SERVER_middleware] service secret accepted. access granted.")
 				c.Next()
 				return
-			} else {
-				log.Printf("[FSL_SERVER_middleware] service secret invalid. access not granted")
-				c.Abort()
-				return
 			}
+			log.Printf("[FSL_SERVER_middleware] service secret invalid. access not granted")
+			c.Abort()
+			return
 		}
-
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
 			log.Printf("[FSL_SERVER_middleware] authorization header not found")

@@ -1,3 +1,5 @@
+// Package fslite details
+//
 // @title           Fslite API
 // @version         1.0
 // @description     http server API for basic volume/object management (on filesystem) with user claim provisioning.
@@ -205,10 +207,10 @@ func (fsl *FsLite) statResourceHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "inv source format <volume_name>/<object_name>"})
 		return
 	}
-	resource_vname := parts[0]
-	resource_name := parts[1]
+	resourceVname := parts[0]
+	resourceName := parts[1]
 
-	res, err := fsl.Stat(ut.Resource{Vname: resource_vname, Name: resource_name})
+	res, err := fsl.Stat(ut.Resource{Vname: resourceVname, Name: resourceName})
 	if err != nil {
 		log.Printf("[FSL_API_statResource] failed to stat resource")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to stat"})
@@ -266,10 +268,9 @@ func (fsl *FsLite) deleteResourceHandler(c *gin.Context) {
 	uid, ok2 := id.(string)
 	if !ok || !ok2 {
 		log.Printf("uid wasn't set properly.")
-		if strings.ToLower(fsl.config.API_GIN_MODE) == "debug" {
+		if strings.ToLower(fsl.config.APIGinMode) == "debug" {
 			log.Printf("[FSL_API_delResource] mode = [debug], entering default uid")
 			uid = "0"
-			id = "0"
 		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "middleware failed to authenticate"})
 			return
@@ -337,14 +338,14 @@ func (fsl *FsLite) deleteResourceHandler(c *gin.Context) {
 // @Router /admin/resource/upload [post]
 func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
 	id, ok := c.Get("uid")
-	uid_str, ok2 := id.(string)
-	uid, err := strconv.Atoi(uid_str)
+	uidStr, ok2 := id.(string)
+	uid, err := strconv.Atoi(uidStr)
 	if !ok || !ok2 || err != nil {
 		log.Printf("[FSL_API_uploadResource] uid wasn't set properly.")
-		if strings.ToLower(fsl.config.API_GIN_MODE) == "debug" {
+		if strings.ToLower(fsl.config.APIGinMode) == "debug" {
 			log.Printf("mode = [debug], entering default uid")
 			uid = 0
-			uid_str = "0"
+			uidStr = "0"
 		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "middleware failed to authenticate"})
 			return
@@ -384,21 +385,30 @@ func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
 			Type:   "file",
 			Reader: file,
 			Perms:  "rw-r--r--",
-			Uid:    uid,
+			UID:    uid,
 			Gid:    uid,
 			Size:   int64(fileHeader.Size),
 		}
 
-		err = fsl.claimVolumeSpace(resource.Size, resource.Vname, uid_str)
+		err = fsl.claimVolumeSpace(resource.Size, resource.Vname, uidStr)
 		if err != nil {
-			file.Close()
+			err = file.Close()
+			if err != nil {
+				log.Printf("failed to close the file: %v", err)
+			}
 			log.Printf("failed to claim volume space.: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "volume claim denied"})
 			return
 		}
 
 		_, err = fsl.Insert(resource)
-		file.Close()
+		if err != nil {
+			log.Printf("failed to insert the resource: %v", err)
+		}
+		err = file.Close()
+		if err != nil {
+			log.Printf("failed to close the file: %v", err)
+		}
 		if err != nil {
 			if strings.Contains(err.Error(), "already exists") {
 				c.JSON(400, gin.H{"error": err.Error()})
@@ -436,14 +446,14 @@ func (fsl *FsLite) downloadResourceHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "inv source format <volume_name>/<object_name>"})
 		return
 	}
-	resource_vname := parts[0]
-	resource_name := parts[1]
-	if resource_vname == "" || resource_name == "" {
+	resourceVname := parts[0]
+	resourceName := parts[1]
+	if resourceVname == "" || resourceName == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "inv source format <volume_name>/<object_name>"})
 		return
 	}
 
-	resource := any(ut.Resource{Name: resource_name, Vname: resource_vname})
+	resource := any(ut.Resource{Name: resourceName, Vname: resourceVname})
 	_, err := fsl.Download(&resource)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to download"})
@@ -488,18 +498,18 @@ func (fsl *FsLite) copyResourceHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "inv source format <volume_name>/<object_name>"})
 		return
 	}
-	src_vname := parts[0]
-	src_name := parts[1]
+	srvVname := parts[0]
+	srcName := parts[1]
 
 	parts = strings.Split(dst, "/")
 	if len(parts) != 2 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "inv source format <volume_name>/<object_name>"})
 		return
 	}
-	dst_vname := parts[0]
-	dst_name := parts[1]
+	dstVname := parts[0]
+	dstName := parts[1]
 
-	err := fsl.Copy(ut.Resource{Name: src_name, Vname: src_vname}, ut.Resource{Name: dst_name, Vname: dst_vname})
+	err := fsl.Copy(ut.Resource{Name: srcName, Vname: srvVname}, ut.Resource{Name: dstName, Vname: dstVname})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to copy the objs"})
 		return
@@ -507,7 +517,7 @@ func (fsl *FsLite) copyResourceHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "copy complete"})
 }
 
-func (fsl *FsLite) shareResourceHandler(c *gin.Context) {
+func (fsl *FsLite) shareResourceHandler(_ *gin.Context) {
 
 }
 

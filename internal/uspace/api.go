@@ -1,3 +1,4 @@
+// Package uspace details
 // @title           Uspace API
 // @version         1.0
 // @description     API for submitting/monitoring jobs to/from an execution machine
@@ -17,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	// swagger documentation
 	_ "kyri56xcaesar/kuspace/api/uspace"
 	k "kyri56xcaesar/kuspace/internal/uspace/kubernetes"
 	ut "kyri56xcaesar/kuspace/internal/utils"
@@ -28,14 +30,15 @@ import (
 )
 
 const (
-	VERSION                     = "/v1"
-	MAX_DEFAULT_VOLUME_CAPACITY = 100
+	version                  = "/v1"
+	maxDefaultVolumeCapacity = 100
 )
 
 var (
-	verbose bool = true
+	verbose = true
 )
 
+// UService struct as in the central data structure for the USerivce microservice
 /*
 	Structure containing all needed aspects of this service
 
@@ -76,6 +79,7 @@ type UService struct {
 	jdp JobDispatcher
 }
 
+// NewUService function as in a constructor for UService struct
 /*
 		"constructor"
 
@@ -86,7 +90,7 @@ func NewUService(conf string) UService {
 	// configuration
 	cfg := ut.LoadConfig(conf)
 
-	setGinMode(cfg.API_GIN_MODE)
+	setGinMode(cfg.APIGinMode)
 	// service
 	srv := UService{
 		Engine: gin.Default(),
@@ -95,38 +99,38 @@ func NewUService(conf string) UService {
 	}
 
 	// storage system (constructing)
-	storage := StorageShipment(strings.ToLower(cfg.STORAGE_SYSTEM), &srv)
+	storage := StorageShipment(strings.ToLower(cfg.StorageSystem), &srv)
 	// storage shipment will panic if its not working
 	srv.storage = storage
 
 	// dispatcher system (constructing)
-	jdp, err := DispatcherShipment(strings.ToLower(cfg.J_DISPATCHER), &srv)
+	jdp, err := DispatcherShipment(strings.ToLower(cfg.UspaceDispatcher), &srv)
 	if err != nil {
 		panic(err)
 	}
-	jobs_socket_address = cfg.J_WS_ADDRESS
-	if jobs_socket_address == "" {
+	jobsSocketAddress = cfg.WssAddress
+	if jobsSocketAddress == "" {
 		panic(fmt.Errorf("jobs socket address is empty"))
 	}
 	srv.jdp = jdp
 	jdp.Start() // start "master" worker (the one that spawns other workers)
 
 	// database (init)
-	jdbh := ut.NewDBHandler(cfg.DB_JOBS, cfg.DB_JOBS_PATH, cfg.DB_JOBS_DRIVER)
+	jdbh := ut.NewDBHandler(cfg.UspaceJobsDb, cfg.UspaceJobsDbPath, cfg.UspaceJobsDbDriver)
 	srv.jdbh = jdbh
-	srv.jdbh.Init(initSqlJobs, cfg.DB_JOBS_MAX_OPEN_CONNS, cfg.DB_JOBS_MAX_IDLE_CONNS, cfg.DB_JOBS_MAX_LIFETIME)
+	srv.jdbh.Init(initSQLJobs, cfg.UspaceJobsDbMaxOpenConns, cfg.UspaceJobsDbMaxIdleConns, cfg.UspaceJobsDbMaxLifetime)
 
 	// fsl for storing and enforcing files securly
-	copy_cfg := cfg.DeepCopy()
-	copy_cfg.FSL_LOCALITY = false
-	copy_cfg.FSL_SERVER = false
-	copy_cfg.DB_FSL = "fsl_local.db"
+	copyCfg := cfg.DeepCopy()
+	copyCfg.FslLocality = false
+	copyCfg.FslServer = false
+	copyCfg.FslDb = "fsl_local.db"
 
-	srv.fsl = fslite.NewFsLite(copy_cfg)
+	srv.fsl = fslite.NewFsLite(copyCfg)
 
 	// lets create a default bucket
-	default_volume := ut.Volume{Name: cfg.MINIO_DEFAULT_BUCKET, CreatedAt: ut.CurrentTime()}
-	err = storage.CreateVolume(default_volume)
+	defaultVolume := ut.Volume{Name: cfg.MinioDefaultBucket, CreatedAt: ut.CurrentTime()}
+	err = storage.CreateVolume(defaultVolume)
 	if err != nil {
 		if strings.Contains(err.Error(), "already exists") {
 			log.Printf("[USPACE_init] default volume already exists... continuing")
@@ -134,10 +138,10 @@ func NewUService(conf string) UService {
 			log.Fatal("[USPACE_init] failed to create the default volume: ", err)
 		}
 	}
-	log.Printf("[USPACE_init] default bucket ready: %s", cfg.MINIO_DEFAULT_BUCKET)
+	log.Printf("[USPACE_init] default bucket ready: %s", cfg.MinioDefaultBucket)
 
 	// store it in local db as well
-	err = srv.fsl.CreateVolume(default_volume)
+	err = srv.fsl.CreateVolume(defaultVolume)
 	if err != nil {
 		if strings.Contains(err.Error(), "already exists") {
 			log.Printf("[USPACE_init] default volume already exists in database... continueing")
@@ -149,6 +153,7 @@ func NewUService(conf string) UService {
 	return srv
 }
 
+// Serve function  launches the server listener
 /* listen on http at handled endpoints */
 func (srv *UService) Serve() {
 	srv.RegisterRoutes()
@@ -158,7 +163,7 @@ func (srv *UService) Serve() {
 
 	/* server std lib raw definition */
 	server := &http.Server{
-		Addr:              srv.config.Addr(srv.config.API_PORT),
+		Addr:              srv.config.Addr(srv.config.APIPort),
 		Handler:           srv.Engine,
 		ReadHeaderTimeout: time.Second * 5,
 	}
@@ -187,6 +192,7 @@ func (srv *UService) Serve() {
 	log.Println("[USPACE_SERVER] Server exiting")
 }
 
+// RegisterRoutes method will simply attach the endpoints to the server
 func (srv *UService) RegisterRoutes() {
 	root := srv.Engine.Group("/")
 	{
@@ -199,9 +205,9 @@ func (srv *UService) RegisterRoutes() {
 	/* These endpoints should parse an authentication token and handle verification of authorization according
 	*    to the permissions of the user. For now, we will just implement the endpoints without any
 	* */
-	apiV1 := srv.Engine.Group("/api" + VERSION)
+	apiV1 := srv.Engine.Group("/api" + version)
 	apiV1.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.InstanceName("uspacedocs")))
-	if strings.ToLower(srv.config.API_GIN_MODE) != "debug" {
+	if strings.ToLower(srv.config.APIGinMode) != "debug" {
 		apiV1.Use(serviceAuth(srv))
 	}
 	{
@@ -233,9 +239,9 @@ func (srv *UService) RegisterRoutes() {
 		apiV1.PATCH("/resource/group", isOwner(srv), srv.chgroupResourceHandler)
 	}
 
-	admin := srv.Engine.Group("/api" + VERSION + "/admin")
+	admin := srv.Engine.Group("/api" + version + "/admin")
 
-	if strings.ToLower(srv.config.API_GIN_MODE) != "debug" {
+	if strings.ToLower(srv.config.APIGinMode) != "debug" {
 		admin.Use(serviceAuth(srv), bindHeadersMiddleware())
 	}
 	{
@@ -269,11 +275,11 @@ func (srv *UService) RegisterRoutes() {
 			)
 
 			admin.GET("/system-metrics", func(c *gin.Context) {
-				k_metrics, err := k.GetSystemMetrics(srv.config.NAMESPACE)
+				kMetrics, err := k.GetSystemMetrics(srv.config.Namespace)
 				if err != nil {
 					log.Printf("[API] system metrics errors: %v", err)
 				}
-				c.JSON(http.StatusOK, k_metrics)
+				c.JSON(http.StatusOK, kMetrics)
 			})
 
 		}
@@ -292,12 +298,12 @@ func (srv *UService) handleSysConf(c *gin.Context) {
 
 // this should propably sync users/data from minio or other storage providers.
 func syncUsers(srv *UService) error {
-	req, err := http.NewRequest(http.MethodGet, "http://"+srv.config.AUTH_ADDRESS+":"+srv.config.AUTH_PORT+"/v1/admin/groups", nil)
+	req, err := http.NewRequest(http.MethodGet, "http://"+srv.config.AuthAddress+":"+srv.config.AuthPort+"/v1/admin/groups", nil)
 	if err != nil {
 		log.Printf("failed to create a request: %v", err)
 		return err
 	}
-	req.Header.Add("X-Service-Secret", string(srv.config.SERVICE_SECRET_KEY))
+	req.Header.Add("X-Service-Secret", string(srv.config.ServiceSecretKey))
 	var reqR struct {
 		Content []ut.Group `json:"content"`
 	}
@@ -307,7 +313,12 @@ func syncUsers(srv *UService) error {
 		log.Printf("failed to do request: %v", err)
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			log.Printf("failed to close response body: %v", err)
+		}
+	}()
 
 	if err := json.NewDecoder(resp.Body).Decode(&reqR); err != nil {
 		log.Printf("failed to decode response body: %v", err)
@@ -318,7 +329,7 @@ func syncUsers(srv *UService) error {
 		return fmt.Errorf("failed to retrieve actual users")
 	}
 
-	capacity := min(srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY, MAX_DEFAULT_VOLUME_CAPACITY)
+	capacity := min(srv.config.LocalVolumesDefaultCapacity, maxDefaultVolumeCapacity)
 
 	// we retrieved the users, lets add the users volume claims and the corresponding primary group claims
 	for _, group := range reqR.Content {
@@ -340,7 +351,7 @@ func syncUsers(srv *UService) error {
 			if user.Username == group.Groupname {
 				cancelFn, err := srv.storage.Insert([]any{ut.UserVolume{
 					Vid:   1,
-					Uid:   user.Uid,
+					UID:   user.UID,
 					Quota: capacity,
 				}})
 				defer cancelFn()

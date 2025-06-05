@@ -1,6 +1,3 @@
-// utility package
-//
-// custom assert functions
 package utils
 
 import (
@@ -8,6 +5,19 @@ import (
 	"reflect"
 )
 
+// AssertStructNotEmptyUpon checks whether the specified fields of a struct are not empty (zero value).
+//
+// Arguments:
+//   - strct: The struct (or pointer to struct) to be checked.
+//   - assertm: A map where keys are field names (string) and values are booleans.
+//     If the value is true, the corresponding field will be checked for non-emptiness.
+//
+// Returns:
+//   - bool: Returns true if all specified fields are not empty; returns false if any specified field is empty or if the input is not a struct.
+//
+// utility package
+//
+// custom assert functions
 func AssertStructNotEmptyUpon(strct any, assertm map[any]bool) bool {
 
 	v := reflect.ValueOf(strct)
@@ -26,13 +36,13 @@ func AssertStructNotEmptyUpon(strct any, assertm map[any]bool) bool {
 	numfield := v.NumField()
 
 	for i := range numfield {
-		field_type := t.Field(i)
-		field_value := v.Field(i)
+		fieldType := t.Field(i)
+		fieldValue := v.Field(i)
 
-		if assertm[field_type.Name] {
-			// log.Printf("field: %v, value: %v", field_type.Name, field_value)
+		if assertm[fieldType.Name] {
+			// log.Printf("field: %v, value: %v", fieldType.Name, fieldValue)
 			// check if this field is not empty
-			if field_value.IsZero() {
+			if fieldValue.IsZero() {
 				return false
 			}
 		}

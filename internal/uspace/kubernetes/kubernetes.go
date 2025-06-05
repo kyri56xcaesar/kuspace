@@ -1,3 +1,4 @@
+// Package kubernetes
 package kubernetes
 
 import (
@@ -9,6 +10,10 @@ import (
 	"k8s.io/client-go/util/homedir"
 )
 
+// GetKubeClient initializes and returns a Kubernetes clientset.
+// It first attempts to create an in-cluster configuration. If that fails (e.g., when running outside a cluster),
+// it falls back to using the local kubeconfig file located at $HOME/.kube/config.
+// Returns a Kubernetes clientset or an error if configuration or client creation fails.
 func GetKubeClient() (*kubernetes.Clientset, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {

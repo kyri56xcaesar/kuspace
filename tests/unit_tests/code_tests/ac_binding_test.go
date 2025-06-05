@@ -10,15 +10,15 @@ import (
 )
 
 func TestBinding(t *testing.T) {
-	test_h := "3:test-volume:/hello/motf4k 0:0,100,1000"
+	testH := "3:test-volume:/hello/motf4k 0:0,100,1000"
 
-	ac, err := u.BindAccessTarget(test_h)
+	ac, err := u.BindAccessTarget(testH)
 	if err != nil {
 		panic(err)
 	}
 
 	assert.DeepEqual(t, ac, ut.AccessClaim{
-		Uid:        "0",
+		UID:        "0",
 		Gids:       "0,100,1000",
 		Vid:        "3",
 		Vname:      "test-volume",
@@ -26,13 +26,13 @@ func TestBinding(t *testing.T) {
 		HasKeyword: false,
 	})
 
-	test_h = "1::$rids=1,2,3 0:0"
-	ac, err = u.BindAccessTarget(test_h)
+	testH = "1::$rids=1,2,3 0:0"
+	ac, err = u.BindAccessTarget(testH)
 	if err != nil {
 		panic(err)
 	}
 	assert.DeepEqual(t, ac, ut.AccessClaim{
-		Uid:        "0",
+		UID:        "0",
 		Gids:       "0",
 		Vid:        "1",
 		Vname:      "",
@@ -40,12 +40,12 @@ func TestBinding(t *testing.T) {
 		HasKeyword: true,
 	})
 
-	test_h = "1::$rids=1,2,3 0:0"
-	_, err = u.BindAccessTarget(test_h)
+	testH = "1::$rids=1,2,3 0:0"
+	_, err = u.BindAccessTarget(testH)
 
 	assert.NoError(t, err)
 	// assert.DeepEqual(t, ac, ut.AccessClaim{
-	// 	Uid:        "0",
+	// 	UID:        "0",
 	// 	Gids:       "0",
 	// 	Vid:        "",
 	// 	Vname:      "sas",
@@ -55,11 +55,11 @@ func TestBinding(t *testing.T) {
 }
 
 func TestBindingFalse(t *testing.T) {
-	test_h := "::$rids=1,2,3 0:0"
-	_, err := u.BindAccessTarget(test_h)
+	testH := "::$rids=1,2,3 0:0"
+	_, err := u.BindAccessTarget(testH)
 	assert.Error(t, err)
 	// assert.DeepEqual(t, ac, ut.AccessClaim{
-	// 	Uid:        "0",
+	// 	UID:        "0",
 	// 	Gids:       "0",
 	// 	Vid:        "",
 	// 	Vname:      "",

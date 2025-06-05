@@ -1,3 +1,10 @@
+// Package main provides a command-line utility for generating random tabular data
+// in various formats such as CSV, JSON, YAML, and plain text. The generator allows
+// customization of the number of rows, columns, field length, character set, and
+// output format. It supports writing the generated data to a file or printing it
+// to standard output, and includes options for verbosity and operation timeout.
+// This tool is useful for creating synthetic datasets for testing, development,
+// or demonstration purposes.
 package main
 
 import (
@@ -16,16 +23,19 @@ import (
 )
 
 const (
-	MAX_FOLD           = 20
-	MAX_LENGTH         = 1000
-	MAX_HEIGHT         = 1000000000
-	outputPath         = "tmp/"
-	charsetPlus        = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()€¥"
-	numbers            = "0123456789"
-	characters         = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	caps_characters    = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	lower_characters   = "abcdefghijklmnopqrstuvwxyz"
-	special_characters = "!@#$%^&*()€¥"
+	// MaxFold defines the number of times an occurence of a character appears in a block
+	MaxFold = 20
+	// MaxLength defines the number of characters in one line
+	MaxLength = 1000
+	// MaxHeight defines the number of lines
+	MaxHeight         = 1000000000
+	outputPath        = "tmp/"
+	charsetPlus       = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()€¥"
+	numbers           = "0123456789"
+	characters        = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	capsCharacters    = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	lowerCharacters   = "abcdefghijklmnopqrstuvwxyz"
+	specialCharacters = "!@#$%^&*()€¥"
 )
 
 var (
@@ -48,6 +58,7 @@ var (
 	special = flag.Bool("special", false, "charset special characters only")
 )
 
+// Row is a string to string map
 type Row map[string]string
 
 // Generates a 2D slice of random strings [rows][columns]
@@ -130,14 +141,24 @@ func formatTo(formatType string, table [][]string) []byte {
 
 func writeToFile(filename string, data []byte) error {
 	if err := os.MkdirAll(outputPath, 0755); err != nil {
+		log.Printf("failed to check-make file parents: %v", err)
 		return err
 	}
 	f, err := os.OpenFile(outputPath+filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 	if err != nil {
+		log.Printf("failed to open file: %v", err)
 		return err
 	}
-	defer f.Close()
 	_, err = f.Write(data)
+	if err != nil {
+		log.Printf("failed to write data to the file: %v", err)
+	}
+
+	err = f.Close()
+	if err != nil {
+		log.Printf("failed to close file: %v", err)
+	}
+
 	return err
 }
 
@@ -176,20 +197,20 @@ func parseFlags() {
 	flag.Usage = usage
 	flag.Parse()
 
-	if *fold >= MAX_FOLD {
-		*fold = MAX_FOLD
+	if *fold >= MaxFold {
+		*fold = MaxFold
 	} else if *fold <= 0 {
 		*fold = 1
 	}
 
-	if *lineHeight >= MAX_HEIGHT {
-		*lineHeight = MAX_HEIGHT
+	if *lineHeight >= MaxHeight {
+		*lineHeight = MaxHeight
 	} else if *lineHeight <= 0 {
 		*lineHeight = 1
 	}
 
-	if *lineLength >= MAX_LENGTH {
-		*lineLength = MAX_LENGTH
+	if *lineLength >= MaxLength {
+		*lineLength = MaxLength
 	} else if *lineLength <= 0 {
 		*lineLength = 1
 	}
@@ -199,11 +220,11 @@ func parseFlags() {
 	} else if *chars {
 		charset = characters
 	} else if *caps {
-		charset = caps_characters
+		charset = capsCharacters
 	} else if *lower {
-		charset = lower_characters
+		charset = lowerCharacters
 	} else if *special {
-		charset = special_characters
+		charset = specialCharacters
 	}
 }
 

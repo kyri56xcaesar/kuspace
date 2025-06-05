@@ -29,7 +29,12 @@ func getAllVolumes(db *sql.DB) ([]ut.Volume, error) {
 		log.Printf("[FSL_DB_getVolumes] error querying db: %v", err)
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 
 	var volumes []ut.Volume
 	for rows.Next() {
@@ -130,8 +135,8 @@ func deleteVolumeByName(db *sql.DB, name string) error {
 func insertVolume(db *sql.DB, volume ut.Volume) error {
 	_, err := db.Exec(`
 		INSERT INTO 
-			volumes (vid, name, path, dynamic, capacity, usage, created_at) 
-		VALUES (nextval('seq_volumeid'), ?, ?, ?, ?, ?, ?)`, volume.FieldsNoId()...)
+			volumes (vid, name, path, dynamic, capacity, usage, createdAt) 
+		VALUES (nextval('seq_volumeid'), ?, ?, ?, ?, ?, ?)`, volume.FieldsNoID()...)
 	if err != nil {
 		log.Printf("[FSL_DB_insertVolume] error upon executing insert query: %v", err)
 		return err
@@ -149,7 +154,7 @@ func insertVolumes(db *sql.DB, volumes []ut.Volume) error {
 	placeholder := strings.Repeat("(nextval('seq_volumeid'), ?, ?, ?, ?, ?, ?),", len(volumes))
 	query := fmt.Sprintf(`
     INSERT INTO 
-		volumes (vid, name, path, dynamic, capacity, usage, created_at) 
+		volumes (vid, name, path, dynamic, capacity, usage, createdAt) 
     VALUES %s`, placeholder[:len(placeholder)-1])
 
 	stmt, err := tx.Prepare(query)
@@ -157,14 +162,22 @@ func insertVolumes(db *sql.DB, volumes []ut.Volume) error {
 		log.Printf("[FSL_DB_insertVolumes] error preparing transaction: %v", err)
 		return err
 	}
-	defer stmt.Close()
+	defer func() {
+		err := stmt.Close()
+		if err != nil {
+			log.Printf("failed to close statement: %v", err)
+		}
+	}()
 
 	for _, v := range volumes {
 		_, err = stmt.Exec(v.Path, v.Capacity, v.Usage)
 		if err != nil {
 			log.Printf("[FSL_DB_insertVolumes] error executing transaction: %v", err)
-			tx.Rollback()
-			return err
+			err = tx.Rollback()
+			if err != nil {
+				return err
+			}
+			return fmt.Errorf("[FSL_DB_insertVolumes] failed to exec query, rolling back")
 		}
 	}
 
@@ -177,7 +190,7 @@ func insertVolumes(db *sql.DB, volumes []ut.Volume) error {
 	return nil
 }
 
-func deleteVolumeByIds(db *sql.DB, ids []int) error {
+func deleteVolumeByIDs(db *sql.DB, ids []int) error {
 	if ids == nil {
 		return fmt.Errorf("must provide ids")
 	}
@@ -212,7 +225,7 @@ func deleteVolumeByIds(db *sql.DB, ids []int) error {
 func insertUserVolume(db *sql.DB, uv ut.UserVolume) error {
 	// check for uniquness
 	var exists bool
-	err := db.QueryRow(`SELECT 1 FROM userVolume WHERE vid = ? AND uid = ? LIMIT 1;`, uv.Vid, uv.Uid).Scan(&exists)
+	err := db.QueryRow(`SELECT 1 FROM userVolume WHERE vid = ? AND uid = ? LIMIT 1;`, uv.Vid, uv.UID).Scan(&exists)
 	if exists {
 		if err == nil {
 			return fmt.Errorf("already exists")
@@ -227,7 +240,7 @@ func insertUserVolume(db *sql.DB, uv ut.UserVolume) error {
 	`
 	currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 
-	_, err = db.Exec(query, uv.Vid, uv.Uid, uv.Usage, uv.Quota, currentTime)
+	_, err = db.Exec(query, uv.Vid, uv.UID, uv.Usage, uv.Quota, currentTime)
 	if err != nil {
 		return fmt.Errorf("failed to insert user volume: %v", err)
 	}
@@ -253,15 +266,22 @@ func insertUserVolumes(db *sql.DB, uvs []ut.UserVolume) error {
 		log.Printf("error preparing transaction: %v", err)
 		return err
 	}
-	defer stmt.Close()
-
+	defer func() {
+		err := stmt.Close()
+		if err != nil {
+			log.Printf("failed to close statement: %v", err)
+		}
+	}()
 	for _, uv := range uvs {
-		uv.Updated_at = ut.CurrentTime()
+		uv.UpdatedAt = ut.CurrentTime()
 		_, err = stmt.Exec(uv.Fields()...)
 		if err != nil {
 			log.Printf("[FSL_DB_insUvs] error executing transaction: %v", err)
-			tx.Rollback()
-			return err
+			err = tx.Rollback()
+			if err != nil {
+				return err
+			}
+			return fmt.Errorf("failed to exec statement, rolling back")
 		}
 	}
 
@@ -274,7 +294,7 @@ func insertUserVolumes(db *sql.DB, uvs []ut.UserVolume) error {
 	return nil
 }
 
-func deleteUserVolumeByUid(db *sql.DB, uid int) error {
+func deleteUserVolumeByUID(db *sql.DB, uid int) error {
 	query := `DELETE FROM userVolume WHERE uid = ?`
 
 	_, err := db.Exec(query, uid)
@@ -302,7 +322,7 @@ func updateUserVolume(db *sql.DB, uv ut.UserVolume) error {
 		SET usage = ?, quota = ?, updated_at = ?
 		WHERE vid = ? AND uid = ?
 	`
-	_, err := db.Exec(query, uv.Usage, uv.Quota, ut.CurrentTime(), uv.Vid, uv.Uid)
+	_, err := db.Exec(query, uv.Usage, uv.Quota, ut.CurrentTime(), uv.Vid, uv.UID)
 	if err != nil {
 		return fmt.Errorf("failed to update user volume: %v", err)
 	}
@@ -310,7 +330,7 @@ func updateUserVolume(db *sql.DB, uv ut.UserVolume) error {
 	return nil
 }
 
-func updateUserVolumeQuotaByUid(db *sql.DB, quota float32, uid int) error {
+func updateUserVolumeQuotaByUID(db *sql.DB, quota float32, uid int) error {
 	query := `UPDATE userVolume SET quota = ? WHERE uid = ?`
 	res, err := db.Exec(query, quota, uid)
 	if err != nil {
@@ -328,7 +348,7 @@ func updateUserVolumeQuotaByUid(db *sql.DB, quota float32, uid int) error {
 	return nil
 }
 
-func updateUserVolumeUsageByUid(db *sql.DB, usage float32, uid int) error {
+func updateUserVolumeUsageByUID(db *sql.DB, usage float32, uid int) error {
 	query := `UPDATE userVolume SET usage = ? WHERE uid = ?`
 	res, err := db.Exec(query, usage, uid)
 	if err != nil {
@@ -346,7 +366,7 @@ func updateUserVolumeUsageByUid(db *sql.DB, usage float32, uid int) error {
 	return nil
 }
 
-func updateUserVolumeQuotaAndUsageByUid(db *sql.DB, usage, quota float32, uid int) error {
+func updateUserVolumeQuotaAndUsageByUID(db *sql.DB, usage, quota float32, uid int) error {
 	query := `UPDATE userVolume SET usage = ?, quota = ? WHERE uid = ?`
 	res, err := db.Exec(query, usage, quota, uid)
 	if err != nil {
@@ -370,7 +390,12 @@ func getAllUserVolumes(db *sql.DB) (any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to query user volumes: %v", err)
 	}
-	defer rows.Close()
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 	var userVolumes []ut.UserVolume
 	for rows.Next() {
 		var uv ut.UserVolume
@@ -386,7 +411,7 @@ func getAllUserVolumes(db *sql.DB) (any, error) {
 	return userVolumes, nil
 }
 
-func getUserVolumeByUid(db *sql.DB, uid int) (ut.UserVolume, error) {
+func getUserVolumeByUID(db *sql.DB, uid int) (ut.UserVolume, error) {
 	query := `SELECT * FROM userVolume WHERE uid = ?`
 	var userVolume ut.UserVolume
 	err := db.QueryRow(query, uid).Scan(userVolume.PtrFields()...)
@@ -396,7 +421,7 @@ func getUserVolumeByUid(db *sql.DB, uid int) (ut.UserVolume, error) {
 	return userVolume, nil
 }
 
-func getUserVolumesByUserIds(db *sql.DB, uids []string) (any, error) {
+func getUserVolumesByUserIDs(db *sql.DB, uids []string) (any, error) {
 	query := `SELECT * FROM userVolume WHERE uid IN (?` + strings.Repeat(",?", len(uids)-1) + `)`
 	if len(uids) == 1 && uids[0] == "*" {
 		query = `SELECT * FROM userVolume;`
@@ -409,7 +434,12 @@ func getUserVolumesByUserIds(db *sql.DB, uids []string) (any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to query user volumes: %v", err)
 	}
-	defer rows.Close()
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 	var userVolumes []ut.UserVolume
 	for rows.Next() {
 		var uv ut.UserVolume
@@ -425,7 +455,7 @@ func getUserVolumesByUserIds(db *sql.DB, uids []string) (any, error) {
 	return userVolumes, nil
 }
 
-func getUserVolumesByVolumeIds(db *sql.DB, vids []string) (any, error) {
+func getUserVolumesByVolumeIDs(db *sql.DB, vids []string) (any, error) {
 	query := `SELECT * FROM userVolume WHERE vid IN (?` + strings.Repeat(",?", len(vids)-1) + `)`
 	if len(vids) == 1 && vids[0] == "*" {
 		query = `SELECT * FROM userVolume;`
@@ -438,7 +468,12 @@ func getUserVolumesByVolumeIds(db *sql.DB, vids []string) (any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to query user volumes: %v", err)
 	}
-	defer rows.Close()
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 	var userVolumes []ut.UserVolume
 	for rows.Next() {
 		var uv ut.UserVolume
@@ -470,7 +505,12 @@ func getUserVolumesByUidsAndVids(db *sql.DB, uids, vids []string) (any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to query user volumes: %v", err)
 	}
-	defer rows.Close()
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 	var userVolumes []ut.UserVolume
 	for rows.Next() {
 		var uv ut.UserVolume
@@ -531,14 +571,22 @@ func insertGroupVolumes(db *sql.DB, gvs []ut.GroupVolume) error {
 		log.Printf("[FSL_DB_insGvs] error preparing transaction: %v", err)
 		return err
 	}
-	defer stmt.Close()
+	defer func() {
+		err := stmt.Close()
+		if err != nil {
+			log.Printf("failed to close statement: %v", err)
+		}
+	}()
 	for _, gv := range gvs {
-		gv.Updated_at = ut.CurrentTime()
+		gv.UpdatedAt = ut.CurrentTime()
 		_, err = stmt.Exec(gv.Fields()...)
 		if err != nil {
 			log.Printf("[FSL_DB_insGvs] error executing transaction: %v", err)
-			tx.Rollback()
-			return err
+			err = tx.Rollback()
+			if err != nil {
+				return err
+			}
+			return fmt.Errorf("failed to exec statement rolling back")
 		}
 	}
 	err = tx.Commit()
@@ -600,14 +648,25 @@ func updateGroupVolumes(db *sql.DB, gvs []ut.GroupVolume) error {
 
 	stmt, err := tx.Prepare(query)
 	if err != nil {
-		tx.Rollback()
+		err = tx.Rollback()
+		if err != nil {
+			return err
+		}
 		return fmt.Errorf("failed to prepare statement: %v", err)
 	}
-	defer stmt.Close()
+	defer func() {
+		err := stmt.Close()
+		if err != nil {
+			log.Printf("failed to close statement: %v", err)
+		}
+	}()
 	for _, gv := range gvs {
 		_, err := stmt.Exec(gv.Usage, gv.Quota, ut.CurrentTime(), gv.Vid, gv.Gid)
 		if err != nil {
-			tx.Rollback() // Rollback on error
+			err = tx.Rollback()
+			if err != nil {
+				return err
+			}
 			return fmt.Errorf("failed to update group volume (vid=%d, gid=%d): %v", gv.Vid, gv.Gid, err)
 		}
 	}
@@ -700,7 +759,7 @@ func updateGroupVolumeUsageByGid(db *sql.DB, usage float32, gid int) error {
 	return nil
 }
 
-func updateGroupVolumeQuotaAndUsageByUid(db *sql.DB, usage, quota float32, gid int) error {
+func updateGroupVolumeQuotaAndUsageByUID(db *sql.DB, usage, quota float32, gid int) error {
 	query := `
     UPDATE 
       groupVolume
@@ -733,7 +792,12 @@ func getAllGroupVolumes(db *sql.DB) (any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to query group volumes: %v", err)
 	}
-	defer rows.Close()
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 	var groupVolumes []ut.GroupVolume
 	for rows.Next() {
 		var gv ut.GroupVolume
@@ -759,7 +823,7 @@ func getGroupVolumeByGid(db *sql.DB, gid int) (ut.GroupVolume, error) {
 	return groupVolume, nil
 }
 
-func getGroupVolumesByGroupIds(db *sql.DB, gids []string) (any, error) {
+func getGroupVolumesByGroupIDs(db *sql.DB, gids []string) (any, error) {
 	query := `SELECT * FROM groupVolume WHERE gid IN (?` + strings.Repeat(",?", len(gids)-1) + `)`
 	if len(gids) == 1 && gids[0] == "*" {
 		query = `SELECT * FROM groupVolume;`
@@ -772,7 +836,12 @@ func getGroupVolumesByGroupIds(db *sql.DB, gids []string) (any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to query group volumes: %v", err)
 	}
-	defer rows.Close()
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 	var groupVolumes []ut.GroupVolume
 	for rows.Next() {
 		var gv ut.GroupVolume
@@ -788,7 +857,7 @@ func getGroupVolumesByGroupIds(db *sql.DB, gids []string) (any, error) {
 	return groupVolumes, nil
 }
 
-func getGroupVolumesByVolumeIds(db *sql.DB, vids []string) (any, error) {
+func getGroupVolumesByVolumeIDs(db *sql.DB, vids []string) (any, error) {
 	query := `SELECT * FROM groupVolume WHERE vid IN (?` + strings.Repeat(",?", len(vids)-1) + `)`
 	if len(vids) == 1 && vids[0] == "*" {
 		query = `SELECT * FROM groupVolume;`
@@ -801,7 +870,12 @@ func getGroupVolumesByVolumeIds(db *sql.DB, vids []string) (any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to query group volumes: %v", err)
 	}
-	defer rows.Close()
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 	var groupVolumes []ut.GroupVolume
 	for rows.Next() {
 		var gv ut.GroupVolume
@@ -835,7 +909,12 @@ func getGroupVolumesByVidsAndGids(db *sql.DB, vids, gids []string) (any, error) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to query group volumes: %v", err)
 	}
-	defer rows.Close()
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 
 	var groupVolumes []ut.GroupVolume
 	for rows.Next() {
@@ -854,7 +933,7 @@ func getGroupVolumesByVidsAndGids(db *sql.DB, vids, gids []string) (any, error) 
 	return groupVolumes, nil
 }
 
-func initResourceVolumeSpecific(db *sql.DB, database_path, volumes_path, capacity string) {
+func initResourceVolumeSpecific(db *sql.DB, volumesPath, capacity string) {
 	// specific initialization
 	var (
 		exists bool
@@ -873,7 +952,7 @@ func initResourceVolumeSpecific(db *sql.DB, database_path, volumes_path, capacit
 			(nextval('seq_volumeid'), ?, ?, ?, ?, ?)
 		RETURNING (vid);
 		 `
-		err := db.QueryRow(vquery, default_volume_name, volumes_path, "true", capacity, 0).Scan(&vid)
+		err := db.QueryRow(vquery, defaultVolumeName, volumesPath, "true", capacity, 0).Scan(&vid)
 		if err != nil {
 			log.Fatalf("failed to insert init data, destructive: %v", err)
 		}
@@ -952,9 +1031,9 @@ func getVolumes(db *sql.DB, sel, table, by, byvalue string, limit int) ([]any, e
 		args = append(args, arg)
 	}
 	if by != "" && byvalue != "" {
-		by_values_split := strings.Split(strings.TrimSpace(byvalue), ",")
-		placeholders := make([]string, len(by_values_split))
-		for i := range by_values_split {
+		byValuesSplit := strings.Split(strings.TrimSpace(byvalue), ",")
+		placeholders := make([]string, len(byValuesSplit))
+		for i := range byValuesSplit {
 			placeholders[i] = "?"
 		}
 		placeholderStr = strings.Join(placeholders, ",")
@@ -963,8 +1042,8 @@ func getVolumes(db *sql.DB, sel, table, by, byvalue string, limit int) ([]any, e
 	}
 
 	if limit > 0 {
-		limit_str := fmt.Sprintf("LIMIT %d", limit)
-		query = fmt.Sprintf("%s %s", query, limit_str)
+		limitStr := fmt.Sprintf("LIMIT %d", limit)
+		query = fmt.Sprintf("%s %s", query, limitStr)
 	}
 
 	rows, err := db.Query(query, args...)
@@ -972,7 +1051,12 @@ func getVolumes(db *sql.DB, sel, table, by, byvalue string, limit int) ([]any, e
 		log.Printf("error querying db: %v", err)
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 
 	var resources []any
 	for rows.Next() {
@@ -1017,9 +1101,9 @@ func getUserVolumes(db *sql.DB, sel, table, by, byvalue string, limit int) ([]an
 		args = append(args, arg)
 	}
 	if by != "" && byvalue != "" {
-		by_values_split := strings.Split(strings.TrimSpace(byvalue), ",")
-		placeholders := make([]string, len(by_values_split))
-		for i := range by_values_split {
+		byValuesSplit := strings.Split(strings.TrimSpace(byvalue), ",")
+		placeholders := make([]string, len(byValuesSplit))
+		for i := range byValuesSplit {
 			placeholders[i] = "?"
 		}
 		placeholderStr = strings.Join(placeholders, ",")
@@ -1028,8 +1112,8 @@ func getUserVolumes(db *sql.DB, sel, table, by, byvalue string, limit int) ([]an
 	}
 
 	if limit > 0 {
-		limit_str := fmt.Sprintf("LIMIT %d", limit)
-		query = fmt.Sprintf("%s %s", query, limit_str)
+		limitStr := fmt.Sprintf("LIMIT %d", limit)
+		query = fmt.Sprintf("%s %s", query, limitStr)
 	}
 
 	rows, err := db.Query(query, args...)
@@ -1037,7 +1121,12 @@ func getUserVolumes(db *sql.DB, sel, table, by, byvalue string, limit int) ([]an
 		log.Printf("error querying db: %v", err)
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 
 	var resources []any
 	for rows.Next() {
@@ -1082,9 +1171,9 @@ func getGroupVolumes(db *sql.DB, sel, table, by, byvalue string, limit int) ([]a
 		args = append(args, arg)
 	}
 	if by != "" && byvalue != "" {
-		by_values_split := strings.Split(strings.TrimSpace(byvalue), ",")
-		placeholders := make([]string, len(by_values_split))
-		for i := range by_values_split {
+		byValuesSplit := strings.Split(strings.TrimSpace(byvalue), ",")
+		placeholders := make([]string, len(byValuesSplit))
+		for i := range byValuesSplit {
 			placeholders[i] = "?"
 		}
 		placeholderStr = strings.Join(placeholders, ",")
@@ -1093,8 +1182,8 @@ func getGroupVolumes(db *sql.DB, sel, table, by, byvalue string, limit int) ([]a
 	}
 
 	if limit > 0 {
-		limit_str := fmt.Sprintf("LIMIT %d", limit)
-		query = fmt.Sprintf("%s %s", query, limit_str)
+		limitStr := fmt.Sprintf("LIMIT %d", limit)
+		query = fmt.Sprintf("%s %s", query, limitStr)
 	}
 
 	rows, err := db.Query(query, args...)
@@ -1102,7 +1191,12 @@ func getGroupVolumes(db *sql.DB, sel, table, by, byvalue string, limit int) ([]a
 		log.Printf("error querying db: %v", err)
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 
 	var resources []any
 	for rows.Next() {

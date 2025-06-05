@@ -24,13 +24,14 @@ import (
 var (
 	signingKeys      = map[string]RSAKey{}
 	currentKID       string
-	issuer           string  = "minioth"
-	jwtSecretKey     []byte  = []byte("default_placeholder_key")
-	jwksFilePath     string  = "data/jwks/jwks.json"
+	issuer                   = "minioth"
+	jwtSecretKey             = []byte("default_placeholder_key")
+	jwksFilePath             = "data/jwks/jwks.json"
 	jwtValidityHours float64 = 1
-	rsa_key_ttl      float64 = 1
+	rsaKeyTTL        float64 = 1
 )
 
+// JWK struct includes data that describe a key
 type JWK struct {
 	Kty string    `json:"kty"` // Key Type
 	Alg string    `json:"alg"` // Algorithm
@@ -55,10 +56,12 @@ func loadJWKS() (*JWKS, error) {
 	return &jwks, nil
 }
 
+// JWKS struct holds a slice of JWT keys
 type JWKS struct {
 	Keys []JWK `json:"keys"`
 }
 
+// RSAKey struct to describe a RSA key
 type RSAKey struct {
 	KID        string
 	PrivateKey *rsa.PrivateKey
@@ -66,20 +69,21 @@ type RSAKey struct {
 	CreatedAt  time.Time // TTL two hours
 }
 
+// CustomClaims struct includes extra data in the jwt load
 type CustomClaims struct {
 	Username string `json:"username"`
 	Groups   string `json:"groups"`
-	GroupIDS string `json:"group_ids"`
+	GroupIDs string `json:"groupIDs"`
 	jwt.RegisteredClaims
 }
 
-// jwt
+// GenerateAccessHS256JWT function generates a jwt token signed with HS256 algorithm
 func GenerateAccessHS256JWT(userID, username, groups, gids string) (string, error) {
 	// Set the claims for the token
 	claims := CustomClaims{
 		Username: username,
 		Groups:   groups,
-		GroupIDS: gids,
+		GroupIDs: gids,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    issuer,
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * time.Duration(jwtValidityHours))),
@@ -100,11 +104,15 @@ func GenerateAccessHS256JWT(userID, username, groups, gids string) (string, erro
 	return tokenString, nil
 }
 
+// GenerateAccessHS256JWT generates a JWT access token signed with the HS256 (HMAC-SHA256) algorithm.
+// It accepts the user ID, username, groups, and group IDs as input, and embeds them as custom claims
+// in the token payload. The token is issued by the configured issuer, has a configurable validity period,
+// and is signed using the internal symmetric secret key. Returns the signed JWT string or an error if signing fails.
 func GenerateAccessRS256JWT(userID, username, groups, gids string) (string, error) {
 	claims := CustomClaims{
 		Username: username,
 		Groups:   groups,
-		GroupIDS: gids,
+		GroupIDs: gids,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    issuer,
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * time.Duration(jwtValidityHours))),
@@ -120,6 +128,7 @@ func GenerateAccessRS256JWT(userID, username, groups, gids string) (string, erro
 	return token.SignedString(key.PrivateKey)
 }
 
+// DecodeJWT .. d
 func DecodeJWT(tokenString string) (bool, *CustomClaims, error) {
 	// Parse and validate the token
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
@@ -143,6 +152,7 @@ func DecodeJWT(tokenString string) (bool, *CustomClaims, error) {
 	return true, claims, nil
 }
 
+// ParseJWT will parse properly a string to a jwt token object
 func ParseJWT(tokenStr string) (*jwt.Token, error) {
 	return jwt.ParseWithClaims(tokenStr, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
 		alg, ok := token.Header["alg"].(string)
@@ -180,12 +190,14 @@ func rotateKey() {
 
 	//perform a cleanup prune of old keys
 	for kid, key := range signingKeys {
-		if time.Since(key.CreatedAt) > time.Duration(rsa_key_ttl)*time.Hour {
+		if time.Since(key.CreatedAt) > time.Duration(rsaKeyTTL)*time.Hour {
 			delete(signingKeys, kid)
 		}
 	}
 
-	updateJWKS()
+	if err := updateJWKS(); err != nil {
+		log.Fatalf("failed to update JWKS...")
+	}
 }
 
 func updateJWKS() error {
@@ -201,7 +213,7 @@ func updateJWKS() error {
 			Kid: kid,
 			N:   n,
 			E:   e,
-			TTL: key.CreatedAt.Add(time.Duration(rsa_key_ttl) * time.Hour),
+			TTL: key.CreatedAt.Add(time.Duration(rsaKeyTTL) * time.Hour),
 		}
 		// Append the new key
 		jwks.Keys = append(jwks.Keys, newJWK)

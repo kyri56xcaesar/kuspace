@@ -99,7 +99,7 @@ func (srv *UService) handleVolumes(c *gin.Context) {
 				return
 			}
 
-			err = volume.Validate(srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY, srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY, "-.")
+			err = volume.Validate(srv.config.LocalVolumesDefaultCapacity, srv.config.LocalVolumesDefaultCapacity, "-.")
 			if err != nil {
 				log.Printf("[USPACE_API] failed to validate the volume info: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -116,7 +116,7 @@ func (srv *UService) handleVolumes(c *gin.Context) {
 		// array of volumes
 		// insert them iteratevly
 		for _, volume := range volumes {
-			err = volume.Validate(srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY, srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY, "-.")
+			err = volume.Validate(srv.config.LocalVolumesDefaultCapacity, srv.config.LocalVolumesDefaultCapacity, "-.")
 			if err != nil {
 				log.Printf("[USPACE_API] failed to validate the volume info: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -185,7 +185,7 @@ func (srv *UService) handleUserVolumes(c *gin.Context) {
 				return
 			}
 
-			if capacity, _ := strconv.ParseFloat(srv.config.LOCAL_VOLUMES_DEFAULT_PATH, 64); int(userVolume.Quota) == 0 || userVolume.Quota > float64(capacity) {
+			if capacity, _ := strconv.ParseFloat(srv.config.LocalVolumesDefaultPath, 64); int(userVolume.Quota) == 0 || userVolume.Quota > float64(capacity) {
 				log.Printf("[USPACE_API] inserted")
 				userVolume.Quota = float64(capacity)
 			}
@@ -243,7 +243,7 @@ func (srv *UService) handleGroupVolumes(c *gin.Context) {
 				return
 			}
 
-			if capacity := min(srv.config.LOCAL_VOLUMES_DEFAULT_CAPACITY, MAX_DEFAULT_VOLUME_CAPACITY); int(groupVolume.Quota) == 0 || groupVolume.Quota > float64(capacity) {
+			if capacity := min(srv.config.LocalVolumesDefaultCapacity, maxDefaultVolumeCapacity); int(groupVolume.Quota) == 0 || groupVolume.Quota > float64(capacity) {
 				log.Printf("[USPACE_API] inserted")
 				groupVolume.Quota = float64(capacity)
 			}

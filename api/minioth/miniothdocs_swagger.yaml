@@ -65,7 +65,7 @@ definitions:
         example: /bin/bash
         type: string
       uid:
-        description: Uid is the user’s numeric ID.
+        description: UID is the user’s numeric ID.
         type: integer
       username:
         description: |-

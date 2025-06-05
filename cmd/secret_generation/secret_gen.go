@@ -1,3 +1,7 @@
+// Package main provides a command-line utility for generating cryptographically secure random tokens
+// or self-signed RSA certificate/key pairs. The tool supports configurable options for token length,
+// certificate parameters (such as organization, common name, and key size), and output file locations.
+// It is useful for generating secrets or certificates for development and testing environments.
 package main
 
 import (
@@ -30,7 +34,7 @@ var (
 	dir   = flag.String("dir", "data/cert/", "path of the generated files")
 )
 
-func generate_rsa_keypair() {
+func generateRsaKeypair() {
 	// Generate a new RSA private key
 	privateKey, err := rsa.GenerateKey(rand.Reader, *size)
 	if err != nil {
@@ -60,10 +64,16 @@ func generate_rsa_keypair() {
 	// Save the certificate to a .crt file
 	certOut, err := os.Create(*dir + *co)
 	if err != nil {
-		log.Fatalf("Failed to open cert file for writing: %v", err)
+		log.Fatalf("failed to open cert file for writing: %v", err)
 	}
-	pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: certDER})
-	certOut.Close()
+	err = pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+	if err != nil {
+		log.Fatalf("failed to encode pem: %v", err)
+	}
+	err = certOut.Close()
+	if err != nil {
+		log.Fatalf("failed to close pem file: %v", err)
+	}
 	log.Printf("Saved certificate to %s\n", *dir+*co)
 
 	// Save the private key to a .key file
@@ -71,12 +81,18 @@ func generate_rsa_keypair() {
 	if err != nil {
 		log.Fatalf("Failed to open key file for writing: %v", err)
 	}
-	pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privateKey)})
-	keyOut.Close()
+	err = pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privateKey)})
+	if err != nil {
+		log.Fatalf("failed to encode key pem: %v", err)
+	}
+	err = keyOut.Close()
+	if err != nil {
+		log.Fatalf("failed to close key pem: %v", err)
+	}
 	log.Printf("Saved private key to %s\n", *dir+*ko)
 }
 
-func generate_random_token() {
+func generateRandomToken() {
 	tokenbytes := make([]byte, *ltoken)
 	if _, err := io.ReadFull(rand.Reader, tokenbytes); err != nil {
 		panic(err)
@@ -86,19 +102,11 @@ func generate_random_token() {
 	fmt.Println(token)
 }
 
-func main() {
-	parseFlags()
-	if *cert {
-		generate_rsa_keypair()
-	} else {
-		generate_random_token()
-	}
-}
-
 func usage() {
 	fmt.Println("Usage of random data generator:")
 	flag.PrintDefaults()
 }
+
 func parseFlags() {
 	flag.Usage = usage
 	flag.Parse()
@@ -110,4 +118,13 @@ func parseFlags() {
 		*dir = *dir + "/"
 	}
 
+}
+
+func main() {
+	parseFlags()
+	if *cert {
+		generateRsaKeypair()
+	} else {
+		generateRandomToken()
+	}
 }

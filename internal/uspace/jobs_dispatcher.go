@@ -4,6 +4,7 @@ import (
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
+// JobDispatcher interface description
 /*
 	Dispatcher for jobs definition
 	a system to set job execution in motion, essentially a wrapped scheduler
@@ -37,6 +38,7 @@ type JobDispatcher interface {
 	Subscribe(ut.Job) error
 }
 
+// DispatcherShipment function for creating (or "shipping") the appropriate Dispatcher
 /* a factory contstructor for JobDispatchers: @used by the API*/
 func DispatcherShipment(dispatcherType string, srv *UService) (JobDispatcher, error) {
 	switch dispatcherType {

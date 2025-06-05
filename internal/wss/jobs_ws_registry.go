@@ -1,4 +1,4 @@
-package ws_registry
+package wss
 
 import (
 	"context"
@@ -19,8 +19,8 @@ import (
 )
 
 var (
-	Address      = "0.0.0.0:8082"
-	Job_log_path = "data/logs/jobs/"
+	address    = "0.0.0.0:8082"
+	jobLogPath = "data/logs/jobs/"
 
 	// Registry maps jobIDs to their socket servers
 	registry = struct {
@@ -31,19 +31,23 @@ var (
 	}
 
 	upgrader = websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool { return true },
+		CheckOrigin: func(_ *http.Request) bool { return true },
 	}
 )
 
+// Role as in a string describing type of user
 type Role string
 
 const (
-	Producer        Role = "producer"
-	Consumer        Role = "consumer"
+	// Producer the one who sends the broadcasted messages
+	Producer Role = "producer"
+	// Consumer the one who recieves
+	Consumer Role = "consumer"
+	// JackOfAllTrades both
 	JackOfAllTrades Role = "jack"
 )
 
-// client represents a WebSocket connection
+// Client represents a WebSocket connection
 type Client struct {
 	Jid  string
 	Conn *websocket.Conn
@@ -64,18 +68,19 @@ type SocketServer struct {
 	Logger *log.Logger
 }
 
+// NewSocketServer the constructor for a SocketServer
 func NewSocketServer(jid string) *SocketServer {
 	// Create a new logger for the job socket server
-	err := os.MkdirAll(Job_log_path, 0o644)
+	err := os.MkdirAll(jobLogPath, 0o644)
 	if err != nil {
 		log.Fatalf("failed to create path to logs: %v", err)
 	}
 
-	log_file, err := os.OpenFile(Job_log_path+"ws-server-"+jid+".log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	logFile, err := os.OpenFile(jobLogPath+"ws-server-"+jid+".log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		log.Fatalf("failed to open log file: %v", err)
 	}
-	logger := log.New(log_file, "[WS-"+jid+" WS-server] ", log.LstdFlags)
+	logger := log.New(logFile, "[WS-"+jid+" WS-server] ", log.LstdFlags)
 
 	return &SocketServer{
 		Jid:        jid,
@@ -100,6 +105,7 @@ func getOrCreateServer(jobID string) *SocketServer {
 	return server
 }
 
+// Start as in begin listening
 func (s *SocketServer) Start() {
 	for {
 		select {
@@ -142,6 +148,7 @@ func (s *SocketServer) Start() {
 	}
 }
 
+// HandleWSsession a handler for the endpoint
 func HandleWSsession(c *gin.Context) {
 	id := c.Query("jid")
 	roleStr := strings.ToLower(c.Query("role"))
@@ -174,6 +181,7 @@ func HandleWSsession(c *gin.Context) {
 
 }
 
+// HandleWSsessionClose a handler for the endpoint
 func HandleWSsessionClose(c *gin.Context) {
 	jobID := c.Query("jid")
 	if jobID == "" {
@@ -184,12 +192,18 @@ func HandleWSsessionClose(c *gin.Context) {
 	defer registry.Unlock()
 	if server, exists := registry.servers[jobID]; exists {
 		for client := range server.Producers {
-			client.Conn.Close()
+			err := client.Conn.Close()
+			if err != nil {
+				log.Printf("failed to close connection: %v", err)
+			}
 			close(client.Send)
 			delete(server.Producers, client)
 		}
 		for client := range server.Consumers {
-			client.Conn.Close()
+			err := client.Conn.Close()
+			if err != nil {
+				log.Printf("failed to close connection: %v", err)
+			}
 			close(client.Send)
 			delete(server.Consumers, client)
 		}
@@ -201,7 +215,10 @@ func HandleWSsessionClose(c *gin.Context) {
 func broadcastMessages(client *Client, server *SocketServer) {
 	defer func() {
 		server.Unregister <- client
-		client.Conn.Close()
+		err := client.Conn.Close()
+		if err != nil {
+			log.Printf("failed to close connection: %v", err)
+		}
 	}()
 
 	for {
@@ -222,7 +239,12 @@ func broadcastMessages(client *Client, server *SocketServer) {
 }
 
 func writeMessages(client *Client) {
-	defer client.Conn.Close()
+	defer func() {
+		err := client.Conn.Close()
+		if err != nil {
+			log.Printf("failed to close the connection: %v", err)
+		}
+	}()
 	for msg := range client.Send {
 		if err := client.Conn.WriteMessage(websocket.TextMessage, msg); err != nil {
 			break
@@ -230,9 +252,10 @@ func writeMessages(client *Client) {
 	}
 }
 
+// Serve launches the main service listener
 func Serve(cfg ut.EnvConfig) {
-	Job_log_path = cfg.J_WS_LOGS_PATH
-	Address = cfg.J_WS_ADDRESS
+	address = cfg.WssAddress
+	jobLogPath = cfg.WssLogsPath
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -254,7 +277,7 @@ func Serve(cfg ut.EnvConfig) {
 	engine.DELETE("/delete-session", HandleWSsessionClose)
 
 	server := &http.Server{
-		Addr:              Address,
+		Addr:              address,
 		Handler:           engine,
 		ReadHeaderTimeout: time.Second * 5,
 	}

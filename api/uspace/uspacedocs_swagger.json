@@ -2620,7 +2620,7 @@
                 "author_id": {
                     "type": "integer"
                 },
-                "created_at": {
+                "createdAt": {
                     "type": "string"
                 },
                 "description": {
@@ -2632,7 +2632,7 @@
                 "image": {
                     "type": "string"
                 },
-                "inserted_at": {
+                "insertedAt": {
                     "type": "string"
                 },
                 "name": {
@@ -2661,7 +2661,7 @@
                 "cpu_request": {
                     "type": "string"
                 },
-                "created_at": {
+                "createdAt": {
                     "type": "string"
                 },
                 "description": {
@@ -2763,7 +2763,7 @@
                 "capacity": {
                     "type": "number"
                 },
-                "created_at": {
+                "createdAt": {
                     "type": "string"
                 },
                 "dynamic": {

@@ -28,14 +28,14 @@ func (srv *UService) insertApp(app ut.Application) (int64, error) {
 
 	query := `
 		INSERT INTO 
-			apps (id, name, image, description, version, author, author_id, status, inserted_at, created_at)
+			apps (id, name, image, description, version, author, author_id, status, insertedAt, createdAt)
 		VALUES
 			(nextval('seq_appid'), ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING (id);
 	`
 
 	var id int64
-	err = db.QueryRow(query, app.FieldsNoId()...).Scan(&id)
+	err = db.QueryRow(query, app.FieldsNoID()...).Scan(&id)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
 		return -1, err
@@ -54,7 +54,7 @@ func (srv *UService) insertApps(apps []ut.Application) error {
 	}
 	query := `
 		INSERT INTO 
-			apps (id, name, image, description, version, author, author_id, status, inserted_at, created_at)
+			apps (id, name, image, description, version, author, author_id, status, insertedAt, createdAt)
 		VALUES
 			(nextval('seq_appid'), ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING (id);
@@ -71,7 +71,12 @@ func (srv *UService) insertApps(apps []ut.Application) error {
 		log.Printf("failed to prepare statement: %v", err)
 		return err
 	}
-	defer stmt.Close()
+	defer func() {
+		err := stmt.Close()
+		if err != nil {
+			log.Printf("failed to close statement: %v", err)
+		}
+	}()
 
 	for i := range apps {
 		app := &(apps)[i]
@@ -83,13 +88,16 @@ func (srv *UService) insertApps(apps []ut.Application) error {
 			app.CreatedAt = currentTime
 		}
 		var id int64
-		err = db.QueryRow(query, app.FieldsNoId()...).Scan(&id)
+		err = db.QueryRow(query, app.FieldsNoID()...).Scan(&id)
 		if err != nil {
-			tx.Rollback()
+			err = tx.Rollback()
+			if err != nil {
+				return err
+			}
 			log.Printf("failed to execute statement: %v", err)
-			return err
+			return fmt.Errorf("failed to execute insertion rolling back: %v", err)
 		}
-		app.Id = id
+		app.ID = id
 	}
 
 	err = tx.Commit()
@@ -143,13 +151,21 @@ func (srv *UService) removeApps(ids []int) error {
 		log.Printf("failed to prepare statement: %v", err)
 		return err
 	}
-	defer stmt.Close()
+	defer func() {
+		err := stmt.Close()
+		if err != nil {
+			log.Printf("failed to close statement: %v", err)
+		}
+	}()
 	for _, id := range ids {
 		_, err := stmt.Exec(id)
 		if err != nil {
-			tx.Rollback()
+			err = tx.Rollback()
+			if err != nil {
+				return err
+			}
 			log.Printf("failed to execute statement: %v", err)
-			return err
+			return fmt.Errorf("failed to execute deletion: %v", err)
 		}
 	}
 	err = tx.Commit()
@@ -160,7 +176,7 @@ func (srv *UService) removeApps(ids []int) error {
 	return nil
 }
 
-func (srv *UService) getAppById(id int) (ut.Application, error) {
+func (srv *UService) getAppByID(id int) (ut.Application, error) {
 	var app ut.Application
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
@@ -175,20 +191,20 @@ func (srv *UService) getAppById(id int) (ut.Application, error) {
 		WHERE
 			id = ?
 	`
-	var inserted_at, created_at sql.NullString
-	err = db.QueryRow(query, id).Scan(&app.Id, &app.Name, &app.Image, &app.Description, &app.Version, &app.Author, &app.AuthorId, &app.Status, &inserted_at, &created_at)
+	var insertedAt, createdAt sql.NullString
+	err = db.QueryRow(query, id).Scan(&app.ID, &app.Name, &app.Image, &app.Description, &app.Version, &app.Author, &app.AuthorID, &app.Status, &insertedAt, &createdAt)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
 		return app, err
 	}
 
-	if inserted_at.Valid {
-		app.InsertedAt = inserted_at.String
+	if insertedAt.Valid {
+		app.InsertedAt = insertedAt.String
 	} else {
 		app.InsertedAt = ""
 	}
-	if created_at.Valid {
-		app.CreatedAt = created_at.String
+	if createdAt.Valid {
+		app.CreatedAt = createdAt.String
 	} else {
 		app.CreatedAt = ""
 	}
@@ -211,20 +227,20 @@ func (srv *UService) getAppByNameAndVersion(name, version string) (ut.Applicatio
 		WHERE
 			name = ? AND version = ?
 	`
-	var inserted_at, created_at sql.NullString
-	err = db.QueryRow(query, name, version).Scan(&app.Id, &app.Name, &app.Image, &app.Description, &app.Version, &app.Author, &app.AuthorId, &app.Status, &inserted_at, &created_at)
+	var insertedAt, createdAt sql.NullString
+	err = db.QueryRow(query, name, version).Scan(&app.ID, &app.Name, &app.Image, &app.Description, &app.Version, &app.Author, &app.AuthorID, &app.Status, &insertedAt, &createdAt)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
 		return app, err
 	}
 
-	if inserted_at.Valid {
-		app.InsertedAt = inserted_at.String
+	if insertedAt.Valid {
+		app.InsertedAt = insertedAt.String
 	} else {
 		app.InsertedAt = ""
 	}
-	if created_at.Valid {
-		app.CreatedAt = created_at.String
+	if createdAt.Valid {
+		app.CreatedAt = createdAt.String
 	} else {
 		app.CreatedAt = ""
 	}
@@ -232,7 +248,7 @@ func (srv *UService) getAppByNameAndVersion(name, version string) (ut.Applicatio
 	return app, nil
 }
 
-func (srv *UService) getAppsByIds(ids []int) ([]ut.Application, error) {
+func (srv *UService) getAppsByIDs(ids []int) ([]ut.Application, error) {
 	var apps []ut.Application
 
 	if len(ids) == 0 {
@@ -267,26 +283,31 @@ func (srv *UService) getAppsByIds(ids []int) ([]ut.Application, error) {
 		log.Printf("failed to query row: %v", err)
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 
-	var inserted_at, created_at sql.NullString
+	var insertedAt, createdAt sql.NullString
 
 	for rows.Next() {
 		var app ut.Application
 
-		err = rows.Scan(&app.Id, &app.Name, &app.Image, &app.Description, &app.Version, &app.Author, &app.AuthorId, &app.Status, &inserted_at, &created_at)
+		err = rows.Scan(&app.ID, &app.Name, &app.Image, &app.Description, &app.Version, &app.Author, &app.AuthorID, &app.Status, &insertedAt, &createdAt)
 
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
 			return nil, err
 		}
-		if inserted_at.Valid {
-			app.InsertedAt = inserted_at.String
+		if insertedAt.Valid {
+			app.InsertedAt = insertedAt.String
 		} else {
 			app.InsertedAt = ""
 		}
-		if created_at.Valid {
-			app.CreatedAt = created_at.String
+		if createdAt.Valid {
+			app.CreatedAt = createdAt.String
 		} else {
 			app.CreatedAt = ""
 		}
@@ -336,22 +357,22 @@ func (srv *UService) getAllApps(limit, offset string) ([]ut.Application, error) 
 		return nil, err
 	}
 
-	var inserted_at, created_at sql.NullString
+	var insertedAt, createdAt sql.NullString
 
 	for rows.Next() {
 		var app ut.Application
-		err = rows.Scan(&app.Id, &app.Name, &app.Image, &app.Description, &app.Version, &app.Author, &app.AuthorId, &app.Status, &inserted_at, &created_at)
+		err = rows.Scan(&app.ID, &app.Name, &app.Image, &app.Description, &app.Version, &app.Author, &app.AuthorID, &app.Status, &insertedAt, &createdAt)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
 			return nil, err
 		}
-		if inserted_at.Valid {
-			app.InsertedAt = inserted_at.String
+		if insertedAt.Valid {
+			app.InsertedAt = insertedAt.String
 		} else {
 			app.InsertedAt = ""
 		}
-		if created_at.Valid {
-			app.CreatedAt = created_at.String
+		if createdAt.Valid {
+			app.CreatedAt = createdAt.String
 		} else {
 			app.CreatedAt = ""
 		}
@@ -372,11 +393,11 @@ func (srv *UService) updateApp(a ut.Application) error {
 	query := `
 		UPDATE apps
 		SET
-			name = ?, image = ?, description = ?, version = ?, author = ?, author_id = ?, status = ?, inserted_at = ?, created_at = ? 
+			name = ?, image = ?, description = ?, version = ?, author = ?, author_id = ?, status = ?, insertedAt = ?, createdAt = ? 
 		WHERE
 			id = ?
 	`
-	_, err = db.Exec(query, a.Name, a.Image, a.Description, a.Version, a.Author, a.AuthorId, a.Status, a.InsertedAt, a.CreatedAt, a.Id)
+	_, err = db.Exec(query, a.Name, a.Image, a.Description, a.Version, a.Author, a.AuthorID, a.Status, a.InsertedAt, a.CreatedAt, a.ID)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
 		return err

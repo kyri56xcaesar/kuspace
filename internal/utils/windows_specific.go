@@ -2,11 +2,14 @@
 // +build windows
 
 // Code specifics that run only on windows
+// For Windows systems\
+
+// Package utils includes the windows specific utils
 package utils
 
 import "golang.org/x/sys/windows"
 
-// For Windows systems
+// GetAvailableSpace windows specific function to retrieve the system available free disk space
 func GetAvailableSpace(path string) (uint64, error) {
 	// Convert path to UTF-16 as required by Windows API
 	pathPtr, err := windows.UTF16PtrFromString(path)

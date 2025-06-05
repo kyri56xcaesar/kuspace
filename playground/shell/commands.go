@@ -4,6 +4,7 @@ import (
 	"fmt"
 )
 
+// BCommand as in a command used in the shell
 type BCommand struct {
 	Name        string
 	Description string
@@ -28,26 +29,26 @@ func (bc *BCommand) printSelf() {
 	formatTabs := func() string {
 		if l <= 4 {
 			return "\t\t"
-		} else {
-			return "\t"
 		}
-
+		return "\t"
 	}
 
 	fmt.Printf("\t%s\t%s%s%s\n", bc.Name, f, formatTabs(), bc.Description)
 
 }
 
+// CommandError as in the error info of a command
 type CommandError struct {
 	completeFlag int
 	message      string
 }
 
+// Error printing a formatted error message
 func (cerr *CommandError) Error() string {
 	return fmt.Sprintf("Error msg: %s -> Completion: %d", cerr.message, cerr.completeFlag)
 }
 
-var builtInCommands [4]BCommand = [4]BCommand{
+var builtInCommands = [4]BCommand{
 	{
 		Name:        "exit",
 		Description: "Exit the shell",

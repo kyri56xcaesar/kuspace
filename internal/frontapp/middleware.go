@@ -33,8 +33,8 @@ func autoLogin() gin.HandlerFunc {
 			return
 		}
 		log.Print("Auto Login middleware...")
-		access_token, err := c.Cookie("access_token")
-		if err != nil || access_token == "" {
+		accessToken, err := c.Cookie("accessToken")
+		if err != nil || accessToken == "" {
 			log.Printf("missing access token: %v", err)
 			c.Next()
 			return
@@ -48,7 +48,7 @@ func autoLogin() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		req.Header.Set("Authorization", "Bearer "+access_token)
+		req.Header.Set("Authorization", "Bearer "+accessToken)
 		client := &http.Client{Timeout: 10 * time.Second}
 		response, err := client.Do(req)
 		if err != nil {
@@ -57,14 +57,19 @@ func autoLogin() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		defer response.Body.Close()
+		defer func() {
+			err := response.Body.Close()
+			if err != nil {
+				log.Printf("failed to close response body: %v", err)
+			}
+		}()
 
 		type Info struct {
-			Expires_at string `json:"expires_at"`
-			Groups     string `json:"groups"`
-			Issues_at  string `json:"issued_at"`
-			User       string `json:"user"`
-			Valid      string `json:"valid"`
+			ExpiresAt string `json:"expires_at"`
+			Groups    string `json:"groups"`
+			IssuesAt  string `json:"issued_at"`
+			User      string `json:"user"`
+			Valid     string `json:"valid"`
 		}
 		var info struct {
 			Info Info `json:"info"`
@@ -95,9 +100,9 @@ func autoLogin() gin.HandlerFunc {
 	}
 }
 
-func AuthMiddleware(group string) gin.HandlerFunc {
+func authMiddleware(group string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		accessToken, err := c.Cookie("access_token")
+		accessToken, err := c.Cookie("accessToken")
 		if err != nil {
 			log.Printf("missing access token: %v", err)
 			c.HTML(401, "admin-panel.html", gin.H{"error": "token has expired, login again"})
@@ -121,16 +126,20 @@ func AuthMiddleware(group string) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		defer response.Body.Close()
-
+		defer func() {
+			err := response.Body.Close()
+			if err != nil {
+				log.Printf("failed to close response body: %v", err)
+			}
+		}()
 		type Info struct {
-			Expires_at string `json:"expires_at"`
-			Groups     string `json:"groups"`
-			GroupIDS   string `json:"group_ids"`
-			Issues_at  string `json:"issued_at"`
-			Username   string `json:"username"`
-			UserID     string `json:"user_id"`
-			Valid      string `json:"valid"`
+			ExpiresAt string `json:"expires_at"`
+			Groups    string `json:"groups"`
+			GroupIDs  string `json:"groupIDs"`
+			IssuesAt  string `json:"issued_at"`
+			Username  string `json:"username"`
+			UserID    string `json:"userID"`
+			Valid     string `json:"valid"`
 		}
 		var info struct {
 			Info Info `json:"info"`
@@ -168,10 +177,10 @@ func AuthMiddleware(group string) gin.HandlerFunc {
 			if strings.Contains(group, strings.TrimSpace(g)) {
 				/* set this context value for the template rendering needed later*/
 				c.Set("username", info.Info.Username)
-				c.Set("user_id", info.Info.UserID)
+				c.Set("userID", info.Info.UserID)
 				c.Set("groups", info.Info.Groups)
-				c.Set("group_ids", info.Info.GroupIDS)
-				c.Set("access_token", accessToken)
+				c.Set("groupIDs", info.Info.GroupIDs)
+				c.Set("accessToken", accessToken)
 				return
 			}
 		}

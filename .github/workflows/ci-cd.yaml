@@ -1,0 +1,11 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [on-k8s]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:

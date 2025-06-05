@@ -57,15 +57,15 @@ import (
 )
 
 var (
-	fslite_data_path    string  = "data/volumes/fslite"
-	default_volume_name string  = "default_ku_space_volume"
-	default_volume_cap  float64 = 20
-	max_volume_cap      float64 = 100
-	verbose             bool    = false
+	fsliteDataPath            = "data/volumes/fslite"
+	defaultVolumeName         = "default_ku_space_volume"
+	verbose                   = false
+	defaultVolumeCap  float64 = 20
+	maxVolumeCap      float64 = 100
 )
 
 const (
-	InitSql = `
+	initSQL = `
 		CREATE TABLE IF NOT EXISTS user_admin (
 			uuid TEXT PRIMARY KEY,
 			username TEXT,
@@ -83,7 +83,7 @@ const (
     	  name TEXT,
 		  path TEXT,
     	  type TEXT,
-    	  created_at DATETIME,
+    	  createdAt DATETIME,
     	  updated_at DATETIME,
     	  accessed_at DATETIME
     	);
@@ -94,7 +94,7 @@ const (
 		  dynamic BOOLEAN,
     	  capacity FLOAT,
     	  usage FLOAT,
-		  created_at DATETIME
+		  createdAt DATETIME
     	);
 		CREATE TABLE IF NOT EXISTS userVolume(
 			vid INTEGER,
@@ -108,62 +108,72 @@ const (
     `
 )
 
+// FsLite central object
+// a database handler
+// a server engine (gin)
+// a configuration setup
 type FsLite struct {
 	config ut.EnvConfig
 	dbh    ut.DBHandler
 	engine *gin.Engine
 }
 
+// NewFsLite initializes a new FsLite instance with the provided configuration.
+// It sets up the database schema, creates the admin user, and ensures the default volume exists.
+// If FslLocality is enabled, it also prepares the local storage directory.
+// Returns the initialized FsLite struct.
 func NewFsLite(cfg ut.EnvConfig) FsLite {
-	setGinMode(cfg.API_GIN_MODE)
-	var gin_engine *gin.Engine
-	if cfg.FSL_SERVER {
-		gin_engine = gin.Default()
+	setGinMode(cfg.APIGinMode)
+	var ginEngine *gin.Engine
+	if cfg.FslServer {
+		ginEngine = gin.Default()
 	}
 	fsl := FsLite{
 		config: cfg,
-		dbh:    ut.NewDBHandler(cfg.DB_FSL, cfg.DB_FSL_PATH, cfg.DB_FSL_DRIVER),
-		engine: gin_engine,
+		dbh:    ut.NewDBHandler(cfg.FslDb, cfg.FslDbPath, cfg.FslDbDriver),
+		engine: ginEngine,
 	}
-	fsl.dbh.Init(InitSql, cfg.DB_FSL_MAX_OPEN_CONNS, cfg.DB_FSL_MAX_IDLE_CONNS, cfg.DB_FSL_MAX_LIFETIME)
-	if _, err := fsl.insertAdmin(cfg.FSL_ACCESS_KEY, cfg.FSL_SECRET_KEY); err != nil {
+	fsl.dbh.Init(initSQL, cfg.FslDbMaxOpenConns, cfg.FslDbMaxIdleConns, cfg.FslDbMaxLifetime)
+	if _, err := fsl.insertAdmin(cfg.FslAccessKey, cfg.FslSecretKey); err != nil {
 		log.Fatalf("[FSL_init] error inserting main user, fatal...: %v", err)
 	}
-	if fsl.config.FSL_LOCALITY {
+	if fsl.config.FslLocality {
 		wd, err := os.Getwd()
 		if err != nil {
 			log.Fatalf("[FSL_init] failed to get working directory: %v", err)
 		}
-		fslite_data_path = wd + "/" + cfg.LOCAL_VOLUMES_DEFAULT_PATH
-		if err := os.MkdirAll(fslite_data_path, 0o644); err != nil {
+		fsliteDataPath = wd + "/" + cfg.LocalVolumesDefaultPath
+		if err := os.MkdirAll(fsliteDataPath, 0o644); err != nil {
 			log.Fatalf("[FSL_init] failed to create main volume storage path: %v", err)
 		}
 	}
-	default_volume_cap = min(default_volume_cap, max_volume_cap)
-	err := fsl.CreateVolume(ut.Volume{Name: default_volume_name, Path: fslite_data_path + "/" + default_volume_name, Capacity: default_volume_cap})
+	defaultVolumeCap = min(defaultVolumeCap, maxVolumeCap)
+	err := fsl.CreateVolume(ut.Volume{Name: defaultVolumeName, Path: fsliteDataPath + "/" + defaultVolumeName, Capacity: defaultVolumeCap})
 	if err != nil {
 		if !strings.Contains(err.Error(), "already exists") {
 			log.Fatalf("[FSL_init] failed to create default volume: %v", err)
 		}
 		log.Print(err)
 	}
-	JWT_VALIDITY_HOURS = cfg.JWT_VALIDITY_HOURS
-	verbose = cfg.VERBOSE
+	JwtValidityHours = cfg.JwtValidityHours
+	verbose = cfg.Verbose
 	return fsl
 }
 
+// Close closes the underlying database handler and releases any resources held by FsLite.
 func (fsl *FsLite) Close() {
 	fsl.dbh.Close()
 }
 
-// volume related
+// CreateVolume creates a new storage volume based on the provided ut.Volume struct.
+// It validates the volume, ensures uniqueness, and creates the physical directory if locality is enabled.
 func (fsl *FsLite) CreateVolume(v any) error {
 	volume, ok1 := v.(ut.Volume)
 	if !ok1 {
 		return fmt.Errorf("failed to cast to volume")
 
 	}
-	if err := volume.Validate(max_volume_cap, default_volume_cap, "-._"); err != nil {
+	if err := volume.Validate(maxVolumeCap, defaultVolumeCap, "-._"); err != nil {
 		return err
 	}
 
@@ -179,8 +189,8 @@ func (fsl *FsLite) CreateVolume(v any) error {
 		return err
 	}
 
-	if fsl.config.FSL_LOCALITY {
-		err = os.MkdirAll(fslite_data_path+"/"+volume.Name, 0o644)
+	if fsl.config.FslLocality {
+		err = os.MkdirAll(fsliteDataPath+"/"+volume.Name, 0o644)
 		if err != nil {
 			return err
 		}
@@ -189,24 +199,31 @@ func (fsl *FsLite) CreateVolume(v any) error {
 	volume.CreatedAt = ut.CurrentTime()
 	err = insertVolume(db, volume)
 	if err != nil {
-		os.RemoveAll(fslite_data_path + "/" + volume.Name)
+		err1 := os.RemoveAll(fsliteDataPath + "/" + volume.Name)
+		if err1 != nil {
+			log.Printf("failed to remove path: %v", err)
+		}
 		return err
 	}
 
 	return err
 }
 
-func (fsl *FsLite) DefaultVolume(local bool) string {
-	return default_volume_name
+// DefaultVolume returns the name of the default volume.
+// The 'local' parameter is currently unused.
+func (fsl *FsLite) DefaultVolume(_ bool) string {
+	return defaultVolumeName
 }
 
+// RemoveVolume removes a storage volume specified by the ut.Volume struct.
+// It deletes the volume from the database and removes the physical directory if locality is enabled.
 func (fsl *FsLite) RemoveVolume(t any) error {
 	volume, ok := t.(ut.Volume)
 	if !ok {
 		return fmt.Errorf("failed to cast to volume")
 	}
 
-	if err := volume.Validate(max_volume_cap, default_volume_cap, "-._"); err != nil {
+	if err := volume.Validate(maxVolumeCap, defaultVolumeCap, "-._"); err != nil {
 		return err
 	}
 
@@ -220,12 +237,14 @@ func (fsl *FsLite) RemoveVolume(t any) error {
 		err = deleteVolume(db, volume.Vid)
 	}
 
-	if err == nil && fsl.config.FSL_LOCALITY {
-		err = os.RemoveAll(fslite_data_path + "/" + volume.Name)
+	if err == nil && fsl.config.FslLocality {
+		err = os.RemoveAll(fsliteDataPath + "/" + volume.Name)
 	}
 	return err
 }
 
+// SelectVolumes queries and returns volumes based on the provided filter map.
+// Supports filtering by name or vid (volume ID). Returns all volumes if no filter is provided.
 func (fsl *FsLite) SelectVolumes(how map[string]any) (any, error) {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
@@ -254,12 +273,13 @@ func (fsl *FsLite) SelectVolumes(how map[string]any) (any, error) {
 	return getAllVolumes(db)
 }
 
-// resource/uv/gv related
+// Insert inserts resources (files/objects), user-volume records, or batches thereof into the database.
+// If inserting a resource and locality is enabled, it also writes the file to disk.
 func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 	resource, ok := t.(ut.Resource)
 	if ok {
 		if resource.Vname == "" {
-			resource.Vname = default_volume_name
+			resource.Vname = defaultVolumeName
 		}
 
 		db, err := fsl.dbh.GetConn()
@@ -272,13 +292,18 @@ func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 			return nil, ut.NewInfo("%s object already exists", resource.Name)
 		}
 
-		if fsl.config.FSL_LOCALITY {
-			outFile, err := os.Create(fslite_data_path + "/" + resource.Vname + "/" + resource.Name)
+		if fsl.config.FslLocality {
+			outFile, err := os.Create(fsliteDataPath + "/" + resource.Vname + "/" + resource.Name)
 			if err != nil {
 				log.Printf("[FSL_insert] failed to create a new output file (to save)")
 				return nil, err
 			}
-			defer outFile.Close()
+			defer func() {
+				err := outFile.Close()
+				if err != nil {
+					log.Printf("failed to close the file: %v", err)
+				}
+			}()
 
 			// Copy from the reader to the file
 			_, err = io.Copy(outFile, resource.Reader)
@@ -334,6 +359,8 @@ func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 	return nil, fmt.Errorf("failed to cast all types")
 }
 
+// SelectObjects queries and returns resources (files/objects) based on the provided filter map.
+// Supports filtering by prefix or resource IDs. Returns all resources if no filter is provided.
 func (fsl *FsLite) SelectObjects(how map[string]any) (any, error) {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
@@ -352,15 +379,17 @@ func (fsl *FsLite) SelectObjects(how map[string]any) (any, error) {
 	if ok && rids != "" {
 		rids, err := ut.SplitToInt(rids.(string), ",")
 		if err == nil {
-			return getResourcesByIds(db, rids)
+			return getResourcesByIDs(db, rids)
 		}
 		return nil, err
 	}
 	return getAllResources(db)
 }
 
+// Stat returns file information for a resource if locality is enabled.
+// Returns an error if locality is disabled or if the resource cannot be found.
 func (fsl *FsLite) Stat(t any) (any, error) {
-	if fsl.config.FSL_LOCALITY {
+	if fsl.config.FslLocality {
 		return nil, fmt.Errorf("cannot use stat if locality is turned off")
 	}
 	resource, ok := t.(ut.Resource)
@@ -368,9 +397,10 @@ func (fsl *FsLite) Stat(t any) (any, error) {
 		log.Printf("[FSL_stat] failed to cast to designated struct")
 		return nil, fmt.Errorf("failed to cast to designated struct")
 	}
-	return os.Stat(fslite_data_path + "/" + resource.Vname + "/" + resource.Name)
+	return os.Stat(fsliteDataPath + "/" + resource.Vname + "/" + resource.Name)
 }
 
+// Remove deletes a resource (file/object) from the database and, if locality is enabled, from disk.
 func (fsl *FsLite) Remove(t any) error {
 	resource, ok := t.(ut.Resource)
 	if !ok {
@@ -388,8 +418,8 @@ func (fsl *FsLite) Remove(t any) error {
 		return err
 	}
 
-	if fsl.config.FSL_LOCALITY {
-		err = os.Remove(fslite_data_path + "/" + resource.Vname + "/" + resource.Name)
+	if fsl.config.FslLocality {
+		err = os.Remove(fsliteDataPath + "/" + resource.Vname + "/" + resource.Name)
 		if err != nil {
 			log.Printf("[FSL_remove] failed to remove file from local fs")
 			return err
@@ -399,6 +429,8 @@ func (fsl *FsLite) Remove(t any) error {
 	return nil
 }
 
+// Update updates resource metadata such as permissions, owner, group, or renames a resource.
+// The update is based on the provided map of string keys and values.
 func (fsl *FsLite) Update(t map[string]string) error {
 	if t == nil {
 		return fmt.Errorf("empty argument")
@@ -413,37 +445,37 @@ func (fsl *FsLite) Update(t map[string]string) error {
 		// either perms/owner/group
 		perms, ok := t["perms"]
 		if ok {
-			return updateResourcePermsById(db, rid, perms)
+			return updateResourcePermsByID(db, rid, perms)
 		}
 
 		owner, ok := t["owner"]
 		if ok {
 			// atoi
-			rid_int, err := strconv.Atoi(rid)
+			ridInt, err := strconv.Atoi(rid)
 			if err != nil {
 				return fmt.Errorf("failed to atoi rid")
 			}
-			owner_int, err := strconv.Atoi(owner)
+			ownerInt, err := strconv.Atoi(owner)
 			if err != nil {
 				return fmt.Errorf("failed to atoi uid")
 			}
 
-			return updateResourceOwnerById(db, rid_int, owner_int)
+			return updateResourceOwnerByID(db, ridInt, ownerInt)
 		}
 
 		group, ok := t["group"]
 		if ok {
 			// atoi
-			rid_int, err := strconv.Atoi(rid)
+			ridInt, err := strconv.Atoi(rid)
 			if err != nil {
 				return fmt.Errorf("failed to atoi rid")
 			}
-			group_int, err := strconv.Atoi(group)
+			groupInt, err := strconv.Atoi(group)
 			if err != nil {
 				return fmt.Errorf("failed to atoi gid")
 			}
 
-			return updateResourceGroupById(db, rid_int, group_int)
+			return updateResourceGroupByID(db, ridInt, groupInt)
 		}
 	}
 
@@ -457,8 +489,10 @@ func (fsl *FsLite) Update(t map[string]string) error {
 	return fmt.Errorf("must specify what to update")
 }
 
+// Download prepares a resource for download by opening the file and attaching a reader to the resource struct.
+// Returns an error if locality is disabled or if the file cannot be found.
 func (fsl *FsLite) Download(t *any) (context.CancelFunc, error) {
-	if fsl.config.FSL_LOCALITY {
+	if fsl.config.FslLocality {
 		return nil, fmt.Errorf("cannot download if locality is off")
 	}
 	v := *t
@@ -479,7 +513,7 @@ func (fsl *FsLite) Download(t *any) (context.CancelFunc, error) {
 		return nil, err
 	}
 
-	file, err := os.Open(fslite_data_path + "/" + resourcePtr.Vname + "/" + resourcePtr.Name)
+	file, err := os.Open(fsliteDataPath + "/" + resourcePtr.Vname + "/" + resourcePtr.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -495,6 +529,7 @@ func (fsl *FsLite) Download(t *any) (context.CancelFunc, error) {
 	return nil, nil
 }
 
+// Copy duplicates a resource (file/object) from a source to a destination, both in the database and on disk if locality is enabled.
 func (fsl *FsLite) Copy(s, d any) error {
 	src, ok := s.(ut.Resource)
 	if !ok {
@@ -510,25 +545,35 @@ func (fsl *FsLite) Copy(s, d any) error {
 		return err
 	}
 
-	if fsl.config.FSL_LOCALITY {
-		sr, err := os.Open(fslite_data_path + "/" + src.Vname + "/" + src.Name)
+	if fsl.config.FslLocality {
+		sr, err := os.Open(fsliteDataPath + "/" + src.Vname + "/" + src.Name)
 		if err != nil {
 			log.Printf("[FSL_copy] failed to read the src file")
 			return err
 		}
-		defer sr.Close()
+		defer func() {
+			err := sr.Close()
+			if err != nil {
+				log.Printf("failed to close the file: %v", err)
+			}
+		}()
 		sr1, err := io.ReadAll(sr)
 		if err != nil {
 			log.Printf("[FSL_copy] failed to read the src file to a buffer")
 			return err
 		}
 
-		ds, err := os.OpenFile(fslite_data_path+"/"+dst.Vname+"/"+dst.Name, os.O_CREATE|os.O_WRONLY, 0o644)
+		ds, err := os.OpenFile(fsliteDataPath+"/"+dst.Vname+"/"+dst.Name, os.O_CREATE|os.O_WRONLY, 0o644)
 		if err != nil {
 			log.Printf("[FSL_copy] failed to open the dst file")
 			return err
 		}
-		defer ds.Close()
+		defer func() {
+			err := ds.Close()
+			if err != nil {
+				log.Printf("failed to close the file: %v", err)
+			}
+		}()
 
 		_, err = ds.Write(sr1)
 		if err != nil {
@@ -544,7 +589,8 @@ func (fsl *FsLite) Copy(s, d any) error {
 	return err
 }
 
-func (fsl *FsLite) Share(method string, t any) (any, error) {
+// Share is a placeholder for sharing functionality. Currently unimplemented.
+func (fsl *FsLite) Share(_ string, _ any) (any, error) {
 	return nil, nil
 }
 
@@ -559,10 +605,10 @@ func (fsl *FsLite) claimVolumeSpace(size int64, volumeName, uid string) error {
 	if err != nil {
 		return err
 	}
-	size_inGB := ut.SizeInGb(size)
+	sizeInGB := ut.SizeInGb(size)
 	// check for current volume usage.
-	new_usage_inGB := volume.Usage + size_inGB
-	if new_usage_inGB > volume.Capacity {
+	newUsageInGB := volume.Usage + sizeInGB
+	if newUsageInGB > volume.Capacity {
 		log.Printf("[FSL_claim] volume is full.")
 		return fmt.Errorf("claim exceeds capacity")
 	}
@@ -573,9 +619,9 @@ func (fsl *FsLite) claimVolumeSpace(size int64, volumeName, uid string) error {
 		return err
 	}
 	// if it doesn't exist, create it
-	uv, err := getUserVolumeByUid(db, iuid)
+	uv, err := getUserVolumeByUID(db, iuid)
 	if err != nil {
-		err = insertUserVolume(db, ut.UserVolume{Updated_at: ut.CurrentTime(), Vid: volume.Vid, Uid: iuid, Usage: size_inGB})
+		err = insertUserVolume(db, ut.UserVolume{UpdatedAt: ut.CurrentTime(), Vid: volume.Vid, UID: iuid, Usage: sizeInGB})
 		if err != nil {
 			log.Printf("[FSL_claim] failed to insert uv ")
 			return err
@@ -585,8 +631,8 @@ func (fsl *FsLite) claimVolumeSpace(size int64, volumeName, uid string) error {
 	// update all usages
 	// volume
 	// volume claims user/group
-	uv.Usage += size_inGB
-	volume.Usage = new_usage_inGB
+	uv.Usage += sizeInGB
+	volume.Usage = newUsageInGB
 
 	err = updateVolume(db, volume)
 	if err != nil {
@@ -615,14 +661,14 @@ func (fsl *FsLite) releaseVolumeSpace(size int64, volumeName, uid string) error 
 		return fmt.Errorf("could not retrieve volume: %w", err)
 	}
 
-	size_inGB := ut.SizeInGb(size)
-	new_usage_inGB := max(volume.Usage-size_inGB, 0)
+	sizeInGB := ut.SizeInGb(size)
+	newUsageInGB := max(volume.Usage-sizeInGB, 0)
 
 	iuid, err := strconv.Atoi(uid)
 	if err != nil {
 		return err
 	}
-	uv, err := getUserVolumeByUid(db, iuid)
+	uv, err := getUserVolumeByUID(db, iuid)
 	if err != nil {
 		return err
 	}
@@ -630,8 +676,8 @@ func (fsl *FsLite) releaseVolumeSpace(size int64, volumeName, uid string) error 
 	// update all usages
 	// volume
 	// volume claims user/group
-	uv.Usage = max(0, uv.Usage-size_inGB)
-	volume.Usage = new_usage_inGB
+	uv.Usage = max(0, uv.Usage-sizeInGB)
+	volume.Usage = newUsageInGB
 
 	err = updateVolume(db, volume)
 	if err != nil {
@@ -712,17 +758,14 @@ func (fsl *FsLite) selectUserVolumes(how map[string]any) (any, error) {
 
 	} else if ok1 && vids != "" {
 		// log.Printf("selecting uvs by vids: %v", vids)
-		return getUserVolumesByVolumeIds(db, strings.Split(vids, ","))
+		return getUserVolumesByVolumeIDs(db, strings.Split(vids, ","))
 
 	} else if ok2 && uids != "" {
 		// log.Printf("selecting uvs by uids")
-		return getUserVolumesByUserIds(db, strings.Split(uids, ","))
-
-	} else {
-		// log.Printf("selecting all uvs")
-		return getAllUserVolumes(db)
+		return getUserVolumesByUserIDs(db, strings.Split(uids, ","))
 	}
-
+	// log.Printf("selecting all uvs")
+	return getAllUserVolumes(db)
 }
 
 /* playground functions... working on it... i don't like them */
@@ -740,6 +783,9 @@ func (fsl *FsLite) sel(sel, table, by, byvalue string, limit int) ([]any, error)
 	return results, nil
 
 }
+
+// selectOne is a generic query function for retrieving a single record from a specified table by a given field.
+// Returns the result or an error.
 func (fsl *FsLite) selectOne(sel, table, by, byvalue string) (any, error) {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {

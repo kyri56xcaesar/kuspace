@@ -2,13 +2,13 @@ FROM golang:latest AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 COPY ./internal/utils/ ./internal/utils/
-COPY ./internal/ws_registry/ ./internal/ws_registry/
+COPY ./internal/wss/ ./internal/wss/
 COPY ./cmd/wss/ ./cmd/wss/
-RUN GOOS=linux go build -o ./cmd/wss/ws_registry ./cmd/wss/main.go
+RUN GOOS=linux go build -o ./cmd/wss/wss ./cmd/wss/main.go
 
 FROM debian:bookworm-slim
 WORKDIR /root/
-COPY --from=builder /app/cmd/wss/ws_registry .
+COPY --from=builder /app/cmd/wss/wss .
 
-RUN chmod +x /root/ws_registry
-CMD ["./ws_registry"]
+RUN chmod +x /root/wss
+CMD ["./wss"]

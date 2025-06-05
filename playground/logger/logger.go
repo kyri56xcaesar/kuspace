@@ -1,3 +1,5 @@
+// Package logger
+// just a custom logger
 package logger
 
 import (
@@ -11,10 +13,12 @@ import (
 
 // Should implement LOG levels...
 
+// MLogger the main default variable logger (multilogger)
+// Reason to implement custom logger, is for both stderr and file handle mechs and perhaps split logs'
 // multilogger must be a singleton
-// Reason to implement custom logger, is for both stderr and file handle mechs and perhaps split logs
-var MLogger MultiLogger = MultiLogger{logger: log.Default()}
+var MLogger = MultiLogger{logger: log.Default()}
 
+// MultiLogger struct describing every logging data needed
 type MultiLogger struct {
 	logger       *log.Logger
 	lfile        *os.File
@@ -35,29 +39,32 @@ type MultiLogger struct {
 func (mlogger *MultiLogger) getWriter(file *os.File) io.Writer {
 	if mlogger.verbose {
 		return io.MultiWriter(os.Stderr, file)
-	} else {
-		return file
 	}
+	return file
 }
 
+// Print wrapper to the standard log file
 func (mlogger *MultiLogger) Print(v ...any) {
 	if mlogger.logger != nil && mlogger.lfile != nil {
 		mlogger.logger.Print(v...)
 	}
 }
 
+// Println Wrapper to the standard log file
 func (mlogger *MultiLogger) Println(v ...any) {
 	if mlogger.logger != nil && mlogger.lfile != nil {
 		mlogger.logger.Println(v...)
 	}
 }
 
+// Printf wrapper to the standard log file
 func (mlogger *MultiLogger) Printf(format string, v ...any) {
 	if mlogger.logger != nil && mlogger.lfile != nil {
 		mlogger.logger.Printf(format, v...)
 	}
 }
 
+// Infof as in fmt.Printf but in the infolog file
 func (mlogger *MultiLogger) Infof(information string, v ...any) {
 	// Switch writer if split
 	if mlogger == nil || mlogger.logger == nil || mlogger.ifile == nil {
@@ -71,6 +78,7 @@ func (mlogger *MultiLogger) Infof(information string, v ...any) {
 	mlogger.logger.Printf(information, v...)
 }
 
+// Infoln as in fmt.Println but in the infolog ifle
 func (mlogger *MultiLogger) Infoln(v ...any) {
 	// Switch writer if split
 	if mlogger == nil || mlogger.logger == nil || mlogger.ifile == nil {
@@ -84,6 +92,7 @@ func (mlogger *MultiLogger) Infoln(v ...any) {
 	mlogger.logger.Println(v...)
 }
 
+// Info as int fmt.Print but in the infolog file
 func (mlogger *MultiLogger) Info(v ...any) {
 	// Switch writer if split
 	if mlogger == nil || mlogger.logger == nil || mlogger.ifile == nil {
@@ -97,6 +106,7 @@ func (mlogger *MultiLogger) Info(v ...any) {
 	mlogger.logger.Print(v...)
 }
 
+// Warnf as in fmt.Printf but in the warnlog file
 func (mlogger *MultiLogger) Warnf(warning string, v ...any) {
 	// switch writer if split
 	if mlogger == nil || mlogger.logger == nil || mlogger.wfile == nil {
@@ -110,6 +120,7 @@ func (mlogger *MultiLogger) Warnf(warning string, v ...any) {
 	mlogger.logger.Printf(warning, v...)
 }
 
+// Warnln same as Println but writes to the warnlog
 func (mlogger *MultiLogger) Warnln(v ...any) {
 	// switch writer if split
 	if mlogger == nil || mlogger.logger == nil || mlogger.wfile == nil {
@@ -123,6 +134,7 @@ func (mlogger *MultiLogger) Warnln(v ...any) {
 	mlogger.logger.Println(v...)
 }
 
+// Warn writes to the warrlog
 func (mlogger *MultiLogger) Warn(v ...any) {
 	// switch writer if split
 	if mlogger == nil || mlogger.logger == nil || mlogger.wfile == nil {
@@ -136,8 +148,8 @@ func (mlogger *MultiLogger) Warn(v ...any) {
 	mlogger.logger.Print(v...)
 }
 
-// Error should exit afterwards
-func (mlogger *MultiLogger) Errf(error string, v ...any) {
+// Errf same as Errorf but writes to the errlog
+func (mlogger *MultiLogger) Errf(err string, v ...any) {
 	// switch writer if split
 	if mlogger == nil || mlogger.logger == nil || mlogger.efile == nil {
 		return
@@ -147,10 +159,10 @@ func (mlogger *MultiLogger) Errf(error string, v ...any) {
 	mlogger.logger.SetPrefix(cosmetics.ColorText("[ERROR]: ", cosmetics.Red))
 	mlogger.logger.SetFlags(log.Llongfile | log.Ldate | log.Ltime)
 
-	mlogger.logger.Printf(error, v...)
+	mlogger.logger.Printf(err, v...)
 }
 
-// Error should exit afterwards
+// Errln writes to the errlog
 func (mlogger *MultiLogger) Errln(v ...any) {
 	// switch writer if split
 	if mlogger == nil || mlogger.logger == nil || mlogger.efile == nil {
@@ -164,7 +176,7 @@ func (mlogger *MultiLogger) Errln(v ...any) {
 	mlogger.logger.Println(v...)
 }
 
-// Error should exit afterwards
+// Err writes to the errlog
 func (mlogger *MultiLogger) Err(v ...any) {
 	// switch writer if split
 	if mlogger == nil || mlogger.logger == nil || mlogger.efile == nil {
@@ -209,7 +221,8 @@ func createLogger(split bool, verbose bool) error {
 	return errors.Join(lerr, eerr, werr, ierr)
 }
 
-func (mlogger *MultiLogger) DestroyLogger() error {
+// DestroyLogger
+func (mlogger *MultiLogger) destroyLogger() error {
 	err1 := mlogger.lfile.Close()
 	err2 := mlogger.efile.Close()
 	err3 := mlogger.wfile.Close()
@@ -221,21 +234,26 @@ func (mlogger *MultiLogger) DestroyLogger() error {
 	return errors.Join(err1, err2, err3, err4)
 }
 
+// GetMultiLogger gets or creates a bew MLogger
+// "Singleton"
 func GetMultiLogger(split bool, verbose bool) *MultiLogger {
 	if !MLogger.ready {
 		err := createLogger(split, verbose)
 		if err != nil {
+			log.Printf("failed to create logger")
+			return nil
 		}
-		return &MLogger
-	} else {
-		return &MLogger
 	}
+	return &MLogger
+
 }
 
+// SetMultiLogger sets the Mlogger to be the main logger
 func SetMultiLogger(split bool, verbose bool) {
 	if !MLogger.ready {
 		err := createLogger(split, verbose)
 		if err != nil {
+			log.Fatalf("failed to set multi logger: %v", err)
 		}
 	}
 }
@@ -248,21 +266,30 @@ func (mlogger *MultiLogger) setLoggerSplit(split bool) {
 	mlogger.split = split
 }
 
-// default logger redirects
+// Print prints to the Mlogger
+// Wrapper function
 func Print(v ...any) {
 	MLogger.Print(v...)
 }
 
+// Println same as fmt.Println but for the Mlogger
+// Wrapper function
 func Println(v ...any) {
 	MLogger.Println(v...)
 }
 
+// Printf same as fmt.Printf but for the MLogger
+// Wrapper function
 func Printf(format string, v ...any) {
 	MLogger.Printf(format, v...)
 }
 
+// SetDefaultLogger sets the global variable to the default logger
 func SetDefaultLogger() {
-	MLogger.DestroyLogger()
+	err := MLogger.destroyLogger()
+	if err != nil {
+		log.Printf("failed to destroy logger: %v", err)
+	}
 
 	MLogger.logger = log.Default()
 }

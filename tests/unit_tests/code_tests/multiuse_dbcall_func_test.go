@@ -19,9 +19,9 @@ func Get(sel, table, by, byvalue string, limit int) {
 		args = append(args, arg)
 	}
 	if by != "" && byvalue != "" {
-		by_values_split := strings.Split(strings.TrimSpace(byvalue), ",")
-		placeholders := make([]string, len(by_values_split))
-		for i := range by_values_split {
+		byValuesSplit := strings.Split(strings.TrimSpace(byvalue), ",")
+		placeholders := make([]string, len(byValuesSplit))
+		for i := range byValuesSplit {
 			placeholders[i] = "?"
 		}
 		placeholderStr = strings.Join(placeholders, ",")
@@ -30,8 +30,8 @@ func Get(sel, table, by, byvalue string, limit int) {
 	}
 
 	if limit > 0 {
-		limit_str := fmt.Sprintf("LIMIT %d", limit)
-		query = fmt.Sprintf("%s %s", query, limit_str)
+		limitStr := fmt.Sprintf("LIMIT %d", limit)
+		query = fmt.Sprintf("%s %s", query, limitStr)
 	}
 
 	log.Printf("Query: %s\nArgs: %v", query, args)

@@ -680,7 +680,7 @@
                 "accessed_at": {
                     "type": "string"
                 },
-                "created_at": {
+                "createdAt": {
                     "type": "string"
                 },
                 "gid": {
@@ -730,7 +730,7 @@
                 "capacity": {
                     "type": "number"
                 },
-                "created_at": {
+                "createdAt": {
                     "type": "string"
                 },
                 "dynamic": {

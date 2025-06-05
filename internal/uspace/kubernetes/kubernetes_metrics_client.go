@@ -20,6 +20,21 @@ var (
 	startTime = time.Now()
 )
 
+// GetSystemMetrics collects and returns various system metrics for a given Kubernetes namespace.
+// It gathers information such as pod statuses, total CPU and memory usage, persistent volume claim (PVC) disk usage,
+// recent events within the namespace, and build/uptime information. The function attempts to use in-cluster
+// configuration, falling back to the local kubeconfig if necessary. Any errors encountered during metric collection
+// are aggregated and returned as part of the result map, along with a partial error if applicable.
+//
+// Parameters:
+//
+//	ns string - The Kubernetes namespace to collect metrics from.
+//
+// Returns:
+//
+//	map[string]any - A map containing collected metrics and information, including pod statuses, resource usage,
+//	                 PVC disk info, recent events, build info, and any errors encountered.
+//	error          - An error if any part of the metric collection failed, otherwise nil.
 func GetSystemMetrics(ns string) (map[string]any, error) {
 	var allErrors []string
 	result := map[string]any{
@@ -98,11 +113,11 @@ func GetSystemMetrics(ns string) (map[string]any, error) {
 			allErrors = append(allErrors, fmt.Sprintf("list pvcs error: %v", err))
 		} else {
 			for _, pvc := range pvcs.Items {
-				cap := pvc.Status.Capacity[corev1.ResourceStorage]
+				capacity := pvc.Status.Capacity[corev1.ResourceStorage]
 				diskInfo = append(diskInfo, map[string]string{
 					"name":       pvc.Name,
 					"volumeName": pvc.Spec.VolumeName,
-					"capacity":   cap.String(),
+					"capacity":   capacity.String(),
 					"status":     string(pvc.Status.Phase),
 				})
 			}

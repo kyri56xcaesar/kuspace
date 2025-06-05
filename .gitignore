@@ -10,6 +10,15 @@
 *.vscode
 *.idea
 *.exe
+*.out
+*.bbl
+*.ioa
+*.loa
+*.lof
+*.lot
+*.aux
+*.bcf
+*.blg
 configs/*.env
 tmp/*
 ^tmp/

@@ -50,15 +50,15 @@ func (srv *UService) handleApps(c *gin.Context) {
 		ids, _ := c.GetQuery("ids")
 		if ids != "" {
 			// return all jobs from database by uids
-			ids_int, err := ut.SplitToInt(ids, ",")
+			idsInt, err := ut.SplitToInt(ids, ",")
 			if err != nil {
 				log.Printf("failed to atoi ids: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "failed to atoi ids"})
 				return
 			}
-			apps, err := srv.getAppsByIds(ids_int)
+			apps, err := srv.getAppsByIDs(idsInt)
 			if err != nil {
-				log.Printf("failed to retrieve apps by id: %v, %v", ids_int, err)
+				log.Printf("failed to retrieve apps by id: %v, %v", idsInt, err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve apps by id"})
 				return
 			}
@@ -122,7 +122,7 @@ func (srv *UService) handleApps(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert into db"})
 			return
 		}
-		app.Id = id
+		app.ID = id
 		log.Printf("[Database] app id acquired: %d", id)
 
 		// respond with status
@@ -177,15 +177,15 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 		ids, _ := c.GetQuery("ids")
 		if ids != "" {
 			// return all jobs from database by uids
-			ids_int, err := ut.SplitToInt(ids, ",")
+			idsInt, err := ut.SplitToInt(ids, ",")
 			if err != nil {
 				log.Printf("failed to atoi ids: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "failed to atoi ids"})
 				return
 			}
-			apps, err := srv.getAppsByIds(ids_int)
+			apps, err := srv.getAppsByIDs(idsInt)
 			if err != nil {
-				log.Printf("failed to retrieve apps by id: %v, %v", ids_int, err)
+				log.Printf("failed to retrieve apps by id: %v, %v", idsInt, err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve apps by id"})
 				return
 			}
@@ -250,7 +250,7 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert into db"})
 			return
 		}
-		app.Id = id
+		app.ID = id
 		log.Printf("[Database] app id acquired: %d", id)
 
 		// respond with status
@@ -265,7 +265,7 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to bind data"})
 			return
 		}
-		if app.Id == 0 {
+		if app.ID == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "must specify an id value"})
 			return
 		}
@@ -280,13 +280,13 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 	case http.MethodDelete:
 		id := c.Query("id")
 		if id != "" {
-			id_int, err := strconv.Atoi(id)
+			idInt, err := strconv.Atoi(id)
 			if err != nil {
 				log.Printf("failed to atoi id")
 				c.JSON(http.StatusBadRequest, gin.H{"error": "bad id format"})
 				return
 			}
-			err = srv.removeApp(id_int)
+			err = srv.removeApp(idInt)
 			if err != nil {
 				log.Printf("failed to remove app")
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to remove app"})
@@ -297,12 +297,12 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 		}
 		ids := c.Query("ids")
 		if ids != "" {
-			ids_int, err := ut.SplitToInt(strings.TrimSpace(ids), ",")
+			idsInt, err := ut.SplitToInt(strings.TrimSpace(ids), ",")
 			if err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "bad ids format"})
 				return
 			}
-			err = srv.removeApps(ids_int)
+			err = srv.removeApps(idsInt)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to remove apps"})
 				return

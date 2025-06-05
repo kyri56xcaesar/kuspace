@@ -37,24 +37,33 @@ import (
 	"strconv"
 	"time"
 
+	// the Driver for duckdb
 	_ "github.com/marcboeker/go-duckdb"
+	// the Driver for sqlite3
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// DBHandler encapsulates needed information for a database driver
+//
+// Methods:
+//
+//	{
+//			init, close
+//	}
 type DBHandler struct {
-	db        *sql.DB
-	db_driver string
-	db_path   string
-	DBName    string
+	db       *sql.DB
+	dbDriver string
+	dbPath   string
+	DBName   string
 }
 
-// constructor
-func NewDBHandler(dbname, dbpath, db_driver string) DBHandler {
+// NewDBHandler a constructor of a DBHandler
+func NewDBHandler(dbname, dbpath, dbDriver string) DBHandler {
 
 	// perform checks
 	// check if the database driver is supported
-	if db_driver != "sqlite3" && db_driver != "duckdb" {
-		log.Fatalf("unsupported database driver: %s", db_driver)
+	if dbDriver != "sqlite3" && dbDriver != "duckdb" {
+		log.Fatalf("unsupported database driver: %s", dbDriver)
 	}
 	// check if the database path is valid
 	if dbpath == "" {
@@ -78,18 +87,20 @@ func NewDBHandler(dbname, dbpath, db_driver string) DBHandler {
 		log.Fatalf("failed to create the path: %v", err)
 	}
 
-	var dbh DBHandler = DBHandler{
-		DBName:    dbname,
-		db_path:   dbpath,
-		db_driver: db_driver,
+	var dbh = DBHandler{
+		DBName:   dbname,
+		dbPath:   dbpath,
+		dbDriver: dbDriver,
 	}
 	return dbh
 }
 
+// GetConn as a method returns the actual db Driver, if it doesn't exist it instatiates it
 /* must be a pointer since there is no specific connection variable and is depending on the Handler struct*/
+// "Singleton"
 func (m *DBHandler) GetConn() (*sql.DB, error) {
 	if m.db == nil {
-		db, err := sql.Open(m.db_driver, m.db_path+m.DBName)
+		db, err := sql.Open(m.dbDriver, m.dbPath+m.DBName)
 		if err != nil {
 			return nil, err
 		}
@@ -98,19 +109,24 @@ func (m *DBHandler) GetConn() (*sql.DB, error) {
 	return m.db, nil
 }
 
+// Close method applies close call to the database
 /* must be a pointer since there is no specific connection variable and is depending on the Handler struct*/
 func (m *DBHandler) Close() {
 	if m.db != nil {
-		m.db.Close()
+		err := m.db.Close()
+		if err != nil {
+			log.Printf("failed to close the database connection... should be fatal..: %v", err)
+		}
 	}
 }
 
+// Init method applies all needed logic on startup of the db
 /* Initialization routines for a database */
 /* must be a pointer since there is no specific connection variable and is depending on the Handler struct*/
-func (m *DBHandler) Init(initSqlArg, max_open_conns, max_idle_cons, conn_lifetime string) {
+func (m *DBHandler) Init(initSQLarg, maxOpenConns, maxIdleCons, connLifetime string) {
 	log.Printf("Initializing %v database", m.DBName)
-	if err := os.MkdirAll(m.db_path, 0o740); err != nil {
-		log.Fatalf("failed to create directory path %s, destructive: %v", m.db_path, err)
+	if err := os.MkdirAll(m.dbPath, 0o740); err != nil {
+		log.Fatalf("failed to create directory path %s, destructive: %v", m.dbPath, err)
 	}
 
 	/* perform the init db scripts */
@@ -118,29 +134,29 @@ func (m *DBHandler) Init(initSqlArg, max_open_conns, max_idle_cons, conn_lifetim
 	if err != nil {
 		log.Fatalf("couldn't get db connection, destructive: %v", err)
 	}
-	max_conns, err := strconv.Atoi(max_open_conns)
+	maxConns, err := strconv.Atoi(maxOpenConns)
 	if err != nil {
-		db.Close()
+		m.Close()
 		log.Fatalf("failed to atoi max_open_conns value: %v", err)
 	}
-	max_idle, err := strconv.Atoi(max_idle_cons)
+	maxIdle, err := strconv.Atoi(maxIdleCons)
 	if err != nil {
-		db.Close()
+		m.Close()
 		log.Fatalf("failed to atoi max_idle_cons value: %v", err)
 	}
-	conn_lifetime_int, err := strconv.Atoi(conn_lifetime)
+	connLifetimeInt, err := strconv.Atoi(connLifetime)
 	if err != nil {
-		db.Close()
+		m.Close()
 		log.Fatalf("failed to atoi conn_lifetime value: %v", err)
 	}
-	db.SetMaxOpenConns(max_conns)
-	db.SetMaxIdleConns(max_idle)
-	db.SetConnMaxLifetime(time.Duration(conn_lifetime_int) * time.Minute)
+	db.SetMaxOpenConns(maxConns)
+	db.SetMaxIdleConns(maxIdle)
+	db.SetConnMaxLifetime(time.Duration(connLifetimeInt) * time.Minute)
 
 	// init tables
-	_, err = db.Exec(initSqlArg)
+	_, err = db.Exec(initSQLarg)
 	if err != nil {
-		db.Close()
+		m.Close()
 		log.Fatalf("failed to init db, destrcutive: %v", err)
 	}
 

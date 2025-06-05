@@ -1,3 +1,5 @@
+// Package minio
+// a package that includes a minio client
 package minio
 
 /*
@@ -29,15 +31,16 @@ const (
 )
 
 var (
-	default_sign_duration              = time.Duration(time.Hour * 24 * 2)
-	OBJECT_SIZE_THRESHOLD        int64 = 400_000_000
-	DEFALT_OBJECT_SIZE_THRESHOLD int64 = 400_000_000
+	defaultSignDuration              = time.Duration(time.Hour * 24 * 2)
+	objectSizeThreshold        int64 = 400_000_000
+	defaultObjectSizeThreshold int64 = 400_000_000
 
-	ONLY_PRESIGNED_UPLOAD bool = false
-	FETCHSTAT             bool = false
+	onlyPresignedUpload = false
+	fetchstat           = false
 )
 
-type MinioClient struct {
+// Client encapsules information needed for having a client for Minio
+type Client struct {
 	accessKey     string
 	secretKey     string
 	endpoint      string
@@ -46,35 +49,36 @@ type MinioClient struct {
 	// retentionPeriod int
 	client *minio.Client
 
-	default_local_space_path string
-	default_bucket_name      string
+	defaultLocalSpacePath string
+	defaultBucketName     string
 }
 
+// NewMinioClient creates and returns a new Client instance using the provided configuration.
 // ✅
-func NewMinioClient(cfg ut.EnvConfig) MinioClient {
+func NewMinioClient(cfg ut.EnvConfig) Client {
 	var err error
-	ONLY_PRESIGNED_UPLOAD = cfg.ONLY_PRESIGNED_UPLOAD
-	FETCHSTAT = cfg.MINIO_FETCH_STAT
-	OBJECT_SIZE_THRESHOLD, err = strconv.ParseInt(cfg.OBJECT_SIZE_THRESHOLD, 10, 64)
+	onlyPresignedUpload = cfg.PresignedUploadOnly
+	fetchstat = cfg.MinioFetchStat
+	objectSizeThreshold, err = strconv.ParseInt(cfg.ObjectSizeThreshold, 10, 64)
 	if err != nil {
 		log.Printf("failed to parse object threshold, fallingthrough to default")
-		OBJECT_SIZE_THRESHOLD = DEFALT_OBJECT_SIZE_THRESHOLD
+		objectSizeThreshold = defaultObjectSizeThreshold
 	}
 	var endpoint string
-	if cfg.PROFILE == "baremetal" {
-		endpoint = strings.TrimPrefix(cfg.MINIO_NODEPORT_ENDPOINT, "http://")
+	if cfg.Profile == "baremetal" {
+		endpoint = strings.TrimPrefix(cfg.MinioNodeportEndpoint, "http://")
 	} else {
-		endpoint = strings.TrimPrefix(cfg.MINIO_ENDPOINT, "http://")
+		endpoint = strings.TrimPrefix(cfg.MinioEndpoint, "http://")
 	}
 
-	mc := MinioClient{
-		accessKey:                cfg.MINIO_ACCESS_KEY,
-		secretKey:                cfg.MINIO_SECRET_KEY,
-		endpoint:                 endpoint,
-		useSSL:                   cfg.MINIO_USE_SSL == "true",
-		objectLocking:            cfg.MINIO_OBJECT_LOCKING,
-		default_bucket_name:      cfg.MINIO_DEFAULT_BUCKET,
-		default_local_space_path: cfg.LOCAL_VOLUMES_DEFAULT_PATH + "/" + localDir + "/",
+	mc := Client{
+		accessKey:             cfg.MinioAccessKey,
+		secretKey:             cfg.MinioSecretKey,
+		endpoint:              endpoint,
+		useSSL:                cfg.MinioUseSSL == "true",
+		objectLocking:         cfg.MinioObjectLocking,
+		defaultBucketName:     cfg.MinioDefaultBucket,
+		defaultLocalSpacePath: cfg.LocalVolumesDefaultPath + "/" + localDir + "/",
 	}
 
 	client, err := minio.New(mc.endpoint, &minio.Options{
@@ -89,8 +93,9 @@ func NewMinioClient(cfg ut.EnvConfig) MinioClient {
 	return mc
 }
 
+// CreateVolume creates a new bucket (volume) in Minio.
 // ✅
-func (mc *MinioClient) CreateVolume(volume any) error {
+func (mc *Client) CreateVolume(volume any) error {
 	v, ok := volume.(ut.Volume)
 	if !ok {
 		return ut.NewError("failed to cast to a volume")
@@ -106,14 +111,15 @@ func (mc *MinioClient) CreateVolume(volume any) error {
 	return nil
 }
 
+// Insert uploads an object to Minio, using presigned upload if necessary.
 // ✅
-func (mc *MinioClient) Insert(t any) (context.CancelFunc, error) {
+func (mc *Client) Insert(t any) (context.CancelFunc, error) {
 	object, ok := t.(ut.Resource)
 	if !ok {
 		return nil, ut.NewError("failed to cast")
 	}
 	// maybe use a presigned link for upload for a certain size threshold?
-	if object.Size > OBJECT_SIZE_THRESHOLD || ONLY_PRESIGNED_UPLOAD {
+	if object.Size > objectSizeThreshold || onlyPresignedUpload {
 		r, err := mc.Share("put", t)
 		if err != nil {
 			log.Printf("failed to get a presigned link: %v", err)
@@ -153,23 +159,23 @@ func (mc *MinioClient) Insert(t any) (context.CancelFunc, error) {
 		}
 		return nil, nil
 
-	} else {
-		cancel, err := mc.putObject(
-			object.Vname,
-			object.Name,
-			object.Reader,
-			object.Size,
-		)
-		if err != nil {
-			log.Printf("failed to iniate stream upload to minio: %v", err)
-		}
-		return cancel, err
 	}
+	cancel, err := mc.putObject(
+		object.Vname,
+		object.Name,
+		object.Reader,
+		object.Size,
+	)
+	if err != nil {
+		log.Printf("failed to iniate stream upload to minio: %v", err)
+	}
+	return cancel, err
 
 }
 
+// SelectVolumes lists and returns available volumes (buckets) matching the filter.
 // ✅ .. maybe can enhance with more which factors
-func (mc *MinioClient) SelectVolumes(which map[string]any) (any, error) {
+func (mc *Client) SelectVolumes(which map[string]any) (any, error) {
 	res, err := mc.listBuckets()
 	if err != nil {
 		log.Printf("failed to retrieve buckets: %v", err)
@@ -195,8 +201,9 @@ func (mc *MinioClient) SelectVolumes(which map[string]any) (any, error) {
 	return r, nil
 }
 
+// SelectObjects lists and returns objects in a specified volume, optionally filtered by prefix.
 // ✅
-func (mc *MinioClient) SelectObjects(which map[string]any) (any, error) {
+func (mc *Client) SelectObjects(which map[string]any) (any, error) {
 
 	vN, is := which["vname"]
 	if !is {
@@ -227,11 +234,11 @@ func (mc *MinioClient) SelectObjects(which map[string]any) (any, error) {
 			return nil, object.Err
 		}
 		rsrc := ut.Resource{
-			Name:       object.Key,
-			Size:       object.Size,
-			Type:       "object",
-			Vname:      vName,
-			Updated_at: object.LastModified.String(),
+			Name:      object.Key,
+			Size:      object.Size,
+			Type:      "object",
+			Vname:     vName,
+			UpdatedAt: object.LastModified.String(),
 		}
 
 		objects = append(objects, rsrc)
@@ -240,21 +247,22 @@ func (mc *MinioClient) SelectObjects(which map[string]any) (any, error) {
 	return objects, nil
 }
 
+// Stat retrieves metadata information for a given object, optionally fetching the object locally.
 // ✅
-func (mc *MinioClient) Stat(t any) (any, error) {
+func (mc *Client) Stat(t any) (any, error) {
 	object, ok := t.(ut.Resource)
 	if !ok {
 		return nil, ut.NewError("failed to cast")
 	}
 
-	if FETCHSTAT {
-		cancel, err := mc.fGetObject(object.Vname, object.Name, mc.default_local_space_path+object.Name)
+	if fetchstat {
+		cancel, err := mc.fGetObject(object.Vname, object.Name, mc.defaultLocalSpacePath+object.Name)
 		if err != nil {
 			return nil, err
 		}
 		defer cancel()
 
-		info, err := os.Stat(mc.default_local_space_path + object.Name)
+		info, err := os.Stat(mc.defaultLocalSpacePath + object.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -266,8 +274,9 @@ func (mc *MinioClient) Stat(t any) (any, error) {
 
 }
 
+// Remove deletes an object from Minio.
 // ✅
-func (mc *MinioClient) Remove(t any) error {
+func (mc *Client) Remove(t any) error {
 	resource, ok := t.(ut.Resource)
 	if !ok {
 		return ut.NewError("failed to cast")
@@ -277,8 +286,9 @@ func (mc *MinioClient) Remove(t any) error {
 
 }
 
+// RemoveVolume deletes a volume (bucket) from Minio.
 // ✅
-func (mc *MinioClient) RemoveVolume(t any) error {
+func (mc *Client) RemoveVolume(t any) error {
 	var bucketname string
 
 	// check if the argument passed is either an entire volume
@@ -298,8 +308,9 @@ func (mc *MinioClient) RemoveVolume(t any) error {
 
 }
 
+// Download retrieves an object from Minio and prepares it for reading.
 // ✅
-func (mc *MinioClient) Download(t *any) (context.CancelFunc, error) {
+func (mc *Client) Download(t *any) (context.CancelFunc, error) {
 	value := *t
 	resourcePtr, ok := value.(*ut.Resource)
 	if !ok {
@@ -324,7 +335,8 @@ func (mc *MinioClient) Download(t *any) (context.CancelFunc, error) {
 	return cancelFn, err
 }
 
-func (mc *MinioClient) Copy(s, d any) error {
+// Copy copies the given object to a new destination
+func (mc *Client) Copy(s, d any) error {
 	src, ok := s.(ut.Resource)
 	if !ok {
 		return ut.NewError("failed to cast")
@@ -343,22 +355,24 @@ func (mc *MinioClient) Copy(s, d any) error {
 	return nil
 }
 
-/* find + copy + delete in this case*/
-func (mc *MinioClient) Update(t map[string]string) error {
+// Update function is tbd
+func (mc *Client) Update(_ map[string]string) error {
 	return nil
 }
 
+// DefaultVolume returns the default local or remote volume path or bucket name.
 // ✅
-func (mc *MinioClient) DefaultVolume(local bool) string {
+func (mc *Client) DefaultVolume(local bool) string {
 	if local {
-		return mc.default_local_space_path
-	} else {
-		return mc.default_bucket_name
+		return mc.defaultLocalSpacePath
 	}
+	return mc.defaultBucketName
+
 }
 
+// Share generates a presigned URL for uploading or downloading an object.
 // ✅
-func (mc *MinioClient) Share(method string, t any) (any, error) {
+func (mc *Client) Share(method string, t any) (any, error) {
 	resource, ok := t.(ut.Resource)
 	if !ok {
 		log.Printf("failed to cast to resource")
@@ -367,14 +381,14 @@ func (mc *MinioClient) Share(method string, t any) (any, error) {
 
 	switch method {
 	case "get":
-		url, err := mc.getPresignedObject(resource.Vname, resource.Name, default_sign_duration)
+		url, err := mc.getPresignedObject(resource.Vname, resource.Name, defaultSignDuration)
 		if err != nil {
 			log.Printf("failed to retrieve object sign")
 		}
 		return url, err
 
 	case "put":
-		url, err := mc.putPresignedObject(resource.Vname, resource.Name, default_sign_duration)
+		url, err := mc.putPresignedObject(resource.Vname, resource.Name, defaultSignDuration)
 		if err != nil {
 			log.Printf("failed to retrieve object sign")
 		}

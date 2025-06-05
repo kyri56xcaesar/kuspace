@@ -17,7 +17,7 @@ use scripts/kuspacectl.go to deploy/destroy/build
 
 ### Description
 
-### A SOA
+### Microservices
 
 - identity/storage provision  
 - central API for submitting "jobs"  

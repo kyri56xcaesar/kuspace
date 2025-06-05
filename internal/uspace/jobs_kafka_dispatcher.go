@@ -1,2 +1,2 @@
-// todo
+// Package uspace todo...
 package uspace

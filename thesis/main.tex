@@ -61,8 +61,8 @@
 %----------------------------------------------------------------------------------------
 
 % Todo: comment out example.bib file when done reading the template instructions
-\addbibresource{example.bib} % The filename of the bibliography
-\addbibresource{References.bib} % The filename of the bibliography
+% \addbibresource{example.bib} % The filename of the bibliography
+\addbibresource{references.bib} % The filename of the bibliography
 
 %----------------------------------------------------------------------------------------
 %	MARGIN SETTINGS
@@ -83,15 +83,15 @@
 %----------------------------------------------------------------------------------------
 
 % Todo: fill info below
-\thesistitle{Thesis Title} % Your thesis title, this is used in the title and abstract, print it elsewhere with \ttitle
+\thesistitle{Interactive User Environment Application on Kubernetes} % Your thesis title, this is used in the title and abstract, print it elsewhere with \ttitle
 \author{Kyriakos \textsc{Chalvatzis}} % Your name, this is used in the title page and abstract, print it elsewhere with \authorname
-\supervisor{Prof. Vasilis \textsc{Samoladas}} % Your supervisor's name, this is used in the title page, print it elsewhere with \supname
+\supervisor{Prof.Vasilis \textsc{Samoladas}} % Your supervisor's name, this is used in the title page, print it elsewhere with \supname
 \degree{Electrical and Computer Engineer} % Your degree name, this is used in the title page and abstract, print it elsewhere with \degreename
 \subject{Electrical and Computer Engineering} % Your subject area, this is not currently used anywhere in the template, print it elsewhere with \subjectname
 \keywords{Diploma Thesis} % Keywords for your thesis, this is not currently used anywhere in the template, print it elsewhere with \keywordnames
 \university{\href{https://www.tuc.gr/}{Technical University of Crete}} % Your university's name and URL, this is used in the title page and abstract, print it elsewhere with \univname
 \department{\href{https://www.ece.tuc.gr/}{School of Electrical and Computer Engineering}} % Your department's name and URL, this is used in the title page and abstract, print it elsewhere with \deptname
-\group{\href{https://www.mhl.tuc.gr/}{Microprocessor and Hardware Laboratory}} % Your research group's name and URL, this is used in the title page, print it elsewhere with \groupname
+% \group{\href{https://www.mhl.tuc.gr/}{Microprocessor and Hardware Laboratory}} % Your research group's name and URL, this is used in the title page, print it elsewhere with \groupname
 \faculty{
 		% \href{http://faculty.university.com}{Faculty Name}
 } % Your faculty's name and URL, this is used in the title page and abstract, print it elsewhere with \facname
@@ -118,9 +118,8 @@
 		\vspace{0.5cm} % University name
 		\textsc{\Large Diploma Thesis}\\[0.5cm] % Thesis type
 
-		\HRule \\[0.4cm] % Horizontal line
+		\HRule\\[0.4cm] % Horizontal line
 		{\huge \bfseries \ttitle\par}\vspace{0.4cm} % Thesis title
-		\HRule \\[0.4cm] % Horizontal line
 
 		\begin{minipage}[t]{0.4\textwidth}
 			\begin{flushleft} \large
@@ -133,11 +132,11 @@
 			\begin{flushright} \large
 				\emph{Thesis Committee:} \\
 				% Todo: fill correct link
-				\href{http://example.com/}{\supname}\\ % Supervisor name - remove the \href bracket to remove the link
+				\href{https://www.ece.tuc.gr/el/index.php?id=4109&tx_tuclabspersonnel_list%5Bperson%5D=361&tx_tuclabspersonnel_list%5Baction%5D=person&tx_tuclabspersonnel_list%5Bcontroller%5D=List}{\supname}\\ % Supervisor name - remove the \href bracket to remove the link
 				% Todo: fill correct link, full name
-				\href{http://example.com/}{Prof. Name \textsc{Surname}}\\
+				\href{https://www.ece.tuc.gr/el/i-scholi/prosopiko/single-display-person?tx_tuclabspersonnel_pi3%5Bpersonid%5D=771&cHash=7632eaf07b3963f9d990de818bdbcda9}{Prof. Name \textsc{Giatrakos}}\\
 				% Todo: fill correct link, full name
-				\href{http://example.com/}{Prof. Name \textsc{Surname}}
+				\href{https://www.ece.tuc.gr/el/index.php?id=4109&tx_tuclabspersonnel_list%5Bperson%5D=353&tx_tuclabspersonnel_list%5Baction%5D=person&tx_tuclabspersonnel_list%5Bcontroller%5D=List}{Prof. Name \textsc{Petrakis}}
 			\end{flushright}
 		\end{minipage}\\[0.2cm]
 
@@ -148,7 +147,8 @@
 
 		\large \textit{A thesis submitted in fulfillment of the requirements\\ for the diploma of \degreename}\\[0.3cm] % University requirement text
 		\textit{in the}\\[0.4cm]
-		\deptname\\\groupname\\[2cm] % Research group name and department name
+		% \deptname\\\groupname\\[2cm] % Research group name and department name
+		\deptname\\[2cm] % Research group name and department name
 
 		\vfill
 
@@ -196,7 +196,7 @@
 \tableofcontents % Prints the main table of contents
 \listoffigures % Prints the list of figures
 \listoftables % Prints the list of tables
-\listofalgorithms % Prints the list of algorithms
+\listofalgorithms% Prints the list of algorithms
 \addcontentsline{toc}{chapter}{List of Algorithms}
 
 %----------------------------------------------------------------------------------------
@@ -211,7 +211,7 @@
 	\textbf{BRAM}	& \textbf{B}lock \textbf{R}andom \textbf{A}ccess \textbf{M}emory\\
 	\textbf{CPU}	& \textbf{C}entral \textbf{P}rocessor \textbf{U}nit\\
 	\textbf{CS}		& \textbf{C}omputer \textbf{S}cience\\
-	\textbf{DDR4}	& \textbf{D}ouble \textbf{D}ata \textbf{R}ate type texbf{4} memory\\
+	\textbf{DDR4}	& \textbf{D}ouble \textbf{D}ata \textbf{R}ate type \textbf{4} memory\\
 	\textbf{DRAM}	& \textbf{D}ynamic \textbf{R}andom \textbf{A}ccess \textbf{M}emory\\
 	\textbf{DSP}	& \textbf{D}igital \textbf{S}ignal \textbf{P}rocessor\\
 	\textbf{FF}		& \textbf{F}lip \textbf{F}lops\\
@@ -250,14 +250,12 @@
 % Include the chapters of the thesis as separate files from the Chapters folder
 % Uncomment the lines as you write the chapters
 \pagestyle{thesis} % Return the page headers back to the "thesis" style
-\mainmatter % Begin numeric (1,2,3...) page numbering
+\mainmatter% Begin numeric (1,2,3...) page numbering
 
-\include{Chapters/00-ExampleChapter}
 \include{Chapters/01-Introduction}
 \include{Chapters/02-TheoreticalBackground}
 \include{Chapters/03-RelatedWork}
 \include{Chapters/04-RobustnessAnalysis}
-\include{Chapters/05-FPGAImplementation}
 \include{Chapters/06-Results}
 \include{Chapters/07-ConclusionsAndFutureWork}
 
@@ -279,9 +277,7 @@
 %	BIBLIOGRAPHY
 %----------------------------------------------------------------------------------------
 
-\cleardoublepage
-\phantomsection
-\addcontentsline{toc}{chapter}{References}
+\cleardoublepage\phantomsection\addcontentsline{toc}{chapter}{References}
 \printbibliography[keyword={References}, title={References}]
 \printbibliography[keyword={Link}, title={External Links}]
 

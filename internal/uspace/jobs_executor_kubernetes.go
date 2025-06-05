@@ -21,37 +21,46 @@ import (
 )
 
 var (
-	DUCK_IMAGE     = "kyri56xcaesar/kuspace:applications-duckdb-v1"
-	PANDAS_IMAGE   = "kyri56xcaesar/kuspace:applications-pypandas-v1"
-	OCTAVE_IMAGE   = "kyri56xcaesar/kuspace:applications-octave-v1"
-	FFMPEG_IMAGE   = "kyri56xcaesar/kuspace:applications-ffmpeg-v1"
-	CAENGINE_IMAGE = "kyri56xcaesar/kuspace:applications-caengine-v1"
-	BASH_IMAGE     = "kyri56xcaesar/kuspace:applications-bash-v1"
+	duckImage     = "kyri56xcaesar/kuspace:applications-duckdb-v1"
+	pandasImage   = "kyri56xcaesar/kuspace:applications-pypandas-v1"
+	octaveImage   = "kyri56xcaesar/kuspace:applications-octave-v1"
+	ffmpegImage   = "kyri56xcaesar/kuspace:applications-ffmpeg-v1"
+	caengineImage = "kyri56xcaesar/kuspace:applications-caengine-v1"
+	bashImage     = "kyri56xcaesar/kuspace:applications-bash-v1"
 )
 
+// JKubernetesExecutor struct the core data structure impelemnting the JobExecutor interface
+// essentially a JobExecutor responsible for executing jobs in cooperation with the Kubernetes API
 type JKubernetesExecutor struct {
 	jm *JobManager
 }
 
+// NewJKubernetesExecutor function as a constructor
 func NewJKubernetesExecutor(jm *JobManager) JKubernetesExecutor {
 	return JKubernetesExecutor{
 		jm: jm,
 	}
 }
 
+// ExecuteJob method where the core logic of execution happens
 func (jke JKubernetesExecutor) ExecuteJob(job ut.Job) error {
 	defer func() { <-jke.jm.workerPool }() // release worker slot
 	executeK8sJob(&jke, job)
 	return nil
 }
+
+// CancelJob method responsible for canceling the job execution
 func (jke JKubernetesExecutor) CancelJob(job ut.Job) error {
 	client, err := k.GetKubeClient()
 	if err != nil {
 		log.Printf("[executor] could not retrieve k8s client: %v", err)
 		return err
 	}
-	cancelJob(client, fmt.Sprintf("job-%d", job.Jid), jke.jm.srv.config.NAMESPACE)
-	return nil
+	err = cancelJob(client, fmt.Sprintf("job-%d", job.Jid), jke.jm.srv.config.Namespace)
+	if err != nil {
+		log.Printf("[executor] failed to cancel the Job: %v", err)
+	}
+	return err
 
 }
 
@@ -206,7 +215,12 @@ WAIT_FOR_READY:
 	if err != nil {
 		return fmt.Errorf("failed to open log stream for pod %s: %w", podName, err)
 	}
-	defer stream.Close()
+	defer func() {
+		err := stream.Close()
+		if err != nil {
+			log.Printf("failed to close the stream: %v", err)
+		}
+	}()
 
 	reader := bufio.NewReader(stream)
 	for {
@@ -224,56 +238,56 @@ WAIT_FOR_READY:
 
 func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	jobName := fmt.Sprintf("j-%d", job.Jid)
-	namespace := je.jm.srv.config.NAMESPACE
+	namespace := je.jm.srv.config.Namespace
 	// llets create a stream channel (for the websocket)
-	ws_chan := make(chan []byte, 100)
+	wsChan := make(chan []byte, 100)
 	// begin streaming channel, also set a deadline,  perhaps a context with a deadline could work
-	go streamToSocketWS(job.Jid, ws_chan)
+	go streamToSocketWS(job.Jid, wsChan)
 	go func() {
 		time.Sleep(time.Second * 500)
-		close(ws_chan) // this propably lasts longer than the prev context
+		close(wsChan) // this propably lasts longer than the prev context
 
 	}()
 
-	ws_chan <- []byte("...")
-	ws_chan <- []byte("=-----------------------------------------------------------------------=")
-	ws_chan <- []byte("...")
-	ws_chan <- []byte(fmt.Sprintf("[executor] formatting Job as job-name: job-%s\n", jobName))
+	wsChan <- []byte("...")
+	wsChan <- []byte("=-----------------------------------------------------------------------=")
+	wsChan <- []byte("...")
+	wsChan <- []byte(fmt.Sprintf("[executor] formatting Job as job-name: job-%s\n", jobName))
 
 	command, err := formatJobData(je, &job)
 	if err != nil {
 		log.Printf("error formatting job data: %v", err)
-		ws_chan <- []byte(fmt.Sprintf("[executor]: error formatting job data %v\n", err))
+		wsChan <- []byte(fmt.Sprintf("[executor]: error formatting job data %v\n", err))
 
 		return
 	}
 
-	ws_chan <- []byte("[executor] constructing job...\n")
+	wsChan <- []byte("[executor] constructing job...\n")
 
 	jobSpec := buildK8sJob(
 		jobName,
 		job.Logic,
 		command,
 		job.Env,
-		map[string]string{"RMem": job.MemoryRequest, "RCpu": job.CpuRequest, "LMem": job.MemoryLimit, "LCpu": job.CpuLimit},
+		map[string]string{"RMem": job.MemoryRequest, "RCpu": job.CPURequest, "LMem": job.MemoryLimit, "LCpu": job.CPULimit},
 		int32(job.Parallelism), // parallelism // should default to 1
 		namespace,
 		int64(job.Timeout),
 	)
 
-	ws_chan <- []byte("[executor] launcing job...\n")
-	ws_chan <- []byte(fmt.Sprintf("[executor] specs: {parallelism: %v, timeout: %v, cpu_limit: %v, cpu_request: %v, mem_limit: %v, mem_req: %v, storage_limit: %v, storage_request: %v}\n", job.Parallelism, job.Timeout, job.CpuLimit, job.CpuRequest, job.MemoryLimit, job.MemoryRequest, job.EphimeralStorageLimit, job.EphimeralStorageRequest))
+	wsChan <- []byte("[executor] launcing job...\n")
+	wsChan <- []byte(fmt.Sprintf("[executor] specs: {parallelism: %v, timeout: %v, cpu_limit: %v, cpu_request: %v, mem_limit: %v, mem_req: %v, storage_limit: %v, storage_request: %v}\n", job.Parallelism, job.Timeout, job.CPULimit, job.CPURequest, job.MemoryLimit, job.MemoryRequest, job.EphimeralStorageLimit, job.EphimeralStorageRequest))
 
 	clientset, err := k.GetKubeClient() // from config
 	if err != nil {
 		log.Printf("[executor] could not retrieve kube client: %v", err)
-		ws_chan <- []byte("could not retrieve k8s client, fatal...\nexiting...")
+		wsChan <- []byte("could not retrieve k8s client, fatal...\nexiting...")
 		return
 	}
 	err = runJob(clientset, jobSpec, namespace)
 	if err != nil {
 		log.Printf("error starting job: %v", err)
-		ws_chan <- []byte(fmt.Sprintf("[executor]: error launching job execution%v\n", err))
+		wsChan <- []byte(fmt.Sprintf("[executor]: error launching job execution%v\n", err))
 		return
 	}
 	startTime := time.Now()
@@ -281,11 +295,11 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	// monitor and stream the logs of that job
 	go func() {
 		err = streamJobLogs(clientset, jobName, namespace, func(data []byte) {
-			ws_chan <- data
+			wsChan <- data
 		})
 		if err != nil {
 			log.Printf("failed to stream job logs.. :%v", err)
-			ws_chan <- []byte(fmt.Sprintf("[executor]: error streaming pod logs: %v\n", err))
+			wsChan <- []byte(fmt.Sprintf("[executor]: error streaming pod logs: %v\n", err))
 		}
 	}()
 
@@ -295,13 +309,13 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	}
 	duration := time.Since(startTime)
 	// log.Printf("[executor] Job %v finished with status: %s, duration: %v", jobName, status, duration)
-	ws_chan <- []byte(fmt.Sprintf("[executor] Job %v finished with status: %s, duration: %v\n", jobName, status, duration))
+	wsChan <- []byte(fmt.Sprintf("[executor] Job %v finished with status: %s, duration: %v\n", jobName, status, duration))
 
 	// Optional: cleanup or postprocess
 	err = je.jm.srv.markJobStatus(job.Jid, status, duration)
 	if err != nil {
 		log.Printf("failed to annotate result to database")
-		ws_chan <- []byte(fmt.Sprintf("[executor]: error marking job completion%v\n", err))
+		wsChan <- []byte(fmt.Sprintf("[executor]: error marking job completion%v\n", err))
 	}
 
 	// save output to db
@@ -311,38 +325,38 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	}
 
 	if status == "completed" {
-		output_resource := ut.Resource{
+		outputResource := ut.Resource{
 			Name:  p[1],
 			Path:  "/",
 			Type:  "file",
 			Perms: "rw-r--r--",
-			Uid:   job.Uid,
+			UID:   job.UID,
 			Vname: p[0],
-			Gid:   job.Uid,
+			Gid:   job.UID,
 		}
-		info, err := je.jm.srv.storage.Stat(output_resource)
+		info, err := je.jm.srv.storage.Stat(outputResource)
 		if err != nil {
 			log.Printf("failed to stat output file from storage: %v", err)
-			ws_chan <- []byte(fmt.Sprintf("[executor]: error retrieving output file %v\n", err))
+			wsChan <- []byte(fmt.Sprintf("[executor]: error retrieving output file %v\n", err))
 			return
 		}
-		info_casted, ok := info.(minio.ObjectInfo) // this should be changed to be independent of minio... // will do "resourceInfo struct "
+		infoCasted, ok := info.(minio.ObjectInfo) // this should be changed to be independent of minio... // will do "resourceInfo struct "
 		if !ok {
 			log.Printf("failed to cast to object info")
-			ws_chan <- []byte(fmt.Sprintf("[executor]: error retrieving output file format %v\n", err))
+			wsChan <- []byte(fmt.Sprintf("[executor]: error retrieving output file format %v\n", err))
 			return
 		}
-		output_resource.Size = info_casted.Size
+		outputResource.Size = infoCasted.Size
 
 		// log.Printf("[executor]...saving output in database...")
-		ws_chan <- []byte(fmt.Sprintf("[executor] saving output %s/%s ...\n", output_resource.Vname, output_resource.Name))
-		_, err = je.jm.srv.fsl.Insert(output_resource)
+		wsChan <- []byte(fmt.Sprintf("[executor] saving output %s/%s ...\n", outputResource.Vname, outputResource.Name))
+		_, err = je.jm.srv.fsl.Insert(outputResource)
 		if err != nil {
 			log.Printf("failed to insert output object in database: %v", err)
-			ws_chan <- []byte(fmt.Sprintf("[executor]: error saving output data in db...%v\n", err))
+			wsChan <- []byte(fmt.Sprintf("[executor]: error saving output data in db...%v\n", err))
 		}
 
-		ws_chan <- []byte(fmt.Sprintf("[executor] OK.\n"))
+		wsChan <- []byte("[executor] OK.\n")
 	}
 }
 
@@ -421,21 +435,21 @@ func formatJobData(je *JKubernetesExecutor, job *ut.Job) ([]string, error) {
 		job.MemoryLimit = "4Gi" // default limit
 	}
 
-	if job.CpuLimit == "" {
-		job.CpuLimit = "1000m"
+	if job.CPULimit == "" {
+		job.CPULimit = "1000m"
 	}
 
 	if job.MemoryRequest == "" {
 		job.MemoryRequest = "2Gi"
 	}
 
-	if job.CpuRequest == "" {
-		job.CpuRequest = "500m"
+	if job.CPURequest == "" {
+		job.CPURequest = "500m"
 	}
 
-	envMap["ENDPOINT"] = je.jm.srv.config.MINIO_ENDPOINT
-	envMap["ACCESS_KEY"] = je.jm.srv.config.MINIO_ACCESS_KEY
-	envMap["SECRET_KEY"] = je.jm.srv.config.MINIO_SECRET_KEY
+	envMap["ENDPOINT"] = je.jm.srv.config.MinioEndpoint
+	envMap["ACCESS_KEY"] = je.jm.srv.config.MinioAccessKey
+	envMap["SECRET_KEY"] = je.jm.srv.config.MinioSecretKey
 	envMap["LOGIC"] = job.LogicBody
 	envMap["INPUT_BUCKET"] = InpAsResource.Vname
 	envMap["INPUT_OBJECT"] = InpAsResource.Name
@@ -469,22 +483,22 @@ func formatJobCommand(job *ut.Job) ([]string, error) {
 	lang := job.Logic[:strings.Index(job.Logic+":", ":")]
 	switch lang {
 	case "application/duckdb", "duckdb": // check if the given logic is a custom app
-		job.Logic = DUCK_IMAGE
+		job.Logic = duckImage
 		return []string{"python", "duckdb_app.py"}, nil
 	case "application/pypandas", "pandas", "pypandas":
-		job.Logic = PANDAS_IMAGE
+		job.Logic = pandasImage
 		return []string{"python", "pypandas_app.py"}, nil
 	case "application/octave", "octave":
-		job.Logic = OCTAVE_IMAGE
+		job.Logic = octaveImage
 		return []string{"python3", "octave_app.py"}, nil
 	case "application/ffmpeg", "ffmpeg":
-		job.Logic = FFMPEG_IMAGE
+		job.Logic = ffmpegImage
 		return []string{"python3", "ffmpeg_app.py"}, nil
 	case "application/caengine", "caengine":
-		job.Logic = CAENGINE_IMAGE
+		job.Logic = caengineImage
 		return []string{"python3", "caengine_app.py"}, nil
 	case "application/bash", "bash", "sh", "shell":
-		job.Logic = BASH_IMAGE
+		job.Logic = bashImage
 		return []string{"python3", "bash_app.py"}, nil
 	case "python", "py":
 		return []string{"/bin/sh", "-c", fmt.Sprintf("python3 -c '%s'", body)}, nil

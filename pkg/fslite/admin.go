@@ -15,17 +15,17 @@ import (
 )
 
 const (
-	MINIMUM_USER_LENGTH = 3
-	MINIMUM_PASS_LENGTH = 5
+	minimumUserLength = 3
+	minimumPassLength = 5
 )
 
 var (
-	// HASH_COST defines the bcrypt hashing cost for password hashing.
-	HASH_COST int = 4
-	// JWT_VALIDITY_HOURS specifies the number of hours a JWT token is valid.
-	JWT_VALIDITY_HOURS float64 = 4
-	// JWT_SECRET_KEY is the secret key used for signing JWT tokens.
-	JWT_SECRET_KEY string = "r4nd0m"
+	// hashCost defines the bcrypt hashing cost for password hashing.
+	hashCost = 4
+	// JwtValidityHours specifies the number of hours a JWT token is valid.
+	JwtValidityHours float64 = 4
+	// jwtSecretKey is the secret key used for signing JWT tokens.
+	jwtSecretKey = "r4nd0m"
 	// usernameRegex is the regular expression for validating usernames.
 	usernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 	// passwordRegex is the regular expression for validating passwords.
@@ -47,20 +47,20 @@ func (a *Admin) ptrFields() []any {
 }
 
 // validate checks the Admin struct fields for validity, including length and allowed characters.
-func (adm *Admin) validate() error {
-	if len(adm.Username) < MINIMUM_USER_LENGTH {
+func (a *Admin) validate() error {
+	if len(a.Username) < minimumUserLength {
 		return fmt.Errorf("username length too small")
 	}
 
-	if len(adm.Password) < MINIMUM_PASS_LENGTH {
+	if len(a.Password) < minimumPassLength {
 		return fmt.Errorf("password length too small")
 	}
 
-	if !usernameRegex.MatchString(adm.Username) {
+	if !usernameRegex.MatchString(a.Username) {
 		return errors.New("username contains invalid characters")
 	}
 
-	if !passwordRegex.MatchString(adm.Password) {
+	if !passwordRegex.MatchString(a.Password) {
 		return errors.New("password contains invalid characters")
 	}
 
@@ -147,7 +147,7 @@ func (fsl *FsLite) authenticateAdmin(username, password string) (token string, e
 
 // hash generates a bcrypt hash from the provided password bytes.
 func hash(password []byte) ([]byte, error) {
-	return bcrypt.GenerateFromPassword(password, HASH_COST)
+	return bcrypt.GenerateFromPassword(password, hashCost)
 }
 
 // verifyPass compares a bcrypt hashed password with its possible plaintext equivalent.
@@ -159,10 +159,10 @@ func verifyPass(hashedPass, password string) error {
 	return nil
 }
 
-// jwt
 // CustomClaims defines the custom JWT claims used for admin authentication.
+// jwt
 type CustomClaims struct {
-	ID       string `json:"user_id"`
+	ID       string `json:"userID"`
 	Username string `json:"username"`
 	jwt.RegisteredClaims
 }
@@ -176,7 +176,7 @@ func generateAccessJWT(userID, username string) (string, error) {
 		Username: username,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "fslite",
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * time.Duration(JWT_VALIDITY_HOURS))),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * time.Duration(JwtValidityHours))),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Subject:   userID,
 		},
@@ -186,7 +186,7 @@ func generateAccessJWT(userID, username string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	// Sign the token using the secret key
-	tokenString, err := token.SignedString([]byte(JWT_SECRET_KEY))
+	tokenString, err := token.SignedString([]byte(jwtSecretKey))
 	if err != nil {
 		return "", fmt.Errorf("failed to sign token: %w", err)
 	}
@@ -202,7 +202,7 @@ func decodeJWT(tokenString string) (bool, *CustomClaims, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return []byte(JWT_SECRET_KEY), nil
+		return []byte(jwtSecretKey), nil
 	})
 
 	if err != nil {

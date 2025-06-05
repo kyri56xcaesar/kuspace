@@ -66,6 +66,7 @@ import (
 // map
 type mapFunc[E any, R any] func(E) R
 
+// Map function definition of a functional programming "function"
 func Map[S ~[]E, E any, R any](s S, f mapFunc[E, R]) []R {
 	result := make([]R, len(s))
 	for i, e := range s {
@@ -77,6 +78,7 @@ func Map[S ~[]E, E any, R any](s S, f mapFunc[E, R]) []R {
 // filter
 type keepFunc[E any] func(E) bool
 
+// Filter function definition of a functional programming "function"
 func Filter[S ~[]E, E any](s S, f keepFunc[E]) S {
 	result := S{}
 	for _, v := range s {
@@ -90,6 +92,7 @@ func Filter[S ~[]E, E any](s S, f keepFunc[E]) S {
 // reduce
 type reduceFunc[E any] func(cur, next E) E
 
+// Reduce function definition of a functional programming "function"
 func Reduce[E any](s []E, init E, f reduceFunc[E]) E {
 	cur := init
 	for _, v := range s {
@@ -99,6 +102,8 @@ func Reduce[E any](s []E, init E, f reduceFunc[E]) E {
 }
 
 // util
+
+// ToFloat64 function take any argument and tries to return a float64 if fail, 0
 func ToFloat64(value any) float64 {
 	switch v := value.(type) {
 	case int:
@@ -157,6 +162,7 @@ func isZeroValue(v reflect.Value) bool {
 	}
 }
 
+// IsEmpty will check if a given argument is "empty" using the reflect package
 func IsEmpty(val any) bool {
 	if val == nil {
 		return true
@@ -164,6 +170,7 @@ func IsEmpty(val any) bool {
 	return isZeroValue(reflect.ValueOf(val))
 }
 
+// MakeMapFrom will create a map string to any from given arguments, slices of string and any
 func MakeMapFrom(names []string, values []any) map[string]any {
 	if len(names) != len(values) {
 		return nil
@@ -181,6 +188,8 @@ func MakeMapFrom(names []string, values []any) map[string]any {
 }
 
 /* generic helpers*/
+
+// ToSnakeCase will format a given string to snake case
 func ToSnakeCase(input string) string {
 	var output []rune
 	for i, r := range input {
@@ -193,6 +202,7 @@ func ToSnakeCase(input string) string {
 	return strings.ToLower(string(output))
 }
 
+// SplitToInt will peform and join string split and atoi
 func SplitToInt(input, seperator string) ([]int, error) {
 	// split the input string by comma
 	parts := strings.Split(input, seperator)
@@ -216,14 +226,13 @@ func SplitToInt(input, seperator string) ([]int, error) {
 	return result, nil
 }
 
-// this func will read multiple files, "concat" them (essentially appending one after another)
-// and write to a single output file.
+// MergeFiles will read the input files and create 1 output with the inputs appended
+// Mux Many to 1
 func MergeFiles(outputFile string, inputLocation string, inputFiles []string) error {
 	out, err := os.Create(outputFile)
 	if err != nil {
 		return err
 	}
-	defer out.Close()
 
 	for _, inpPath := range inputFiles {
 		fmt.Println("Processing:", inpPath)
@@ -233,7 +242,6 @@ func MergeFiles(outputFile string, inputLocation string, inputFiles []string) er
 			fmt.Println("Error opening file:", inpPath, err)
 			continue
 		}
-		defer inpFile.Close()
 
 		_, err = io.Copy(out, inpFile) // Append content
 		if err != nil {
@@ -241,8 +249,22 @@ func MergeFiles(outputFile string, inputLocation string, inputFiles []string) er
 			return err
 		}
 
-		// Optionally add a separator (newline)
-		out.WriteString("\n")
+		_, err = out.WriteString("\n")
+		if err != nil {
+			fmt.Println("error writing string: ", err)
+			return err
+		}
+		err = inpFile.Close()
+		if err != nil {
+			fmt.Printf("failed to close the input file: %v", err)
+			return err
+		}
+	}
+
+	err = out.Close()
+	if err != nil {
+		fmt.Printf("faild to close the file : %v", err)
+		return err
 	}
 
 	fmt.Println("Merged files into:", outputFile)
@@ -250,22 +272,28 @@ func MergeFiles(outputFile string, inputLocation string, inputFiles []string) er
 }
 
 // short error messaging funcs..
+
+// NewError as a wrapper function to fmt.Errorf with a format
 func NewError(msg string, args ...any) error {
 	return fmt.Errorf("[ERROR] %s", fmt.Sprintf(msg, args...))
 }
+
+// NewWarning as a wrapper function to fmt.Errorf with a format
 func NewWarning(msg string, args ...any) error {
 	return fmt.Errorf("[WARNING] %s", fmt.Sprintf(msg, args...))
 }
+
+// NewInfo as a wrapper function to fmt.Errorf with a format
 func NewInfo(msg string, args ...any) error {
 	return fmt.Errorf("[INFO] %s", fmt.Sprintf(msg, args...))
 }
 
+// ReadFileAt will read a specific file at specific window
 func ReadFileAt(filePath string, start, end int64) ([]byte, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
 
 	fileInfo, err := file.Stat()
 	if err != nil {
@@ -282,24 +310,40 @@ func ReadFileAt(filePath string, start, end int64) ([]byte, error) {
 
 	_, err = file.Seek(start, io.SeekStart)
 	if err != nil {
+		err1 := file.Close()
+		if err1 != nil {
+			return nil, err1
+		}
 		return nil, err
 	}
 
 	data := make([]byte, end-start+1)
 	_, err = file.Read(data)
 	if err != nil && err != io.EOF {
+		err1 := file.Close()
+		if err1 != nil {
+			return nil, err1
+		}
+		return nil, err
+	}
+
+	err = file.Close()
+	if err != nil {
 		return nil, err
 	}
 
 	return data, nil
 }
 
-var Time_format string = "2006-01-02 15:04:05-07:00"
+// TimeFormat string defines the desired format of Time that is mostly used in this system
+var TimeFormat = "2006-01-02 15:04:05-07:00"
 
+// CurrentTime uses the time package to retrieve the current time and formats it to the desired (specified above) string
 func CurrentTime() string {
-	return time.Now().UTC().Format(Time_format)
+	return time.Now().UTC().Format(TimeFormat)
 }
 
+// HasInvalidCharacters function checks if a given string is within the regexp of the given chars
 func HasInvalidCharacters(s, chars string) bool {
 	// Escape regex meta-characters to avoid pattern errors
 	var escapedChars []string
@@ -312,31 +356,38 @@ func HasInvalidCharacters(s, chars string) bool {
 }
 
 // Security related utils
+
+// IsNumeric function checks if a given string matches the regex of numericals
 func IsNumeric(s string) bool {
 	re := regexp.MustCompile(`^[0-9]+$`)
 	return re.MatchString(s)
 }
 
+// IsValidPath function checks if a given string is a valid "path" string
 func IsValidPath(s string) bool {
 	re := regexp.MustCompile(`^[a-zA-Z0-9._\-/]+$`)
 	return re.MatchString(s)
 }
 
+// IsAlphanumeric function checks if the given string matches the regex of numericals and letter characters
 func IsAlphanumeric(s string) bool {
 	re := regexp.MustCompile(`^[a-zA-Z0-9]+$`)
 	return re.MatchString(s)
 }
 
+// IsAlphanumericPlus function checks if the given string matches the regex of numericals and letter characters plus some special characters given
 func IsAlphanumericPlus(s, plus string) bool {
 	re := regexp.MustCompile(fmt.Sprintf(`^[a-zA-Z0-9%s]+$`, plus))
 	return re.MatchString(s)
 }
 
+// IsAlphanumericPlusSome function checks if the given string matches the regex of numericals and letter characters plus some special characters already defined
 func IsAlphanumericPlusSome(s string) bool {
 	re := regexp.MustCompile(`^[a-zA-Z0-9@_]+$`)
 	return re.MatchString(s)
 }
 
+// IsValidUTF8String function will match the given string to a regex that describes only UTF-8 characters (no special)
 func IsValidUTF8String(s string) bool {
 	// Updated regex to include space (\s) and new line (\n) characters
 	re := regexp.MustCompile(`^[\p{L}\p{N}\s\n!@#\$%\^&\*\(\):\?><\.\-_, ]+$`)
@@ -344,10 +395,15 @@ func IsValidUTF8String(s string) bool {
 	return re.MatchString(s)
 }
 
+// SizeInGb function formats a int64 describing bytes to a float64 "gigabytes"
 func SizeInGb(s int64) float64 {
 	return float64(s) / 1000000000
 }
 
+// TailFileLines reads the last n lines from the file at the specified path.
+// It efficiently seeks from the end of the file, reading backwards in blocks,
+// and returns the last n lines as a slice of strings. If an error occurs
+// during file operations, it is returned.
 func TailFileLines(path string, n int) ([]string, error) {
 	const readBlockSize = 4096
 
@@ -355,7 +411,12 @@ func TailFileLines(path string, n int) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		err := file.Close()
+		if err != nil {
+			fmt.Printf("failed to close file: %v", err)
+		}
+	}()
 
 	stat, err := file.Stat()
 	if err != nil {
@@ -407,6 +468,8 @@ func TailFileLines(path string, n int) ([]string, error) {
 	return lines, nil
 }
 
+// Contains function iterates over a slice of strings and checks if the given string is there
+// if you want to avoid the slices.Contains package function
 func Contains(slice []string, val string) bool {
 	for _, s := range slice {
 		if s == val {
@@ -416,6 +479,7 @@ func Contains(slice []string, val string) bool {
 	return false
 }
 
+// ValidateObjectName sanitizes and formats + validates if a given name string argument is within limits
 func ValidateObjectName(name string) error {
 	if strings.TrimSpace(name) == "" {
 		return errors.New("object name cannot be empty")

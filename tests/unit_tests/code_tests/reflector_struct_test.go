@@ -31,23 +31,23 @@ func (r testStruct) AssertUpon(assertm map[any]bool) bool {
 
 	// log.Printf("current assertmap: %v\n", assertm)
 
-	r_struct_type := reflect.TypeOf(r)
-	r_struct_value := reflect.ValueOf(r)
+	rStructType := reflect.TypeOf(r)
+	rStructValue := reflect.ValueOf(r)
 
-	numfield := r_struct_value.NumField()
+	numfield := rStructValue.NumField()
 	// log.Printf("num_field: %v\n", numfield)
 
 	for i := range numfield {
 
-		field_type := r_struct_type.Field(i)
-		field_value := r_struct_value.Field(i)
+		fieldType := rStructType.Field(i)
+		fieldValue := rStructValue.Field(i)
 
-		// log.Printf("type: %v, field: %v", field_type, field_value)
+		// log.Printf("type: %v, field: %v", fieldType, fieldValue)
 
-		if assertm[field_type.Name] {
-			log.Printf("field: %v, value: %v\n", field_type.Name, field_value)
-			// log.Print("isNil?: ", field_value.IsNil())
-			log.Print("isZero?: ", field_value.IsZero())
+		if assertm[fieldType.Name] {
+			log.Printf("field: %v, value: %v\n", fieldType.Name, fieldValue)
+			// log.Print("isNil?: ", fieldValue.IsNil())
+			log.Print("isZero?: ", fieldValue.IsZero())
 		}
 	}
 

@@ -25,11 +25,12 @@ import (
 *
 * Constants */
 const (
-	apiVersion    string = "v1"
-	templatesPath string = "./web/templates"
-	staticsPath   string = "web/static"
+	apiVersion    = "v1"
+	templatesPath = "./web/templates"
+	staticsPath   = "web/static"
 )
 
+// HTTPService struct holds the engine and the configuration
 /*
 *
 * Structs */
@@ -38,31 +39,32 @@ type HTTPService struct {
 	Config ut.EnvConfig
 }
 
+// NewService function as in a constructor for HTTPService struct
 /*
 *
 * Structs */
 func NewService(conf string) HTTPService {
 	service := HTTPService{}
 	service.Config = ut.LoadConfig(conf)
-	setGinMode(service.Config.API_GIN_MODE)
+	setGinMode(service.Config.APIGinMode)
 	service.Engine = gin.Default()
 
-	authServiceURL = fmt.Sprintf("http://%s:%s", service.Config.AUTH_ADDRESS, service.Config.AUTH_PORT)
-	apiServiceURL = fmt.Sprintf("http://%s:%s", service.Config.API_ADDRESS, service.Config.API_PORT)
-	if strings.ToLower(service.Config.PROFILE) == "container" {
-		wssServiceURL = fmt.Sprintf("http://%s", service.Config.WSS_ADDRESS_INTERNAL)
+	authServiceURL = fmt.Sprintf("http://%s:%s", service.Config.AuthAddress, service.Config.AuthPort)
+	apiServiceURL = fmt.Sprintf("http://%s:%s", service.Config.APIAddress, service.Config.APIPort)
+	if strings.ToLower(service.Config.Profile) == "container" {
+		wssServiceURL = fmt.Sprintf("http://%s", service.Config.WssAddressInternal)
 	} else {
-		wssServiceURL = fmt.Sprintf("http://%s", service.Config.J_WS_ADDRESS)
+		wssServiceURL = fmt.Sprintf("http://%s", service.Config.WssAddress)
 	}
 	return service
 }
 
-// Serve function
+// Serve function launces the listening server
 func (srv *HTTPService) ServeHTTP() {
 	corsconfig := cors.DefaultConfig()
-	corsconfig.AllowOrigins = srv.Config.ALLOWED_ORIGINS
-	corsconfig.AllowMethods = srv.Config.ALLOWED_METHODS
-	corsconfig.AllowHeaders = srv.Config.ALLOWED_HEADERS
+	corsconfig.AllowOrigins = srv.Config.AllowedOrigins
+	corsconfig.AllowMethods = srv.Config.AllowedMethods
+	corsconfig.AllowHeaders = srv.Config.AllowedHeaders
 
 	// template functions
 	funcMap := template.FuncMap{
@@ -108,7 +110,7 @@ func (srv *HTTPService) ServeHTTP() {
 		},
 		"findUserVolume": func(s []ut.UserVolume, uid int) *ut.UserVolume {
 			for _, v := range s {
-				if v.Uid == uid {
+				if v.UID == uid {
 					return &v
 				}
 			}
@@ -131,7 +133,8 @@ func (srv *HTTPService) ServeHTTP() {
 	srv.Engine.Use(static.Serve("/api/"+apiVersion, static.LocalFile(staticsPath, true)))
 	srv.Engine.Use(cors.New(corsconfig))
 
-	if srv.Config.API_GIN_MODE == "release" {
+	if srv.Config.APIGinMode == "release" {
+		log.Printf("security middleware currently deactivated...")
 		// srv.Engine.Use(securityMiddleWare)
 	}
 
@@ -149,7 +152,7 @@ func (srv *HTTPService) ServeHTTP() {
 
 		root.GET("/conf", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
-				"ws_address": srv.Config.J_WS_ADDRESS,
+				"ws_address": srv.Config.WssAddress,
 			})
 		})
 	}
@@ -195,7 +198,7 @@ func (srv *HTTPService) ServeHTTP() {
 	}
 
 	verified := apiV1.Group("/verified")
-	verified.Use(AuthMiddleware("user,admin"))
+	verified.Use(authMiddleware("user,admin"))
 	{
 		// actions
 		verified.POST("/passwd", srv.passwordChangeHandler)
@@ -228,8 +231,8 @@ func (srv *HTTPService) ServeHTTP() {
 		verified.GET("/fetch-apps", srv.appsHandler)
 
 		admin := verified.Group("/admin")
-		admin.PATCH("/chmod", AuthMiddleware("user,admin"), srv.handleResourcePerms)
-		admin.Use(AuthMiddleware("admin"))
+		admin.PATCH("/chmod", authMiddleware("user,admin"), srv.handleResourcePerms)
+		admin.Use(authMiddleware("admin"))
 		/* minioth will verify token no need to worry here.*/
 		{
 			admin.Match(
@@ -280,7 +283,7 @@ func (srv *HTTPService) ServeHTTP() {
 	defer stop()
 
 	server := &http.Server{
-		Addr:              srv.Config.Addr(srv.Config.FRONT_PORT),
+		Addr:              srv.Config.Addr(srv.Config.FrontPort),
 		Handler:           srv.Engine,
 		ReadHeaderTimeout: time.Second * 5,
 	}

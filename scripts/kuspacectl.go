@@ -1,3 +1,7 @@
+// Package main
+// kuspacectl is a deployment and management tool for the kuspace Kubernetes platform.
+// It automates building, pushing, and deploying Docker images, as well as generating
+// and applying Kubernetes manifests, ConfigMaps, and Secrets for the kuspace stack.
 package main
 
 import (
@@ -12,12 +16,12 @@ import (
 )
 
 const (
-	deployments_root = "deployments/kubernetes"
+	deploymentsRoot = "deployments/kubernetes"
 
-	uspace_conf_path   = "configs/uspace.conf"
-	frontapp_conf_path = "configs/frontapp.conf"
-	minioth_conf_path  = "configs/minioth.conf"
-	wss_conf_path      = "configs/wss.conf"
+	uspaceConfPath   = "configs/uspace.conf"
+	frontappConfPath = "configs/frontapp.conf"
+	miniothConfPath  = "configs/minioth.conf"
+	wssConfPath      = "configs/wss.conf"
 )
 
 var (
@@ -141,61 +145,91 @@ func main() {
 	// CREATE NAMESPACE
 	{
 		fmt.Println("🔧 Creating namespace:", ns)
-		run("kubectl", "create", "namespace", ns)
-		os.Setenv("NAMESPACE", ns)
+		if err := run("kubectl", "create", "namespace", ns); err != nil {
+			fmt.Fprintf(os.Stderr, "❌ failed to create namespace: %s :%v", ns, err)
+			os.Exit(1)
+		}
+		err := os.Setenv("NAMESPACE", ns)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "⚠️ failed to set namespace to environment: %v", err)
+		}
 	}
 
 	// CREATE CONFIG MAPS & deploy
 	{
 		fmt.Println("📝 Transpiling configs to ConfigMaps")
 		// parse minioth conf
-		miniothConf, err := parseConfFile(minioth_conf_path)
+		miniothConf, err := parseConfFile(miniothConfPath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ failed to parse configuration: %v", err)
+			os.Exit(1)
 		}
 		mConfMap := buildConfigMapYAML("minioth", ns, miniothConf)
 
-		err = os.WriteFile(deployments_root+"/config-maps/minioth-config-map.yaml", []byte(mConfMap), 0o644)
+		err = os.WriteFile(deploymentsRoot+"/config-maps/minioth-config-map.yaml", []byte(mConfMap), 0o644)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ failed to save confMap yaml: %v", err)
+			os.Exit(1)
 		}
-		run("kubectl", "apply", "-f", deployments_root+"/config-maps/minioth-config-map.yaml")
+		err = run("kubectl", "apply", "-f", deploymentsRoot+"/config-maps/minioth-config-map.yaml")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "❌ failed to apply configMap yaml: %v", err)
+			os.Exit(1)
+		}
 
 		// same for frontapp
-		frontappConf, err := parseConfFile(frontapp_conf_path)
+		frontappConf, err := parseConfFile(frontappConfPath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ failed to parse configuration: %v", err)
+			os.Exit(1)
 		}
 		fConfMap := buildConfigMapYAML("frontapp", ns, frontappConf)
-		err = os.WriteFile(deployments_root+"/config-maps/frontapp-config-map.yaml", []byte(fConfMap), 0o644)
+		err = os.WriteFile(deploymentsRoot+"/config-maps/frontapp-config-map.yaml", []byte(fConfMap), 0o644)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ failed to save confMap yaml: %v", err)
+			os.Exit(1)
 		}
-		run("kubectl", "apply", "-f", deployments_root+"/config-maps/frontapp-config-map.yaml")
+		err = run("kubectl", "apply", "-f", deploymentsRoot+"/config-maps/frontapp-config-map.yaml")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "❌ failed to apply configMap yaml: %v", err)
+			os.Exit(1)
+		}
 
 		// same for uspace
-		uspaceConf, err := parseConfFile(uspace_conf_path)
+		uspaceConf, err := parseConfFile(uspaceConfPath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ failed to parse configuration: %v", err)
+			os.Exit(1)
 		}
 		uConfMap := buildConfigMapYAML("uspace", ns, uspaceConf)
-		err = os.WriteFile(deployments_root+"/config-maps/uspace-config-map.yaml", []byte(uConfMap), 0o644)
+		err = os.WriteFile(deploymentsRoot+"/config-maps/uspace-config-map.yaml", []byte(uConfMap), 0o644)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ failed to save confMap yaml: %v", err)
+			os.Exit(1)
 		}
-		run("kubectl", "apply", "-f", deployments_root+"/config-maps/uspace-config-map.yaml")
+		err = run("kubectl", "apply", "-f", deploymentsRoot+"/config-maps/uspace-config-map.yaml")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "❌ failed to apply configMap yaml: %v", err)
+			os.Exit(1)
+		}
 
 		// use wss conf for wss
-		wssConf, err := parseConfFile(wss_conf_path)
+		wssConf, err := parseConfFile(wssConfPath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ failed to parse configuration: %v", err)
+			os.Exit(1)
 		}
 		wsConfMap := buildConfigMapYAML("wss", ns, wssConf)
-		err = os.WriteFile(deployments_root+"/config-maps/wss-config-map.yaml", []byte(wsConfMap), 0o644)
+		err = os.WriteFile(deploymentsRoot+"/config-maps/wss-config-map.yaml", []byte(wsConfMap), 0o644)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ failed to save confMap yaml: %v", err)
+			os.Exit(1)
 		}
-		run("kubectl", "apply", "-f", deployments_root+"/config-maps/wss-config-map.yaml")
+		err = run("kubectl", "apply", "-f", deploymentsRoot+"/config-maps/wss-config-map.yaml")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "❌ failed to apply configMap yaml: %v", err)
+			os.Exit(1)
+		}
 
 	}
 
@@ -203,25 +237,28 @@ func main() {
 	{
 		fmt.Println("🔑 Creating Secrets for JWT and inner service circle...")
 		// parse 1 conf, each conf should have the same secret
-		secrets, err := parseConfFileSecrets(uspace_conf_path)
+		secrets, err := parseConfFileSecrets(uspaceConfPath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ failed to parse configuration: %v", err)
+			os.Exit(1)
 		}
 		secretYaml := buildSecretsYAML(ns, secrets)
-		err = os.WriteFile(deployments_root+"/secrets/secrets.yaml", []byte(secretYaml), 0o600)
+		err = os.WriteFile(deploymentsRoot+"/secrets/secrets.yaml", []byte(secretYaml), 0o600)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ failed to save secrets yaml: %v", err)
+			os.Exit(1)
 		}
 
-		err = run("kubectl", "apply", "-f", deployments_root+"/secrets/secrets.yaml")
+		err = run("kubectl", "apply", "-f", deploymentsRoot+"/secrets/secrets.yaml")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ failed to deploy secrets: %v", err)
+			os.Exit(1)
 		}
 	}
 
 	// DEPLOY PV and PVC
 	{
-		err := filepath.Walk(deployments_root+"/pv", func(path string, info os.FileInfo, err error) error {
+		err := filepath.Walk(deploymentsRoot+"/pv", func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
@@ -257,7 +294,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		err = filepath.Walk(deployments_root+"/pvc", func(path string, info os.FileInfo, err error) error {
+		err = filepath.Walk(deploymentsRoot+"/pvc", func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
@@ -295,16 +332,25 @@ func main() {
 
 		fmt.Println("⏳ Giving the pv some time...")
 		time.Sleep(time.Second * 3)
-		run("kubectl", "wait", "--namespace", ns, "--for=condition=Available", "pvc/uspace-pv", "--timeout=30s")
-		run("kubectl", "wait", "--namespace", ns, "--for=condition=Available", "pvc/minioth-pv", "--timeout=30s")
-		run("kubectl", "wait", "--namespace", ns, "--for=condition=Available", "pvc/minio-pv", "--timeout=30s")
+		err = run("kubectl", "wait", "--namespace", ns, "--for=condition=Available", "pvc/uspace-pv", "--timeout=30s")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed waiting for condition available of the pvc-uspace-pv: %v", err)
+		}
+		err = run("kubectl", "wait", "--namespace", ns, "--for=condition=Available", "pvc/minioth-pv", "--timeout=30s")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed waiting for condition available of the pvc-minioth-pv: %v", err)
+		}
+		err = run("kubectl", "wait", "--namespace", ns, "--for=condition=Available", "pvc/minio-pv", "--timeout=30s")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed waiting for condition available of the pvc-minio-pv: %v", err)
+		}
 
 	}
 	// DEPLOY Services and Deployments
 	// DEPLOY StatefulSets
 	// DEPLOY MANIFESTS (ingress,rbac,storageclass)		 1 by 1 in the deployments directory
 	{
-		err := filepath.Walk(deployments_root, func(path string, info os.FileInfo, err error) error {
+		err := filepath.Walk(deploymentsRoot, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
@@ -318,7 +364,10 @@ func main() {
 				if strings.Contains(path, "system-ingress") {
 					fmt.Println("⏳ Waiting for ingress controller deployment to be ready...")
 					time.Sleep(time.Second * 6)
-					run("kubectl", "wait", "--namespace", "ingress-nginx", "--for=condition=Ready", "pod", "-l", "app.kubernetes.io/component=controller", "--timeout=60s")
+					err = run("kubectl", "wait", "--namespace", "ingress-nginx", "--for=condition=Ready", "pod", "-l", "app.kubernetes.io/component=controller", "--timeout=60s")
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "⚠️ failed waiting for ingress to be ready: %v", err)
+					}
 				}
 
 				yamlStr := string(content)
@@ -435,7 +484,7 @@ func buildSecretsYAML(namespace string, data map[string]string) string {
 	)
 
 	for key, value := range data {
-		index += 1
+		index++
 		encodedValue := base64.StdEncoding.EncodeToString([]byte(value))
 
 		buf.WriteString("apiVersion: v1\n")

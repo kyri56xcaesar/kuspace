@@ -3,7 +3,7 @@ definitions:
     properties:
       accessed_at:
         type: string
-      created_at:
+      createdAt:
         type: string
       gid:
         description: as in group id
@@ -37,7 +37,7 @@ definitions:
     properties:
       capacity:
         type: number
-      created_at:
+      createdAt:
         type: string
       dynamic:
         type: boolean

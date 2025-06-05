@@ -46,7 +46,7 @@ func googleCallbackHandler(c *gin.Context) {
 		return
 	}
 
-	resp, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
+	resp, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?accessToken=" + token.AccessToken)
 	if err != nil {
 		log.Println("Google user info request error:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -54,10 +54,20 @@ func googleCallbackHandler(c *gin.Context) {
 		})
 		return
 	}
-	defer resp.Body.Close()
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			log.Printf("failed to close response body: %v", err)
+		}
+	}()
 
 	var userInfo map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&userInfo)
+	err = json.NewDecoder(resp.Body).Decode(&userInfo)
+	if err != nil {
+		log.Printf("failed to decode to json: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to decode json"})
+		return
+	}
 	c.JSON(http.StatusOK, userInfo)
 }
 
@@ -76,15 +86,25 @@ func githubCallbackHandler(c *gin.Context) {
 	}
 
 	// Retrieve user info
-	resp, err := http.Get("https://api.github.com/user?access_token=" + token.AccessToken)
+	resp, err := http.Get("https://api.github.com/user?accessToken=" + token.AccessToken)
 	if err != nil {
 		log.Println("GitHub user info request error:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "User info request failed"})
 		return
 	}
-	defer resp.Body.Close()
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			log.Printf("failed to close response body: %v", err)
+		}
+	}()
 
 	var userInfo map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&userInfo)
+	err = json.NewDecoder(resp.Body).Decode(&userInfo)
+	if err != nil {
+		log.Printf("failed to decode to json: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to decode json"})
+		return
+	}
 	c.JSON(http.StatusOK, userInfo)
 }

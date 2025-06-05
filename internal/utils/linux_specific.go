@@ -2,11 +2,14 @@
 // +build linux
 
 // Code specifics that run only on linux
+// For Unix-based systems (Linux, macOS)
+
+// Package utils includes the linux specific utils
 package utils
 
 import "syscall"
 
-// For Unix-based systems (Linux, macOS)
+// GetAvailableSpace Linux specific function to retrieve the system available free disk space
 func GetAvailableSpace(path string) (uint64, error) {
 	var stat syscall.Statfs_t
 

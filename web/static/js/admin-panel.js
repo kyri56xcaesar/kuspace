@@ -700,9 +700,9 @@ function setupSearchBar(jobSearchDiv, cacheJobResults) {
           }
         });
         break;
-      case "created_at":
+      case "createdAt":
         cacheJobResults.forEach((li) => {
-          if (!li.querySelector(".created_at").innerText.includes(searchValue)) {
+          if (!li.querySelector(".createdAt").innerText.includes(searchValue)) {
             li.classList.add("hidden");
           } else {
             li.classList.remove("hidden");
@@ -761,8 +761,8 @@ function modJobModal(div, parentDiv) {
   const input = div.querySelector('.input').textContent.replace("Input: ", "").trim();
   const output = div.querySelector('.output').textContent.replace("Output: ", "").trim();
   const description = div.querySelector('.description').textContent.replace("Description:", "").trim();
-  const created_at = div.querySelector('.created_at').textContent.replace('Created_at:', '').trim();
-  const completed_at = div.querySelector('.completed_at').textContent.replace('Completed_at:', '').trim();
+  const createdAt = div.querySelector('.createdAt').textContent.replace('CreatedAt:', '').trim();
+  const completed_at = div.querySelector('.completed_at').textContent.replace('CompletedAt:', '').trim();
   const completed = div.querySelector('.completed').textContent.replace("Completed:", "").trim();
   const timeout = div.querySelector('.timeout').textContent.trim();
   const parallelism = div.querySelector('.parallelism').textContent.trim();
@@ -805,11 +805,11 @@ function modJobModal(div, parentDiv) {
         <input type="text" name="output" value="${output}" readonly="readonly">
       </div><br>
       <div>
-        Created_at
-        <input type="text" name="created_at" value="${created_at}" readonly="readonly">
+        CreatedAt
+        <input type="text" name="createdAt" value="${createdAt}" readonly="readonly">
       </div><br>
       <div>
-        Completed_at
+        CompletedAt
         <input type="text" name="completed_at" value="${completed_at}" readonly="readonly">
       </div><br>
       <div>
@@ -881,8 +881,8 @@ function modAppModal(div, parentDiv) {
   const image = div.querySelector('.image').textContent.replace("Image:", "").trim();
   const author = div.querySelector('.author').textContent.replace("Author: ", "").trim();
   const author_id = div.querySelector('.author_id').textContent.trim();
-  const created_at = div.querySelector('.created_at').textContent.replace("Created: ", "").trim();
-  const inserted_at = div.querySelector('.inserted_at').textContent.trim();
+  const createdAt = div.querySelector('.createdAt').textContent.replace("Created: ", "").trim();
+  const insertedAt = div.querySelector('.insertedAt').textContent.trim();
   const description = div.querySelector('.app-description').textContent.trim();
  
   const html = `
@@ -901,12 +901,12 @@ function modAppModal(div, parentDiv) {
           <input type="number" name="id" value="${id}" readonly="readonly"  tabindex="-1">
         </div><br>
         <div>
-          Created_at
-          <input type="text" name="created_at" value="${created_at}" readonly="readonly"  tabindex="-1">
+          CreatedAt
+          <input type="text" name="createdAt" value="${createdAt}" readonly="readonly"  tabindex="-1">
         </div><br>
         <div>
           Inserted_at
-          <input type="text" name="inserted_at" value="${inserted_at}" readonly="readonly"  tabindex="-1">
+          <input type="text" name="insertedAt" value="${insertedAt}" readonly="readonly"  tabindex="-1">
         </div><br>
         <div>
           <input type="hidden" name="author_id" value="${author_id}"  tabindex="-1">

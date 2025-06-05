@@ -12,7 +12,7 @@ $TARGET_API = "cmd/uspace/"
 $API_OUT = "uspace"
 
 $TARGET_WSS = "cmd/wss/"
-$WSS_OUT = "ws_registry"
+$WSS_OUT = "wss"
 
 $TARGET_F_APP = "cmd/frontapp/"
 $F_APP_OUT = "frontapp"

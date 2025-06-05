@@ -8,18 +8,19 @@ package minioth
 import (
 	"database/sql"
 	"fmt"
-	ut "kyri56xcaesar/kuspace/internal/utils"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 
+	ut "kyri56xcaesar/kuspace/internal/utils"
+	// duckdb driver
 	_ "github.com/marcboeker/go-duckdb"
 )
 
 /* init sql script */
 const (
-	initSql string = `
+	initSQL string = `
   CREATE TABLE IF NOT EXISTS users (
 		uid INTEGER,
 		username TEXT,
@@ -49,7 +50,9 @@ const (
   `
 )
 
-/* central object */
+// DBHandler struct containing reference to a database driver
+// the Minioth cetrnalle
+// and  a path
 type DBHandler struct {
 	db      *sql.DB
 	minioth *Minioth
@@ -62,7 +65,7 @@ func (m *DBHandler) getConn() (*sql.DB, error) {
 	var err error
 
 	if db == nil {
-		db, err = sql.Open(m.minioth.Config.MINIOTH_DB_DRIVER, m.DBpath)
+		db, err = sql.Open(m.minioth.Config.MiniothDbDriver, m.DBpath)
 		m.db = db
 		if err != nil {
 			log.Printf("Failed to connect to DuckDB: %v", err)
@@ -84,17 +87,23 @@ func (m *DBHandler) insertRootUser(user ut.User, db *sql.DB) error {
         users (uid, username, info, home, shell, pgroup) 
     VALUES 
         (?, ?, ?, ?, ?, ?)`
-	_, err = tx.Exec(userQuery, user.Uid, user.Username, user.Info, user.Home, user.Shell, user.Pgroup)
+	_, err = tx.Exec(userQuery, user.UID, user.Username, user.Info, user.Home, user.Shell, user.Pgroup)
 	if err != nil {
-		tx.Rollback()
+		err = tx.Rollback()
+		if err != nil {
+			return err
+		}
 		return fmt.Errorf("failed to insert root user: %w", err)
 	}
 
 	hashPass, err := hash([]byte(user.Password.Hashpass))
 	if err != nil {
 		log.Printf("failed to hash the pass: %v", err)
-		tx.Rollback()
-		return err
+		err = tx.Rollback()
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("failed to insert rootUser, hashing failed: %v", err)
 	}
 
 	passwordQuery := `
@@ -102,10 +111,13 @@ func (m *DBHandler) insertRootUser(user ut.User, db *sql.DB) error {
         passwords (uid, hashpass, lastPasswordChange, minimumPasswordAge, maximumPasswordAge, warningPeriod, inactivityPeriod, expirationDate) 
     VALUES 
         (?, ?, ?, ?, ?, ?, ?, ?)`
-	_, err = tx.Exec(passwordQuery, user.Uid, hashPass, user.Password.LastPasswordChange, user.Password.MinimumPasswordAge,
+	_, err = tx.Exec(passwordQuery, user.UID, hashPass, user.Password.LastPasswordChange, user.Password.MinimumPasswordAge,
 		user.Password.MaximumPasswordAge, user.Password.WarningPeriod, user.Password.InactivityPeriod, user.Password.ExpirationDate)
 	if err != nil {
-		tx.Rollback()
+		err = tx.Rollback()
+		if err != nil {
+			return err
+		}
 		return fmt.Errorf("failed to insert root password: %w", err)
 	}
 
@@ -114,9 +126,12 @@ func (m *DBHandler) insertRootUser(user ut.User, db *sql.DB) error {
       user_groups (uid, gid)
     VALUES
       (?, ?)`
-	_, err = tx.Exec(usergroupQuery, user.Uid, 0)
+	_, err = tx.Exec(usergroupQuery, user.UID, 0)
 	if err != nil {
-		tx.Rollback()
+		err = tx.Rollback()
+		if err != nil {
+			return err
+		}
 		return fmt.Errorf("failed to group root user: %w", err)
 	}
 
@@ -128,7 +143,8 @@ func (m *DBHandler) insertRootUser(user ut.User, db *sql.DB) error {
 	return nil
 }
 
-/* INTERFACE agent methods */
+// Init method of Database Minioth Handler
+// performs all needed initialization calls and commands
 func (m *DBHandler) Init() {
 	log.Print("[INIT_DB]Initializing... Minioth DB")
 	_, err := os.Stat("data")
@@ -147,8 +163,8 @@ func (m *DBHandler) Init() {
 	if strings.HasSuffix(m.DBpath, "/") || len(parts) == 0 {
 		panic("invalid db path value")
 	}
-	db_path := strings.Join(parts[:len(parts)-1], "/")
-	err = os.MkdirAll(cpath+"/"+db_path, 0o644)
+	dbPath := strings.Join(parts[:len(parts)-1], "/")
+	err = os.MkdirAll(cpath+"/"+dbPath, 0o644)
 	if err != nil {
 		panic(err)
 
@@ -162,7 +178,7 @@ func (m *DBHandler) Init() {
 	// set ref to db
 	m.db = db
 
-	_, err = db.Exec(initSql)
+	_, err = db.Exec(initSQL)
 	if err != nil {
 		log.Fatal("Failed to create tables:", err)
 	}
@@ -197,7 +213,7 @@ func (m *DBHandler) Init() {
 	log.Print("[INIT_DB]Checking for root user...")
 	// Check if the root user already exists
 	var rootExists bool
-	err = db.QueryRow(fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM users WHERE username = '%s')", m.minioth.Config.MINIOTH_ACCESS_KEY)).Scan(&rootExists)
+	err = db.QueryRow(fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM users WHERE username = '%s')", m.minioth.Config.MiniothAccessKey)).Scan(&rootExists)
 	if err != nil {
 		log.Fatalf("Failed to check for root user: %v", err)
 	}
@@ -207,11 +223,11 @@ func (m *DBHandler) Init() {
 		// Directly insert the root user with UID 0
 
 		err = m.insertRootUser(ut.User{
-			Username: m.minioth.Config.MINIOTH_ACCESS_KEY,
-			Uid:      0,
+			Username: m.minioth.Config.MiniothAccessKey,
+			UID:      0,
 			Pgroup:   0,
 			Password: ut.Password{
-				Hashpass: m.minioth.Config.MINIOTH_SECRET_KEY,
+				Hashpass: m.minioth.Config.MiniothSecretKey,
 			},
 		}, db)
 		if err != nil {
@@ -222,8 +238,8 @@ func (m *DBHandler) Init() {
 	}
 }
 
-/* Useradd method
-* will insert a given user in the relational db
+// Useradd method
+/* will insert a given user in the relational db
 *
 * relations:
 * passwords, user_groups, groups
@@ -262,18 +278,21 @@ func (m *DBHandler) Useradd(user ut.User) (int, int, error) {
     (?, ?, ?, ?, ?, ?)
   `
 
-	user.Uid, err = m.nextId("users")
+	user.UID, err = m.nextID("users")
 	if err != nil {
 		log.Printf("failed to retrieve the next avaible uid: %v", err)
 		return -1, -1, err
 	}
-	user.Pgroup = user.Uid
+	user.Pgroup = user.UID
 
-	_, err = tx.Exec(userQuery, user.Uid, user.Username, user.Info, user.Home, user.Shell, user.Pgroup)
+	_, err = tx.Exec(userQuery, user.UID, user.Username, user.Info, user.Home, user.Shell, user.Pgroup)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
-		tx.Rollback()
-		return -1, -1, err
+		err = tx.Rollback()
+		if err != nil {
+			return -1, -1, err
+		}
+		return -1, -1, fmt.Errorf("failed to add user: %v", err)
 	}
 
 	passwordQuery := `
@@ -282,7 +301,7 @@ func (m *DBHandler) Useradd(user ut.User) (int, int, error) {
   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `
 	/* add the user inique group */
-	gid, err := m.Groupadd(ut.Group{Groupname: user.Username, Gid: user.Uid})
+	gid, err := m.Groupadd(ut.Group{Groupname: user.Username, Gid: user.UID})
 	if err != nil {
 		log.Printf("failed to insert user unique/primary group: %v", err)
 		return -1, -1, err
@@ -294,26 +313,35 @@ func (m *DBHandler) Useradd(user ut.User) (int, int, error) {
     VALUES
       (?, ?),
       (?, ?)`
-	_, err = tx.Exec(usergroupQuery, user.Uid, 1000, user.Uid, gid)
+	_, err = tx.Exec(usergroupQuery, user.UID, 1000, user.UID, gid)
 	if err != nil {
-		tx.Rollback()
+		err = tx.Rollback()
+		if err != nil {
+			return -1, -1, err
+		}
 		log.Printf("failed to group user: %v", err)
-		return -1, -1, err
+		return -1, -1, fmt.Errorf("failed to execute insertion: %v", err)
 	}
 
 	hashPass, err := hash([]byte(user.Password.Hashpass))
 	if err != nil {
 		log.Printf("failed to hash the pass: %v", err)
-		tx.Rollback()
-		return -1, -1, err
+		err = tx.Rollback()
+		if err != nil {
+			return -1, -1, err
+		}
+		return -1, -1, fmt.Errorf("failed to execute insertion: %v", err)
 	}
 
-	_, err = tx.Exec(passwordQuery, user.Uid, hashPass, ut.CurrentTime(), user.Password.MinimumPasswordAge,
+	_, err = tx.Exec(passwordQuery, user.UID, hashPass, ut.CurrentTime(), user.Password.MinimumPasswordAge,
 		user.Password.MaximumPasswordAge, user.Password.WarningPeriod, user.Password.InactivityPeriod, user.Password.ExpirationDate)
 	if err != nil {
-		tx.Rollback()
+		err = tx.Rollback()
+		if err != nil {
+			return -1, -1, err
+		}
 		log.Printf("failed to execute query: %v", err)
-		return -1, -1, err
+		return -1, -1, fmt.Errorf("failed to execute insertion: %v", err)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -321,9 +349,11 @@ func (m *DBHandler) Useradd(user ut.User) (int, int, error) {
 		return -1, -1, err
 	}
 
-	return user.Uid, gid, nil
+	return user.UID, gid, nil
 }
 
+// Userdel method of Database MiniotH Handler
+// deletes the user with the given uid
 func (m *DBHandler) Userdel(uid string) error {
 	if err := checkIfRoot(uid); err != nil {
 		log.Print("can't delete the root...")
@@ -341,8 +371,8 @@ func (m *DBHandler) Userdel(uid string) error {
 	deleteUserGroupQuery := `DELETE FROM user_groups WHERE uid = ?`
 
 	var (
-		gid            int
-		pgroup_deleted bool
+		gid           int
+		pgroupDeleted bool
 	)
 	err = db.QueryRow(`
     SELECT 
@@ -359,10 +389,10 @@ func (m *DBHandler) Userdel(uid string) error {
     )`, uid).Scan(&gid)
 	if err != nil {
 		log.Printf("failed to retrieve primary group gid of the user")
-		pgroup_deleted = true
+		pgroupDeleted = true
 	}
 
-	if !pgroup_deleted {
+	if !pgroupDeleted {
 		deletePrimaryGroupQuery := `
       DELETE FROM 
         groups 
@@ -420,6 +450,8 @@ func (m *DBHandler) Userdel(uid string) error {
 	return nil
 }
 
+// Usermod method of Database Minioth Handler
+// replaces the existing user with the given UID with the given  user
 func (m *DBHandler) Usermod(user ut.User) error {
 	db, err := m.getConn()
 	if err != nil {
@@ -438,20 +470,23 @@ func (m *DBHandler) Usermod(user ut.User) error {
 	defer func() {
 		if err != nil {
 			log.Printf("Rolling back transaction due to error: %v", err)
-			tx.Rollback()
+			err = tx.Rollback()
+			if err != nil {
+				log.Printf("failed to rollback")
+			}
 		}
 	}()
 
 	// Step 1: Delete dependent records
 	deleteUserGroupsQuery := `DELETE FROM user_groups WHERE uid = ?`
-	_, err = tx.Exec(deleteUserGroupsQuery, user.Uid)
+	_, err = tx.Exec(deleteUserGroupsQuery, user.UID)
 	if err != nil {
 		log.Printf("Failed to delete user-group associations: %v", err)
 		return fmt.Errorf("failed to delete user-group associations: %w", err)
 	}
 
 	deletePasswordQuery := `DELETE FROM passwords WHERE uid = ?`
-	_, err = tx.Exec(deletePasswordQuery, user.Uid)
+	_, err = tx.Exec(deletePasswordQuery, user.UID)
 	if err != nil {
 		log.Printf("Failed to delete password: %v", err)
 		return fmt.Errorf("failed to delete password: %w", err)
@@ -466,7 +501,7 @@ func (m *DBHandler) Usermod(user ut.User) error {
     WHERE 
       uid = ?;
   `
-	res, err := tx.Exec(updateUserQuery, user.Username, user.Info, user.Home, user.Shell, user.Uid)
+	res, err := tx.Exec(updateUserQuery, user.Username, user.Info, user.Home, user.Shell, user.UID)
 	if err != nil {
 		log.Printf("failed to update user: %v", err)
 		return fmt.Errorf("failed to update user: %w", err)
@@ -476,7 +511,7 @@ func (m *DBHandler) Usermod(user ut.User) error {
 		log.Printf("failed to get rows affected: %v", err)
 		return err
 	} else if rAff == 0 {
-		return ut.NewWarning("user with uid: %v doesn't exist", user.Uid)
+		return ut.NewWarning("user with uid: %v doesn't exist", user.UID)
 	}
 
 	hashPass, err := hash([]byte(user.Password.Hashpass))
@@ -491,7 +526,7 @@ func (m *DBHandler) Usermod(user ut.User) error {
       passwords (uid, hashpass, lastpasswordchange, minimumpasswordage, maximumpasswordage, warningperiod, inactivityperiod, expirationdate)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?);
   `
-	_, err = tx.Exec(insertPasswordQuery, user.Uid, hashPass, ut.CurrentTime(),
+	_, err = tx.Exec(insertPasswordQuery, user.UID, hashPass, ut.CurrentTime(),
 		user.Password.MinimumPasswordAge, user.Password.MaximumPasswordAge, user.Password.WarningPeriod,
 		user.Password.InactivityPeriod, user.Password.ExpirationDate)
 	if err != nil {
@@ -512,7 +547,7 @@ func (m *DBHandler) Usermod(user ut.User) error {
 			if i < len(user.Groups)-1 {
 				insertUserGroupsQuery += ", "
 			}
-			params = append(params, user.Uid, group.Gid)
+			params = append(params, user.UID, group.Gid)
 		}
 
 		_, err = tx.Exec(insertUserGroupsQuery, params...)
@@ -532,6 +567,8 @@ func (m *DBHandler) Usermod(user ut.User) error {
 	return nil
 }
 
+// Userpatch method of Database Minioth Handler
+// changes the user by given UID, specific fields
 func (m *DBHandler) Userpatch(uid string, fields map[string]any) error {
 	query := "UPDATE users SET "
 	args := []any{}
@@ -645,6 +682,9 @@ func (m *DBHandler) Userpatch(uid string, fields map[string]any) error {
 	return nil
 }
 
+// Groupadd method of Database Minioth Handler
+// inserts a new Group in the database
+// retrieves a new id
 func (m *DBHandler) Groupadd(group ut.Group) (int, error) {
 	db, err := m.getConn()
 	if err != nil {
@@ -674,7 +714,7 @@ func (m *DBHandler) Groupadd(group ut.Group) (int, error) {
   `
 
 	// insert group
-	gid, err := m.nextId("groups")
+	gid, err := m.nextID("groups")
 	if err != nil {
 		log.Printf("failed to retrieve the nextid")
 		return -1, err
@@ -694,7 +734,7 @@ func (m *DBHandler) Groupadd(group ut.Group) (int, error) {
 
 		args := []any{}
 		for _, user := range group.Users {
-			args = append(args, user.Uid, gid)
+			args = append(args, user.UID, gid)
 		}
 
 		_, err = db.Exec(userGroupQuery, args...)
@@ -707,6 +747,8 @@ func (m *DBHandler) Groupadd(group ut.Group) (int, error) {
 	return gid, nil
 }
 
+// Groupdel method of Database Minioth Handler
+// deletes a group given a gid
 func (m *DBHandler) Groupdel(gid string) error {
 	db, err := m.getConn()
 	if err != nil {
@@ -742,6 +784,8 @@ func (m *DBHandler) Groupdel(gid string) error {
 	return nil
 }
 
+// Groupmod method of Database Minioth Handler
+// replaces the given group (with gid) completely
 func (m *DBHandler) Groupmod(group ut.Group) error {
 	db, err := m.getConn()
 	if err != nil {
@@ -783,7 +827,7 @@ func (m *DBHandler) Groupmod(group ut.Group) error {
 
 		args := []any{}
 		for _, user := range group.Users {
-			args = append(args, user.Uid, group.Gid)
+			args = append(args, user.UID, group.Gid)
 		}
 
 		_, err = db.Exec(insertUserGroupsQuery, args...)
@@ -795,6 +839,8 @@ func (m *DBHandler) Groupmod(group ut.Group) error {
 	return nil
 }
 
+// Grouppatch method of Database Minioth Handler
+// changes the gid given group given fields
 func (m *DBHandler) Grouppatch(gid string, fields map[string]any) error {
 	db, err := m.getConn()
 	if err != nil {
@@ -831,6 +877,11 @@ func (m *DBHandler) Grouppatch(gid string, fields map[string]any) error {
 	return nil
 }
 
+// Passwd method of Database Minioth Handler
+// responsible to change the password of the given user
+// arguments: user name - new password
+//
+// ! warning ! this method changes password no questions asked!
 func (m *DBHandler) Passwd(username, password string) error {
 	db, err := m.getConn()
 	if err != nil {
@@ -869,15 +920,19 @@ func (m *DBHandler) Passwd(username, password string) error {
 	return nil
 }
 
+// Select method of Database Minioth Handler
+// returns the chosen field
+// @argument: id - users or groups
+// returns all
 func (m *DBHandler) Select(id string) any {
 	var param, value string
 	parts := strings.Split(id, "?")
 	if len(parts) > 1 {
 		id = parts[0]
-		parts_2 := strings.Split(parts[1], "=")
-		if len(parts_2) > 1 {
-			param = parts_2[0]
-			value = parts_2[1]
+		parts2 := strings.Split(parts[1], "=")
+		if len(parts2) > 1 {
+			param = parts2[0]
+			value = parts2[1]
 		}
 	}
 	db, err := m.getConn()
@@ -936,26 +991,31 @@ func (m *DBHandler) Select(id string) any {
 			log.Printf("failed to query users: %v", err)
 			return nil
 		}
-		defer rows.Close()
+		defer func() {
+			err := rows.Close()
+			if err != nil {
+				log.Printf("failed to close rows: %v", err)
+			}
+		}()
 
 		for rows.Next() {
 			var user ut.User
 			var groupNames sql.NullString // Use sql.NullString to handle NULL values
-			var groupIds sql.NullString
-			err := rows.Scan(&user.Uid, &user.Username, &user.Password.Hashpass, &user.Password.LastPasswordChange, &user.Password.MinimumPasswordAge, &user.Password.MaximumPasswordAge, &user.Password.WarningPeriod, &user.Password.InactivityPeriod, &user.Password.ExpirationDate, &user.Info, &user.Home, &user.Shell, &user.Pgroup, &groupNames, &groupIds)
+			var grouIDs sql.NullString
+			err := rows.Scan(&user.UID, &user.Username, &user.Password.Hashpass, &user.Password.LastPasswordChange, &user.Password.MinimumPasswordAge, &user.Password.MaximumPasswordAge, &user.Password.WarningPeriod, &user.Password.InactivityPeriod, &user.Password.ExpirationDate, &user.Info, &user.Home, &user.Shell, &user.Pgroup, &groupNames, &grouIDs)
 			if err != nil {
 				log.Printf("failed to scan user: %v", err)
 				return nil
 			}
 
 			groups := []ut.Group{}
-			if groupNames.Valid && groupNames.String != "" && groupIds.Valid && groupIds.String != "" { // Check if groupNames is valid and not empty
+			if groupNames.Valid && groupNames.String != "" && grouIDs.Valid && grouIDs.String != "" { // Check if groupNames is valid and not empty
 				groupNameList := strings.Split(groupNames.String, ",")
-				groupIdsList := strings.Split(groupIds.String, ",")
+				groupIDsList := strings.Split(grouIDs.String, ",")
 				for i, groupName := range groupNameList {
-					gid, err := strconv.Atoi(groupIdsList[i])
+					gid, err := strconv.Atoi(groupIDsList[i])
 					if err != nil {
-						log.Printf("failed to atoi gid from: %v", groupIdsList[i])
+						log.Printf("failed to atoi gid from: %v", groupIDsList[i])
 					}
 					groups = append(groups, ut.Group{
 						Groupname: groupName,
@@ -969,7 +1029,6 @@ func (m *DBHandler) Select(id string) any {
 		}
 
 		return result
-
 	case "groups":
 		var result []any
 
@@ -988,13 +1047,18 @@ func (m *DBHandler) Select(id string) any {
 			log.Printf("failed to query groups: %v", err)
 			return nil
 		}
-		defer rows.Close()
+		defer func() {
+			err := rows.Close()
+			if err != nil {
+				log.Printf("failed to close rows: %v", err)
+			}
+		}()
 
 		for rows.Next() {
 			var group ut.Group
 			var userNames sql.NullString
-			var userIds sql.NullString
-			err := rows.Scan(&group.Gid, &group.Groupname, &userNames, &userIds)
+			var userIDs sql.NullString
+			err := rows.Scan(&group.Gid, &group.Groupname, &userNames, &userIDs)
 			if err != nil {
 				log.Printf("failed to scan group: %v", err)
 				return nil
@@ -1005,33 +1069,35 @@ func (m *DBHandler) Select(id string) any {
 			users := []ut.User{}
 			if userNames.Valid && userNames.String != "" {
 				userNameList := strings.Split(userNames.String, ",")
-				userIdsList := strings.Split(userIds.String, ",")
+				userIDsList := strings.Split(userIDs.String, ",")
 				for i, userName := range userNameList {
-					uid, err := strconv.Atoi(userIdsList[i])
+					uid, err := strconv.Atoi(userIDsList[i])
 					if err != nil {
-						log.Printf("failed to atoi a uid: %v", userIdsList[i])
+						log.Printf("failed to atoi a uid: %v", userIDsList[i])
 						return nil
 					}
 					users = append(users, ut.User{
 						Username: userName,
-						Uid:      uid,
+						UID:      uid,
 					})
 				}
 			}
 			group.Users = users
-
 			// Append group as an any
 			result = append(result, group)
 		}
 
 		return result
-
 	default:
-		log.Printf("Invalid id: %s", id)
+		if verbose {
+			log.Printf("Invalid id: %s", id)
+		}
 		return nil
 	}
 }
 
+// Authenticate method of Database Minioth Handler
+// checks for proof of existence for a given pair of user creds
 func (m *DBHandler) Authenticate(username, password string) (ut.User, error) {
 	db, err := m.getConn()
 	if err != nil {
@@ -1044,15 +1110,28 @@ func (m *DBHandler) Authenticate(username, password string) (ut.User, error) {
 
 	if verifyPass([]byte(user.Password.Hashpass), []byte(password)) {
 		return user, nil
-	} else {
-		return ut.User{}, fmt.Errorf("failed to authenticate bad credentials: %v", nil)
 	}
+	return ut.User{}, fmt.Errorf("failed to authenticate bad credentials: %v", nil)
+
 }
 
-/* close the prev "singleton" db connection */
+// Purge method of Database Minioth Handler
+// not working yet
+// will delete everything ...
+func (m *DBHandler) Purge() {
+	// todo
+}
+
+// Close method of Database Minioth Handler
+// forwards to the close database call
+// @look utils/database
+// close the prev "singleton" db connection */
 func (m *DBHandler) Close() {
 	if m.db != nil {
-		m.db.Close()
+		err := m.db.Close()
+		if err != nil {
+			log.Printf("failed to close database connection: %v", err)
+		}
 	}
 }
 
@@ -1089,7 +1168,12 @@ func getUser(username string, db *sql.DB) ut.User {
 		log.Printf("error on query: %v", err)
 		return ut.User{}
 	}
-	defer rows.Close()
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 
 	user := ut.User{}
 	groups := make([]ut.Group, 0)
@@ -1100,7 +1184,7 @@ func getUser(username string, db *sql.DB) ut.User {
 	)
 
 	for rows.Next() {
-		if err := rows.Scan(&user.Username, &user.Info, &user.Home, &user.Shell, &user.Uid, &user.Pgroup, &gid, &gname); err != nil {
+		if err := rows.Scan(&user.Username, &user.Info, &user.Home, &user.Shell, &user.UID, &user.Pgroup, &gid, &gname); err != nil {
 			log.Printf("failed to ugr scan row: %v", err)
 			return ut.User{}
 		}
@@ -1124,7 +1208,7 @@ func getUser(username string, db *sql.DB) ut.User {
     WHERE 
       uid = ?`
 	password := ut.Password{}
-	row := db.QueryRow(passwordQuery, user.Uid)
+	row := db.QueryRow(passwordQuery, user.UID)
 	if row == nil {
 		return ut.User{}
 	}
@@ -1140,7 +1224,7 @@ func getUser(username string, db *sql.DB) ut.User {
 	return user
 }
 
-func (m *DBHandler) nextId(table string) (int, error) {
+func (m *DBHandler) nextID(table string) (int, error) {
 	db, err := m.getConn()
 	if err != nil {
 		return 0, fmt.Errorf("failed to connect to database: %w", err)
@@ -1156,13 +1240,13 @@ func (m *DBHandler) nextId(table string) (int, error) {
 		query = "SELECT COALESCE(MAX(gid), 999) + 1 FROM " + table + " WHERE " + id + " >= 1000"
 	}
 
-	var nextUid int
-	err = db.QueryRow(query).Scan(&nextUid)
+	var nextUID int
+	err = db.QueryRow(query).Scan(&nextUID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to retrieve next UID: %w", err)
 	}
 
-	return nextUid, nil
+	return nextUID, nil
 }
 
 func checkIfRoot(uid string) error {
