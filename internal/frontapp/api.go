@@ -1,3 +1,4 @@
+// Package frontendapp defines the service of the frontend
 package frontendapp
 
 import (

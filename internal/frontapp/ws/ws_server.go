@@ -1,3 +1,4 @@
+// Package ws defines a simple websocket server logic
 package ws
 
 import (

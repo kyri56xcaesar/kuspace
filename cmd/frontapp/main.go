@@ -1,3 +1,4 @@
+// Package main has main app for this service
 package main
 
 import (

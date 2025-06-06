@@ -42,16 +42,16 @@ var (
 // with custom utility types for configuration and user/group representations.
 //
 // Fields:
-//   - handler: The MiniothHandler implementation responsible for backend operations.
+//   - handler: The Handler implementation responsible for backend operations.
 //   - Service: The MService instance providing higher-level service logic.
 //   - Config:  The loaded environment configuration (ut.EnvConfig) for Minioth.
 type Minioth struct {
-	handler MiniothHandler
+	handler Handler
 	Service MService
 	Config  ut.EnvConfig
 }
 
-// MiniothHandler defines an interface for managing users and groups, as well as authentication and lifecycle operations.
+// Handler defines an interface for managing users and groups, as well as authentication and lifecycle operations.
 // It abstracts operations such as adding, deleting, modifying, and patching users and groups, as well as authentication and resource management.
 //
 // Methods:
@@ -96,7 +96,7 @@ type Minioth struct {
 //
 //   - Close():
 //     Releases any resources held by the handler and performs cleanup operations.
-type MiniothHandler interface {
+type Handler interface {
 	Init()
 	Useradd(user ut.User) (uid, pgroup int, err error) /* should return the uid as well*/
 	Userdel(uid string) error
@@ -157,7 +157,7 @@ func NewMinioth(cfgPath string) Minioth {
 	log.Printf("[INIT]setting hashcost to: hashCost=%v", hashCostValue)
 
 	newM.handler = handlerFactory(&newM)
-	newM.Service = NewMSerivce(&newM)
+	newM.Service = NewMService(&newM)
 	newM.handler.Init()
 
 	verbose = newM.Config.Verbose
@@ -165,7 +165,7 @@ func NewMinioth(cfgPath string) Minioth {
 }
 
 // handlerFactory will producde the chosen "storage" system specified in the configuration
-func handlerFactory(minioth *Minioth) MiniothHandler {
+func handlerFactory(minioth *Minioth) Handler {
 	switch minioth.Config.MiniothHandler {
 	case "db", "database":
 		return &DBHandler{DBpath: minioth.Config.MiniothDb, minioth: minioth}

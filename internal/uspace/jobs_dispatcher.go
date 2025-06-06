@@ -14,9 +14,7 @@ import (
 	the current implementation of this uses a wait Queue and an Executor logic
 
 	@used by the api
-*/
 
-/*
 	uspace API needs a Job dispatcher.
 
 # This is the interface a dispatcher must implement

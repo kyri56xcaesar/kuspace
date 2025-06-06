@@ -104,7 +104,7 @@ func GenerateAccessHS256JWT(userID, username, groups, gids string) (string, erro
 	return tokenString, nil
 }
 
-// GenerateAccessHS256JWT generates a JWT access token signed with the HS256 (HMAC-SHA256) algorithm.
+// GenerateAccessRS256JWT generates a JWT access token signed with the HS256 (HMAC-SHA256) algorithm.
 // It accepts the user ID, username, groups, and group IDs as input, and embeds them as custom claims
 // in the token payload. The token is issued by the configured issuer, has a configurable validity period,
 // and is signed using the internal symmetric secret key. Returns the signed JWT string or an error if signing fails.

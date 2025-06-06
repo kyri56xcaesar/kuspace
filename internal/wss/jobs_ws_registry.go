@@ -1,3 +1,4 @@
+// Package wss defines logic of multiple websocket streamers
 package wss
 
 import (

@@ -1,5 +1,4 @@
-// Package minio
-// a package that includes a minio client
+// Package minio defines a minio client
 package minio
 
 /*

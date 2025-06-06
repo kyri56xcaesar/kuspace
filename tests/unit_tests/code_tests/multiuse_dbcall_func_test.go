@@ -39,7 +39,7 @@ func Get(sel, table, by, byvalue string, limit int) {
 }
 
 // Example usage
-func TestGet(t *testing.T) {
+func TestGet(_ *testing.T) {
 	log.Printf("test1 ")
 	Get("name, age", "users", "id IN", "1,2,3", 10)
 

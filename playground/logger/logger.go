@@ -1,4 +1,4 @@
-// Package logger
+// Package logger defines logging logic
 // just a custom logger
 package logger
 

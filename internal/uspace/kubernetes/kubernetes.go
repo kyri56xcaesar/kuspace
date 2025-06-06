@@ -1,4 +1,4 @@
-// Package kubernetes
+// Package kubernetes defines kubernetes client logic
 package kubernetes
 
 import (

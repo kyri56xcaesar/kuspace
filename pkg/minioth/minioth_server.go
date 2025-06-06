@@ -63,7 +63,7 @@ type MService struct {
 
 // NewMService function as a constructor for MService
 // * "constructor of minioth server central object" */
-func NewMSerivce(m *Minioth) MService {
+func NewMService(m *Minioth) MService {
 	setGinMode(m.Config.APIGinMode)
 	srv := MService{
 		Minioth: m,
@@ -287,7 +287,7 @@ type RegisterClaim struct {
 	User ut.User `json:"user"`
 }
 
-// LoginCliam struct covers Login requests
+// LoginClaim struct covers Login requests
 type LoginClaim struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
