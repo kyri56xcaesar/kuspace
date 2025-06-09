@@ -28,25 +28,25 @@ const (
 		description TEXT,
 		duration FLOAT,
 		input TEXT,
-		input_format TEXT,
+		inputFormat TEXT,
 		output TEXT,
-		output_format TEXT,
+		outputFormat TEXT,
 		logic TEXT,
-		logic_body TEXT,
-		logic_headers TEXT,
+		logicBody TEXT,
+		logicHeaders TEXT,
 		parameters TEXT,
 		status TEXT,
 		completed BOOLEAN,
-		completed_at DATETIME,
+		completedAt DATETIME,
 		createdAt DATETIME,
 		parallelism INTEGER,
 		priority INTEGER,
-		memory_request TEXT,
-		cpu_request TEXT,
-		memory_limit TEXT,
-		cpu_limit TEXT,
-		ephimeral_storage_request TEXT,
-		ephimeral_storage_limit TEXT
+		memoryRequest TEXT,
+		cpuRequest TEXT,
+		memoryLimit TEXT,
+		cpuLimit TEXT,
+		ephimeralStorageRequest TEXT,
+		ephimeralStorageLimit TEXT
 	);
 	CREATE TABLE IF NOT EXISTS apps (
 		id INTEGER PRIMARY KEY,
@@ -55,7 +55,7 @@ const (
 		description TEXT,
 		version TEXT,
 		author TEXT,
-		author_id INTEGER,
+		authorId INTEGER,
 		status TEXT,
 		insertedAt DATETIME,
 		createdAt DATETIME
@@ -70,57 +70,67 @@ func (srv *UService) insertJob(jb ut.Job) (int64, error) {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
-		return -1, err
+
+		return -1, fmt.Errorf("failed to retrieve db conn: %w", err)
 	}
 
-	currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 	query := `
 		INSERT INTO 
-			jobs (jid, uid, description, duration, input, input_format, output, output_format, logic, logic_body, logic_headers, parameters, status, completed, createdAt, parallelism, priority, memory_request, cpu_request, memory_limit, cpu_limit, ephimeral_storage_request, ephimeral_storage_limit)
+			jobs (jid, uid, description, duration, input, inputFormat, output, outputFormat, logic, logicBody,
+			 logicHeaders, parameters, status, completed, createdAt, parallelism, priority, memoryRequest, cpuRequest,
+			  memoryLimit, cpuLimit, ephimeralStorageRequest, ephimeralStorageLimit)
 		VALUES
 			(nextval('seq_jobid'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		RETURNING (jid);
-	`
+		RETURNING (jid);`
 
 	var jid int64
-	err = db.QueryRow(query, jb.UID, jb.Description, jb.Duration, jb.Input, jb.InputFormat, jb.Output, jb.OutputFormat, jb.Logic, jb.LogicBody, jb.LogicHeaders, strings.Join(jb.Params, ","), "pending", jb.Completed, currentTime, jb.Parallelism, jb.Priority, jb.MemoryRequest, jb.CPURequest, jb.MemoryLimit, jb.CPULimit, jb.EphimeralStorageRequest, jb.EphimeralStorageLimit).Scan(&jid)
+	err = db.QueryRow(query, jb.UID, jb.Description, jb.Duration, jb.Input,
+		jb.InputFormat, jb.Output, jb.OutputFormat, jb.Logic, jb.LogicBody,
+		jb.LogicHeaders, strings.Join(jb.Params, ","), "pending", jb.Completed,
+		ut.CurrentTime(), jb.Parallelism, jb.Priority, jb.MemoryRequest, jb.CPURequest,
+		jb.MemoryLimit, jb.CPULimit, jb.EphimeralStorageRequest, jb.EphimeralStorageLimit).Scan(&jid)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
-		return -1, err
+
+		return -1, fmt.Errorf("failed to execute query: %w", err)
 	}
 
-	// log.Printf("[Database] Inserted job id: %v", jid)
+	if verbose {
+		log.Printf("[Database] Inserted job id: %v", jid)
+	}
 
-	// perhaps we require the id, but letgo for now
 	return jid, nil
 }
 
 // should user an appender
 func (srv *UService) insertJobs(jobs []ut.Job) error {
-
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
-		return err
+
+		return fmt.Errorf("failed to retrieve db conn: %w", err)
 	}
 	query := `
 		INSERT INTO 
-			jobs (jid, uid, description, duration, input, input_format, output, output_format, logic, logic_body, logic_headers, parameters, status, completed, createdAt, parallelism, priority, memory_request, cpu_request, memory_limit, cpu_limit, ephimeral_storage_request, ephimeral_storage_limit)
+			jobs (jid, uid, description, duration, input, inputFormat, output, outputFormat, logic,
+			 logicBody, logicHeaders, parameters, status, completed, createdAt, parallelism, priority,
+			  memoryRequest, cpuRequest, memoryLimit, cpuLimit, ephimeralStorageRequest, ephimeralStorageLimit)
 		VALUES
 			(nextval('seq_jobid'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		RETURNING (jid);
-	`
+		RETURNING (jid);`
 
 	tx, err := db.Begin()
 	if err != nil {
 		log.Printf("failed to begin transaction: %v", err)
-		return err
+
+		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
 	stmt, err := tx.Prepare(query)
 	if err != nil {
 		log.Printf("failed to prepare statement: %v", err)
-		return err
+
+		return fmt.Errorf("failed to prepare transaction: %w", err)
 	}
 	defer func() {
 		err := stmt.Close()
@@ -129,27 +139,31 @@ func (srv *UService) insertJobs(jobs []ut.Job) error {
 		}
 	}()
 
+	currentTime := ut.CurrentTime()
 	for i := range jobs {
 		jb := &(jobs)[i]
 
-		currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 		var jid int64
-		err = db.QueryRow(query, jb.UID, jb.Description, jb.Duration, jb.Input, jb.InputFormat, jb.Output, jb.OutputFormat, jb.Logic, jb.LogicBody, jb.LogicHeaders, strings.Join(jb.Params, ","), "pending", jb.Completed, currentTime).Scan(&jid)
+		err = db.QueryRow(query, jb.UID, jb.Description, jb.Duration, jb.Input, jb.InputFormat, jb.Output,
+			jb.OutputFormat, jb.Logic, jb.LogicBody, jb.LogicHeaders, strings.Join(jb.Params, ","), "pending",
+			jb.Completed, currentTime).Scan(&jid)
 		if err != nil {
 			err = tx.Rollback()
 			if err != nil {
 				return err
 			}
 			log.Printf("failed to execute statement: %v", err)
-			return fmt.Errorf("failed to execute insertion query: %v", err)
+
+			return fmt.Errorf("failed to execute insertion query: %w", err)
 		}
-		jb.Jid = jid
+		jb.JID = jid
 	}
 
 	err = tx.Commit()
 	if err != nil {
 		log.Printf("failed to commit transaction: %v", err)
-		return err
+
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
@@ -159,19 +173,21 @@ func (srv *UService) removeJob(jid int) error {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to retrieve db connection: %v", err)
-		return err
+
+		return fmt.Errorf("failed to retrieve db conn: %w", err)
 	}
 	query := `
 		DELETE FROM
 			jobs
 		WHERE
-			jid = ?
-	`
+			jid = ?`
 	_, err = db.Exec(query, jid)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
-		return err
+
+		return fmt.Errorf("failed to execute query: %w", err)
 	}
+
 	return nil
 }
 
@@ -179,23 +195,25 @@ func (srv *UService) removeJobs(jids []int) error {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
-		return err
+
+		return fmt.Errorf("failed to retrieve db conn: %w", err)
 	}
 	query := `
 		DELETE FROM
 			jobs
 		WHERE
-			jid = ?
-	`
+			jid = ?`
 	tx, err := db.Begin()
 	if err != nil {
 		log.Printf("failed to begin transaction: %v", err)
-		return err
+
+		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	stmt, err := tx.Prepare(query)
 	if err != nil {
 		log.Printf("failed to prepare statement: %v", err)
-		return err
+
+		return fmt.Errorf("failed to prepare transaction statement: %w", err)
 	}
 	defer func() {
 		err := stmt.Close()
@@ -211,14 +229,17 @@ func (srv *UService) removeJobs(jids []int) error {
 				return err
 			}
 			log.Printf("failed to execute statement: %v", err)
-			return fmt.Errorf("failed to execute delete query: %v", err)
+
+			return fmt.Errorf("failed to execute delete query: %w", err)
 		}
 	}
 	err = tx.Commit()
 	if err != nil {
 		log.Printf("failed to commit transaction: %v", err)
-		return err
+
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
+
 	return nil
 }
 
@@ -227,7 +248,8 @@ func (srv *UService) getJobByID(jid int) (ut.Job, error) {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
-		return job, err
+
+		return job, fmt.Errorf("failed to retrieve db conn: %w", err)
 	}
 	query := `
 		SELECT
@@ -235,15 +257,19 @@ func (srv *UService) getJobByID(jid int) (ut.Job, error) {
 		FROM
 			jobs
 		WHERE
-			jid = ?
-	`
+			jid = ?`
 	var params string
 	var completedAt, createdAt sql.NullString
 
-	err = db.QueryRow(query, jid).Scan(&job.Jid, &job.UID, &job.Description, &job.Duration, &job.Input, &job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status, &job.Completed, &completedAt, &createdAt, &job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest, &job.MemoryLimit, &job.CPULimit, &job.EphimeralStorageRequest, &job.EphimeralStorageLimit)
+	err = db.QueryRow(query, jid).Scan(&job.JID, &job.UID, &job.Description, &job.Duration, &job.Input,
+		&job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders,
+		&params, &job.Status, &job.Completed, &completedAt, &createdAt, &job.Parallelism, &job.Priority,
+		&job.MemoryRequest, &job.CPURequest, &job.MemoryLimit, &job.CPULimit, &job.EphimeralStorageRequest,
+		&job.EphimeralStorageLimit)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
-		return job, err
+
+		return job, fmt.Errorf("failed to query row: %w", err)
 	}
 
 	if completedAt.Valid {
@@ -267,7 +293,8 @@ func (srv *UService) getJobsByUID(uid int) ([]ut.Job, error) {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
-		return nil, err
+
+		return nil, fmt.Errorf("failed to retrieve db conn: %w", err)
 	}
 	query := `
 		SELECT
@@ -275,12 +302,12 @@ func (srv *UService) getJobsByUID(uid int) ([]ut.Job, error) {
 		FROM
 			jobs
 		WHERE
-			uid = ?
-	`
+			uid = ?`
 	rows, err := db.Query(query, uid)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
-		return nil, err
+
+		return nil, fmt.Errorf("failed to query row: %w", err)
 	}
 
 	var (
@@ -290,10 +317,15 @@ func (srv *UService) getJobsByUID(uid int) ([]ut.Job, error) {
 	for rows.Next() {
 		var job ut.Job
 
-		err = rows.Scan(&job.Jid, &job.UID, &job.Description, &job.Duration, &job.Input, &job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status, &job.Completed, &completedAt, &createdAt, &job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest, &job.MemoryLimit, &job.CPULimit, &job.EphimeralStorageRequest, &job.EphimeralStorageLimit)
+		err = rows.Scan(&job.JID, &job.UID, &job.Description, &job.Duration, &job.Input,
+			&job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody,
+			&job.LogicHeaders, &params, &job.Status, &job.Completed, &completedAt, &createdAt,
+			&job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest, &job.MemoryLimit,
+			&job.CPULimit, &job.EphimeralStorageRequest, &job.EphimeralStorageLimit)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
-			return nil, err
+
+			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 		if completedAt.Valid {
 			job.CompletedAt = completedAt.String
@@ -309,20 +341,22 @@ func (srv *UService) getJobsByUID(uid int) ([]ut.Job, error) {
 		job.Params = strings.Split(strings.TrimSpace(params), ",")
 		jobs = append(jobs, job)
 	}
+
 	return jobs, nil
 }
 
-func (srv *UService) getJobsByUids(uids []int) ([]ut.Job, error) {
+func (srv *UService) getJobsByUIDs(uids []int) ([]ut.Job, error) {
 	var jobs []ut.Job
 
 	if len(uids) == 0 {
-		return jobs, nil // no users, return empty list
+		return jobs, nil // no users, empty list
 	}
 
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
-		return nil, err
+
+		return nil, fmt.Errorf("failed to retrieve db conn: %w", err)
 	}
 
 	// Build placeholders like (?, ?, ?)
@@ -340,13 +374,14 @@ func (srv *UService) getJobsByUids(uids []int) ([]ut.Job, error) {
 		FROM
 			jobs
 		WHERE
-			uid IN (%s)
-	`, placeholderStr)
+			uid IN (%s)`,
+		placeholderStr)
 
 	rows, err := db.Query(query, args...)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
-		return nil, err
+
+		return nil, fmt.Errorf("failed to execute query: %w", err)
 	}
 	defer func() {
 		err := rows.Close()
@@ -362,10 +397,15 @@ func (srv *UService) getJobsByUids(uids []int) ([]ut.Job, error) {
 	for rows.Next() {
 		var job ut.Job
 
-		err = rows.Scan(&job.Jid, &job.UID, &job.Description, &job.Duration, &job.Input, &job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status, &job.Completed, &completedAt, &createdAt, &job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest, &job.MemoryLimit, &job.CPULimit, &job.EphimeralStorageRequest, &job.EphimeralStorageLimit)
+		err = rows.Scan(&job.JID, &job.UID, &job.Description, &job.Duration, &job.Input,
+			&job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody,
+			&job.LogicHeaders, &params, &job.Status, &job.Completed, &completedAt, &createdAt,
+			&job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest, &job.MemoryLimit,
+			&job.CPULimit, &job.EphimeralStorageRequest, &job.EphimeralStorageLimit)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
-			return nil, err
+
+			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 		if completedAt.Valid {
 			job.CompletedAt = completedAt.String
@@ -381,6 +421,7 @@ func (srv *UService) getJobsByUids(uids []int) ([]ut.Job, error) {
 
 		jobs = append(jobs, job)
 	}
+
 	return jobs, nil
 }
 
@@ -389,7 +430,8 @@ func (srv *UService) getAllJobs(limit, offset string) ([]ut.Job, error) {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
-		return nil, err
+
+		return nil, fmt.Errorf("failed to retrieve db conn: %w", err)
 	}
 	var query string
 
@@ -398,30 +440,28 @@ func (srv *UService) getAllJobs(limit, offset string) ([]ut.Job, error) {
 		SELECT
 			*
 		FROM
-			jobs
-	`
+			jobs`
 	} else if offset == "" {
 		query = `
 		SELECT
 			*
 		FROM
 			jobs
-		LIMIT ?;
-			`
+		LIMIT ?;`
 	} else {
 		query = `
 		SELECT
 			*
 		FROM
 			jobs
-		LIMIT ? OFFSET ?;
-	`
+		LIMIT ? OFFSET ?;`
 	}
 
 	rows, err := db.Query(query, limit, offset)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
-		return nil, err
+
+		return nil, fmt.Errorf("failed to query row: %w", err)
 	}
 
 	var (
@@ -430,10 +470,14 @@ func (srv *UService) getAllJobs(limit, offset string) ([]ut.Job, error) {
 	)
 	for rows.Next() {
 		var job ut.Job
-		err = rows.Scan(&job.Jid, &job.UID, &job.Description, &job.Duration, &job.Input, &job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status, &job.Completed, &completedAt, &createdAt, &job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest, &job.MemoryLimit, &job.CPULimit, &job.EphimeralStorageRequest, &job.EphimeralStorageLimit)
+		err = rows.Scan(&job.JID, &job.UID, &job.Description, &job.Duration, &job.Input, &job.InputFormat,
+			&job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status,
+			&job.Completed, &completedAt, &createdAt, &job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest,
+			&job.MemoryLimit, &job.CPULimit, &job.EphimeralStorageRequest, &job.EphimeralStorageLimit)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
-			return nil, err
+
+			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 		if completedAt.Valid {
 			job.CompletedAt = completedAt.String
@@ -448,8 +492,8 @@ func (srv *UService) getAllJobs(limit, offset string) ([]ut.Job, error) {
 		job.Params = strings.Split(strings.TrimSpace(params), ",")
 
 		jobs = append(jobs, job)
-
 	}
+
 	return jobs, nil
 }
 
@@ -457,7 +501,8 @@ func (srv *UService) updateJob(jb ut.Job) error {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
-		return err
+
+		return fmt.Errorf("failed to retrieve db conn: %w", err)
 	}
 
 	query := `
@@ -467,10 +512,11 @@ func (srv *UService) updateJob(jb ut.Job) error {
 		WHERE
 			jid = ?
 	`
-	_, err = db.Exec(query, jb.Description, jb.UID, jb.Status, jb.Completed, jb.Jid)
+	_, err = db.Exec(query, jb.Description, jb.UID, jb.Status, jb.Completed, jb.JID)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
-		return err
+
+		return fmt.Errorf("failed to execute query: %w", err)
 	}
 
 	return nil
@@ -480,31 +526,29 @@ func (srv *UService) markJobStatus(jid int64, status string, duration time.Durat
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
-		return err
+
+		return fmt.Errorf("failed to retrieve db conn: %w", err)
 	}
 	var (
-		completed   bool
-		currentTime string
+		completed bool
+		query     string
 	)
-
-	var query string
 
 	if status == "completed" {
 		completed = true
-		currentTime = time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 		query = `
 		UPDATE jobs
 		SET
-			status = ?, completed = ?, completed_at = ?, duration = ?
+			status = ?, completed = ?, completedAt = ?, duration = ?
 		WHERE
 			jid = ?
 	`
-		_, err = db.Exec(query, status, completed, currentTime, duration, jid)
+		_, err = db.Exec(query, status, completed, ut.CurrentTime(), duration, jid)
 		if err != nil {
 			log.Printf("failed to execute query: %v", err)
-			return err
-		}
 
+			return fmt.Errorf("failed to execute query: %w", err)
+		}
 	} else {
 		query = `
 		UPDATE jobs
@@ -516,9 +560,9 @@ func (srv *UService) markJobStatus(jid int64, status string, duration time.Durat
 		_, err = db.Exec(query, status, completed, duration, jid)
 		if err != nil {
 			log.Printf("failed to execute query: %v", err)
-			return err
-		}
 
+			return fmt.Errorf("failed to execute query: %w", err)
+		}
 	}
 
 	return nil

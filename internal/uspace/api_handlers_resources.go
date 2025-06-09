@@ -7,6 +7,7 @@ package uspace
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -14,9 +15,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
-
 	ut "kyri56xcaesar/kuspace/internal/utils"
+
+	"github.com/gin-gonic/gin"
 )
 
 /* perhaps move here all the  Resource specific funcs/methods/structs/models...*/
@@ -55,6 +56,7 @@ func (srv *UService) getResourcesHandler(c *gin.Context) {
 	if !exists {
 		log.Printf("access target header was not set properly")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
+
 		return
 	}
 	ac := acH.(ut.AccessClaim)
@@ -73,6 +75,7 @@ func (srv *UService) getResourcesHandler(c *gin.Context) {
 			log.Printf("failed to retrieve objects from storage system: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "fatal"})
 		}
+
 		return
 	}
 
@@ -80,9 +83,11 @@ func (srv *UService) getResourcesHandler(c *gin.Context) {
 	if !ok {
 		log.Printf("error retrieving resource: %v", res)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "bad format"})
+
 		return
 	} else if resources == nil {
 		c.JSON(http.StatusNotFound, gin.H{"status": "no objects found"})
+
 		return
 	}
 
@@ -95,7 +100,7 @@ func (srv *UService) getResourcesHandler(c *gin.Context) {
 	case "list":
 		c.JSON(200, resources)
 	case "tree":
-		// build the tree and return it in json
+		// build the tree in json
 		// need to parse all the resources
 		tree := make(map[string]any)
 		for _, resource := range resources {
@@ -127,6 +132,7 @@ func (srv *UService) rmResourceHandler(c *gin.Context) {
 	if !exists {
 		log.Printf("access target header was not set properly")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
+
 		return
 	}
 	ac := acH.(ut.AccessClaim)
@@ -138,6 +144,7 @@ func (srv *UService) rmResourceHandler(c *gin.Context) {
 	}); err != nil {
 		log.Printf("error when removing object: %v", err) // perhaps specify exact details of error
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete obj"})
+
 		return
 	}
 
@@ -147,6 +154,7 @@ func (srv *UService) rmResourceHandler(c *gin.Context) {
 	}); err != nil {
 		log.Printf("error when removing object from fsl: %v", err) // perhaps specify exact details of error
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete obj"})
+
 		return
 	}
 
@@ -175,6 +183,7 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 	if !exists {
 		log.Printf("access target header was not set properly")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
+
 		return
 	}
 	ac := acH.(ut.AccessClaim)
@@ -183,6 +192,7 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 	if dest == "" {
 		log.Printf("request doesn't provide 'dest'")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "must specify destination 'dest'"})
+
 		return
 	}
 
@@ -190,6 +200,7 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		log.Printf("dest is in bad format")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad destination format 'bucket/object'"})
+
 		return
 	}
 
@@ -205,6 +216,7 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 	); err != nil {
 		log.Printf("failed to make actual copy: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to copy object"})
+
 		return
 	}
 
@@ -216,14 +228,16 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 	); err != nil {
 		log.Printf("failed to delete the actual old file: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete original"})
+
 		return
 	}
 
-	//database
+	// database
 	err := srv.fsl.Update(map[string]string{"newname": parts[1], "volume": parts[0], "name": ac.Target})
 	if err != nil {
 		log.Printf("failed to update inner fsl: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update file in local db"})
+
 		return
 	}
 
@@ -252,6 +266,7 @@ func (srv *UService) cpResourceHandler(c *gin.Context) {
 	if !exists {
 		log.Printf("access target header was not set properly")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
+
 		return
 	}
 	ac := acH.(ut.AccessClaim)
@@ -259,12 +274,14 @@ func (srv *UService) cpResourceHandler(c *gin.Context) {
 	dest := c.Request.URL.Query().Get("dest")
 	if dest == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "must specify destination 'dest'"})
+
 		return
 	}
 
 	parts := strings.SplitN(dest, "/", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad destination format 'bucket/object'"})
+
 		return
 	} // destV := parts[0] //destN := parts[1]
 
@@ -280,6 +297,7 @@ func (srv *UService) cpResourceHandler(c *gin.Context) {
 		},
 	); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to copy object"})
+
 		return
 	}
 
@@ -294,6 +312,7 @@ func (srv *UService) cpResourceHandler(c *gin.Context) {
 		},
 	); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to copy object"})
+
 		return
 	}
 
@@ -319,7 +338,9 @@ func (srv *UService) handleDownload(c *gin.Context) {
 	acH, exists := c.Get("accessTarget")
 	if !exists {
 		log.Printf("access target header was not set properly")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
+		c.JSON(http.StatusInternalServerError,
+			gin.H{"error": "access target header was not set correctly"})
+
 		return
 	}
 	ac := acH.(ut.AccessClaim)
@@ -327,16 +348,18 @@ func (srv *UService) handleDownload(c *gin.Context) {
 	if strings.HasSuffix(ac.Target, "/") {
 		log.Printf("target should be a file, not a directory")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "target should be a file, not a directory"})
+
 		return
 	}
 	// get the path
 	parts := strings.Split(ac.Target, "/")
 	path := strings.Join(parts[1:], "/")
 	name := parts[len(parts)-1]
-	vid, err := strconv.Atoi(ac.Vid)
+	vid, err := strconv.Atoi(ac.VID)
 	if err != nil && ac.Vname == "" {
 		log.Printf("failed to atoi vid: %v and vname not provided", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad vid"})
+
 		return
 	}
 
@@ -344,7 +367,7 @@ func (srv *UService) handleDownload(c *gin.Context) {
 		Path:  path,
 		Name:  name,
 		Vname: ac.Vname,
-		Vid:   vid,
+		VID:   vid,
 		Size:  -1,
 	}
 	var aR any = resource
@@ -353,6 +376,7 @@ func (srv *UService) handleDownload(c *gin.Context) {
 	if err != nil {
 		log.Printf("failed to retrieve resource: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to retrieve resource"})
+
 		return
 	}
 	defer cancelFn()
@@ -360,13 +384,15 @@ func (srv *UService) handleDownload(c *gin.Context) {
 	if resource.Reader == nil {
 		log.Printf("resource reader is nil")
 		c.JSON(http.StatusNotFound, gin.H{"error": "resource not found"})
+
 		return
 	}
 
-	c.DataFromReader(http.StatusOK, resource.Size, resource.Name, resource.Reader, map[string]string{
-		"Content-Disposition": "attachment; filename=\"" + resource.Name + "\"",
-		"Content-Type":        "application/octet-stream",
-	})
+	c.DataFromReader(http.StatusOK, resource.Size, resource.Name, resource.Reader,
+		map[string]string{
+			"Content-Disposition": "attachment; filename=\"" + resource.Name + "\"",
+			"Content-Type":        "application/octet-stream",
+		})
 }
 
 /* the main endpoint handler for resource uploading */
@@ -391,15 +417,18 @@ func (srv *UService) handleUpload(c *gin.Context) {
 	acH, exists := c.Get("accessTarget")
 	if !exists {
 		log.Printf("access target header was not set properly")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
+		c.JSON(http.StatusInternalServerError,
+			gin.H{"error": "access target header was not set correctly"})
+
 		return
 	}
 	ac, ok := acH.(ut.AccessClaim)
 	if !ok {
 		log.Printf("failed to cast, ac wasn't set properly")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target wasn't set properly"})
-		return
+		c.JSON(http.StatusInternalServerError,
+			gin.H{"error": "access target wasn't set properly"})
 
+		return
 	}
 
 	// 2]: authorization should be checked by now, by a middleware
@@ -412,6 +441,7 @@ func (srv *UService) handleUpload(c *gin.Context) {
 	if err != nil {
 		log.Printf("failed to parse multipart form: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to parse multipart form"})
+
 		return
 	}
 
@@ -431,19 +461,23 @@ func (srv *UService) handleUpload(c *gin.Context) {
 		if err != nil {
 			log.Printf("failed to atoi uid: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "bad uid"})
+
 			return
 		}
-		vid, err := strconv.Atoi(ac.Vid)
+		vid, err := strconv.Atoi(ac.VID)
 		if err != nil {
 			log.Printf("failed to atoi vid: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "bad vid"})
+
 			return
 		}
 
 		file, err := fileHeader.Open()
 		if err != nil {
 			log.Printf("failed to read uploaded file: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "fatal, failed to read uploaded files"})
+			c.JSON(http.StatusInternalServerError,
+				gin.H{"error": "fatal, failed to read uploaded files"})
+
 			return
 		}
 		defer func() {
@@ -456,7 +490,7 @@ func (srv *UService) handleUpload(c *gin.Context) {
 		currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 		/* Insert the appropriate metadata as a resource */
 		resource := ut.Resource{
-			Vid:    vid,
+			VID:    vid,
 			Vname:  ac.Vname,
 			Name:   ac.Target + fileHeader.Filename,
 			Path:   ac.Target,
@@ -468,14 +502,15 @@ func (srv *UService) handleUpload(c *gin.Context) {
 			AccessedAt: currentTime,
 			Perms:      "rw-r--r--",
 			UID:        uid,
-			Gid:        uid,
-			Size:       int64(fileHeader.Size),
+			GID:        uid,
+			Size:       fileHeader.Size,
 		}
 
 		_, err = srv.storage.Insert(resource)
 		if err != nil {
 			log.Printf("failed to insert resources: %v", err)
 			c.JSON(422, gin.H{"error": "failed to insert resources"})
+
 			return
 		}
 		// defer cancelFn()
@@ -483,6 +518,7 @@ func (srv *UService) handleUpload(c *gin.Context) {
 		if err != nil {
 			log.Printf("failed to insert resources to db: %v", err)
 			c.JSON(422, gin.H{"error": "failed to insert resources"})
+
 			return
 		}
 	}
@@ -514,7 +550,9 @@ func (srv *UService) handlePreview(c *gin.Context) {
 	acH, exists := c.Get("accessTarget")
 	if !exists {
 		log.Printf("access target header was not set properly")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
+		c.JSON(http.StatusInternalServerError,
+			gin.H{"error": "access target header was not set correctly"})
+
 		return
 	}
 	ac := acH.(ut.AccessClaim)
@@ -529,6 +567,7 @@ func (srv *UService) handlePreview(c *gin.Context) {
 	if err != nil {
 		log.Printf("error getting the download stream: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get download stream"})
+
 		return
 	}
 	defer cancel()
@@ -536,6 +575,7 @@ func (srv *UService) handlePreview(c *gin.Context) {
 	if resource.Reader == nil {
 		log.Printf("resource reader is nil")
 		c.JSON(http.StatusNotFound, gin.H{"error": "resource not found"})
+
 		return
 	}
 
@@ -557,7 +597,9 @@ func (srv *UService) handlePreview(c *gin.Context) {
 		}
 	}
 	if start > totalLength {
-		c.JSON(http.StatusRequestedRangeNotSatisfiable, gin.H{"error": "Requested range exceeds file size"})
+		c.JSON(http.StatusRequestedRangeNotSatisfiable,
+			gin.H{"error": "Requested range exceeds file size"})
+
 		return
 	}
 	if end >= totalLength {
@@ -580,11 +622,13 @@ func (srv *UService) handlePreview(c *gin.Context) {
 	}
 
 	_, err = readerAt.ReadAt(pContent, start)
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read resource"})
+
 		return
 	}
-	c.Header("Content-Range", "bytes "+strconv.FormatInt(start, 10)+"-"+strconv.FormatInt(end, 10)+"/"+strconv.FormatInt(totalLength, 10))
+	c.Header("Content-Range", "bytes "+strconv.FormatInt(start, 10)+
+		"-"+strconv.FormatInt(end, 10)+"/"+strconv.FormatInt(totalLength, 10))
 	c.Header("Accept-Ranges", "bytes")
 	c.Header("Content-Length", strconv.Itoa(len(pContent)))
 	c.Data(http.StatusPartialContent, "text/plain", pContent)
@@ -594,6 +638,7 @@ func buildTreeRec(tree map[string]any, entry []string, resource ut.Resource) {
 	// Check if the current level already exists in the tree
 	if len(entry) == 1 {
 		tree[entry[0]] = resource
+
 		return
 	} else if _, exists := tree[entry[0]]; !exists {
 		tree[entry[0]] = make(map[string]any)
@@ -624,12 +669,14 @@ func (srv *UService) chmodResourceHandler(c *gin.Context) {
 	if rid == "" {
 		log.Printf("empty rid, not allowed")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a rid"})
+
 		return
 	}
 	newPerms := c.PostForm("permissions")
 	if newPerms == "" {
 		log.Printf("empty perms, not allowed")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide perms as formvalue"})
+
 		return
 	}
 
@@ -638,6 +685,7 @@ func (srv *UService) chmodResourceHandler(c *gin.Context) {
 	if err != nil {
 		log.Printf("error updating resource perms: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
+
 		return
 	}
 
@@ -668,6 +716,7 @@ func (srv *UService) chownResourceHandler(c *gin.Context) {
 	if rid == "" {
 		log.Printf("empty rid, not allowed")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a rid"})
+
 		return
 	}
 	newOwner := c.PostForm("owner")
@@ -675,6 +724,7 @@ func (srv *UService) chownResourceHandler(c *gin.Context) {
 	if newOwner == "" {
 		log.Printf("empty uid, not allowed")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a uid as formvalue"})
+
 		return
 	}
 
@@ -683,6 +733,7 @@ func (srv *UService) chownResourceHandler(c *gin.Context) {
 	if err != nil {
 		log.Printf("error updating resource uid: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
+
 		return
 	}
 
@@ -713,12 +764,14 @@ func (srv *UService) chgroupResourceHandler(c *gin.Context) {
 	if rid == "" {
 		log.Printf("empty rid, not allowed")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a rid"})
+
 		return
 	}
 	newGroup := c.PostForm("group")
 	if newGroup == "" {
 		log.Printf("empty gid, not allowed")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a gid as formvalue"})
+
 		return
 	}
 
@@ -727,6 +780,7 @@ func (srv *UService) chgroupResourceHandler(c *gin.Context) {
 	if err != nil {
 		log.Printf("error updating resource group: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
+
 		return
 	}
 

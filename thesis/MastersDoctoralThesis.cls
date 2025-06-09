@@ -281,7 +281,8 @@
 \brokenpenalty=10000 % No broken words across columns/pages
 \widowpenalty=9999 % Almost no widows at bottom of page
 \clubpenalty=9999 % Almost no orphans at top of page
-\interfootnotelinepenalty=9999 % Almost never break footnotes
+\interfootnotelinepenalty=9999 % Almost never 
+break footnotes
 
 %----------------------------------------------------------------------------------------
 %	HEADERS AND FOOTERS

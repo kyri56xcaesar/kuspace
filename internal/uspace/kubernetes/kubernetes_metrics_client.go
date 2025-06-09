@@ -159,6 +159,7 @@ func GetSystemMetrics(ns string) (map[string]any, error) {
 	// ---- ERRORS ----
 	if len(allErrors) > 0 {
 		result["errors"] = allErrors
+
 		return result, fmt.Errorf("partial system metrics with %d errors", len(allErrors))
 	}
 

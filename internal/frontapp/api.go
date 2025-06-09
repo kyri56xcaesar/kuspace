@@ -4,9 +4,11 @@ package frontendapp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"log"
+	"net"
 	"net/http"
 	"os/signal"
 	"reflect"
@@ -50,17 +52,18 @@ func NewService(conf string) HTTPService {
 	setGinMode(service.Config.APIGinMode)
 	service.Engine = gin.Default()
 
-	authServiceURL = fmt.Sprintf("http://%s:%s", service.Config.AuthAddress, service.Config.AuthPort)
-	apiServiceURL = fmt.Sprintf("http://%s:%s", service.Config.APIAddress, service.Config.APIPort)
+	authServiceURL = fmt.Sprintf("http://%s", net.JoinHostPort(service.Config.AuthAddress, service.Config.AuthPort))
+	apiServiceURL = fmt.Sprintf("http://%s", net.JoinHostPort(service.Config.APIAddress, service.Config.APIPort))
 	if strings.ToLower(service.Config.Profile) == "container" {
-		wssServiceURL = fmt.Sprintf("http://%s", service.Config.WssAddressInternal)
+		wssServiceURL = "http://" + service.Config.WssAddressInternal
 	} else {
-		wssServiceURL = fmt.Sprintf("http://%s", service.Config.WssAddress)
+		wssServiceURL = "http://" + service.Config.WssAddress
 	}
+
 	return service
 }
 
-// Serve function launces the listening server
+// ServeHTTP function launces the listening server
 func (srv *HTTPService) ServeHTTP() {
 	corsconfig := cors.DefaultConfig()
 	corsconfig.AllowOrigins = srv.Config.AllowedOrigins
@@ -82,11 +85,15 @@ func (srv *HTTPService) ServeHTTP() {
 			if ut.ToFloat64(b) == 0 {
 				return 0
 			}
+
 			return ut.ToFloat64(a) / ut.ToFloat64(b)
 		},
-		"typeIs": func(value any, t string) bool { return reflect.TypeOf(value).Kind().String() == t },
+		"typeIs": func(value any, t string) bool {
+			return reflect.TypeOf(value).Kind().String() == t
+		},
 		"hasKey": func(value map[string]any, key string) bool {
 			_, exists := value[key]
+
 			return exists
 		},
 		"lt": func(a, b any) bool {
@@ -99,14 +106,16 @@ func (srv *HTTPService) ServeHTTP() {
 			if val, ok := m[key]; ok {
 				return val
 			}
+
 			return nil // Return nil if key does not exist
 		},
 		"findGroupVolume": func(s []ut.GroupVolume, gid int) *ut.GroupVolume {
 			for _, v := range s {
-				if v.Gid == gid {
+				if v.GID == gid {
 					return &v
 				}
 			}
+
 			return nil
 		},
 		"findUserVolume": func(s []ut.UserVolume, uid int) *ut.UserVolume {
@@ -115,10 +124,15 @@ func (srv *HTTPService) ServeHTTP() {
 					return &v
 				}
 			}
+
 			return nil
 		},
 		"toJSON": func(v any) template.JS {
-			b, _ := json.Marshal(v)
+			b, err := json.Marshal(v)
+			if err != nil {
+				return template.JS("{}")
+			}
+
 			return template.JS(b)
 		},
 		"lower":     strings.ToLower,
@@ -178,6 +192,7 @@ func (srv *HTTPService) ServeHTTP() {
 
 			if params == nil {
 				c.JSON(http.StatusBadRequest, gin.H{"status": "no params specified"})
+
 				return
 			}
 
@@ -186,7 +201,7 @@ func (srv *HTTPService) ServeHTTP() {
 				c.SetCookie(key, "", 1, "/api/v1/", "", false, true) // Set the username cookie
 			}
 			log.Print("cookies deleted")
-			c.Redirect(300, "/api/v1/login")
+			c.Redirect(http.StatusMultipleChoices, "/api/v1/login")
 		})
 	}
 
@@ -290,7 +305,7 @@ func (srv *HTTPService) ServeHTTP() {
 	}
 
 	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("listen: %s\n", err)
 		}
 	}()
@@ -327,14 +342,17 @@ func setGinMode(mode string) {
 func bytesToMB(bytes any) string {
 	switch v := bytes.(type) {
 	case int64:
+
 		return fmt.Sprintf("%.1f", float64(v)/1024.0/1024.0)
 	case float64:
+
 		return fmt.Sprintf("%.1f", v/1024.0/1024.0)
 	case string:
 		if num, err := strconv.ParseInt(v, 10, 64); err == nil {
 			return fmt.Sprintf("%.1f", float64(num)/1024.0/1024.0)
 		}
 	}
+
 	return "N/A"
 }
 
@@ -350,18 +368,23 @@ func ago(t any) string {
 			return "invalid time"
 		}
 	default:
+
 		return "unknown time"
 	}
 
 	diff := time.Since(parsed)
 	switch {
 	case diff < time.Minute:
+
 		return "just now"
 	case diff < time.Hour:
+
 		return fmt.Sprintf("%d min ago", int(diff.Minutes()))
 	case diff < 24*time.Hour:
+
 		return fmt.Sprintf("%d hr ago", int(diff.Hours()))
 	default:
+
 		return fmt.Sprintf("%d days ago", int(diff.Hours()/24))
 	}
 }

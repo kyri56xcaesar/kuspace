@@ -1,4 +1,4 @@
-package test
+package coding_test
 
 import (
 	"testing"
@@ -20,7 +20,7 @@ func TestBinding(t *testing.T) {
 	assert.DeepEqual(t, ac, ut.AccessClaim{
 		UID:        "0",
 		Gids:       "0,100,1000",
-		Vid:        "3",
+		VID:        "3",
 		Vname:      "test-volume",
 		Target:     "/hello/motf4k",
 		HasKeyword: false,
@@ -34,7 +34,7 @@ func TestBinding(t *testing.T) {
 	assert.DeepEqual(t, ac, ut.AccessClaim{
 		UID:        "0",
 		Gids:       "0",
-		Vid:        "1",
+		VID:        "1",
 		Vname:      "",
 		Target:     "1,2,3",
 		HasKeyword: true,

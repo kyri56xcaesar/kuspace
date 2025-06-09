@@ -5,25 +5,25 @@ metadata:
   namespace: kuspace
 data:
   frontapp.conf: |
-    API_PORT=8079
-    ALLOWED_ORIGINS=*
-    J_MAX_TIMEOUT=10
-    MINIO_DEFAULT_BUCKET=uspace-default
-    API_ADDRESS=uspace
-    FRONT_PORT=8080
-    ALLOWED_METHODS=GET,POST,PATCH,DELETE,PUT
     J_MAX_LOGIC_CHARS=1000000
-    API_GIN_MODE=release
-    PROFILE=container
-    FRONT_ADDRESS=frontapp
-    J_WS_ADDRESS=192.168.49.2:30082
-    J_MAX_CPU=1
-    J_MAX_MEM=33000
-    J_MAX_STORAGE=4
-    AUTH_PORT=9090
-    AUTH_ADDRESS=minioth
+    VERBOSE=true
+    API_ADDRESS=uspace
     WSS_ADDRESS_INTERNAL=wss:8082
-    ALLOWED_HEADERS=Origin,Content-Type,Authorization,Access-Control-Allow-Origin
+    ALLOWED_ORIGINS=*
+    J_MAX_CPU=1
+    J_MAX_STORAGE=4
     J_MAX_PARALLELISM=4
     IP=0.0.0.0
-    VERBOSE=true
+    API_GIN_MODE=release
+    API_PORT=8079
+    AUTH_PORT=9090
+    AUTH_ADDRESS=minioth
+    J_MAX_TIMEOUT=10
+    MINIO_DEFAULT_BUCKET=uspace-default
+    PROFILE=container
+    FRONT_PORT=8080
+    FRONT_ADDRESS=frontapp
+    J_WS_ADDRESS=46.103.183.191:30082
+    ALLOWED_METHODS=GET,POST,PATCH,DELETE,PUT
+    ALLOWED_HEADERS=Origin,Content-Type,Authorization,Access-Control-Allow-Origin
+    J_MAX_MEM=33000

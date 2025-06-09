@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	// MaxFold defines the number of times an occurence of a character appears in a block
+	// MaxFold defines the number of times an occurrence of a character appears in a block
 	MaxFold = 20
 	// MaxLength defines the number of characters in one line
 	MaxLength = 1000
@@ -39,7 +39,7 @@ const (
 )
 
 var (
-	charset    = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" //default charset
+	charset    = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" // default charset
 	output     = flag.String("out", "random_dataset.csv", "specify output file")
 	lineLength = flag.Int("length", 10, "length of each field")
 	lineHeight = flag.Int("lines", 10, "number of lines (rows)")
@@ -78,6 +78,7 @@ func generateRandomTable() [][]string {
 		}
 		data[i] = row
 	}
+
 	return data
 }
 
@@ -112,6 +113,7 @@ func formatTo(formatType string, table [][]string) []byte {
 		_ = writer.Write(headers)
 		_ = writer.WriteAll(table)
 		writer.Flush()
+
 		return []byte(out.String())
 
 	case "json":
@@ -119,6 +121,7 @@ func formatTo(formatType string, table [][]string) []byte {
 		if err != nil {
 			return []byte("error: failed to marshal JSON\n")
 		}
+
 		return data
 
 	case "yaml", "yml":
@@ -126,15 +129,18 @@ func formatTo(formatType string, table [][]string) []byte {
 		if err != nil {
 			return []byte("error: failed to marshal YAML\n")
 		}
+
 		return data
 
 	case "txt", "text", "str", "string":
 		for _, row := range table {
 			out.WriteString(strings.Join(row, "") + "\n")
 		}
+
 		return []byte(out.String())
 
 	default:
+
 		return []byte("Unsupported format\n")
 	}
 }
@@ -142,11 +148,13 @@ func formatTo(formatType string, table [][]string) []byte {
 func writeToFile(filename string, data []byte) error {
 	if err := os.MkdirAll(outputPath, 0755); err != nil {
 		log.Printf("failed to check-make file parents: %v", err)
+
 		return err
 	}
 	f, err := os.OpenFile(outputPath+filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 	if err != nil {
 		log.Printf("failed to open file: %v", err)
+
 		return err
 	}
 	_, err = f.Write(data)
@@ -177,6 +185,7 @@ func perform(ctx context.Context) {
 	select {
 	case <-ctx.Done():
 		log.Println("Operation timed out.")
+
 		return
 	default:
 		if *toFile {
@@ -229,7 +238,6 @@ func parseFlags() {
 }
 
 func main() {
-
 	parseFlags()
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*timeout)*time.Second)

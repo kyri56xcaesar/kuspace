@@ -2,13 +2,15 @@ package minioth
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
-	ut "kyri56xcaesar/kuspace/internal/utils"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
+
+	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
 const (
@@ -16,12 +18,12 @@ const (
 	miniothGroup        = "data/plain/minioth/mgroup"
 	miniothShadow       = "data/plain/minioth/mshadow"
 	placeholderPass     = "bcrypted_password_hash" // what is shown in passwd for password
-	del                 = ":"                      //delimitter
+	del                 = ":"                      // delimitter
 	entryMPasswdFormat  = "%s" + del + "%s" + del + "%v" + del + "%v" + del + "%s" + del + "%s" + del + "%s\n"
 	entryMPshadowFormat = "%s" + del + "%s" + del + "%s" + del + "%s" + del + "%s" + del + "%s" + del + "%s" + del + "%s" + del + "%v\n"
 	entryMGroupFormat   = "%s" + del + "%v" + del + "%v\n"
 	// username:password ref:uuid:guid:info:home:shell
-	// username:hashed_pass:last_password_change:min_password_age:max_password_age:warning_period:inactivity_period:expiration_date: (bunch of times)
+	// username:hashed_pass:lastPasswordChange:minPassword_age:maxPasswordAge:warningPeriod:inactivityPeriod:expirationDate: (bunch of times)
 	// groupname:group_id:users
 )
 
@@ -69,7 +71,7 @@ func (m *PlainHandler) Init() {
 			[]ut.Group{
 				{
 					Groupname: "admin",
-					Gid:       0,
+					GID:       0,
 					Users: []ut.User{
 						{
 							Username: m.minioth.Config.MinioAccessKey,
@@ -78,12 +80,12 @@ func (m *PlainHandler) Init() {
 				},
 				{
 					Groupname: "mod",
-					Gid:       100,
+					GID:       100,
 					Users:     []ut.User{},
 				},
 				{
 					Groupname: "user",
-					Gid:       1000,
+					GID:       1000,
 					Users:     []ut.User{},
 				},
 			},
@@ -95,7 +97,6 @@ func (m *PlainHandler) Init() {
 
 	log.Print("[INIT]Syncing user ids")
 	syncCurrentIDs()
-
 }
 
 func (m *PlainHandler) insertAdminAndMainGroups(user ut.User, groups []ut.Group) error {
@@ -103,6 +104,7 @@ func (m *PlainHandler) insertAdminAndMainGroups(user ut.User, groups []ut.Group)
 	file, err := os.OpenFile(miniothPasswd, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o644)
 	if err != nil {
 		log.Printf("error opening file: %v", err)
+
 		return err
 	}
 	defer func() {
@@ -115,6 +117,7 @@ func (m *PlainHandler) insertAdminAndMainGroups(user ut.User, groups []ut.Group)
 	pfile, err := os.OpenFile(miniothShadow, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o600)
 	if err != nil {
 		log.Printf("error opening file: %v", err)
+
 		return err
 	}
 	defer func() {
@@ -127,6 +130,7 @@ func (m *PlainHandler) insertAdminAndMainGroups(user ut.User, groups []ut.Group)
 	gfile, err := os.OpenFile(miniothGroup, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o644)
 	if err != nil {
 		log.Printf("error opening file: %v", err)
+
 		return err
 	}
 	defer func() {
@@ -136,10 +140,11 @@ func (m *PlainHandler) insertAdminAndMainGroups(user ut.User, groups []ut.Group)
 		}
 	}()
 
-	// Generate password early, return early if failed...
+	// Generate password early, exit early if failed...
 	hashPass, err := hash([]byte(user.Password.Hashpass))
 	if err != nil {
 		log.Printf("failed to hash the pass... :%v", err)
+
 		return err
 	}
 
@@ -155,7 +160,7 @@ func (m *PlainHandler) insertAdminAndMainGroups(user ut.User, groups []ut.Group)
 		log.Printf("failed to write entry: %v", err)
 	}
 	for _, group := range groups {
-		_, err = fmt.Fprintf(gfile, entryMGroupFormat, group.Groupname, group.Gid, ut.UsersToString(group.Users))
+		_, err = fmt.Fprintf(gfile, entryMGroupFormat, group.Groupname, group.GID, ut.UsersToString(group.Users))
 		if err != nil {
 			log.Printf("failed to write entry: %v", err)
 		}
@@ -170,6 +175,7 @@ func (m *PlainHandler) Useradd(user ut.User) (int, int, error) {
 	file, err := os.OpenFile(miniothPasswd, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o644)
 	if err != nil {
 		log.Printf("error opening file: %v", err)
+
 		return -1, -1, err
 	}
 	defer func() {
@@ -182,6 +188,7 @@ func (m *PlainHandler) Useradd(user ut.User) (int, int, error) {
 	pfile, err := os.OpenFile(miniothShadow, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o600)
 	if err != nil {
 		log.Printf("error opening file: %v", err)
+
 		return -1, -1, err
 	}
 	defer func() {
@@ -194,6 +201,7 @@ func (m *PlainHandler) Useradd(user ut.User) (int, int, error) {
 	gfile, err := os.OpenFile(miniothGroup, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o644)
 	if err != nil {
 		log.Printf("error opening file: %v", err)
+
 		return -1, -1, err
 	}
 	defer func() {
@@ -207,13 +215,15 @@ func (m *PlainHandler) Useradd(user ut.User) (int, int, error) {
 	err = exists(user.Username, "users")
 	if err != nil {
 		log.Printf("error: user already exists: %v", err)
+
 		return -1, -1, err
 	}
 
-	// Generate password early, return early if failed...
+	// Generate password early, exit early if failed...
 	hashPass, err := hash([]byte(user.Password.Hashpass))
 	if err != nil {
 		log.Printf("failed to hash the pass... :%v", err)
+
 		return -1, -1, err
 	}
 	uid := currentUserID
@@ -226,11 +236,13 @@ func (m *PlainHandler) Useradd(user ut.User) (int, int, error) {
 	_, err = fmt.Fprintf(file, entryMPasswdFormat, user.Username, placeholderPass, uid, uid, user.Info, user.Home, user.Shell)
 	if err != nil {
 		log.Printf("failed to write to file: %v", err)
+
 		return -1, -1, err
 	}
 	_, err = fmt.Fprintf(pfile, entryMPshadowFormat, user.Username, hashPass, user.Password.LastPasswordChange, user.Password.MinimumPasswordAge, user.Password.MaximumPasswordAge, user.Password.WarningPeriod, user.Password.InactivityPeriod, user.Password.ExpirationDate, len(user.Password.Hashpass))
 	if err != nil {
 		log.Printf("failed to write to file: %v", err)
+
 		return -1, -1, err
 	}
 
@@ -241,12 +253,14 @@ func (m *PlainHandler) Useradd(user ut.User) (int, int, error) {
 func (m *PlainHandler) Userdel(uid string) error {
 	if uid == "" {
 		log.Print("must provide a uid")
-		return fmt.Errorf("must provide a uid")
+
+		return errors.New("must provide a uid")
 	}
 
 	f, err := os.OpenFile(miniothPasswd, os.O_RDWR, 0o600)
 	if err != nil {
 		fmt.Printf("error opening file: %v", err)
+
 		return err
 	}
 	defer func() {
@@ -277,6 +291,7 @@ func (m *PlainHandler) Userdel(uid string) error {
 	f, err = os.Create(miniothPasswd)
 	if err != nil {
 		log.Print("failed to create the file")
+
 		return err
 	}
 	defer func() {
@@ -308,6 +323,7 @@ func (m *PlainHandler) Usermod(user ut.User) error {
 	f, err := os.OpenFile(miniothPasswd, os.O_RDWR, 0o600)
 	if err != nil {
 		fmt.Printf("error opening file: %v", err)
+
 		return err
 	}
 	defer func() {
@@ -343,6 +359,7 @@ func (m *PlainHandler) Usermod(user ut.User) error {
 	f, err = os.Create(miniothPasswd)
 	if err != nil {
 		log.Print("failed to create the file")
+
 		return err
 	}
 	defer func() {
@@ -371,6 +388,7 @@ func (m *PlainHandler) Userpatch(uid string, fields map[string]any) error {
 	f, err := os.OpenFile(miniothPasswd, os.O_RDWR, 0o600)
 	if err != nil {
 		fmt.Printf("error opening file: %v", err)
+
 		return err
 	}
 	defer func() {
@@ -426,6 +444,7 @@ func (m *PlainHandler) Userpatch(uid string, fields map[string]any) error {
 	f, err = os.Create(miniothPasswd)
 	if err != nil {
 		log.Print("failed to create the file")
+
 		return err
 	}
 	defer func() {
@@ -446,6 +465,7 @@ func (m *PlainHandler) Userpatch(uid string, fields map[string]any) error {
 	if err := writer.Flush(); err != nil {
 		return fmt.Errorf("failed to flush writer: %w", err)
 	}
+
 	return nil
 }
 
@@ -454,6 +474,7 @@ func (m *PlainHandler) Groupadd(group ut.Group) (int, error) {
 	file, err := os.OpenFile(miniothGroup, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o644)
 	if err != nil {
 		log.Printf("error opening file: %v", err)
+
 		return -1, err
 	}
 	defer func() {
@@ -466,6 +487,7 @@ func (m *PlainHandler) Groupadd(group ut.Group) (int, error) {
 	err = exists(group.Groupname, "groups")
 	if err != nil {
 		log.Printf("error: group already exists: %v", err)
+
 		return -1, err
 	}
 
@@ -486,12 +508,14 @@ func (m *PlainHandler) Groupadd(group ut.Group) (int, error) {
 func (m *PlainHandler) Groupdel(gid string) error {
 	if gid == "" {
 		log.Print("must provide a uid")
-		return fmt.Errorf("must provide a uid")
+
+		return errors.New("must provide a uid")
 	}
 
 	f, err := os.OpenFile(miniothGroup, os.O_RDWR, 0o600)
 	if err != nil {
 		fmt.Printf("error opening file: %v", err)
+
 		return err
 	}
 	defer func() {
@@ -520,6 +544,7 @@ func (m *PlainHandler) Groupdel(gid string) error {
 	f, err = os.Create(miniothGroup)
 	if err != nil {
 		log.Print("failed to create the file")
+
 		return err
 	}
 	defer func() {
@@ -540,6 +565,7 @@ func (m *PlainHandler) Groupdel(gid string) error {
 		return fmt.Errorf("failed to flush writer: %w", err)
 	}
 	currentGroupID--
+
 	return nil
 }
 
@@ -548,6 +574,7 @@ func (m *PlainHandler) Groupmod(group ut.Group) error {
 	f, err := os.OpenFile(miniothGroup, os.O_RDWR, 0o600)
 	if err != nil {
 		fmt.Printf("error opening file: %v", err)
+
 		return err
 	}
 	defer func() {
@@ -565,7 +592,7 @@ func (m *PlainHandler) Groupmod(group ut.Group) error {
 		if len(parts) < 3 {
 			continue
 		}
-		if parts[1] != strconv.Itoa(group.Gid) {
+		if parts[1] != strconv.Itoa(group.GID) {
 			updated = append(updated, line)
 		} else {
 			parts[0] = group.Groupname
@@ -579,6 +606,7 @@ func (m *PlainHandler) Groupmod(group ut.Group) error {
 	f, err = os.Create(miniothGroup)
 	if err != nil {
 		log.Print("failed to create the file")
+
 		return err
 	}
 	defer func() {
@@ -598,6 +626,7 @@ func (m *PlainHandler) Groupmod(group ut.Group) error {
 	if err := writer.Flush(); err != nil {
 		return fmt.Errorf("failed to flush writer: %w", err)
 	}
+
 	return nil
 }
 
@@ -606,6 +635,7 @@ func (m *PlainHandler) Grouppatch(gid string, fields map[string]any) error {
 	f, err := os.OpenFile(miniothGroup, os.O_RDWR, 0o600)
 	if err != nil {
 		fmt.Printf("error opening file: %v", err)
+
 		return err
 	}
 	defer func() {
@@ -651,6 +681,7 @@ func (m *PlainHandler) Grouppatch(gid string, fields map[string]any) error {
 	f, err = os.Create(miniothGroup)
 	if err != nil {
 		log.Print("failed to create the file")
+
 		return err
 	}
 	defer func() {
@@ -670,6 +701,7 @@ func (m *PlainHandler) Grouppatch(gid string, fields map[string]any) error {
 	if err := writer.Flush(); err != nil {
 		return fmt.Errorf("failed to flush writer: %w", err)
 	}
+
 	return nil
 }
 
@@ -691,6 +723,7 @@ func (m *PlainHandler) Select(id string) any {
 		f, err := os.Open(miniothPasswd)
 		if err != nil {
 			log.Printf("error reading file: %v", err)
+
 			return nil
 		}
 		defer func() {
@@ -703,11 +736,13 @@ func (m *PlainHandler) Select(id string) any {
 			entry, err := getUserEntryByID(value, f)
 			if err != nil {
 				log.Printf("failed to get entry")
+
 				return nil
 			}
 			g, err := os.Open(miniothGroup)
 			if err != nil {
 				log.Printf("error reading file: %v", err)
+
 				return nil
 			}
 			defer func() {
@@ -719,6 +754,7 @@ func (m *PlainHandler) Select(id string) any {
 			groups, err := getUserGroups(entry.Username, g)
 			if err != nil {
 				log.Printf("error getting user groups")
+
 				return nil
 			}
 			entry.Groups = groups
@@ -728,8 +764,10 @@ func (m *PlainHandler) Select(id string) any {
 		users, err = getUserEntries(f)
 		if err != nil {
 			log.Printf("failed to get group entries")
+
 			return nil
 		}
+
 		return users
 
 	case "groups":
@@ -737,6 +775,7 @@ func (m *PlainHandler) Select(id string) any {
 		f, err := os.Open(miniothGroup)
 		if err != nil {
 			log.Printf("error reading file: %v", err)
+
 			return nil
 		}
 		defer func() {
@@ -750,19 +789,24 @@ func (m *PlainHandler) Select(id string) any {
 			entry, err := getGroupEntryByID(value, f)
 			if err != nil {
 				log.Printf("failed to get entry")
+
 				return nil
 			}
+
 			return entry
 		}
 		groups, err = getGroupEntries(f)
 		if err != nil {
 			log.Printf("failed to get group entries")
+
 			return nil
 		}
+
 		return groups
 
 	default:
 		log.Print("Invalid id: " + id)
+
 		return nil
 	}
 }
@@ -775,6 +819,7 @@ func (m *PlainHandler) Authenticate(username, password string) (ut.User, error) 
 	pfile, err := os.Open(miniothShadow)
 	if err != nil {
 		log.Printf("failed to open file: %v", err)
+
 		return user, err
 	}
 	defer func() {
@@ -787,12 +832,13 @@ func (m *PlainHandler) Authenticate(username, password string) (ut.User, error) 
 	passline, pline, err := getEntry(username, pfile)
 	if err != nil || pline == -1 {
 		log.Printf("failed to search for pass: %v", err)
+
 		return user, err
 	}
 
 	p := strings.SplitN(passline, del, 3)
 	if len(p) != 3 {
-		return user, fmt.Errorf("invalid shadow line retrieved")
+		return user, errors.New("invalid shadow line retrieved")
 	}
 	hashpass := p[1]
 
@@ -801,6 +847,7 @@ func (m *PlainHandler) Authenticate(username, password string) (ut.User, error) 
 		file, err := os.Open(miniothPasswd)
 		if err != nil {
 			log.Printf("failed to open file: %v", err)
+
 			return user, err
 		}
 		defer func() {
@@ -813,21 +860,22 @@ func (m *PlainHandler) Authenticate(username, password string) (ut.User, error) 
 		userline, pline, err := getEntry(username, file)
 		if err != nil || pline == -1 {
 			log.Printf("failed to search for pass: %v", err)
+
 			return user, err
 		}
 		p := strings.Split(userline, ":")
 		if len(p) != 7 {
-			return user, fmt.Errorf("invalid user entry")
+			return user, errors.New("invalid user entry")
 		}
 		user.Username = username
 		user.Password = ut.Password{}
 		user.UID, err = strconv.Atoi(p[2])
 		if err != nil {
-			return user, fmt.Errorf("failed to atoi user id")
+			return user, errors.New("failed to atoi user id")
 		}
 		user.Pgroup, err = strconv.Atoi(p[3])
 		if err != nil {
-			return user, fmt.Errorf("failed to atoi user pgroup")
+			return user, errors.New("failed to atoi user pgroup")
 		}
 		user.Info = p[4]
 		user.Home = p[5]
@@ -837,6 +885,7 @@ func (m *PlainHandler) Authenticate(username, password string) (ut.User, error) 
 		gfile, err := os.Open(miniothGroup)
 		if err != nil {
 			log.Printf("failed to open file: %v", err)
+
 			return user, err
 		}
 		defer func() {
@@ -848,13 +897,15 @@ func (m *PlainHandler) Authenticate(username, password string) (ut.User, error) 
 		groups, err := getUserGroups(username, gfile)
 		if err != nil {
 			log.Printf("failed to get the user groups: %v", err)
+
 			return user, err
 		}
 		user.Groups = groups
 
 		return user, nil
 	}
-	return user, fmt.Errorf("failed to authenticate, bad creds")
+
+	return user, errors.New("failed to authenticate, bad creds")
 }
 
 // Passwd method of the Plain Minioth Handler
@@ -862,6 +913,7 @@ func (m *PlainHandler) Passwd(username, password string) error {
 	f, err := os.OpenFile(miniothShadow, os.O_RDWR, 0o600)
 	if err != nil {
 		log.Printf("error opening file: %v", err)
+
 		return err
 	}
 	defer func() {
@@ -886,6 +938,7 @@ func (m *PlainHandler) Passwd(username, password string) error {
 			newPass, err := hash([]byte(password))
 			if err != nil {
 				log.Printf("Failed to hash the pass... :%v", err)
+
 				return err
 			}
 			parts[1] = string(newPass)
@@ -900,6 +953,7 @@ func (m *PlainHandler) Passwd(username, password string) error {
 	f, err = os.Create(miniothShadow)
 	if err != nil {
 		log.Print("failed to create the file")
+
 		return err
 	}
 	defer func() {
@@ -1006,6 +1060,7 @@ func exists(who, what string) error {
 		file, err := os.Open(miniothPasswd)
 		if err != nil {
 			log.Printf("error opening file: %v", err)
+
 			return err
 		}
 		defer func() {
@@ -1016,12 +1071,13 @@ func exists(who, what string) error {
 		}()
 		_, line, err := getEntry(who, file)
 		if err == nil && line != -1 {
-			return fmt.Errorf("user already exists")
+			return errors.New("user already exists")
 		}
 	} else if what == "groups" {
 		file, err := os.Open(miniothGroup)
 		if err != nil {
 			log.Printf("error opening file: %v", err)
+
 			return err
 		}
 		defer func() {
@@ -1032,17 +1088,18 @@ func exists(who, what string) error {
 		}()
 		_, line, err := getEntry(who, file)
 		if err == nil && line != -1 {
-			return fmt.Errorf("group already exists")
+			return errors.New("group already exists")
 		}
 	} else {
-		return fmt.Errorf("invalid search")
+		return errors.New("invalid search")
 	}
+
 	return nil
 }
 
 func getEntry(name string, file *os.File) (string, int, error) {
 	if name == "" || file == nil {
-		return "", -1, fmt.Errorf("must provide parameter")
+		return "", -1, errors.New("must provide parameter")
 	}
 	scanner := bufio.NewScanner(file)
 
@@ -1051,27 +1108,26 @@ func getEntry(name string, file *os.File) (string, int, error) {
 		line := scanner.Text()
 		parts := strings.SplitN(line, del, 2)
 		if len(parts) != 2 {
-			return "", -1, fmt.Errorf("no content found")
+			return "", -1, errors.New("no content found")
 		}
 		if name == parts[0] {
 			return line, lineIndex, nil
 		}
 
 		lineIndex++
-
 	}
 
-	return "", -1, fmt.Errorf("not found")
+	return "", -1, errors.New("not found")
 }
 
 func getUserEntries(f *os.File) ([]ut.User, error) {
 	if f == nil {
-		return nil, fmt.Errorf("must provide a file pointer")
+		return nil, errors.New("must provide a file pointer")
 	}
 	// store shadow contents in mem
 	sf, err := os.Open(miniothShadow)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open shadow file")
+		return nil, errors.New("failed to open shadow file")
 	}
 	shadowMap := map[string]ut.Password{}
 
@@ -1080,7 +1136,7 @@ func getUserEntries(f *os.File) ([]ut.User, error) {
 		line := scanner.Text()
 		p := strings.SplitN(line, del, 8)
 		if len(p) != 8 {
-			return nil, fmt.Errorf("invalid shadow entries format")
+			return nil, errors.New("invalid shadow entries format")
 		}
 		pass := ut.Password{
 			Hashpass:           p[1],
@@ -1096,6 +1152,7 @@ func getUserEntries(f *os.File) ([]ut.User, error) {
 	err = sf.Close()
 	if err != nil {
 		log.Printf("failed to close the shadow file: %v", err)
+
 		return nil, err
 	}
 
@@ -1105,15 +1162,15 @@ func getUserEntries(f *os.File) ([]ut.User, error) {
 		line := scanner.Text()
 		p := strings.SplitN(line, del, 7)
 		if len(p) != 7 {
-			return nil, fmt.Errorf("invalid passwd entries format")
+			return nil, errors.New("invalid passwd entries format")
 		}
 		uid, err := strconv.Atoi(p[2])
 		if err != nil {
-			return nil, fmt.Errorf("failed to atoi  uid, invalid passwd entry")
+			return nil, errors.New("failed to atoi  uid, invalid passwd entry")
 		}
 		pgroup, err := strconv.Atoi(p[3])
 		if err != nil {
-			return nil, fmt.Errorf("failed to atoi pgroup, invalid passwd entry")
+			return nil, errors.New("failed to atoi pgroup, invalid passwd entry")
 		}
 		user := ut.User{
 			Username: p[0],
@@ -1126,21 +1183,22 @@ func getUserEntries(f *os.File) ([]ut.User, error) {
 		}
 
 		users = append(users, user)
-
 	}
+
 	return users, nil
 }
 
 func getUserEntryByID(id string, f *os.File) (ut.User, error) {
 	if f == nil {
-		return ut.User{}, fmt.Errorf("must provide a file pointer")
+		return ut.User{}, errors.New("must provide a file pointer")
 	}
 	scanner := bufio.NewScanner(f)
 
 	sf, err := os.Open(miniothShadow)
 	if err != nil {
 		log.Printf("failed to open shadow file")
-		return ut.User{}, fmt.Errorf("failed to open shadow file: %v", err)
+
+		return ut.User{}, fmt.Errorf("failed to open shadow file: %w", err)
 	}
 	defer func() {
 		err := sf.Close()
@@ -1153,18 +1211,19 @@ func getUserEntryByID(id string, f *os.File) (ut.User, error) {
 		line := scanner.Text()
 		parts := strings.SplitN(line, del, 7)
 		if len(parts) != 7 {
-			return ut.User{}, fmt.Errorf("no content found")
+			return ut.User{}, errors.New("no content found")
 		}
 		if id == parts[2] {
 			passLine, _, err := getEntry(parts[0], sf)
 			if err != nil {
 				log.Printf("failed to retrieve password entry: %v", err)
-				return ut.User{}, fmt.Errorf("failed to retrieve password entry")
+
+				return ut.User{}, errors.New("failed to retrieve password entry")
 			}
 			// parse password
 			pp := strings.SplitN(passLine, del, 8)
 			if len(pp) != 8 {
-				return ut.User{}, fmt.Errorf("invalid shadow entry")
+				return ut.User{}, errors.New("invalid shadow entry")
 			}
 			pass := ut.Password{
 				Hashpass:           pp[1],
@@ -1178,11 +1237,11 @@ func getUserEntryByID(id string, f *os.File) (ut.User, error) {
 
 			uid, err := strconv.Atoi(parts[2])
 			if err != nil {
-				return ut.User{}, fmt.Errorf("failed to atoi  uid, invalid passwd entry")
+				return ut.User{}, errors.New("failed to atoi  uid, invalid passwd entry")
 			}
 			pgroup, err := strconv.Atoi(parts[3])
 			if err != nil {
-				return ut.User{}, fmt.Errorf("failed to atoi pgroup, invalid passwd entry")
+				return ut.User{}, errors.New("failed to atoi pgroup, invalid passwd entry")
 			}
 			u := ut.User{
 				Username: parts[0],
@@ -1197,12 +1256,13 @@ func getUserEntryByID(id string, f *os.File) (ut.User, error) {
 			return u, nil
 		}
 	}
-	return ut.User{}, fmt.Errorf("entry not found")
+
+	return ut.User{}, errors.New("entry not found")
 }
 
 func getGroupEntries(f *os.File) ([]ut.Group, error) {
 	if f == nil {
-		return nil, fmt.Errorf("must provide a file pointer")
+		return nil, errors.New("must provide a file pointer")
 	}
 	var groups []ut.Group
 	scanner := bufio.NewScanner(f)
@@ -1210,15 +1270,15 @@ func getGroupEntries(f *os.File) ([]ut.Group, error) {
 		line := scanner.Text()
 		parts := strings.SplitN(line, del, 3)
 		if len(parts) != 3 {
-			return nil, fmt.Errorf("invalid entry format")
+			return nil, errors.New("invalid entry format")
 		}
 		var group ut.Group
 		group.Groupname = parts[0]
 		gid, err := strconv.Atoi(parts[1])
 		if err != nil {
-			return nil, fmt.Errorf("failed to atoi gid, invalid entry format")
+			return nil, errors.New("failed to atoi gid, invalid entry format")
 		}
-		group.Gid = gid
+		group.GID = gid
 		users := strings.Split(strings.TrimSpace(parts[2]), ",")
 		var u []ut.User
 		for _, user := range users {
@@ -1227,12 +1287,13 @@ func getGroupEntries(f *os.File) ([]ut.Group, error) {
 		group.Users = u
 		groups = append(groups, group)
 	}
+
 	return groups, nil
 }
 
 func getGroupEntryByID(gid string, file *os.File) (ut.Group, error) {
 	if gid == "" || file == nil {
-		return ut.Group{}, fmt.Errorf("must provide parameter")
+		return ut.Group{}, errors.New("must provide parameter")
 	}
 	scanner := bufio.NewScanner(file)
 
@@ -1240,12 +1301,12 @@ func getGroupEntryByID(gid string, file *os.File) (ut.Group, error) {
 		line := scanner.Text()
 		parts := strings.SplitN(line, del, 3)
 		if len(parts) != 3 {
-			return ut.Group{}, fmt.Errorf("no content found")
+			return ut.Group{}, errors.New("no content found")
 		}
 		if gid == parts[1] {
 			gid, err := strconv.Atoi(parts[1])
 			if err != nil {
-				return ut.Group{}, fmt.Errorf("failed to atoi gid, bad entry format")
+				return ut.Group{}, errors.New("failed to atoi gid, bad entry format")
 			}
 			var u []ut.User
 			users := strings.Split(strings.TrimSpace(parts[2]), ",")
@@ -1254,20 +1315,20 @@ func getGroupEntryByID(gid string, file *os.File) (ut.Group, error) {
 			}
 			g := ut.Group{
 				Groupname: parts[0],
-				Gid:       gid,
+				GID:       gid,
 				Users:     u,
 			}
+
 			return g, nil
 		}
-
 	}
 
-	return ut.Group{}, fmt.Errorf("not found")
+	return ut.Group{}, errors.New("not found")
 }
 
 func getUserGroups(username string, file *os.File) ([]ut.Group, error) {
 	if username == "" || file == nil {
-		return nil, fmt.Errorf("must provide parameters")
+		return nil, errors.New("must provide parameters")
 	}
 	scanner := bufio.NewScanner(file)
 
@@ -1276,21 +1337,21 @@ func getUserGroups(username string, file *os.File) ([]ut.Group, error) {
 		line := scanner.Text()
 		parts := strings.SplitN(line, del, 3)
 		if len(parts) != 3 {
-			return nil, fmt.Errorf("invalid group format entry")
+			return nil, errors.New("invalid group format entry")
 		}
 		if strings.Contains(parts[2], username) { // we have a group where the user belongs
 			gid, err := strconv.Atoi(parts[1])
 			if err != nil {
-				return nil, fmt.Errorf("invalid group format entry")
+				return nil, errors.New("invalid group format entry")
 			}
 			group := ut.Group{
 				Groupname: parts[0],
-				Gid:       gid,
+				GID:       gid,
 			}
 			groups = append(groups, group)
 		}
-
 	}
+
 	return groups, nil
 }
 
@@ -1365,5 +1426,4 @@ func syncCurrentIDs() {
 		}
 		currentGroupID = max(igid, currentModID) + 1
 	}
-
 }

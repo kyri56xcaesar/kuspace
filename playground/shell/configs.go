@@ -137,6 +137,7 @@ func LoadConfig() SConfig {
 	if err != nil {
 		// it means there is an error opening the file
 		logger.Printf("Error opening config file at %s", defaultConfPath+defaultConfName)
+
 		return Sconfig
 	}
 	defer func() {
@@ -158,6 +159,7 @@ func LoadConfig() SConfig {
 		parts := strings.SplitN(line, "=", 2)
 		if len(parts) != 2 {
 			logger.Printf("Invalid line config file %s", line)
+
 			return Sconfig
 		}
 
@@ -194,7 +196,7 @@ func LoadConfig() SConfig {
 			bvalue, err := strconv.ParseBool(value)
 			if err == nil {
 				Sconfig.theme.prompt.gitActive = bvalue
-				//if bvalue {
+				// if bvalue {
 				//}
 			}
 		case "log":
@@ -220,7 +222,6 @@ func LoadConfig() SConfig {
 			Sconfig.warnLogPath = value
 		case "info":
 			Sconfig.infoLogPath = value
-
 		}
 	}
 

@@ -22,7 +22,8 @@ output_path = f"/tmp/output.{output_format}"
 for line in logic.split("\n"):
     parts = line.strip().lower().split(":")
     if len(parts) != 2:
-        break
+        
+break
     key = parts[0]
     value = parts[1]
     if key == "states":
@@ -87,14 +88,17 @@ class CAImageProcessor:
         total_colors = len(np.unique(img_arr))
         if total_colors > states:
             print("Error: More states in the image than allowed by the rule.")
-            return None
+            
+return None
 
         if np.max(img_arr) > states - 1:
             print("Error: State values out of range. Must be within [0, states-1].")
-            return None
+            
+return None
 
         img.close()
-        return img_arr
+        
+return img_arr
     
     def array2img(self, grid_arr_1D, path_out, vertical_offset, total_states):
         """Converts a numpy array back into an image while preserving the original palette."""
@@ -136,7 +140,8 @@ def apply_transition_rule(grid, neighborhood_size=29, neighborhood=[]):
            else:
                    new_grid[i, j] = 0
 
-    return new_grid
+    
+return new_grid
 
 # Initialize the processor
 processor = CAImageProcessor()

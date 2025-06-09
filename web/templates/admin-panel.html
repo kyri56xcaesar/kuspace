@@ -660,6 +660,7 @@
             </div>
           </div>
           <hr>
+
           <div class="subsection" id="application-display">
               <div
                 id="fetch-applications-display"
@@ -749,33 +750,33 @@
                     <div>
                       <div class="form-group">
                         <label for="memory_request">Memory Request</label>
-                        <input type="text" id="memory_request" name="memory_request" class="text-input small" placeholder="e.g., 512Mi" />
+                        <input type="text" id="memory_request" name="memoryRequest" class="text-input small" placeholder="e.g., 512Mi" />
                       </div>
                       <div class="form-group">
                         <label for="memory_limit">Memory Limit</label>
-                        <input type="text" id="memory_limit" name="memory_limit" class="text-input small" placeholder="1024Mi" />
+                        <input type="text" id="memory_limit" name="memoryLimit" class="text-input small" placeholder="1024Mi" />
                       </div>
                     </div>
                     <!-- cpu -->
                     <div>
                       <div class="form-group">
                         <label for="cpu_request">CPU Request</label>
-                        <input type="text" id="cpu_request" name="cpu_request" class="text-input small" placeholder="e.g., 0.5" />
+                        <input type="text" id="cpu_request" name="cpuRequest" class="text-input small" placeholder="e.g., 0.5" />
                       </div>
                       <div class="form-group">
                         <label for="cpu_limit">CPU Limit</label>
-                        <input type="text" id="cpu_limit" name="cpu_limit" class="text-input small" placeholder="1"/>
+                        <input type="text" id="cpu_limit" name="cpuLimit" class="text-input small" placeholder="1"/>
                       </div>
                     </div>
                     <!-- storage -->
                     <div>
                       <div class="form-group">
                         <label for="ephemeral_storage_request">Ephemeral Storage Request</label>
-                        <input type="text" id="ephemeral_storage_request" name="ephimeral_storage_request" class="text-input small" placeholder="e.g., 1Gi" />
+                        <input type="text" id="ephemeral_storage_request" name="ephimeralStorageRequest" class="text-input small" placeholder="e.g., 1Gi" />
                       </div>
                       <div class="form-group">
                         <label for="ephemeral_storage_limit">Ephemeral Storage Limit</label>
-                        <input type="text" id="ephemeral_storage_limit" name="ephimeral_storage_limit" class="text-input small" placeholder="1Gi" />
+                        <input type="text" id="ephemeral_storage_limit" name="ephimeralStorageLimit" class="text-input small" placeholder="1Gi" />
                       </div>
                     </div>
                   </div>
@@ -811,7 +812,7 @@
                     </div>
                     
                     <div id="j-editor">
-                      <textarea class="code-editor" name="logic_body"></textarea>
+                      <textarea class="code-editor" name="logicBody"></textarea>
                     </div>
                   </div>
   
@@ -865,7 +866,6 @@
             </div>
           </div>
 
-
           <div class="subsection hidden" id="job-feedback-view">
           <div id="existing-jobs-container-2">
             <div>
@@ -905,7 +905,6 @@
           </div>
           </div>
         </div>
-        
       </section>
       <section id="access-profile" class="content-section hidden">
         <h2>Access-Profile</h2>

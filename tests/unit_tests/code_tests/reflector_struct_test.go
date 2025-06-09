@@ -1,4 +1,4 @@
-package test
+package coding_test
 
 import (
 	"bytes"
@@ -16,6 +16,7 @@ func captureOutput(f func()) string {
 	log.SetOutput(&buf)
 	f()
 	log.SetOutput(os.Stderr)
+
 	return buf.String()
 }
 
@@ -28,7 +29,6 @@ type testStruct struct {
 }
 
 func (r testStruct) AssertUpon(assertm map[any]bool) bool {
-
 	// log.Printf("current assertmap: %v\n", assertm)
 
 	rStructType := reflect.TypeOf(r)
@@ -38,7 +38,6 @@ func (r testStruct) AssertUpon(assertm map[any]bool) bool {
 	// log.Printf("num_field: %v\n", numfield)
 
 	for i := range numfield {
-
 		fieldType := rStructType.Field(i)
 		fieldValue := rStructValue.Field(i)
 
@@ -53,6 +52,7 @@ func (r testStruct) AssertUpon(assertm map[any]bool) bool {
 
 	return true
 }
+
 func TestReflect(t *testing.T) {
 	output := captureOutput(func() {
 		test := map[any]bool{

@@ -48,6 +48,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
+
 		return
 	}
 
@@ -94,7 +95,6 @@ func main() {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
-
 	}
 
 	// PUSH images option
@@ -230,7 +230,6 @@ func main() {
 			fmt.Fprintf(os.Stderr, "❌ failed to apply configMap yaml: %v", err)
 			os.Exit(1)
 		}
-
 	}
 
 	// CREATE SECRETS & deploy
@@ -285,8 +284,10 @@ func main() {
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "⚠️ Warning: failed to apply %s: %v\n", path, err)
 				}
+
 				return nil
 			}
+
 			return nil
 		})
 		if err != nil {
@@ -321,8 +322,10 @@ func main() {
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "⚠️ Warning: failed to apply %s: %v\n", path, err)
 				}
+
 				return nil
 			}
+
 			return nil
 		})
 		if err != nil {
@@ -344,7 +347,6 @@ func main() {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed waiting for condition available of the pvc-minio-pv: %v", err)
 		}
-
 	}
 	// DEPLOY Services and Deployments
 	// DEPLOY StatefulSets
@@ -389,8 +391,10 @@ func main() {
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "⚠️ Warning: failed to apply %s: %v\n", path, err)
 				}
+
 				return nil
 			}
+
 			return nil
 		})
 		if err != nil {
@@ -405,6 +409,7 @@ func run(cmd string, args ...string) error {
 	c := exec.Command(cmd, args...)
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
+
 	return c.Run()
 }
 
@@ -499,7 +504,6 @@ func buildSecretsYAML(namespace string, data map[string]string) string {
 		if index < len(data) {
 			buf.WriteString("---\n")
 		}
-
 	}
 
 	return buf.String()

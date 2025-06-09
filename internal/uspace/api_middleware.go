@@ -1,14 +1,14 @@
 package uspace
 
 import (
-	"fmt"
+	"errors"
 	"log"
 	"net/http"
 	"strings"
 
-	"github.com/gin-gonic/gin"
-
 	ut "kyri56xcaesar/kuspace/internal/utils"
+
+	"github.com/gin-gonic/gin"
 )
 
 // BindAccessTarget function, used by middleware
@@ -38,7 +38,7 @@ func BindAccessTarget(httpHeader string) (ut.AccessClaim, error) {
 
 	parts := strings.SplitN(httpHeader, " ", 2)
 	if len(parts) != 2 {
-		return ac, fmt.Errorf("invalid header format:all")
+		return ac, errors.New("invalid header format:all")
 	}
 
 	what := parts[0]
@@ -47,36 +47,36 @@ func BindAccessTarget(httpHeader string) (ut.AccessClaim, error) {
 	// parse the who
 	parts = strings.SplitN(who, ":", 2)
 	if len(parts) != 2 {
-		return ac, fmt.Errorf("invalid header format:who")
+		return ac, errors.New("invalid header format:who")
 	}
 	uid = parts[0]
 	gids = parts[1]
 
 	if uid == "" || gids == "" {
-		return ac, fmt.Errorf("invalid header format:who:empty_fields")
+		return ac, errors.New("invalid header format:who:empty_fields")
 	}
 
 	// parse the what
 	parts = strings.SplitN(what, ":", 3)
 	if len(parts) != 3 {
-		return ac, fmt.Errorf("invalid header format:what")
+		return ac, errors.New("invalid header format:what")
 	}
 	vid = parts[0]
 	vname = parts[1]
 	resource = parts[2]
 
 	if resource == "" || (vid == "" && vname == "") {
-		return ac, fmt.Errorf("invalid header:what:empty")
+		return ac, errors.New("invalid header:what:empty")
 	}
 
 	// handle the Target specifier
 	if strings.HasPrefix(resource, "/") {
 		target = resource
 	} else if strings.HasPrefix(resource, "$") {
-		//keywords, rids
+		// keywords, rids
 		parts = strings.Split(resource, "=")
 		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-			return ac, fmt.Errorf("invalid header target format: $[keyword]=[values]")
+			return ac, errors.New("invalid header target format: $[keyword]=[values]")
 		}
 
 		switch strings.TrimPrefix(parts[0], "$") {
@@ -84,13 +84,14 @@ func BindAccessTarget(httpHeader string) (ut.AccessClaim, error) {
 			target = strings.TrimSpace(parts[1])
 			ac.HasKeyword = true
 		default:
-			return ac, fmt.Errorf("invalid header target format: unrecognised keyword")
+
+			return ac, errors.New("invalid header target format: unrecognised keyword")
 		}
 	} else {
 		target = "/" + resource
 	}
 
-	ac.Vid = vid
+	ac.VID = vid
 	ac.Vname = vname
 	ac.Target = target
 	ac.UID = uid
@@ -106,12 +107,13 @@ func bindHeadersMiddleware() gin.HandlerFunc {
 			log.Printf("[Middleware-HBinder] failed to bind access-target: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "missing Access-Target header"})
 			c.Abort()
+
 			return
 		}
 		// save variables to gin context
 		c.Set("accessTarget", ac)
-		log.Printf("[Middleware] Request header binded: \t(who) %v:%v \t(what) %v:%v:%v\tkeyword?: %v", ac.UID, ac.Gids, ac.Vid, ac.Vname, ac.Target, ac.HasKeyword)
-
+		log.Printf("[Middleware] Request header binded: \t(who) %v:%v \t(what) %v:%v:%v\tkeyword?: %v",
+			ac.UID, ac.Gids, ac.VID, ac.Vname, ac.Target, ac.HasKeyword)
 	}
 }
 
@@ -125,6 +127,7 @@ func serviceAuth(srv *UService) gin.HandlerFunc {
 		if sSecretClaim := c.GetHeader("X-Service-Secret"); sSecretClaim != "" {
 			if sSecretClaim == string(srv.config.ServiceSecretKey) {
 				c.Next()
+
 				return
 			}
 		}
@@ -142,6 +145,7 @@ func isOwner(srv *UService) gin.HandlerFunc {
 			log.Printf("[Middleware-Ownership] failed to retrieve access-target header")
 			c.JSON(http.StatusBadRequest, gin.H{"error": "missing Access-Target header"})
 			c.Abort()
+
 			return
 		}
 		ac, ok := access.(ut.AccessClaim)
@@ -149,12 +153,14 @@ func isOwner(srv *UService) gin.HandlerFunc {
 			log.Printf("[Middleware-Ownership] failed to cast ac, :?corrupt data?, should have been set already")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "acces-target setup error"})
 			c.Abort()
+
 			return
 		}
 		// root user is owner and father of all
 		if ac.UID == "0" {
 			log.Printf("[Middleware-Ownership] root access detected, free pass...")
 			c.Next()
+
 			return
 		}
 		log.Printf("ac: %+v", ac)
@@ -164,6 +170,7 @@ func isOwner(srv *UService) gin.HandlerFunc {
 				log.Printf("[Middleware-Ownership] failed to select access-target object(s): %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 				c.Abort()
+
 				return
 			}
 			resources, ok := res.([]ut.Resource)
@@ -173,6 +180,7 @@ func isOwner(srv *UService) gin.HandlerFunc {
 				log.Printf("[Middleware-Ownership] failed to cast access-target object(s), (corrupt data?)")
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to cast"})
 				c.Abort()
+
 				return
 			}
 
@@ -181,6 +189,7 @@ func isOwner(srv *UService) gin.HandlerFunc {
 					log.Printf("[Middleware-Ownership] unauthorized access, user does not apply ownership on item)")
 					c.JSON(http.StatusForbidden, gin.H{"error": "user does not own this file"})
 					c.Abort()
+
 					return
 				}
 			}
@@ -191,6 +200,7 @@ func isOwner(srv *UService) gin.HandlerFunc {
 				log.Printf("[Middleware-Ownership] failed to select access-target object(s): %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 				c.Abort()
+
 				return
 			}
 			resources, ok := res.([]ut.Resource)
@@ -198,6 +208,7 @@ func isOwner(srv *UService) gin.HandlerFunc {
 				log.Printf("[Middleware-Ownership] failed to cast access-target object(s), (corrupt data?)")
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to cast"})
 				c.Abort()
+
 				return
 			}
 
@@ -206,12 +217,12 @@ func isOwner(srv *UService) gin.HandlerFunc {
 					log.Printf("[Middleware-Ownership] unauthorized access, user does not apply ownership on item)")
 					c.JSON(http.StatusForbidden, gin.H{"error": "user does not own this file"})
 					c.Abort()
+
 					return
 				}
 			}
 		}
 		log.Printf("[Middleware-Ownership] user: %v cleared ownership of resource: %v", ac.UID, ac.Target)
-
 	}
 }
 
@@ -228,6 +239,7 @@ func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
 			log.Printf("[Middleware-Access] failed to bind access-target header")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "access target header was not set correctly"})
 			c.Abort()
+
 			return
 		}
 		ac, ok := acH.(ut.AccessClaim)
@@ -235,6 +247,7 @@ func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
 			log.Printf("[Middleware-Access] failed to cast ac, :?corrupt data?, should have been set already")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "acces-target setup error"})
 			c.Abort()
+
 			return
 		}
 
@@ -242,6 +255,7 @@ func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
 		if ac.UID == "0" {
 			log.Printf("[Middleware-Access] root access detected, free pass...")
 			c.Next()
+
 			return
 		}
 
@@ -251,6 +265,7 @@ func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
 				log.Printf("[Middleware-Access] failed to select access-target object(s): %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 				c.Abort()
+
 				return
 			}
 			resources, ok := res.([]ut.Resource)
@@ -258,6 +273,7 @@ func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
 				log.Printf("[Middleware-Access] failed to cast access-target object(s), (corrupt data?)")
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to cast"})
 				c.Abort()
+
 				return
 			}
 
@@ -268,6 +284,7 @@ func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
 						log.Printf("[Middleware-Access] user has no read access upon this resource")
 						c.JSON(http.StatusForbidden, gin.H{"error": "not allowed read access on resource"})
 						c.Abort()
+
 						return
 					}
 				case "w":
@@ -275,6 +292,7 @@ func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
 						log.Printf("[Middleware-Access] user has no write access upon this resource")
 						c.JSON(http.StatusForbidden, gin.H{"error": "not allowed write access on resource"})
 						c.Abort()
+
 						return
 					}
 				case "x":
@@ -282,12 +300,14 @@ func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
 						log.Printf("[Middleware-Access] user has no execution access upon this resource")
 						c.JSON(http.StatusForbidden, gin.H{"error": "not allowed execution access on resource"})
 						c.Abort()
+
 						return
 					}
 
 				default:
 					log.Printf("[Middleware-Access] bad state, shouldn't reach here")
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "bad settup"})
+
 					return
 				}
 			}
@@ -298,6 +318,7 @@ func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
 				log.Printf("[Middleware-Access] failed to select access-target object(s): %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 				c.Abort()
+
 				return
 			}
 			resources, ok := res.([]ut.Resource)
@@ -305,6 +326,7 @@ func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
 				log.Printf("[Middleware-Access] failed to cast access-target object(s), (corrupt data?)")
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to cast"})
 				c.Abort()
+
 				return
 			}
 
@@ -315,6 +337,7 @@ func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
 						log.Printf("[Middleware-Access] user has no read access upon this resource")
 						c.JSON(http.StatusForbidden, gin.H{"error": "not allowed read access on resource"})
 						c.Abort()
+
 						return
 					}
 				case "w":
@@ -322,6 +345,7 @@ func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
 						log.Printf("[Middleware-Access] user has no write access upon this resource")
 						c.JSON(http.StatusForbidden, gin.H{"error": "not allowed write access on resource"})
 						c.Abort()
+
 						return
 					}
 				case "x":
@@ -329,16 +353,17 @@ func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
 						log.Printf("[Middleware-Access] user has no execution access upon this resource")
 						c.JSON(http.StatusForbidden, gin.H{"error": "not allowed execution access on resource"})
 						c.Abort()
+
 						return
 					}
 
 				default:
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "bad settup"})
 					c.Abort()
+
 					return
 				}
 			}
-
 		}
 		log.Printf("[Middleware-Access] user: %v cleared access for resource: %v", ac.UID, ac.Target)
 	}

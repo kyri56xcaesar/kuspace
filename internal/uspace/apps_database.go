@@ -15,10 +15,11 @@ func (srv *UService) insertApp(app ut.Application) (int64, error) {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
-		return -1, err
+
+		return -1, fmt.Errorf("failed to retrieve db conn: %w", err)
 	}
 
-	currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
+	currentTime := ut.CurrentTime()
 	app.InsertedAt = currentTime
 
 	_, err = time.Parse("2006-01-02 15:04:05-07:00", app.CreatedAt)
@@ -28,7 +29,8 @@ func (srv *UService) insertApp(app ut.Application) (int64, error) {
 
 	query := `
 		INSERT INTO 
-			apps (id, name, image, description, version, author, author_id, status, insertedAt, createdAt)
+			apps (id, name, image, description, version,
+			 author, authorId, status, insertedAt, createdAt)
 		VALUES
 			(nextval('seq_appid'), ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING (id);
@@ -38,9 +40,12 @@ func (srv *UService) insertApp(app ut.Application) (int64, error) {
 	err = db.QueryRow(query, app.FieldsNoID()...).Scan(&id)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
-		return -1, err
+
+		return -1, fmt.Errorf("failed to execute query: %w", err)
 	}
-	// log.Printf("[Database] Inserted job id: %v", jid)
+	if verbose {
+		log.Printf("[Database] Inserted job id: %v", id)
+	}
 
 	return id, nil
 }
@@ -50,26 +55,29 @@ func (srv *UService) insertApps(apps []ut.Application) error {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
-		return err
+
+		return fmt.Errorf("failed to retrieve db conn: %w", err)
 	}
 	query := `
 		INSERT INTO 
-			apps (id, name, image, description, version, author, author_id, status, insertedAt, createdAt)
+			apps (id, name, image, description, version,
+			 author, authorId, status, insertedAt, createdAt)
 		VALUES
 			(nextval('seq_appid'), ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		RETURNING (id);
-	`
+		RETURNING (id);`
 
 	tx, err := db.Begin()
 	if err != nil {
 		log.Printf("failed to begin transaction: %v", err)
-		return err
+
+		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
 	stmt, err := tx.Prepare(query)
 	if err != nil {
 		log.Printf("failed to prepare statement: %v", err)
-		return err
+
+		return fmt.Errorf("failed to prepare transaction: %w", err)
 	}
 	defer func() {
 		err := stmt.Close()
@@ -78,10 +86,10 @@ func (srv *UService) insertApps(apps []ut.Application) error {
 		}
 	}()
 
+	currentTime := ut.CurrentTime()
 	for i := range apps {
 		app := &(apps)[i]
 
-		currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
 		app.InsertedAt = currentTime
 		_, err = time.Parse("2006-01-02 15:04:05-07:00", app.CreatedAt)
 		if err != nil {
@@ -95,7 +103,8 @@ func (srv *UService) insertApps(apps []ut.Application) error {
 				return err
 			}
 			log.Printf("failed to execute statement: %v", err)
-			return fmt.Errorf("failed to execute insertion rolling back: %v", err)
+
+			return fmt.Errorf("failed to execute insertion rolling back: %w", err)
 		}
 		app.ID = id
 	}
@@ -103,7 +112,8 @@ func (srv *UService) insertApps(apps []ut.Application) error {
 	err = tx.Commit()
 	if err != nil {
 		log.Printf("failed to commit transaction: %v", err)
-		return err
+
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
@@ -113,19 +123,21 @@ func (srv *UService) removeApp(id int) error {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to retrieve db connection: %v", err)
-		return err
+
+		return fmt.Errorf("failed to retrieve db conn: %w", err)
 	}
 	query := `
 		DELETE FROM
 			apps
 		WHERE
-			id = ?
-	`
+			id = ?`
 	_, err = db.Exec(query, id)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
-		return err
+
+		return fmt.Errorf("failed to execute query: %w", err)
 	}
+
 	return nil
 }
 
@@ -133,23 +145,25 @@ func (srv *UService) removeApps(ids []int) error {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
-		return err
+
+		return fmt.Errorf("failed to retrieve db conn: %w", err)
 	}
 	query := `
 		DELETE FROM
 			apps
 		WHERE
-			id = ?
-	`
+			id = ?`
 	tx, err := db.Begin()
 	if err != nil {
 		log.Printf("failed to begin transaction: %v", err)
-		return err
+
+		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	stmt, err := tx.Prepare(query)
 	if err != nil {
 		log.Printf("failed to prepare statement: %v", err)
-		return err
+
+		return fmt.Errorf("failed to prepare transaction statement: %w", err)
 	}
 	defer func() {
 		err := stmt.Close()
@@ -165,14 +179,17 @@ func (srv *UService) removeApps(ids []int) error {
 				return err
 			}
 			log.Printf("failed to execute statement: %v", err)
-			return fmt.Errorf("failed to execute deletion: %v", err)
+
+			return fmt.Errorf("failed to execute deletion: %w", err)
 		}
 	}
 	err = tx.Commit()
 	if err != nil {
 		log.Printf("failed to commit transaction: %v", err)
-		return err
+
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
+
 	return nil
 }
 
@@ -181,7 +198,8 @@ func (srv *UService) getAppByID(id int) (ut.Application, error) {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
-		return app, err
+
+		return app, fmt.Errorf("failed to retrieve db conn: %w", err)
 	}
 	query := `
 		SELECT
@@ -189,13 +207,15 @@ func (srv *UService) getAppByID(id int) (ut.Application, error) {
 		FROM
 			apps
 		WHERE
-			id = ?
-	`
+			id = ?`
+
 	var insertedAt, createdAt sql.NullString
-	err = db.QueryRow(query, id).Scan(&app.ID, &app.Name, &app.Image, &app.Description, &app.Version, &app.Author, &app.AuthorID, &app.Status, &insertedAt, &createdAt)
+	err = db.QueryRow(query, id).Scan(&app.ID, &app.Name, &app.Image, &app.Description,
+		&app.Version, &app.Author, &app.AuthorID, &app.Status, &insertedAt, &createdAt)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
-		return app, err
+
+		return app, fmt.Errorf("failed to query row: %w", err)
 	}
 
 	if insertedAt.Valid {
@@ -217,7 +237,8 @@ func (srv *UService) getAppByNameAndVersion(name, version string) (ut.Applicatio
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
-		return app, err
+
+		return app, fmt.Errorf("failed to retrieve db conn: %w", err)
 	}
 	query := `
 		SELECT
@@ -228,10 +249,12 @@ func (srv *UService) getAppByNameAndVersion(name, version string) (ut.Applicatio
 			name = ? AND version = ?
 	`
 	var insertedAt, createdAt sql.NullString
-	err = db.QueryRow(query, name, version).Scan(&app.ID, &app.Name, &app.Image, &app.Description, &app.Version, &app.Author, &app.AuthorID, &app.Status, &insertedAt, &createdAt)
+	err = db.QueryRow(query, name, version).Scan(&app.ID, &app.Name, &app.Image, &app.Description,
+		&app.Version, &app.Author, &app.AuthorID, &app.Status, &insertedAt, &createdAt)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
-		return app, err
+
+		return app, fmt.Errorf("failed to query row: %w", err)
 	}
 
 	if insertedAt.Valid {
@@ -258,7 +281,8 @@ func (srv *UService) getAppsByIDs(ids []int) ([]ut.Application, error) {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
-		return nil, err
+
+		return nil, fmt.Errorf("failed to retrieve db conn: %w", err)
 	}
 
 	placeholders := make([]string, len(ids))
@@ -281,7 +305,8 @@ func (srv *UService) getAppsByIDs(ids []int) ([]ut.Application, error) {
 	rows, err := db.Query(query, args...)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
-		return nil, err
+
+		return nil, fmt.Errorf("failed to query row: %w", err)
 	}
 	defer func() {
 		err := rows.Close()
@@ -295,11 +320,13 @@ func (srv *UService) getAppsByIDs(ids []int) ([]ut.Application, error) {
 	for rows.Next() {
 		var app ut.Application
 
-		err = rows.Scan(&app.ID, &app.Name, &app.Image, &app.Description, &app.Version, &app.Author, &app.AuthorID, &app.Status, &insertedAt, &createdAt)
+		err = rows.Scan(&app.ID, &app.Name, &app.Image, &app.Description, &app.Version,
+			&app.Author, &app.AuthorID, &app.Status, &insertedAt, &createdAt)
 
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
-			return nil, err
+
+			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 		if insertedAt.Valid {
 			app.InsertedAt = insertedAt.String
@@ -314,6 +341,7 @@ func (srv *UService) getAppsByIDs(ids []int) ([]ut.Application, error) {
 
 		apps = append(apps, app)
 	}
+
 	return apps, nil
 }
 
@@ -322,7 +350,8 @@ func (srv *UService) getAllApps(limit, offset string) ([]ut.Application, error) 
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
-		return nil, err
+
+		return nil, fmt.Errorf("failed to retrieve db conn: %w", err)
 	}
 	var query string
 
@@ -331,40 +360,40 @@ func (srv *UService) getAllApps(limit, offset string) ([]ut.Application, error) 
 		SELECT
 			*
 		FROM
-			apps
-	`
+			apps`
 	} else if offset == "" {
 		query = `
 		SELECT
 			*
 		FROM
 			apps
-		LIMIT ?;
-			`
+		LIMIT ?;`
 	} else {
 		query = `
 		SELECT
 			*
 		FROM
 			apps
-		LIMIT ? OFFSET ?;
-	`
+		LIMIT ? OFFSET ?;`
 	}
 
 	rows, err := db.Query(query, limit, offset)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
-		return nil, err
+
+		return nil, fmt.Errorf("failed to query row: %w", err)
 	}
 
 	var insertedAt, createdAt sql.NullString
 
 	for rows.Next() {
 		var app ut.Application
-		err = rows.Scan(&app.ID, &app.Name, &app.Image, &app.Description, &app.Version, &app.Author, &app.AuthorID, &app.Status, &insertedAt, &createdAt)
+		err = rows.Scan(&app.ID, &app.Name, &app.Image, &app.Description, &app.Version,
+			&app.Author, &app.AuthorID, &app.Status, &insertedAt, &createdAt)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
-			return nil, err
+
+			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 		if insertedAt.Valid {
 			app.InsertedAt = insertedAt.String
@@ -378,8 +407,8 @@ func (srv *UService) getAllApps(limit, offset string) ([]ut.Application, error) 
 		}
 
 		apps = append(apps, app)
-
 	}
+
 	return apps, nil
 }
 
@@ -387,20 +416,24 @@ func (srv *UService) updateApp(a ut.Application) error {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
-		return err
+
+		return fmt.Errorf("failed to retrieve db conn: %w", err)
 	}
 
 	query := `
 		UPDATE apps
 		SET
-			name = ?, image = ?, description = ?, version = ?, author = ?, author_id = ?, status = ?, insertedAt = ?, createdAt = ? 
+			name = ?, image = ?, description = ?, version = ?,
+			 author = ?, authorId = ?, status = ?, insertedAt = ?, createdAt = ? 
 		WHERE
 			id = ?
 	`
-	_, err = db.Exec(query, a.Name, a.Image, a.Description, a.Version, a.Author, a.AuthorID, a.Status, a.InsertedAt, a.CreatedAt, a.ID)
+	_, err = db.Exec(query, a.Name, a.Image, a.Description,
+		a.Version, a.Author, a.AuthorID, a.Status, a.InsertedAt, a.CreatedAt, a.ID)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
-		return err
+
+		return fmt.Errorf("failed to execute query: %w", err)
 	}
 
 	return nil

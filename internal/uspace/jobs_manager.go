@@ -2,6 +2,8 @@ package uspace
 
 import (
 	"bufio"
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -40,10 +42,11 @@ func (j JobDispatcherImpl) Start() {
 	j.Manager.StartDispatcher()
 }
 
-// PublishJob method which publishes an incoming Job towards into a a Queue towards execution
+// PublishJob method which publishes an incoming Job towards into a Queue towards execution
 /* dispatching Jobs interface methods */
 func (j JobDispatcherImpl) PublishJob(jb ut.Job) error {
 	// log.Printf("publishing job... :%v", jb)
+
 	return j.Manager.ScheduleJob(jb)
 }
 
@@ -55,6 +58,7 @@ func (j JobDispatcherImpl) PublishJobs(jbs []ut.Job) error {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -72,6 +76,7 @@ func (j JobDispatcherImpl) RemoveJobs(jids []int) error {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -102,7 +107,6 @@ type JobManager struct {
 	workerPool chan struct{} //
 
 	executor JobExecutor // logic defined for exetuing a Job
-
 }
 
 // NewJobManager function as in a constructor for JobManager struct
@@ -142,14 +146,15 @@ func (jm *JobManager) StartDispatcher() {
 	log.Printf("[Scheduler] Starting worker")
 	go func() {
 		for job := range jm.jobQueue {
-			log.Printf("[Scheduler] Job received: ID=%d. Waiting for available worker slot...", job.Jid)
+			log.Printf("[Scheduler] Job received: ID=%d. Waiting for available worker slot...", job.JID)
 			jm.workerPool <- struct{}{} // Acquire worker slot
-			log.Printf("[Scheduler] Assigned job ID=%ds to a worker. Active workers: %d/%d", job.Jid, len(jm.workerPool), cap(jm.workerPool))
+			log.Printf("[Scheduler] Assigned job ID=%ds to a worker. Active workers: %d/%d",
+				job.JID, len(jm.workerPool), cap(jm.workerPool))
 			// the worker itself will release it
 			go func() {
 				err := jm.executor.ExecuteJob(job) // spawn worker goroutine
 				if err != nil {
-					log.Printf("execution of job: %v failed.", job.Jid)
+					log.Printf("execution of job: %v failed.", job.JID)
 				}
 			}()
 		}
@@ -158,18 +163,21 @@ func (jm *JobManager) StartDispatcher() {
 
 // ScheduleJob method puts a job into the execution queue
 func (jm *JobManager) ScheduleJob(jb ut.Job) error {
-	log.Printf("[Scheduler] Scheduling job... ID=%d", jb.Jid)
+	log.Printf("[Scheduler] Scheduling job... ID=%d", jb.JID)
 
 	jb.Status = "queued"
 	jb.CreatedAt = ut.CurrentTime()
 
 	select {
 	case jm.jobQueue <- jb:
-		log.Printf("[Scheduler] Job ID=%d added to queue. Current queue length: %d/%d", jb.Jid, len(jm.jobQueue), cap(jm.jobQueue))
+		log.Printf("[Scheduler] Job ID=%d added to queue. Current queue length: %d/%d",
+			jb.JID, len(jm.jobQueue), cap(jm.jobQueue))
+
 		return nil
 	default:
-		log.Printf("⚠️ [Scheduler] Job queue full! Job ID=%d rejected", jb.Jid)
-		return fmt.Errorf("job queue full")
+		log.Printf("⚠️ [Scheduler] Job queue full! Job ID=%d rejected", jb.JID)
+
+		return errors.New("job queue full")
 	}
 }
 
@@ -181,7 +189,7 @@ func (jm *JobManager) CancelJob(jid int) error {
 	defer jm.mu.Unlock()
 
 	// if _, exists := js.jobs[jid]; !exists {
-	// 	return fmt.Errorf("job %d not found", jid)
+	// return fmt.Errorf("job %d not found", jid)
 	// }
 
 	// delete(js.jobs, jid)
@@ -190,16 +198,21 @@ func (jm *JobManager) CancelJob(jid int) error {
 }
 
 func streamToSocketWS(jobID int64, ch <-chan []byte) {
-	jobIDStr := fmt.Sprintf("%d", jobID)
+	jobIDStr := strconv.FormatInt(jobID, 10)
 	wsURL := fmt.Sprintf("ws://"+jobsSocketAddress+"/get-session?jid=%s&role=Producer", jobIDStr)
 
-	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	conn, resp, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
 		log.Printf("failed to connect to WS server: %v", err)
+
 		return
 	}
 	defer func() {
-		err := conn.Close()
+		err := resp.Body.Close()
+		if err != nil {
+			log.Printf("failed to close the response body: %v", err)
+		}
+		err = conn.Close()
 		if err != nil {
 			log.Printf("failed to close the connection: %v", err)
 		}
@@ -208,6 +221,7 @@ func streamToSocketWS(jobID int64, ch <-chan []byte) {
 	for msg := range ch {
 		if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
 			log.Printf("failed to write to the websocket writer: %v", err)
+
 			return
 		}
 	}
@@ -224,13 +238,23 @@ func streamToSocket(jobID int, pipe io.Reader) {
 
 		// log.Printf("line about to be streamed: %s", line)
 
-		_, err := http.Post(
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodPost,
 			fmt.Sprintf("http://"+jobsSocketAddress+"/get-session?jid=%s&role=Producer", jobIDStr),
-			"text/plain",
 			strings.NewReader(line),
 		)
 		if err != nil {
 			log.Printf("failed to send log line to socket server: %v", err)
+
+			return
+		}
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Printf("failed to perform the request: %v", err)
+		}
+		err = resp.Body.Close()
+		if err != nil {
+			log.Printf("failed to close response body: %v", err)
 		}
 	}
 }

@@ -1,4 +1,4 @@
-package test
+package gocode_test
 
 import (
 	"strings"

@@ -3,13 +3,127 @@ run:
 
 linters:
   enable:
-    - govet
-    - errcheck
-    - staticcheck
-    - ineffassign
-    - revive
+    - govet # suspicious constructs
+    - errcheck # error handling
+    - ineffassign # variables assigned and not used
+    - revive # linter
+    - asasalint # 
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - canonicalheader
+    - containedctx
+    - contextcheck
+    - copyloopvar
+    - decorder
+    # - depguard
+    - dogsled
+    - dupword
+    # - wsl
+    - whitespace
+    - zerologlint
+    #- wrapcheck # error wrawpping 
+    - wastedassign
+    #- varnamelen # too short variable namings, let it go for now...
+    - usetesting 
+    - usestdlibvars
+    # - unparam
+    - unconvert
+    # - tparallel
+    - thelper
+    - testpackage
+    - testifylint
+    - testableexamples
+    - tagliatelle
+    - stylecheck
+    # - sqlclosecheck
+    - spancheck
+    - sloglint
+    # - rowserrcheck
+    - recvcheck
+    - reassign
+    - protogetter
+    - promlinter
+    - predeclared
+    # - prealloc
+    - perfsprint
+    # - paralleltest
+    - nosprintfhostport
+    - nonamedreturns
+    - nolintlint
+    - noctx
+    - nlreturn
+    # - nilnil
+    - nilnesserr
+    - nilerr 
+    # - nestif 
+    - nakedret 
+    # - musttag 
+    # - mnd  # magic numbers
+    # - misspell
+    - mirror
+    - makezero 
+    - loggercheck
+    # - maintidx 
+    - loggercheck 
+    # - lll 
+    # - ireturn
+    # - intrange
+    # - interfacebloat # 10 method per interface
+    - inamedparam
+    - importas
+    - iface 
+    - grouper
+    - gosmopolitan
+    # - gosec 
+    - goprintffuncname
+    # - gomodguard
+    # - gomoddirectives
+    # - goimports
+    # - goheader
+    # - gofumpt
+    # - gofmt 
+    # - godox
+    # - gocyclo
+    # - gocritic
+    # - goconst
+    # - gocognit
+    - gochecksumtype
+    - gochecknoinits
+    # - gochecknoglobals # will check for globas
+    - gocheckcompilerdirectives
+    - ginkgolinter
+    # - gci 
+    # - funlen # function length
+    # - forcetypeassert
+    # - forbidigo
+    - fatcontext
+    - exptostd
+    # - exhaustruct
+    # - exhaustive 
+    - errorlint
+    - errname
+    - errchkjson
+    # - err113
+    - durationcheck
+    - dupword
+    # - dupl # duplicate code
+    - dogsled 
+    - decorder 
+    # - cyclop cycylomatic complexity, diversity of statements within a function
+    - copyloopvar 
+    - contextcheck 
+    - containedctx 
+    - canonicalheader 
+    - bodyclose 
+    - bidichk 
+    - asciicheck 
+    - asasalint
+    
   disable:
     - unused
+    - godot
+    - wsl
 
 issues:
   exclude-use-default: false

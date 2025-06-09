@@ -13,7 +13,9 @@ import (
 
 // WebSocket Upgrader
 var upgrader = websocket.Upgrader{
-	CheckOrigin: func(_ *http.Request) bool { return true },
+	CheckOrigin: func(_ *http.Request) bool {
+		return true
+	},
 }
 
 // Client Connection Structure
@@ -104,6 +106,7 @@ func handleGShellWs(c *gin.Context) {
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		fmt.Println("Failed to upgrade:", err)
+
 		return
 	}
 

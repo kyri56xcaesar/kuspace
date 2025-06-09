@@ -17,16 +17,19 @@ func AuthMiddleware(role string, srv *MService) gin.HandlerFunc {
 			if secretClaim == string(srv.Minioth.Config.ServiceSecretKey) {
 				log.Printf("service secret accepted. access granted.")
 				c.Next()
+
 				return
 			}
 			log.Printf("service secret invalid. access not granted")
 			c.Abort()
+
 			return
 		}
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is required"})
 			c.Abort()
+
 			return
 		}
 
@@ -35,6 +38,7 @@ func AuthMiddleware(role string, srv *MService) gin.HandlerFunc {
 		if tokenString == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Bearer token is required"})
 			c.Abort()
+
 			return
 		}
 
@@ -43,6 +47,7 @@ func AuthMiddleware(role string, srv *MService) gin.HandlerFunc {
 		if err != nil || !token.Valid {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 			c.Abort()
+
 			return
 		}
 
@@ -53,6 +58,7 @@ func AuthMiddleware(role string, srv *MService) gin.HandlerFunc {
 				log.Printf("user has no groups set...")
 				c.JSON(http.StatusUnauthorized, gin.H{"error": "token doesn't include a group"})
 				c.Abort()
+
 				return
 			}
 			ok = false
@@ -63,6 +69,7 @@ func AuthMiddleware(role string, srv *MService) gin.HandlerFunc {
 					c.Set("groups", claims.Groups)
 					c.Set("gids", claims.GroupIDs)
 					ok = true
+
 					break
 				}
 			}
@@ -71,12 +78,13 @@ func AuthMiddleware(role string, srv *MService) gin.HandlerFunc {
 					"error": "invalid user",
 				})
 				c.Abort()
+
 				return
 			}
-
 		} else {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token claims"})
 			c.Abort()
+
 			return
 		}
 	}

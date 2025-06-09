@@ -1,5 +1,5 @@
 // Package fslite provides functionality for authentication. Only admin user management,
-// registration, authentication, password hashing, and JWT tokens issueing
+// registration, authentication, password hashing, and JWT tokens issuing
 package fslite
 
 import (
@@ -35,7 +35,7 @@ var (
 // Admin represents an admin login or registration object.
 // @Description Admin login/registration payload
 type Admin struct {
-	ID       uuid.UUID `db:"id" json:"id,omitempty"`
+	ID       uuid.UUID `db:"id"       json:"id,omitempty"`
 	Username string    `db:"username" json:"username"`
 	Password string    `db:"password" json:"password"`
 }
@@ -49,11 +49,11 @@ func (a *Admin) ptrFields() []any {
 // validate checks the Admin struct fields for validity, including length and allowed characters.
 func (a *Admin) validate() error {
 	if len(a.Username) < minimumUserLength {
-		return fmt.Errorf("username length too small")
+		return errors.New("username length too small")
 	}
 
 	if len(a.Password) < minimumPassLength {
-		return fmt.Errorf("password length too small")
+		return errors.New("password length too small")
 	}
 
 	if !usernameRegex.MatchString(a.Username) {
@@ -69,15 +69,16 @@ func (a *Admin) validate() error {
 
 // insertAdmin creates a new admin user in the database after validating and hashing the password.
 // Returns the created Admin object and any error encountered.
-func (fsl *FsLite) insertAdmin(username, password string) (admin Admin, err error) {
+func (fsl *FsLite) insertAdmin(username, password string) (Admin, error) {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
 		log.Printf("[FSL_ADMIN_insert] failed to retrieve db conn: %v", err)
-		return Admin{}, err
+
+		return Admin{}, fmt.Errorf("failed to retrieve db conn: %w", err)
 	}
 
 	id := uuid.New()
-	admin = Admin{
+	admin := Admin{
 		ID:       id,
 		Username: username,
 		Password: password,
@@ -85,7 +86,8 @@ func (fsl *FsLite) insertAdmin(username, password string) (admin Admin, err erro
 	err = admin.validate()
 	if err != nil {
 		log.Printf("[FSL_ADMIN_insert] failed to validate the user: %v", err)
-		return Admin{}, err
+
+		return Admin{}, fmt.Errorf("failed to validate the user: %w", err)
 	}
 
 	query := `
@@ -98,7 +100,8 @@ func (fsl *FsLite) insertAdmin(username, password string) (admin Admin, err erro
 	hashpass, err := hash([]byte(password))
 	if err != nil {
 		log.Printf("failed to hash the password: %v", err)
-		return Admin{}, err
+
+		return Admin{}, fmt.Errorf("failed to hash the pass: %w", err)
 	}
 	admin.Password = string(hashpass)
 
@@ -116,10 +119,11 @@ func (fsl *FsLite) insertAdmin(username, password string) (admin Admin, err erro
 
 // authenticateAdmin authenticates an admin user by username and password.
 // If successful, returns a signed JWT token.
-func (fsl *FsLite) authenticateAdmin(username, password string) (token string, err error) {
+func (fsl *FsLite) authenticateAdmin(username, password string) (string, error) {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
 		log.Printf("[FSL_ADMIN_auth] failed to retrieve db conn: %v", err)
+
 		return "", err
 	}
 	query := `SELECT * FROM user_admin WHERE username = ?`
@@ -128,21 +132,25 @@ func (fsl *FsLite) authenticateAdmin(username, password string) (token string, e
 	err = db.QueryRow(query, username).Scan(admin.ptrFields()...)
 	if err != nil {
 		log.Printf("[FSL_ADMIN_auth] failed to query and scan correctly: %v", err)
+
 		return "", err
 	}
 
 	err = verifyPass(admin.Password, password)
 	if err != nil {
 		log.Printf("[FSL_ADMIN_auth] password didn't match: %v", err)
+
 		return "", err
 	}
 
-	token, err = generateAccessJWT(admin.ID.String(), admin.Username)
+	token, err := generateAccessJWT(admin.ID.String(), admin.Username)
 	if err != nil {
 		log.Printf("[FSL_ADMIN_auth] failed generating jwt token: %v", err)
+
 		return "", err
 	}
-	return token, err
+
+	return token, nil
 }
 
 // hash generates a bcrypt hash from the provided password bytes.
@@ -154,15 +162,16 @@ func hash(password []byte) ([]byte, error) {
 // Returns an error if the passwords do not match.
 func verifyPass(hashedPass, password string) error {
 	if err := bcrypt.CompareHashAndPassword([]byte(hashedPass), []byte(password)); err != nil {
-		return fmt.Errorf("fail")
+		return fmt.Errorf("failed to verify pass: %w", err)
 	}
+
 	return nil
 }
 
 // CustomClaims defines the custom JWT claims used for admin authentication.
 // jwt
 type CustomClaims struct {
-	ID       string `json:"userID"`
+	ID       string `json:"userId"`
 	Username string `json:"username"`
 	jwt.RegisteredClaims
 }
@@ -202,17 +211,19 @@ func decodeJWT(tokenString string) (bool, *CustomClaims, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
+
 		return []byte(jwtSecretKey), nil
 	})
-
 	if err != nil {
 		log.Printf("[FSL_ADMIN_decjwt] %v token, exiting", token)
+
 		return false, nil, err
 	}
 
 	claims, ok := token.Claims.(*CustomClaims)
 	if !ok {
 		log.Printf("[FSL_ADMIN_decjwt] not okay when retrieving claims")
+
 		return false, nil, errors.New("invalid claims")
 	}
 

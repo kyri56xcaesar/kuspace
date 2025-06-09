@@ -1,4 +1,4 @@
-package test
+package gocode_test
 
 import (
 	"fmt"
@@ -28,5 +28,4 @@ func TestCast(t *testing.T) {
 	ts := TestStruct{}
 
 	assert.DeepEqual(t, ts, castToStruct(ts))
-
 }

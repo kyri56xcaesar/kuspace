@@ -41,7 +41,12 @@ spec:
           valueFrom:
             secretKeyRef:
               name: service-secret   
-              key: SERVICE_SECRET_KEY    
+              key: SERVICE_SECRET_KEY  
+        - name: MINIO_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: MINIO_SECRET_KEY
         
       volumes:
       - name: config 

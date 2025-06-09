@@ -57,7 +57,7 @@ import (
 )
 
 /*
-* This module will contain functions and methods usefull for the other apps in the entire project
+* This module will contain functions and methods useful for the other apps in the entire project
 *
 * Whatever is and can be reusable should be included here.
 * */
@@ -72,6 +72,7 @@ func Map[S ~[]E, E any, R any](s S, f mapFunc[E, R]) []R {
 	for i, e := range s {
 		result[i] = f(e)
 	}
+
 	return result
 }
 
@@ -86,6 +87,7 @@ func Filter[S ~[]E, E any](s S, f keepFunc[E]) S {
 			result = append(result, v)
 		}
 	}
+
 	return result
 }
 
@@ -98,6 +100,7 @@ func Reduce[E any](s []E, init E, f reduceFunc[E]) E {
 	for _, v := range s {
 		cur = f(cur, v)
 	}
+
 	return cur
 }
 
@@ -107,30 +110,43 @@ func Reduce[E any](s []E, init E, f reduceFunc[E]) E {
 func ToFloat64(value any) float64 {
 	switch v := value.(type) {
 	case int:
+
 		return float64(v)
 	case int8:
+
 		return float64(v)
 	case int16:
+
 		return float64(v)
 	case int32:
+
 		return float64(v)
 	case int64:
+
 		return float64(v)
 	case uint:
+
 		return float64(v)
 	case uint8:
+
 		return float64(v)
 	case uint16:
+
 		return float64(v)
 	case uint32:
+
 		return float64(v)
 	case uint64:
+
 		return float64(v)
 	case float32:
+
 		return float64(v)
 	case float64:
+
 		return v
 	default:
+
 		return 0
 	}
 }
@@ -139,24 +155,31 @@ func ToFloat64(value any) float64 {
 func isZeroValue(v reflect.Value) bool {
 	switch v.Kind() {
 	case reflect.String:
+
 		return v.String() == ""
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+
 		return v.Int() == 0
 	case reflect.Array, reflect.Slice, reflect.Map:
+
 		return v.Len() == 0
 	case reflect.Bool:
+
 		return !v.Bool()
 	case reflect.Ptr, reflect.Interface:
+
 		return v.IsNil()
 	case reflect.Struct:
 		// Recursively check each field
-		for i := 0; i < v.NumField(); i++ {
+		for i := range v.NumField() {
 			if !isZeroValue(v.Field(i)) {
 				return false
 			}
 		}
+
 		return true
 	default:
+
 		return v.IsZero() // general case for other types
 		// this might not work for everything
 	}
@@ -167,6 +190,7 @@ func IsEmpty(val any) bool {
 	if val == nil {
 		return true
 	}
+
 	return isZeroValue(reflect.ValueOf(val))
 }
 
@@ -191,7 +215,7 @@ func MakeMapFrom(names []string, values []any) map[string]any {
 
 // ToSnakeCase will format a given string to snake case
 func ToSnakeCase(input string) string {
-	var output []rune
+	output := make([]rune, 0, len(input))
 	for i, r := range input {
 		if i > 0 && r >= 'A' && r <= 'Z' {
 			output = append(output, '_')
@@ -203,13 +227,14 @@ func ToSnakeCase(input string) string {
 }
 
 // SplitToInt will peform and join string split and atoi
-func SplitToInt(input, seperator string) ([]int, error) {
+func SplitToInt(input, separator string) ([]int, error) {
 	// split the input string by comma
-	parts := strings.Split(input, seperator)
+	parts := strings.Split(input, separator)
 
 	// trim spaces and convert to int
 	trimAndConvert := func(s string) (int, error) {
 		trimmed := strings.TrimSpace(s)
+
 		return strconv.Atoi(trimmed)
 	}
 
@@ -240,23 +265,27 @@ func MergeFiles(outputFile string, inputLocation string, inputFiles []string) er
 		inpFile, err := os.Open(inputLocation + inpPath)
 		if err != nil {
 			fmt.Println("Error opening file:", inpPath, err)
+
 			continue
 		}
 
 		_, err = io.Copy(out, inpFile) // Append content
 		if err != nil {
 			fmt.Println("Error writing file:", err)
+
 			return err
 		}
 
 		_, err = out.WriteString("\n")
 		if err != nil {
 			fmt.Println("error writing string: ", err)
+
 			return err
 		}
 		err = inpFile.Close()
 		if err != nil {
 			fmt.Printf("failed to close the input file: %v", err)
+
 			return err
 		}
 	}
@@ -264,10 +293,12 @@ func MergeFiles(outputFile string, inputLocation string, inputFiles []string) er
 	err = out.Close()
 	if err != nil {
 		fmt.Printf("faild to close the file : %v", err)
+
 		return err
 	}
 
 	fmt.Println("Merged files into:", outputFile)
+
 	return nil
 }
 
@@ -314,16 +345,18 @@ func ReadFileAt(filePath string, start, end int64) ([]byte, error) {
 		if err1 != nil {
 			return nil, err1
 		}
+
 		return nil, err
 	}
 
 	data := make([]byte, end-start+1)
 	_, err = file.Read(data)
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		err1 := file.Close()
 		if err1 != nil {
 			return nil, err1
 		}
+
 		return nil, err
 	}
 
@@ -346,12 +379,13 @@ func CurrentTime() string {
 // HasInvalidCharacters function checks if a given string is within the regexp of the given chars
 func HasInvalidCharacters(s, chars string) bool {
 	// Escape regex meta-characters to avoid pattern errors
-	var escapedChars []string
+	escapedChars := make([]string, 0, len(chars))
 	for _, c := range chars {
 		escapedChars = append(escapedChars, regexp.QuoteMeta(string(c)))
 	}
 	pattern := "[" + strings.Join(escapedChars, "") + "]"
 	re := regexp.MustCompile(pattern)
+
 	return re.MatchString(s)
 }
 
@@ -360,30 +394,37 @@ func HasInvalidCharacters(s, chars string) bool {
 // IsNumeric function checks if a given string matches the regex of numericals
 func IsNumeric(s string) bool {
 	re := regexp.MustCompile(`^[0-9]+$`)
+
 	return re.MatchString(s)
 }
 
 // IsValidPath function checks if a given string is a valid "path" string
 func IsValidPath(s string) bool {
 	re := regexp.MustCompile(`^[a-zA-Z0-9._\-/]+$`)
+
 	return re.MatchString(s)
 }
 
 // IsAlphanumeric function checks if the given string matches the regex of numericals and letter characters
 func IsAlphanumeric(s string) bool {
 	re := regexp.MustCompile(`^[a-zA-Z0-9]+$`)
+
 	return re.MatchString(s)
 }
 
-// IsAlphanumericPlus function checks if the given string matches the regex of numericals and letter characters plus some special characters given
+// IsAlphanumericPlus function checks if the given string matches the regex of numericals
+// and letter characters plus some special characters given
 func IsAlphanumericPlus(s, plus string) bool {
 	re := regexp.MustCompile(fmt.Sprintf(`^[a-zA-Z0-9%s]+$`, plus))
+
 	return re.MatchString(s)
 }
 
-// IsAlphanumericPlusSome function checks if the given string matches the regex of numericals and letter characters plus some special characters already defined
+// IsAlphanumericPlusSome function checks if the given string matches the regex of numericals
+// and letter characters plus some special characters already defined
 func IsAlphanumericPlusSome(s string) bool {
 	re := regexp.MustCompile(`^[a-zA-Z0-9@_]+$`)
+
 	return re.MatchString(s)
 }
 
@@ -465,6 +506,7 @@ func TailFileLines(path string, n int) ([]string, error) {
 	if len(lines) > n {
 		lines = lines[len(lines)-n:]
 	}
+
 	return lines, nil
 }
 
@@ -476,6 +518,7 @@ func Contains(slice []string, val string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -486,7 +529,7 @@ func ValidateObjectName(name string) error {
 	}
 
 	// if strings.Contains(name, "/") {
-	// 	return errors.New("object name cannot contain slashes")
+	// return errors.New("object name cannot contain slashes")
 	// }
 
 	if strings.Contains(name, "..") {
@@ -506,7 +549,7 @@ func ValidateObjectName(name string) error {
 
 	// Optional: ensure it has an extension
 	// if !strings.Contains(name, ".") {
-	// 	return errors.New("object name must include an extension (e.g., .txt)")
+	// return errors.New("object name must include an extension (e.g., .txt)")
 	// }
 
 	return nil
@@ -516,6 +559,7 @@ func appendIfMissing(s, suffix string) string {
 	if !strings.HasSuffix(s, suffix) {
 		return s + suffix
 	}
+
 	return s
 }
 
@@ -527,6 +571,7 @@ func parseMi(s string) (int, error) {
 	if s == "" {
 		return 0, nil
 	}
+
 	return strconv.Atoi(s)
 }
 
@@ -538,6 +583,7 @@ func parseGi(s string) (float64, error) {
 	if s == "" {
 		return 0, nil
 	}
+
 	return strconv.ParseFloat(s, 64)
 }
 
@@ -545,6 +591,7 @@ func parseCPU(s string) (float64, error) {
 	if s == "" {
 		return 0, nil
 	}
+
 	return strconv.ParseFloat(s, 64)
 }
 

@@ -34,12 +34,13 @@ type MultiLogger struct {
 	verbose      bool
 }
 
-// This method will return either a multiwriter if the logger is verbose
+// This method will exit with either a multiwriter if the logger is verbose
 // or just the writer itself
 func (mlogger *MultiLogger) getWriter(file *os.File) io.Writer {
 	if mlogger.verbose {
 		return io.MultiWriter(os.Stderr, file)
 	}
+
 	return file
 }
 
@@ -241,11 +242,12 @@ func GetMultiLogger(split bool, verbose bool) *MultiLogger {
 		err := createLogger(split, verbose)
 		if err != nil {
 			log.Printf("failed to create logger")
+
 			return nil
 		}
 	}
-	return &MLogger
 
+	return &MLogger
 }
 
 // SetMultiLogger sets the Mlogger to be the main logger

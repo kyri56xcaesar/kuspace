@@ -7,9 +7,7 @@ import (
 )
 
 func main() {
-
 	cfg := utils.LoadConfig("configs/wss.conf")
 
 	wsr.Serve(cfg)
-
 }

@@ -2,9 +2,10 @@ package uspace
 
 import (
 	"context"
+	"log"
+
 	"kyri56xcaesar/kuspace/internal/uspace/minio"
 	"kyri56xcaesar/kuspace/pkg/fslite"
-	"log"
 )
 
 // StorageSystem interface describes what a struct aspiring to integrate
@@ -36,13 +37,15 @@ func StorageShipment(storageType string, srv *UService) StorageSystem {
 	switch storageType {
 	case "default", "local", "fslite":
 		fslite := fslite.NewFsLite(srv.config)
+
 		return &fslite
 	case "minio", "remote":
 		minioCl := minio.NewMinioClient(srv.config)
+
 		return &minioCl
 	default:
 		log.Fatal("not a valid storage system, cannot operate")
+
 		return nil
 	}
-
 }

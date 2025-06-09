@@ -6,6 +6,7 @@ def generate_random_data(num_lines, line_length):
     for _ in range(num_lines):
         line = ''.join(random.choices(string.ascii_letters + string.digits, k=line_length))
         data.append(line)
+    
     return data
 
 def write_to_file(filename, data):

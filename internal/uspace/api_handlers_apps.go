@@ -8,9 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	ut "kyri56xcaesar/kuspace/internal/utils"
-
 	"github.com/gin-gonic/gin"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
 // handleApps handles application registration and retrieval for regular users.
@@ -54,15 +53,18 @@ func (srv *UService) handleApps(c *gin.Context) {
 			if err != nil {
 				log.Printf("failed to atoi ids: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "failed to atoi ids"})
+
 				return
 			}
 			apps, err := srv.getAppsByIDs(idsInt)
 			if err != nil {
 				log.Printf("failed to retrieve apps by id: %v, %v", idsInt, err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve apps by id"})
+
 				return
 			}
 			c.JSON(http.StatusOK, gin.H{"content": apps})
+
 			return
 		}
 
@@ -74,10 +76,12 @@ func (srv *UService) handleApps(c *gin.Context) {
 			if err != nil {
 				log.Printf("failed to retrieve the apps: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the apps"})
+
 				return
 			}
 			// log.Printf("jobs retrieved from db: %+v", jobs)
 			c.JSON(http.StatusOK, gin.H{"content": apps})
+
 			return
 		}
 
@@ -85,6 +89,7 @@ func (srv *UService) handleApps(c *gin.Context) {
 		if err != nil {
 			log.Printf("failed to retrieve the app: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the app"})
+
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"content": app})
@@ -94,6 +99,7 @@ func (srv *UService) handleApps(c *gin.Context) {
 		if err != nil {
 			log.Printf("failed to read request body: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read request body"})
+
 			return
 		}
 
@@ -101,12 +107,14 @@ func (srv *UService) handleApps(c *gin.Context) {
 			if err = json.Unmarshal(body, &apps); err != nil {
 				log.Printf("failed to bind app(s): %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "failed to bind app(s)"})
+
 				return
 			}
 			err := srv.insertApps(apps)
 			if err != nil {
 				log.Printf("failed to save apps in the db: %+v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert into db"})
+
 				return
 			}
 
@@ -114,12 +122,14 @@ func (srv *UService) handleApps(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
 				"status": "app(s) published",
 			})
+
 			return
 		}
 		id, err := srv.insertApp(app)
 		if err != nil {
 			log.Printf("failed to insert the app in the db: %+v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert into db"})
+
 			return
 		}
 		app.ID = id
@@ -181,15 +191,18 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 			if err != nil {
 				log.Printf("failed to atoi ids: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "failed to atoi ids"})
+
 				return
 			}
 			apps, err := srv.getAppsByIDs(idsInt)
 			if err != nil {
 				log.Printf("failed to retrieve apps by id: %v, %v", idsInt, err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve apps by id"})
+
 				return
 			}
 			c.JSON(http.StatusOK, gin.H{"content": apps})
+
 			return
 		}
 
@@ -201,10 +214,12 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 			if err != nil {
 				log.Printf("failed to retrieve the apps: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the apps"})
+
 				return
 			}
 			// log.Printf("jobs retrieved from db: %+v", jobs)
 			c.JSON(http.StatusOK, gin.H{"content": apps})
+
 			return
 		}
 
@@ -212,6 +227,7 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 		if err != nil {
 			log.Printf("failed to retrieve the app: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the app"})
+
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"content": app})
@@ -220,6 +236,7 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 		if err != nil {
 			log.Printf("failed to read request body: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read request body"})
+
 			return
 		}
 
@@ -227,6 +244,7 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 			if err = json.Unmarshal(body, &apps); err != nil {
 				log.Printf("failed to bind app(s): %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "failed to bind app(s)"})
+
 				return
 			}
 
@@ -234,6 +252,7 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 			if err != nil {
 				log.Printf("failed to save apps in the db: %+v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert into db"})
+
 				return
 			}
 
@@ -241,6 +260,7 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
 				"status": "app(s) published",
 			})
+
 			return
 		}
 		// save job (insert in DB)
@@ -248,6 +268,7 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 		if err != nil {
 			log.Printf("failed to insert the app in the db: %+v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert into db"})
+
 			return
 		}
 		app.ID = id
@@ -263,16 +284,19 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 		err := c.BindJSON(&app)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to bind data"})
+
 			return
 		}
 		if app.ID == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "must specify an id value"})
+
 			return
 		}
 
 		err = srv.updateApp(app)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update app"})
+
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"status": "update success"})
@@ -284,15 +308,18 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 			if err != nil {
 				log.Printf("failed to atoi id")
 				c.JSON(http.StatusBadRequest, gin.H{"error": "bad id format"})
+
 				return
 			}
 			err = srv.removeApp(idInt)
 			if err != nil {
 				log.Printf("failed to remove app")
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to remove app"})
+
 				return
 			}
-			c.JSON(http.StatusOK, gin.H{"status": "sucess"})
+			c.JSON(http.StatusOK, gin.H{"status": "success"})
+
 			return
 		}
 		ids := c.Query("ids")
@@ -300,11 +327,13 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 			idsInt, err := ut.SplitToInt(strings.TrimSpace(ids), ",")
 			if err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "bad ids format"})
+
 				return
 			}
 			err = srv.removeApps(idsInt)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to remove apps"})
+
 				return
 			}
 			c.JSON(http.StatusOK, gin.H{"status": "success"})

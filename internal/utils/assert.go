@@ -13,13 +13,13 @@ import (
 //     If the value is true, the corresponding field will be checked for non-emptiness.
 //
 // Returns:
-//   - bool: Returns true if all specified fields are not empty; returns false if any specified field is empty or if the input is not a struct.
+//   - bool: Returns true if all specified fields are not empty;
+//     returns false if any specified field is empty or if the input is not a struct.
 //
 // utility package
 //
 // custom assert functions
 func AssertStructNotEmptyUpon(strct any, assertm map[any]bool) bool {
-
 	v := reflect.ValueOf(strct)
 	t := reflect.TypeOf(strct)
 
@@ -30,6 +30,7 @@ func AssertStructNotEmptyUpon(strct any, assertm map[any]bool) bool {
 
 	if v.Kind() != reflect.Struct {
 		log.Printf("argument not a struct")
+
 		return false
 	}
 

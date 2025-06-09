@@ -9,6 +9,7 @@ package minio
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -30,7 +31,7 @@ const (
 )
 
 var (
-	defaultSignDuration              = time.Duration(time.Hour * 24 * 2)
+	defaultSignDuration              = time.Hour * 24 * 2
 	objectSizeThreshold        int64 = 400_000_000
 	defaultObjectSizeThreshold int64 = 400_000_000
 
@@ -105,8 +106,10 @@ func (mc *Client) CreateVolume(volume any) error {
 	err := mc.createBucket(v.Name)
 	if err != nil {
 		log.Printf("failed to create a bucket on minio: %v", err)
+
 		return err
 	}
+
 	return nil
 }
 
@@ -122,17 +125,22 @@ func (mc *Client) Insert(t any) (context.CancelFunc, error) {
 		r, err := mc.Share("put", t)
 		if err != nil {
 			log.Printf("failed to get a presigned link: %v", err)
+
 			return nil, err
 		}
 
 		url, ok := r.(*url.URL)
 		if !ok {
 			log.Printf("failed to cast to url pointer")
-			return nil, fmt.Errorf("failed to cast to url pointer")
+
+			return nil, errors.New("failed to cast to url pointer")
 		}
-		req, err := http.NewRequest(http.MethodPut, url.String(), object.Reader)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*3)
+		defer cancel()
+		req, err := http.NewRequestWithContext(ctx, http.MethodPut, url.String(), object.Reader)
 		if err != nil {
 			log.Printf("failed to create a new request: %v", err)
+
 			return nil, err
 		}
 		req.ContentLength = object.Size
@@ -140,24 +148,31 @@ func (mc *Client) Insert(t any) (context.CancelFunc, error) {
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			log.Printf("failed to perform request: %v", err)
+
 			return nil, err
 		}
+		defer func() {
+			err := resp.Body.Close()
+			if err != nil {
+				log.Printf("failed to close resp body: %v", err)
+			}
+		}()
 
 		// respBody, err := io.ReadAll(resp.Body)
 		// if err != nil {
 		// 	log.Printf("failed to read response body: %v", err)
-		// 	return nil, err
+		// return nil, err
 		// }
 		// defer resp.Body.Close()
-
 		// log.Printf("response: %v", string(respBody))
 
 		if resp.StatusCode >= 300 {
 			log.Printf("bad response")
-			return nil, fmt.Errorf("failed to upload to minio via link")
-		}
-		return nil, nil
 
+			return nil, errors.New("failed to upload to minio via link")
+		}
+
+		return nil, nil
 	}
 	cancel, err := mc.putObject(
 		object.Vname,
@@ -168,8 +183,8 @@ func (mc *Client) Insert(t any) (context.CancelFunc, error) {
 	if err != nil {
 		log.Printf("failed to iniate stream upload to minio: %v", err)
 	}
-	return cancel, err
 
+	return cancel, err
 }
 
 // SelectVolumes lists and returns available volumes (buckets) matching the filter.
@@ -178,6 +193,7 @@ func (mc *Client) SelectVolumes(which map[string]any) (any, error) {
 	res, err := mc.listBuckets()
 	if err != nil {
 		log.Printf("failed to retrieve buckets: %v", err)
+
 		return nil, err
 	}
 
@@ -194,7 +210,6 @@ func (mc *Client) SelectVolumes(which map[string]any) (any, error) {
 		} else if strings.Contains(b.Name, prefix) {
 			r = append(r, volume)
 		}
-
 	}
 
 	return r, nil
@@ -203,14 +218,13 @@ func (mc *Client) SelectVolumes(which map[string]any) (any, error) {
 // SelectObjects lists and returns objects in a specified volume, optionally filtered by prefix.
 // ✅
 func (mc *Client) SelectObjects(which map[string]any) (any, error) {
-
 	vN, is := which["vname"]
 	if !is {
-		return nil, fmt.Errorf("must specify volume")
+		return nil, errors.New("must specify volume")
 	}
 	vName, is := vN.(string)
 	if !is {
-		return nil, fmt.Errorf("bad volume identifier")
+		return nil, errors.New("bad volume identifier")
 	}
 	// fix vName
 	prefix := which["prefix"].(string)
@@ -219,17 +233,14 @@ func (mc *Client) SelectObjects(which map[string]any) (any, error) {
 		prefix = p[len(p)-1]
 	}
 
-	objectCh, cancel, err := mc.listObjects(vName, prefix)
-	if err != nil {
-		log.Printf("failed to retrieve the lits of objects: %v", err)
-		return nil, err
-	}
+	objectCh, cancel := mc.listObjects(vName, prefix)
 	defer cancel()
 
 	var objects []ut.Resource
 	for object := range objectCh {
 		if object.Err != nil {
 			fmt.Println(object.Err)
+
 			return nil, object.Err
 		}
 		rsrc := ut.Resource{
@@ -265,12 +276,11 @@ func (mc *Client) Stat(t any) (any, error) {
 		if err != nil {
 			return nil, err
 		}
-		return info, nil
 
+		return info, nil
 	}
 
 	return mc.statObject(object.Vname, object.Name)
-
 }
 
 // Remove deletes an object from Minio.
@@ -282,7 +292,6 @@ func (mc *Client) Remove(t any) error {
 	}
 
 	return mc.removeObject(resource.Vname, resource.Name)
-
 }
 
 // RemoveVolume deletes a volume (bucket) from Minio.
@@ -304,7 +313,6 @@ func (mc *Client) RemoveVolume(t any) error {
 	}
 
 	return mc.removeBucket(bucketname)
-
 }
 
 // Download retrieves an object from Minio and prepares it for reading.
@@ -319,12 +327,14 @@ func (mc *Client) Download(t *any) (context.CancelFunc, error) {
 	minioObj, cancelFn, err := mc.getObject(resourcePtr.Vname, resourcePtr.Name)
 	if err != nil && minioObj == nil {
 		log.Printf("failed to get object from minio: %v", err)
+
 		return nil, err
 	}
 
 	s, err := minioObj.Stat()
 	if err != nil {
 		log.Printf("failed to stat the minio object: %v", err)
+
 		return nil, err
 	}
 
@@ -345,12 +355,14 @@ func (mc *Client) Copy(s, d any) error {
 		return ut.NewError("failed to cast")
 	}
 
-	uploadInfo, err := mc.copyObject(minio.CopySrcOptions{Bucket: src.Vname, Object: src.Name}, minio.CopyDestOptions{Bucket: dst.Vname, Object: dst.Name})
+	uploadInfo, err := mc.copyObject(minio.CopySrcOptions{Bucket: src.Vname, Object: src.Name},
+		minio.CopyDestOptions{Bucket: dst.Vname, Object: dst.Name})
 	if err != nil {
 		return err
 	}
 
 	log.Printf("upload info: %+v", uploadInfo)
+
 	return nil
 }
 
@@ -365,8 +377,8 @@ func (mc *Client) DefaultVolume(local bool) string {
 	if local {
 		return mc.defaultLocalSpacePath
 	}
-	return mc.defaultBucketName
 
+	return mc.defaultBucketName
 }
 
 // Share generates a presigned URL for uploading or downloading an object.
@@ -375,6 +387,7 @@ func (mc *Client) Share(method string, t any) (any, error) {
 	resource, ok := t.(ut.Resource)
 	if !ok {
 		log.Printf("failed to cast to resource")
+
 		return nil, ut.NewError("bad object, failed to cast to resource")
 	}
 
@@ -384,6 +397,7 @@ func (mc *Client) Share(method string, t any) (any, error) {
 		if err != nil {
 			log.Printf("failed to retrieve object sign")
 		}
+
 		return url, err
 
 	case "put":
@@ -391,10 +405,12 @@ func (mc *Client) Share(method string, t any) (any, error) {
 		if err != nil {
 			log.Printf("failed to retrieve object sign")
 		}
+
 		return url, err
 
 	default:
 		log.Printf("invalid method")
+
 		return nil, ut.NewError("bad method")
 	}
 }

@@ -1,4 +1,4 @@
-package test
+package coding_test
 
 import (
 	"fmt"
@@ -11,7 +11,6 @@ import (
 )
 
 func TestIsEmpty(t *testing.T) {
-
 	assert.True(t, ut.IsEmpty(reflect.ValueOf("")))
 	assert.True(t, ut.IsEmpty(reflect.ValueOf(int(0))))
 	assert.True(t, ut.IsEmpty(reflect.ValueOf(int8(0))))
@@ -39,7 +38,6 @@ func TestIsEmpty(t *testing.T) {
 	assert.False(t, ut.IsEmpty(reflect.ValueOf(bool(true))))
 	assert.False(t, ut.IsEmpty(reflect.ValueOf(struct{ t string }{t: "t"})))
 	assert.False(t, ut.IsEmpty(reflect.ValueOf(map[any]any{"t": "t"})))
-
 }
 
 func TestMakeMap(t *testing.T) {
@@ -76,5 +74,4 @@ func TestMakeMap(t *testing.T) {
 
 	fmt.Println(result)
 	assert.DeepEqual(t, result, map[string]any{"id": 1, "name": "1", "address": "2", "no": 3})
-
 }

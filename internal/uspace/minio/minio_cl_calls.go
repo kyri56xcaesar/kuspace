@@ -24,12 +24,13 @@ func (mc *Client) createBucket(bucketname string) error {
 	exists, err := mc.client.BucketExists(ctx, bucketname)
 	if err != nil {
 		log.Printf("failed to check if bucket exists: %v", err)
+
 		return err
 	}
 	if exists {
 		log.Printf("bucket %s already exists", bucketname)
-		return fmt.Errorf("bucket %s already exists", bucketname)
 
+		return fmt.Errorf("bucket %s already exists", bucketname)
 	}
 	err = mc.client.MakeBucket(context.Background(), bucketname, minio.MakeBucketOptions{
 		Region:        region,
@@ -37,8 +38,10 @@ func (mc *Client) createBucket(bucketname string) error {
 	})
 	if err != nil {
 		log.Printf("error making bucket: %v", err)
+
 		return err
 	}
+
 	return nil
 }
 
@@ -60,6 +63,7 @@ func (mc *Client) listBuckets() ([]minio.BucketInfo, error) {
 	// 		CreationDate: bucket.CreationDate,
 	// 	})
 	// }
+
 	return buckets, nil
 }
 
@@ -70,8 +74,10 @@ func (mc *Client) bucketExists(bucketname string) (bool, error) {
 	exists, err := mc.client.BucketExists(ctx, bucketname)
 	if err != nil {
 		log.Printf("failed to check if bucket exists: %v", err)
+
 		return false, err
 	}
+
 	return exists, nil
 }
 
@@ -87,7 +93,7 @@ func (mc *Client) removeBucket(bucketname string) error {
 	return err
 }
 
-func (mc *Client) listObjects(bucketname, prefix string) (<-chan minio.ObjectInfo, context.CancelFunc, error) {
+func (mc *Client) listObjects(bucketname, prefix string) (<-chan minio.ObjectInfo, context.CancelFunc) {
 	// List all objects from a bucket-name with a matching prefix.
 	ctx, cancel := context.WithCancel(context.Background())
 	// defer cancel()
@@ -97,7 +103,7 @@ func (mc *Client) listObjects(bucketname, prefix string) (<-chan minio.ObjectInf
 		Recursive: true,
 	})
 
-	return objectCh, cancel, nil
+	return objectCh, cancel
 }
 
 func (mc *Client) listIncompleteUploads(bucketname, prefix string, isRecursive bool) {
@@ -109,6 +115,7 @@ func (mc *Client) listIncompleteUploads(bucketname, prefix string, isRecursive b
 	for object := range objectCh {
 		if object.Err != nil {
 			fmt.Println(object.Err)
+
 			return
 		}
 		fmt.Println(object)
@@ -130,6 +137,7 @@ func (mc *Client) fPutObject(bucketname, objectname, filepath string) {
 	})
 	if err != nil {
 		log.Printf("failed to fput object to minio: %v", err)
+
 		return
 	}
 
@@ -143,6 +151,7 @@ func (mc *Client) fGetObject(bucketname, objectname, filepath string) (context.C
 	if err != nil {
 		log.Printf("failed to get object from minio and save it locally")
 		cancel()
+
 		return nil, err
 	}
 
@@ -158,6 +167,7 @@ func (mc *Client) getObject(bucketname, objectname string) (*minio.Object, conte
 	if err != nil {
 		log.Printf("failed to retrieve object stream from minio")
 		cancel()
+
 		return nil, nil, err
 	}
 
@@ -166,17 +176,21 @@ func (mc *Client) getObject(bucketname, objectname string) (*minio.Object, conte
 }
 
 // stream of the object to minio
-func (mc *Client) putObject(bucketname, objectname string, reader io.Reader, objectSize int64) (context.CancelFunc, error) {
+func (mc *Client) putObject(bucketname, objectname string,
+	reader io.Reader, objectSize int64) (context.CancelFunc, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	uploadInfo, err := mc.client.PutObject(ctx, bucketname, objectname, reader, objectSize, minio.PutObjectOptions{})
+	uploadInfo, err := mc.client.PutObject(ctx, bucketname, objectname,
+		reader, objectSize, minio.PutObjectOptions{})
 	if err != nil {
 		log.Printf("failed to put object to minio: %v", err)
 		cancel()
+
 		return nil, err
 	}
 
 	log.Printf("upload info: %+v", uploadInfo)
+
 	return cancel, nil
 }
 
@@ -187,6 +201,7 @@ func (mc *Client) statObject(bucketname, objectname string) (minio.ObjectInfo, e
 	objInfo, err := mc.client.StatObject(ctx, bucketname, objectname, minio.StatObjectOptions{})
 	if err != nil {
 		log.Println("failed to stat object on minio: ", err)
+
 		return objInfo, err
 	}
 
@@ -201,6 +216,7 @@ func (mc *Client) copyObject(origin minio.CopySrcOptions, output minio.CopyDestO
 	if err != nil {
 		log.Print("failed to initiate copy on minio: ", err)
 	}
+
 	return uploadInfo, err
 }
 
@@ -281,9 +297,9 @@ func (mc *Client) getObjectAttributes(bucketname, objectname string) {
 			VersionID: "object-version-id",
 			MaxParts:  100,
 		})
-
 	if err != nil {
 		fmt.Println(err)
+
 		return
 	}
 
@@ -300,6 +316,7 @@ func (mc *Client) getPresignedObject(bucketname, objectname string, duration tim
 	presignedURL, err := mc.client.PresignedGetObject(ctx, bucketname, objectname, duration, reqParams)
 	if err != nil {
 		log.Println(err)
+
 		return nil, err
 	}
 
@@ -313,6 +330,7 @@ func (mc *Client) putPresignedObject(bucketname, objectname string, duration tim
 	presignedURL, err := mc.client.PresignedPutObject(ctx, bucketname, objectname, duration)
 	if err != nil {
 		log.Println(err)
+
 		return nil, err
 	}
 

@@ -59,7 +59,6 @@ type DBHandler struct {
 
 // NewDBHandler a constructor of a DBHandler
 func NewDBHandler(dbname, dbpath, dbDriver string) DBHandler {
-
 	// perform checks
 	// check if the database driver is supported
 	if dbDriver != "sqlite3" && dbDriver != "duckdb" {
@@ -83,15 +82,16 @@ func NewDBHandler(dbname, dbpath, dbDriver string) DBHandler {
 		log.Fatalf("database name %q should end with .db", dbname)
 	}
 
-	if err := os.MkdirAll(dbpath, 0755); err != nil {
+	if err := os.MkdirAll(dbpath, 0o755); err != nil {
 		log.Fatalf("failed to create the path: %v", err)
 	}
 
-	var dbh = DBHandler{
+	dbh := DBHandler{
 		DBName:   dbname,
 		dbPath:   dbpath,
 		dbDriver: dbDriver,
 	}
+
 	return dbh
 }
 
@@ -106,6 +106,7 @@ func (m *DBHandler) GetConn() (*sql.DB, error) {
 		}
 		m.db = db
 	}
+
 	return m.db, nil
 }
 
@@ -159,5 +160,4 @@ func (m *DBHandler) Init(initSQLarg, maxOpenConns, maxIdleCons, connLifetime str
 		m.Close()
 		log.Fatalf("failed to init db, destrcutive: %v", err)
 	}
-
 }

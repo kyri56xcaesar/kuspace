@@ -117,7 +117,6 @@ func parseFlags() {
 	if !strings.HasSuffix(*dir, "/") {
 		*dir = *dir + "/"
 	}
-
 }
 
 func main() {

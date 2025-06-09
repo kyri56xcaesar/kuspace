@@ -1,4 +1,4 @@
-package test
+package coding_test
 
 import (
 	"fmt"
@@ -35,7 +35,6 @@ func Get(sel, table, by, byvalue string, limit int) {
 	}
 
 	log.Printf("Query: %s\nArgs: %v", query, args)
-
 }
 
 // Example usage

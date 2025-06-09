@@ -2,7 +2,7 @@ package fslite
 
 import (
 	"context"
-	ut "kyri56xcaesar/kuspace/internal/utils"
+	"errors"
 	"log"
 	"net/http"
 	"os/signal"
@@ -11,12 +11,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-
-	// fslite swagger docs
-	_ "kyri56xcaesar/kuspace/api/fslite"
-
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	// fslite swagger docs
+	_ "kyri56xcaesar/kuspace/api/fslite"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
 const (
@@ -76,7 +75,7 @@ func (fsl *FsLite) ListenAndServe() {
 	defer stop()
 
 	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("[FSL_SERVER] listen: %s\n", err)
 		}
 	}()
@@ -103,10 +102,12 @@ func authmiddleware(cfg ut.EnvConfig) gin.HandlerFunc {
 			if sSecretClaim == string(cfg.ServiceSecretKey) {
 				log.Printf("[FSL_SERVER_middleware] service secret accepted. access granted.")
 				c.Next()
+
 				return
 			}
 			log.Printf("[FSL_SERVER_middleware] service secret invalid. access not granted")
 			c.Abort()
+
 			return
 		}
 		authHeader := c.GetHeader("Authorization")
@@ -114,6 +115,7 @@ func authmiddleware(cfg ut.EnvConfig) gin.HandlerFunc {
 			log.Printf("[FSL_SERVER_middleware] authorization header not found")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is required"})
 			c.Abort()
+
 			return
 		}
 
@@ -123,6 +125,7 @@ func authmiddleware(cfg ut.EnvConfig) gin.HandlerFunc {
 			log.Printf("[FSL_SERVER_middleware] bearer token not found")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Bearer token is required"})
 			c.Abort()
+
 			return
 		}
 
@@ -131,6 +134,7 @@ func authmiddleware(cfg ut.EnvConfig) gin.HandlerFunc {
 			log.Printf("[FSL_SERVER_middleware] token bad format")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to decode token"})
 			c.Abort()
+
 			return
 		}
 
@@ -142,6 +146,7 @@ func authmiddleware(cfg ut.EnvConfig) gin.HandlerFunc {
 			log.Printf("[FSL_SERVER_middleware] invalid token claims")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
 			c.Abort()
+
 			return
 		}
 

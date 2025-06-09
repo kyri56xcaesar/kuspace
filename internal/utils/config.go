@@ -74,24 +74,25 @@ type EnvConfig struct {
 	StorageSystem string // a storage system the service might use
 
 	// 1. can use fslite
-	// fslite conf
-	FslDb             string // name of the database
-	FslDbPath         string // path of the database
-	FslDbDriver       string // type of database driver, either duckdb or sqlite3
-	FslDbMaxOpenConns string // maximum allowed simutanious open connections
-	FslDbMaxIdleConns string // maximum allowed idle connections
-	FslDbMaxLifetime  string // lifetime of an idle connection
+	// conf
+	FslDB             string // name of the database
+	FslDBPath         string // path of the database
+	FslDBDriver       string // type of database driver, either duckdb or sqlite3
+	FslDBMaxOpenConns string // maximum allowed simutanious open connections
+	FslDBMaxIdleConns string // maximum allowed idle connections
+	FslDBMaxLifetime  string // lifetime of an idle connection
 	FslAccessKey      string // "root" or admin username for authentication
 	FslSecretKey      string // "root" or admin password for authentication
 	FslServer         bool
 	FslLocality       bool
+	FslUnlocked       bool // Unlock means, don't limit or check for usage/capacity per volume
 
 	// fslite uses a local data directory for storage
 	LocalVolumesDefaultPath     string  // path to the data directory
 	LocalVolumesDefaultCapacity float64 // default capacity of the storage
 
 	// 2. can use minio
-	// minio conf
+	// conf
 	MinioNodeportEndpoint   string // minio API endpoint if running inside kube and exposed via nodeport
 	MinioEndpoint           string // minio API endpoint
 	MinioAccessKey          string // "root" or admin username for authentication
@@ -101,7 +102,7 @@ type EnvConfig struct {
 	MinioObjectLocking      bool   // boolean (object locking)
 	MinioFetchStat          bool
 	ObjectSharing           bool   // boolean (object sharing)
-	ObjectSharingExpiration string // expriation date
+	ObjectSharingExpiration string // expiration date
 	ObjectSizeThreshold     string // object size
 	PresignedUploadOnly     bool   // upload only via presigned urls
 
@@ -120,12 +121,12 @@ type EnvConfig struct {
 	UspaceJobMaxTimeout     int64
 	UspaceJobMaxLogicSize   int64
 	// database storage of the jobs
-	UspaceJobsDb             string
-	UspaceJobsDbDriver       string
-	UspaceJobsDbPath         string
-	UspaceJobsDbMaxOpenConns string // maximum allowed simutanious open connections
-	UspaceJobsDbMaxIdleConns string // maximum allowed idle connections
-	UspaceJobsDbMaxLifetime  string // lifetime of an idle connection
+	UspaceJobsDB             string
+	UspaceJobsDBDriver       string
+	UspaceJobsDBPath         string
+	UspaceJobsDBMaxOpenConns string // maximum allowed simutanious open connections
+	UspaceJobsDBMaxIdleConns string // maximum allowed idle connections
+	UspaceJobsDBMaxLifetime  string // lifetime of an idle connection
 
 	// ###################################
 	// authentication (minioth),
@@ -133,8 +134,8 @@ type EnvConfig struct {
 	// ###################################
 	MiniothAccessKey         string
 	MiniothSecretKey         string
-	MiniothDb                string // a path + name of the database
-	MiniothDbDriver          string
+	MiniothDB                string // a path + name of the database
+	MiniothDBDriver          string
 	MiniothHandler           string // either database/db or plain/text
 	MiniothAuditLogs         string
 	MiniothAuditLogsMaxFetch int
@@ -183,14 +184,15 @@ func LoadConfig(path string) EnvConfig {
 
 		FslServer:         getBoolEnv("FSL_SERVER", "true"),
 		FslLocality:       getBoolEnv("FSL_LOCALITY", "true"),
-		FslDb:             getEnv("DB_FSL", "database.db"),
-		FslDbDriver:       getEnv("DB_FSL_DRIVER", "duckdb"),
-		FslDbPath:         getEnv("DB_FSL_PATH", "data/db/fslite"),
-		FslDbMaxOpenConns: getEnv("DB_FSL_MAX_OPEN_CONNS", "50"),
-		FslDbMaxIdleConns: getEnv("DB_FSL_MAX_IDLE_CONNS", "10"),
-		FslDbMaxLifetime:  getEnv("DB_FSL_MAX_LIFETIME", "10"),
+		FslDB:             getEnv("DB_FSL", "database.db"),
+		FslDBDriver:       getEnv("DB_FSL_DRIVER", "duckdb"),
+		FslDBPath:         getEnv("DB_FSL_PATH", "data/db/fslite"),
+		FslDBMaxOpenConns: getEnv("DB_FSL_MAX_OPEN_CONNS", "50"),
+		FslDBMaxIdleConns: getEnv("DB_FSL_MAX_IDLE_CONNS", "10"),
+		FslDBMaxLifetime:  getEnv("DB_FSL_MAX_LIFETIME", "10"),
 		FslAccessKey:      getEnv("FSL_ACCESS_KEY", "fsladmin"),
 		FslSecretKey:      getEnv("FSL_SECRET_KEY", "fsladmin"),
+		FslUnlocked:       getBoolEnv("FSL_UNLOCKED", "false"),
 
 		MinioEndpoint:           getEnv("MINIO_ENDPOINT", "minio:9000"),
 		MinioNodeportEndpoint:   getEnv("MINIO_NODEPORT_ENDPOINT", "localhost:30101"),
@@ -215,12 +217,12 @@ func LoadConfig(path string) EnvConfig {
 		UspaceJobMaxParallelism:  int(getInt64Env("J_MAX_PARALLELISM", 16)),
 		UspaceJobMaxTimeout:      getInt64Env("J_MAX_TIMEOUT", 6000),
 		UspaceJobMaxLogicSize:    getInt64Env("J_MAX_LOGIC_CHARS", 1000000),
-		UspaceJobsDb:             getEnv("DB_JOBS", "jobs.db"),
-		UspaceJobsDbDriver:       getEnv("DB_JOBS_DRIVER", "duckdb"),
-		UspaceJobsDbPath:         getEnv("DB_JOBS_PATH", "data/db/uspace"),
-		UspaceJobsDbMaxOpenConns: getEnv("DB_JOBS_MAX_OPEN_CONNS", "50"),
-		UspaceJobsDbMaxIdleConns: getEnv("DB_JOBS_MAX_IDLE_CONNS", "10"),
-		UspaceJobsDbMaxLifetime:  getEnv("DB_JOBS_MAX_LIFETIME", "10"),
+		UspaceJobsDB:             getEnv("DB_JOBS", "jobs.db"),
+		UspaceJobsDBDriver:       getEnv("DB_JOBS_DRIVER", "duckdb"),
+		UspaceJobsDBPath:         getEnv("DB_JOBS_PATH", "data/db/uspace"),
+		UspaceJobsDBMaxOpenConns: getEnv("DB_JOBS_MAX_OPEN_CONNS", "50"),
+		UspaceJobsDBMaxIdleConns: getEnv("DB_JOBS_MAX_IDLE_CONNS", "10"),
+		UspaceJobsDBMaxLifetime:  getEnv("DB_JOBS_MAX_LIFETIME", "10"),
 
 		WssAddress:         getEnv("J_WS_ADDRESS", "localhost:8082"),
 		WssLogsPath:        getEnv("J_WS_LOGS_PATH", "data/logs/jobs/job_ws.log"),
@@ -228,8 +230,8 @@ func LoadConfig(path string) EnvConfig {
 
 		MiniothAccessKey:         getEnv("MINIOTH_ACCESS_KEY", "root"),
 		MiniothSecretKey:         getEnv("MINIOTH_SECRET_KEY", "root"),
-		MiniothDb:                getEnv("MINIOTH_DB", "data/db/minioth/minioth.db"),
-		MiniothDbDriver:          getEnv("MINIOTH_DB_DRIVER", "duckdb"),
+		MiniothDB:                getEnv("MINIOTH_DB", "data/db/minioth/minioth.db"),
+		MiniothDBDriver:          getEnv("MINIOTH_DB_DRIVER", "duckdb"),
 		MiniothHandler:           getEnv("MINIOTH_HANDLER", "database"),
 		MiniothAuditLogs:         getEnv("MINIOTH_AUDIT_LOGS", "data/logs/minioth/audit.logs"),
 		MiniothAuditLogsMaxFetch: int(getInt64Env("MINIOTH_AUDIT_LOGS_MAX_FETCH", 100)),
@@ -237,6 +239,7 @@ func LoadConfig(path string) EnvConfig {
 	}
 
 	log.Print(config.ToString())
+
 	return config
 }
 
@@ -248,6 +251,7 @@ func getSecretKey(envVar string, fail bool) []byte {
 		}
 		log.Printf("[CONF] config secret %s wasn't set", envVar)
 	}
+
 	return []byte(secret)
 }
 
@@ -255,6 +259,7 @@ func getEnv(key, fallback string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
 	}
+
 	return fallback
 }
 
@@ -263,8 +268,10 @@ func getInt64Env(key string, fallback int64) int64 {
 	keyInt, err := strconv.ParseInt(key, 10, 64)
 	if err != nil {
 		log.Printf("failed to parse int64 from var %v: %v\nfalling back to %v", key, err, fallback)
+
 		return fallback
 	}
+
 	return keyInt
 }
 
@@ -273,8 +280,10 @@ func getFloatEnv(key string, fallback float64) float64 {
 	keyFloat, err := strconv.ParseFloat(key, 64)
 	if err != nil {
 		log.Printf("failed to parse float64 from variable %v: %v\nfalling back... to %v", key, err, fallback)
+
 		return fallback
 	}
+
 	return keyFloat
 }
 
@@ -291,6 +300,7 @@ func getBoolEnv(key, fallback string) bool {
 func getEnvs(key string, fallback []string) []string {
 	if value, exists := os.LookupEnv(key); exists {
 		values := strings.SplitAfter(value, ",")
+
 		return values
 	}
 
@@ -325,12 +335,12 @@ func (cfg *EnvConfig) DeepCopy() EnvConfig {
 		AsOperator:                  cfg.AsOperator,
 		Namespace:                   cfg.Namespace,
 		StorageSystem:               cfg.StorageSystem,
-		FslDb:                       cfg.FslDb,
-		FslDbPath:                   cfg.FslDbPath,
-		FslDbDriver:                 cfg.FslDbDriver,
-		FslDbMaxOpenConns:           cfg.FslDbMaxOpenConns,
-		FslDbMaxIdleConns:           cfg.FslDbMaxIdleConns,
-		FslDbMaxLifetime:            cfg.FslDbMaxLifetime,
+		FslDB:                       cfg.FslDB,
+		FslDBPath:                   cfg.FslDBPath,
+		FslDBDriver:                 cfg.FslDBDriver,
+		FslDBMaxOpenConns:           cfg.FslDBMaxOpenConns,
+		FslDBMaxIdleConns:           cfg.FslDBMaxIdleConns,
+		FslDBMaxLifetime:            cfg.FslDBMaxLifetime,
 		FslAccessKey:                cfg.FslAccessKey,
 		FslSecretKey:                cfg.FslSecretKey,
 		FslServer:                   cfg.FslServer,
@@ -356,16 +366,16 @@ func (cfg *EnvConfig) DeepCopy() EnvConfig {
 		WssAddress:                  cfg.WssAddress,
 		WssAddressInternal:          cfg.WssAddressInternal,
 		WssLogsPath:                 cfg.WssLogsPath,
-		UspaceJobsDb:                cfg.UspaceJobsDb,
-		UspaceJobsDbDriver:          cfg.UspaceJobsDbDriver,
-		UspaceJobsDbPath:            cfg.UspaceJobsDbPath,
-		UspaceJobsDbMaxOpenConns:    cfg.UspaceJobsDbMaxOpenConns,
-		UspaceJobsDbMaxIdleConns:    cfg.UspaceJobsDbMaxIdleConns,
-		UspaceJobsDbMaxLifetime:     cfg.UspaceJobsDbMaxLifetime,
+		UspaceJobsDB:                cfg.UspaceJobsDB,
+		UspaceJobsDBDriver:          cfg.UspaceJobsDBDriver,
+		UspaceJobsDBPath:            cfg.UspaceJobsDBPath,
+		UspaceJobsDBMaxOpenConns:    cfg.UspaceJobsDBMaxOpenConns,
+		UspaceJobsDBMaxIdleConns:    cfg.UspaceJobsDBMaxIdleConns,
+		UspaceJobsDBMaxLifetime:     cfg.UspaceJobsDBMaxLifetime,
 		MiniothAccessKey:            cfg.MiniothAccessKey,
 		MiniothSecretKey:            cfg.MiniothSecretKey,
-		MiniothDb:                   cfg.MiniothDb,
-		MiniothDbDriver:             cfg.MiniothDbDriver,
+		MiniothDB:                   cfg.MiniothDB,
+		MiniothDBDriver:             cfg.MiniothDBDriver,
 		MiniothHandler:              cfg.MiniothHandler,
 		MiniothAuditLogs:            cfg.MiniothAuditLogs,
 		MiniothAuditLogsMaxFetch:    cfg.MiniothAuditLogsMaxFetch,
@@ -407,7 +417,7 @@ func (cfg *EnvConfig) ToString() string {
 
 	strBuilder.WriteString(fmt.Sprintf("[CFG]CONFIGURATION: %s\n", cfg.ConfigPath))
 
-	for i := 0; i < reflectedValues.NumField(); i++ {
+	for i := range reflectedValues.NumField() {
 		fieldName := reflectedTypes.Field(i).Name
 		fieldValue := reflectedValues.Field(i).Interface()
 
@@ -445,18 +455,21 @@ func MakeConfig(path string, fields any) error {
 	jsonData, err := json.Marshal(fields)
 	if err != nil {
 		log.Printf("failed to marshal: %v", err)
+
 		return err
 	}
 
 	cpth, err := os.Getwd()
 	if err != nil {
 		log.Printf("failed to get curpath: %v", err)
+
 		return err
 	}
 
 	err = os.WriteFile(cpth+"/"+path, jsonData, os.ModePerm)
 	if err != nil {
 		log.Printf("failed to write config.json: %v", err)
+
 		return err
 	}
 
@@ -471,11 +484,9 @@ func ReadConfig(path string, secrets bool) (map[string]string, error) {
 	}
 
 	cfgV := make(map[string]string)
-
 	scanner := bufio.NewScanner(cfg)
 	for scanner.Scan() {
 		line := scanner.Text()
-
 		line = strings.TrimSpace(line)
 		if len(line) == 0 || strings.HasPrefix(line, "#") {
 			continue
@@ -490,10 +501,10 @@ func ReadConfig(path string, secrets bool) (map[string]string, error) {
 			if err1 != nil {
 				return nil, err1
 			}
+
 			return nil, err
 		}
 		cfgV[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
-
 	}
 
 	err = cfg.Close()

@@ -45,13 +45,15 @@ package fslite
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
-	ut "kyri56xcaesar/kuspace/internal/utils"
 	"log"
 	"os"
 	"strconv"
 	"strings"
+
+	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -60,6 +62,7 @@ var (
 	fsliteDataPath            = "data/volumes/fslite"
 	defaultVolumeName         = "default_ku_space_volume"
 	verbose                   = false
+	unlocked                  = false
 	defaultVolumeCap  float64 = 20
 	maxVolumeCap      float64 = 100
 )
@@ -84,8 +87,8 @@ const (
 		  path TEXT,
     	  type TEXT,
     	  createdAt DATETIME,
-    	  updated_at DATETIME,
-    	  accessed_at DATETIME
+    	  updatedAt DATETIME,
+    	  accessedAt DATETIME
     	);
     	CREATE TABLE IF NOT EXISTS volumes (
     	  vid INTEGER PRIMARY KEY,
@@ -101,10 +104,10 @@ const (
 			uid INTEGER,
 			usage FLOAT,
 			quota FLOAT,
-			updated_at DATETIME
+			updatedAt DATETIME
 		);
-    	CREATE SEQUENCE IF NOT EXISTS seq_resourceid START 1;
-    	CREATE SEQUENCE IF NOT EXISTS seq_volumeid START 1; 
+    	CREATE SEQUENCE IF NOT EXISTS seqResourceId START 1;
+    	CREATE SEQUENCE IF NOT EXISTS seqVolumeId START 1; 
     `
 )
 
@@ -130,10 +133,10 @@ func NewFsLite(cfg ut.EnvConfig) FsLite {
 	}
 	fsl := FsLite{
 		config: cfg,
-		dbh:    ut.NewDBHandler(cfg.FslDb, cfg.FslDbPath, cfg.FslDbDriver),
+		dbh:    ut.NewDBHandler(cfg.FslDB, cfg.FslDBPath, cfg.FslDBDriver),
 		engine: ginEngine,
 	}
-	fsl.dbh.Init(initSQL, cfg.FslDbMaxOpenConns, cfg.FslDbMaxIdleConns, cfg.FslDbMaxLifetime)
+	fsl.dbh.Init(initSQL, cfg.FslDBMaxOpenConns, cfg.FslDBMaxIdleConns, cfg.FslDBMaxLifetime)
 	if _, err := fsl.insertAdmin(cfg.FslAccessKey, cfg.FslSecretKey); err != nil {
 		log.Fatalf("[FSL_init] error inserting main user, fatal...: %v", err)
 	}
@@ -147,6 +150,7 @@ func NewFsLite(cfg ut.EnvConfig) FsLite {
 			log.Fatalf("[FSL_init] failed to create main volume storage path: %v", err)
 		}
 	}
+	defaultVolumeCap = cfg.LocalVolumesDefaultCapacity
 	defaultVolumeCap = min(defaultVolumeCap, maxVolumeCap)
 	err := fsl.CreateVolume(ut.Volume{Name: defaultVolumeName, Path: fsliteDataPath + "/" + defaultVolumeName, Capacity: defaultVolumeCap})
 	if err != nil {
@@ -157,6 +161,7 @@ func NewFsLite(cfg ut.EnvConfig) FsLite {
 	}
 	JwtValidityHours = cfg.JwtValidityHours
 	verbose = cfg.Verbose
+
 	return fsl
 }
 
@@ -170,8 +175,7 @@ func (fsl *FsLite) Close() {
 func (fsl *FsLite) CreateVolume(v any) error {
 	volume, ok1 := v.(ut.Volume)
 	if !ok1 {
-		return fmt.Errorf("failed to cast to volume")
-
+		return errors.New("failed to cast to volume")
 	}
 	if err := volume.Validate(maxVolumeCap, defaultVolumeCap, "-._"); err != nil {
 		return err
@@ -179,7 +183,7 @@ func (fsl *FsLite) CreateVolume(v any) error {
 
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
-		return fmt.Errorf("failed to get the database connection")
+		return errors.New("failed to get the database connection")
 	}
 
 	// should check if name exists.
@@ -203,6 +207,7 @@ func (fsl *FsLite) CreateVolume(v any) error {
 		if err1 != nil {
 			log.Printf("failed to remove path: %v", err)
 		}
+
 		return err
 	}
 
@@ -220,7 +225,7 @@ func (fsl *FsLite) DefaultVolume(_ bool) string {
 func (fsl *FsLite) RemoveVolume(t any) error {
 	volume, ok := t.(ut.Volume)
 	if !ok {
-		return fmt.Errorf("failed to cast to volume")
+		return errors.New("failed to cast to volume")
 	}
 
 	if err := volume.Validate(maxVolumeCap, defaultVolumeCap, "-._"); err != nil {
@@ -234,12 +239,13 @@ func (fsl *FsLite) RemoveVolume(t any) error {
 	if volume.Name != "" {
 		err = deleteVolumeByName(db, volume.Name)
 	} else {
-		err = deleteVolume(db, volume.Vid)
+		err = deleteVolume(db, volume.VID)
 	}
 
 	if err == nil && fsl.config.FslLocality {
 		err = os.RemoveAll(fsliteDataPath + "/" + volume.Name)
 	}
+
 	return err
 }
 
@@ -249,6 +255,7 @@ func (fsl *FsLite) SelectVolumes(how map[string]any) (any, error) {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
 		log.Printf("[FSL_select_volume(s)] failed to get the db conn: %v", err)
+
 		return nil, err
 	}
 	// limit := how["limit"]
@@ -267,6 +274,7 @@ func (fsl *FsLite) SelectVolumes(how map[string]any) (any, error) {
 		if err == nil {
 			return getVolumeByVid(db, vid)
 		}
+
 		return nil, err
 	}
 
@@ -285,10 +293,17 @@ func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 		db, err := fsl.dbh.GetConn()
 		if err != nil {
 			log.Printf("[FSL_insert] failed to get the db conn: %v", err)
-			return nil, err
+
+			return nil, ut.NewError("failed to get the db conn: %v", err)
 		}
 
-		if _, err = getResourceByNameAndVolume(db, resource.Name, resource.Vname); err == nil { // if err is nil, it exists
+		exists, err := exists(db, resource.Name, resource.Vname)
+		if err != nil { // if err is nil, it exists
+			log.Printf("[FSL_insert] failed to check if object exists")
+
+			return nil, ut.NewError("failed to check if obj exists: %v", err)
+		}
+		if exists {
 			return nil, ut.NewInfo("%s object already exists", resource.Name)
 		}
 
@@ -296,6 +311,7 @@ func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 			outFile, err := os.Create(fsliteDataPath + "/" + resource.Vname + "/" + resource.Name)
 			if err != nil {
 				log.Printf("[FSL_insert] failed to create a new output file (to save)")
+
 				return nil, err
 			}
 			defer func() {
@@ -309,6 +325,7 @@ func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 			_, err = io.Copy(outFile, resource.Reader)
 			if err != nil {
 				log.Printf("[FSL_insert] failed to copy to output file")
+
 				return nil, err
 			}
 		}
@@ -316,8 +333,10 @@ func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 		err = insertResource(db, resource)
 		if err != nil {
 			log.Printf("[FSL_insert] failed to insert resources in the db: %v", err)
+
 			return nil, err
 		}
+
 		return nil, err
 	}
 	resources, ok := t.([]ut.Resource)
@@ -325,13 +344,16 @@ func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 		db, err := fsl.dbh.GetConn()
 		if err != nil {
 			log.Printf("[FSL_insert] failed to get the db conn: %v", err)
+
 			return nil, err
 		}
 		err = insertResources(db, resources)
 		if err != nil {
 			log.Printf("[FSL_insert] failed to insert resources in the db: %v", err)
+
 			return nil, err
 		}
+
 		return nil, err
 	}
 
@@ -340,9 +362,11 @@ func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 		db, err := fsl.dbh.GetConn()
 		if err != nil {
 			log.Printf("[FSL_insert] failed to get the db conn: %v", err)
+
 			return nil, err
 		}
 		err = insertUserVolume(db, uv)
+
 		return nil, err
 	}
 	uvs, ok := t.([]ut.UserVolume)
@@ -350,13 +374,15 @@ func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 		db, err := fsl.dbh.GetConn()
 		if err != nil {
 			log.Printf("[FSL_insert] failed to get the db conn: %v", err)
+
 			return nil, err
 		}
 		err = insertUserVolumes(db, uvs)
+
 		return nil, err
 	}
 
-	return nil, fmt.Errorf("failed to cast all types")
+	return nil, errors.New("failed to cast all types")
 }
 
 // SelectObjects queries and returns resources (files/objects) based on the provided filter map.
@@ -365,6 +391,7 @@ func (fsl *FsLite) SelectObjects(how map[string]any) (any, error) {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
 		log.Printf("[FSL_select_objects] failed to get the db conn: %v", err)
+
 		return nil, err
 	}
 	// limit := how["limit"]
@@ -381,8 +408,17 @@ func (fsl *FsLite) SelectObjects(how map[string]any) (any, error) {
 		if err == nil {
 			return getResourcesByIDs(db, rids)
 		}
+
 		return nil, err
 	}
+
+	name, ok = how["name"]
+	volume, ok2 := how["volume"]
+	log.Printf("name: %v. volume: %v, ok: %v, ok2: %v", name, volume, ok, ok2)
+	if ok && ok2 {
+		return getResourceByNameAndVolume(db, name.(string), volume.(string))
+	}
+
 	return getAllResources(db)
 }
 
@@ -390,13 +426,15 @@ func (fsl *FsLite) SelectObjects(how map[string]any) (any, error) {
 // Returns an error if locality is disabled or if the resource cannot be found.
 func (fsl *FsLite) Stat(t any) (any, error) {
 	if fsl.config.FslLocality {
-		return nil, fmt.Errorf("cannot use stat if locality is turned off")
+		return nil, errors.New("cannot use stat if locality is turned off")
 	}
 	resource, ok := t.(ut.Resource)
 	if !ok {
 		log.Printf("[FSL_stat] failed to cast to designated struct")
-		return nil, fmt.Errorf("failed to cast to designated struct")
+
+		return nil, errors.New("failed to cast to designated struct")
 	}
+
 	return os.Stat(fsliteDataPath + "/" + resource.Vname + "/" + resource.Name)
 }
 
@@ -405,24 +443,29 @@ func (fsl *FsLite) Remove(t any) error {
 	resource, ok := t.(ut.Resource)
 	if !ok {
 		log.Printf("[FSL_remove] failed to cast to designated struct")
-		return fmt.Errorf("failed to cast to designated struct")
+
+		return errors.New("failed to cast to designated struct")
 	}
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
 		log.Printf("[FSL_remove] failed to retrieve database connection: %v", err)
-		return err
+
+		return fmt.Errorf("failed to retrieve the database conn: %w", err)
 	}
 
 	err = deleteResourceByNameAndVolume(db, resource.Name, resource.Vname)
 	if err != nil {
-		return err
+		log.Printf("[FSL_remove] failed to remove the resource from the database")
+
+		return fmt.Errorf("failed to remove the resource properly: %w", err)
 	}
 
 	if fsl.config.FslLocality {
 		err = os.Remove(fsliteDataPath + "/" + resource.Vname + "/" + resource.Name)
 		if err != nil {
 			log.Printf("[FSL_remove] failed to remove file from local fs")
-			return err
+
+			return fmt.Errorf("failed to remove the file locally: %w", err)
 		}
 	}
 
@@ -433,11 +476,12 @@ func (fsl *FsLite) Remove(t any) error {
 // The update is based on the provided map of string keys and values.
 func (fsl *FsLite) Update(t map[string]string) error {
 	if t == nil {
-		return fmt.Errorf("empty argument")
+		return errors.New("empty argument")
 	}
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
 		log.Printf("[FSL_update] failed to retrieve database connection: %v", err)
+
 		return err
 	}
 	rid, exists := t["rid"]
@@ -453,11 +497,11 @@ func (fsl *FsLite) Update(t map[string]string) error {
 			// atoi
 			ridInt, err := strconv.Atoi(rid)
 			if err != nil {
-				return fmt.Errorf("failed to atoi rid")
+				return errors.New("failed to atoi rid")
 			}
 			ownerInt, err := strconv.Atoi(owner)
 			if err != nil {
-				return fmt.Errorf("failed to atoi uid")
+				return errors.New("failed to atoi uid")
 			}
 
 			return updateResourceOwnerByID(db, ridInt, ownerInt)
@@ -468,11 +512,11 @@ func (fsl *FsLite) Update(t map[string]string) error {
 			// atoi
 			ridInt, err := strconv.Atoi(rid)
 			if err != nil {
-				return fmt.Errorf("failed to atoi rid")
+				return errors.New("failed to atoi rid")
 			}
 			groupInt, err := strconv.Atoi(group)
 			if err != nil {
-				return fmt.Errorf("failed to atoi gid")
+				return errors.New("failed to atoi gid")
 			}
 
 			return updateResourceGroupByID(db, ridInt, groupInt)
@@ -486,25 +530,27 @@ func (fsl *FsLite) Update(t map[string]string) error {
 		return updateResourceNameAndVolByName(db, name, newname, volume)
 	}
 
-	return fmt.Errorf("must specify what to update")
+	return errors.New("must specify what to update")
 }
 
 // Download prepares a resource for download by opening the file and attaching a reader to the resource struct.
 // Returns an error if locality is disabled or if the file cannot be found.
 func (fsl *FsLite) Download(t *any) (context.CancelFunc, error) {
 	if fsl.config.FslLocality {
-		return nil, fmt.Errorf("cannot download if locality is off")
+		return nil, errors.New("cannot download if locality is off")
 	}
 	v := *t
 	resource, ok := v.(ut.Resource)
 	if !ok {
 		log.Printf("[FSL_download] failed to cast to ut.Resource")
-		return nil, fmt.Errorf("failed to cast to ut.Resource")
+
+		return nil, errors.New("failed to cast to ut.Resource")
 	}
 	resourcePtr := &resource
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
 		log.Printf("[FSL_download] failed to retrieve database connection: %v", err)
+
 		return nil, err
 	}
 
@@ -519,7 +565,7 @@ func (fsl *FsLite) Download(t *any) (context.CancelFunc, error) {
 	}
 	stat, err := file.Stat()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get file stats: %v", err)
+		return nil, fmt.Errorf("failed to get file stats: %w", err)
 	}
 	resourcePtr.Size = stat.Size()
 	resourcePtr.Reader = file
@@ -542,6 +588,7 @@ func (fsl *FsLite) Copy(s, d any) error {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
 		log.Printf("[FSL_copy] failed to retrieve database connection: %v", err)
+
 		return err
 	}
 
@@ -549,6 +596,7 @@ func (fsl *FsLite) Copy(s, d any) error {
 		sr, err := os.Open(fsliteDataPath + "/" + src.Vname + "/" + src.Name)
 		if err != nil {
 			log.Printf("[FSL_copy] failed to read the src file")
+
 			return err
 		}
 		defer func() {
@@ -560,12 +608,14 @@ func (fsl *FsLite) Copy(s, d any) error {
 		sr1, err := io.ReadAll(sr)
 		if err != nil {
 			log.Printf("[FSL_copy] failed to read the src file to a buffer")
+
 			return err
 		}
 
 		ds, err := os.OpenFile(fsliteDataPath+"/"+dst.Vname+"/"+dst.Name, os.O_CREATE|os.O_WRONLY, 0o644)
 		if err != nil {
 			log.Printf("[FSL_copy] failed to open the dst file")
+
 			return err
 		}
 		defer func() {
@@ -586,6 +636,7 @@ func (fsl *FsLite) Copy(s, d any) error {
 	if err != nil {
 		log.Printf("[FSL_copy] failed to insert to the db0")
 	}
+
 	return err
 }
 
@@ -598,6 +649,7 @@ func (fsl *FsLite) claimVolumeSpace(size int64, volumeName, uid string) error {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
 		log.Printf("[FSL_claim] failed to retrieve database connection: %v", err)
+
 		return err
 	}
 
@@ -610,7 +662,8 @@ func (fsl *FsLite) claimVolumeSpace(size int64, volumeName, uid string) error {
 	newUsageInGB := volume.Usage + sizeInGB
 	if newUsageInGB > volume.Capacity {
 		log.Printf("[FSL_claim] volume is full.")
-		return fmt.Errorf("claim exceeds capacity")
+
+		return errors.New("claim exceeds capacity")
 	}
 
 	// if not dynamic, we should check for per user/group quota
@@ -621,27 +674,30 @@ func (fsl *FsLite) claimVolumeSpace(size int64, volumeName, uid string) error {
 	// if it doesn't exist, create it
 	uv, err := getUserVolumeByUID(db, iuid)
 	if err != nil {
-		err = insertUserVolume(db, ut.UserVolume{UpdatedAt: ut.CurrentTime(), Vid: volume.Vid, UID: iuid, Usage: sizeInGB})
+		err = insertUserVolume(db, ut.UserVolume{UpdatedAt: ut.CurrentTime(), VID: volume.VID, UID: iuid, Usage: sizeInGB})
 		if err != nil {
 			log.Printf("[FSL_claim] failed to insert uv ")
+
 			return err
 		}
 	}
 
 	// update all usages
 	// volume
-	// volume claims user/group
+	// claims user/group
 	uv.Usage += sizeInGB
 	volume.Usage = newUsageInGB
 
 	err = updateVolume(db, volume)
 	if err != nil {
 		log.Printf("[FSL_claim] failed to update volume usages: %v", err)
+
 		return err
 	}
 	err = updateUserVolume(db, uv)
 	if err != nil {
 		log.Printf("[FSL_claim] failed to update user volume usages: %v", err)
+
 		return err
 	}
 
@@ -652,12 +708,14 @@ func (fsl *FsLite) releaseVolumeSpace(size int64, volumeName, uid string) error 
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
 		log.Printf("[FSL_release] failed to retrieve database connection: %v", err)
+
 		return err
 	}
 
 	volume, err := getVolumeByName(db, volumeName)
 	if err != nil {
 		log.Printf("[FSL_release] could not retrieve volume: %v", err)
+
 		return fmt.Errorf("could not retrieve volume: %w", err)
 	}
 
@@ -675,18 +733,20 @@ func (fsl *FsLite) releaseVolumeSpace(size int64, volumeName, uid string) error 
 
 	// update all usages
 	// volume
-	// volume claims user/group
+	// claims user/group
 	uv.Usage = max(0, uv.Usage-sizeInGB)
 	volume.Usage = newUsageInGB
 
 	err = updateVolume(db, volume)
 	if err != nil {
 		log.Printf("[FSL_release] failed to update volume usages: %v", err)
+
 		return err
 	}
 	err = updateUserVolume(db, uv)
 	if err != nil {
 		log.Printf("[FSL_release] failed to update user volume usages: %v", err)
+
 		return err
 	}
 
@@ -700,11 +760,11 @@ func determinePhysicalStorage(target string, fileSize int64) (string, error) {
 	targetParts := strings.Split(target, "/")
 	availableSpace, err := ut.GetAvailableSpace(strings.Join(targetParts[:2], "/"))
 	if err != nil {
-		return "", fmt.Errorf("failed to get available space: %v", err)
+		return "", fmt.Errorf("failed to get available space: %w", err)
 	}
 
-	if availableSpace < uint64(fileSize) {
-		return "", fmt.Errorf("insufficient space")
+	if fileSize < 0 || availableSpace < uint64(fileSize) {
+		return "", errors.New("insufficient space")
 	}
 
 	_, err = os.Stat(targetParts[0])
@@ -712,6 +772,7 @@ func determinePhysicalStorage(target string, fileSize int64) (string, error) {
 		err = os.Mkdir(targetParts[0], 0o700)
 		if err != nil {
 			log.Printf("failed to mkdir: %v", err)
+
 			return "", err
 		}
 
@@ -720,6 +781,7 @@ func determinePhysicalStorage(target string, fileSize int64) (string, error) {
 			err = os.Mkdir(strings.Join(targetParts[:2], "/"), 0o700)
 			if err != nil {
 				log.Printf("failed to mkdir: %v", err)
+
 				return "", err
 			}
 		}
@@ -746,6 +808,7 @@ func (fsl *FsLite) selectUserVolumes(how map[string]any) (any, error) {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get the db conn: %v", err)
+
 		return nil, err
 	}
 	// limit := how["limit"]
@@ -754,69 +817,18 @@ func (fsl *FsLite) selectUserVolumes(how map[string]any) (any, error) {
 	vids, ok2 := how["vids"].(string)
 	if ok1 && vids != "" && ok2 && uids != "" {
 		// log.Printf("selecting all uvs by uids and vids")
-		return getUserVolumesByUidsAndVids(db, strings.Split(uids, ","), strings.Split(vids, ","))
 
+		return getUserVolumesByUidsAndVids(db, strings.Split(uids, ","), strings.Split(vids, ","))
 	} else if ok1 && vids != "" {
 		// log.Printf("selecting uvs by vids: %v", vids)
-		return getUserVolumesByVolumeIDs(db, strings.Split(vids, ","))
 
+		return getUserVolumesByVolumeIDs(db, strings.Split(vids, ","))
 	} else if ok2 && uids != "" {
 		// log.Printf("selecting uvs by uids")
+
 		return getUserVolumesByUserIDs(db, strings.Split(uids, ","))
 	}
 	// log.Printf("selecting all uvs")
+
 	return getAllUserVolumes(db)
-}
-
-/* playground functions... working on it... i don't like them */
-func (fsl *FsLite) sel(sel, table, by, byvalue string, limit int) ([]any, error) {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		// log.Printf("failed to get the db conn: %v", err)
-		return nil, err
-	}
-	results, err := get(db, sel, table, by, byvalue, limit, pickScanFn(table))
-	if err != nil {
-		// log.Prntf("failed to get the desired data: %v", err)
-		return nil, err
-	}
-	return results, nil
-
-}
-
-// selectOne is a generic query function for retrieving a single record from a specified table by a given field.
-// Returns the result or an error.
-func (fsl *FsLite) selectOne(sel, table, by, byvalue string) (any, error) {
-	db, err := fsl.dbh.GetConn()
-	if err != nil {
-		// log.Printf("failed to get the db conn: %v", err)
-		return nil, err
-	}
-	switch table {
-	case "resources":
-		result, err := getResource(db, sel, table, by, byvalue)
-		if err != nil {
-			// log.Printf("failed to get the desired data: %v", err)
-			return nil, err
-		}
-		return result, nil
-	case "volumes":
-		result, err := getVolume(db, sel, table, by, byvalue)
-		if err != nil {
-			// log.Printf("failed to get the desired data: %v", err)
-			return nil, err
-		}
-		return result, nil
-	case "userVolume":
-		result, err := getUserVolume(db, sel, table, by, byvalue)
-		if err != nil {
-			// log.Printf("failed to get the desired data: %v", err)
-			return nil, err
-		}
-		return result, nil
-
-	default:
-		return nil, ut.NewError("invalid table name, not supported: %s", table)
-	}
-
 }

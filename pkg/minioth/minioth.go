@@ -1,9 +1,10 @@
 package minioth
 
 import (
-	ut "kyri56xcaesar/kuspace/internal/utils"
 	"log"
 	"strconv"
+
+	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -59,7 +60,8 @@ type Minioth struct {
 //   - Init(): Initializes the handler and prepares any necessary resources.
 //
 //   - Useradd(user ut.User) (uid, pgroup int, err error):
-//     Adds a new user. Returns the user's unique identifier (uid), the user's primary group ID (pgroup), and an error if the operation fails.
+//     Adds a new user. Returns the user's unique identifier (uid), the user's primary group ID (pgroup),
+//     and an error if the operation fails.
 //
 //   - Userdel(uid string) error:
 //     Deletes a user identified by the given uid. Returns an error if the operation fails.
@@ -68,7 +70,8 @@ type Minioth struct {
 //     Modifies an existing user with the provided user information. Returns an error if the operation fails.
 //
 //   - Userpatch(uid string, fields map[string]any) error:
-//     Updates specific fields of a user identified by uid. The fields parameter is a map of field names to their new values. Returns an error if the operation fails.
+//     Updates specific fields of a user identified by uid. The fields parameter is a map of field names to their new values.
+//     Returns an error if the operation fails.
 //
 //   - Groupadd(group ut.Group) (gid int, err error):
 //     Adds a new group. Returns the group's unique identifier (gid) and an error if the operation fails.
@@ -80,7 +83,8 @@ type Minioth struct {
 //     Modifies an existing group with the provided group information. Returns an error if the operation fails.
 //
 //   - Grouppatch(gid string, fields map[string]any) error:
-//     Updates specific fields of a group identified by gid. The fields parameter is a map of field names to their new values. Returns an error if the operation fails.
+//     Updates specific fields of a group identified by gid. The fields parameter is a map of field names to their new values.
+//     Returns an error if the operation fails.
 //
 //   - Select(id string) any:
 //     Retrieves a user or group by its identifier. Returns the corresponding object or nil if not found.
@@ -98,12 +102,14 @@ type Minioth struct {
 //     Releases any resources held by the handler and performs cleanup operations.
 type Handler interface {
 	Init()
-	Useradd(user ut.User) (uid, pgroup int, err error) /* should return the uid as well*/
+	Useradd(user ut.User) (uid, pgroup int, err error) /* should
+	return the uid as well*/
 	Userdel(uid string) error
 	Usermod(user ut.User) error
 	Userpatch(uid string, fields map[string]any) error
 
-	Groupadd(group ut.Group) (gid int, err error) /* should return the gid inserted as well*/
+	Groupadd(group ut.Group) (gid int, err error) /* should
+	return the gid inserted as well*/
 	Groupdel(gid string) error
 	Groupmod(group ut.Group) error
 	Grouppatch(gid string, fields map[string]any) error
@@ -161,6 +167,7 @@ func NewMinioth(cfgPath string) Minioth {
 	newM.handler.Init()
 
 	verbose = newM.Config.Verbose
+
 	return newM
 }
 
@@ -168,11 +175,14 @@ func NewMinioth(cfgPath string) Minioth {
 func handlerFactory(minioth *Minioth) Handler {
 	switch minioth.Config.MiniothHandler {
 	case "db", "database":
-		return &DBHandler{DBpath: minioth.Config.MiniothDb, minioth: minioth}
+
+		return &DBHandler{DBpath: minioth.Config.MiniothDB, minioth: minioth}
 	case "plain", "text", "file":
+
 		return &PlainHandler{minioth: minioth}
 	default:
 		log.Fatal("not a valid handler, cannot operate")
+
 		return nil
 	}
 }
@@ -257,5 +267,6 @@ func verifyPass(hashedPass, password []byte) bool {
 	if err := bcrypt.CompareHashAndPassword(hashedPass, password); err == nil {
 		return true
 	}
+
 	return false
 }

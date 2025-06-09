@@ -13,7 +13,6 @@ type BCommand struct {
 }
 
 func (bc *BCommand) printSelf() {
-
 	formatFlags := func() (string, int) {
 		if len(bc.Flags) == 0 {
 			return "", 0
@@ -30,11 +29,11 @@ func (bc *BCommand) printSelf() {
 		if l <= 4 {
 			return "\t\t"
 		}
+
 		return "\t"
 	}
 
 	fmt.Printf("\t%s\t%s%s%s\n", bc.Name, f, formatTabs(), bc.Description)
-
 }
 
 // CommandError as in the error info of a command

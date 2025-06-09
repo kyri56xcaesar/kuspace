@@ -1,6 +1,7 @@
 package frontendapp
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log"
@@ -12,17 +13,19 @@ import (
 )
 
 func securityMiddleWare(c *gin.Context) {
-	//if c.Request.Host != srv.Config.Addr() {
+	// if c.Request.Host != srv.Config.Addr() {
 	//	c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Invalid host header"})
 	//	return
 	//}
 	c.Header("X-Frame-Options", "DENY")
-	c.Header("Content-Security-Policy", "default-src 'self'; connect-src *; font-src *; script-src-elem * 'unsafe-inline'; img-src * data:; style-src * 'unsafe-inline';")
+	c.Header("Content-Security-Policy",
+		"default-src 'self'; connect-src *; font-src *; script-src-elem * 'unsafe-inline'; img-src * data:; style-src * 'unsafe-inline';")
 	c.Header("X-XSS-Protection", "1; mode=block")
 	c.Header("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
 	c.Header("Referrer-Policy", "strict-origin")
 	c.Header("X-Content-Type-Options", "nosniff")
-	c.Header("Permissions-Policy", "geolocation=(),midi=(),sync-xhr=(),microphone=(),camera=(),magnetometer=(),gyroscope=(),fullscreen=(self),payment=()")
+	c.Header("Permissions-Policy",
+		"geolocation=(),midi=(),sync-xhr=(),microphone=(),camera=(),magnetometer=(),gyroscope=(),fullscreen=(self),payment=()")
 	c.Next()
 }
 
@@ -30,6 +33,7 @@ func autoLogin() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.Method != http.MethodGet || c.Request.URL.Path != "/login" {
 			c.Next()
+
 			return
 		}
 		log.Print("Auto Login middleware...")
@@ -37,15 +41,18 @@ func autoLogin() gin.HandlerFunc {
 		if err != nil || accessToken == "" {
 			log.Printf("missing access token: %v", err)
 			c.Next()
+
 			return
 		}
-
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*3)
+		defer cancel()
 		//  Decode and verify the token (e.g., JWT validation)
-		req, err := http.NewRequest(http.MethodGet, authServiceURL+authVersion+"/user/token", nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, authServiceURL+authVersion+"/user/token", nil)
 		if err != nil {
 			log.Printf("failed to create a new req: %v", err)
 			c.JSON(http.StatusInternalServerError, nil)
 			c.Abort()
+
 			return
 		}
 		req.Header.Set("Authorization", "Bearer "+accessToken)
@@ -55,6 +62,7 @@ func autoLogin() gin.HandlerFunc {
 			log.Printf("failed to make request: %v", err)
 			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to validate access"})
 			c.Abort()
+
 			return
 		}
 		defer func() {
@@ -65,9 +73,9 @@ func autoLogin() gin.HandlerFunc {
 		}()
 
 		type Info struct {
-			ExpiresAt string `json:"expires_at"`
+			ExpiresAt string `json:"expiresAt"`
 			Groups    string `json:"groups"`
-			IssuesAt  string `json:"issued_at"`
+			IssuesAt  string `json:"issuedAt"`
 			User      string `json:"user"`
 			Valid     string `json:"valid"`
 		}
@@ -81,6 +89,7 @@ func autoLogin() gin.HandlerFunc {
 				"error": "failed to read resp body",
 			})
 			c.Abort()
+
 			return
 		}
 
@@ -91,12 +100,12 @@ func autoLogin() gin.HandlerFunc {
 				"error": "failed to parse response",
 			})
 			c.Abort()
+
 			return
 		}
 
 		// forward directly inside
 		c.Redirect(http.StatusSeeOther, "/api/v1/verified/admin-panel")
-
 	}
 }
 
@@ -107,14 +116,18 @@ func authMiddleware(group string) gin.HandlerFunc {
 			log.Printf("missing access token: %v", err)
 			c.HTML(401, "admin-panel.html", gin.H{"error": "token has expired, login again"})
 			c.Abort()
+
 			return
 		}
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*3)
+		defer cancel()
 		//  Decode and verify the token (e.g., JWT validation)
-		req, err := http.NewRequest(http.MethodGet, authServiceURL+authVersion+"/user/token", nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, authServiceURL+authVersion+"/user/token", nil)
 		if err != nil {
 			log.Printf("failed to create a new req: %v", err)
 			c.JSON(http.StatusInternalServerError, nil)
 			c.Abort()
+
 			return
 		}
 		req.Header.Set("Authorization", "Bearer "+accessToken)
@@ -124,6 +137,7 @@ func authMiddleware(group string) gin.HandlerFunc {
 			log.Printf("failed to make request: %v", err)
 			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to validate access"})
 			c.Abort()
+
 			return
 		}
 		defer func() {
@@ -133,12 +147,12 @@ func authMiddleware(group string) gin.HandlerFunc {
 			}
 		}()
 		type Info struct {
-			ExpiresAt string `json:"expires_at"`
+			ExpiresAt string `json:"expiresAt"`
 			Groups    string `json:"groups"`
 			GroupIDs  string `json:"groupIDs"`
-			IssuesAt  string `json:"issued_at"`
+			IssuesAt  string `json:"issuedAt"`
 			Username  string `json:"username"`
-			UserID    string `json:"userID"`
+			UserID    string `json:"userId"`
 			Valid     string `json:"valid"`
 		}
 		var info struct {
@@ -151,6 +165,7 @@ func authMiddleware(group string) gin.HandlerFunc {
 				"error": "failed to read resp body",
 			})
 			c.Abort()
+
 			return
 		}
 
@@ -161,6 +176,7 @@ func authMiddleware(group string) gin.HandlerFunc {
 				"error": "failed to parse response",
 			})
 			c.Abort()
+
 			return
 		}
 
@@ -170,6 +186,7 @@ func authMiddleware(group string) gin.HandlerFunc {
 			log.Printf("token not valid anymore...")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized, invalid token"})
 			c.Abort()
+
 			return
 		}
 		contents := strings.Split(info.Info.Groups, ",")
@@ -181,6 +198,7 @@ func authMiddleware(group string) gin.HandlerFunc {
 				c.Set("groups", info.Info.Groups)
 				c.Set("groupIDs", info.Info.GroupIDs)
 				c.Set("accessToken", accessToken)
+
 				return
 			}
 		}

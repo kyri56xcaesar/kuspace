@@ -7,6 +7,7 @@ package minioth
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"strings"
 
 	ut "kyri56xcaesar/kuspace/internal/utils"
+
 	// duckdb driver
 	_ "github.com/marcboeker/go-duckdb"
 )
@@ -65,13 +67,15 @@ func (m *DBHandler) getConn() (*sql.DB, error) {
 	var err error
 
 	if db == nil {
-		db, err = sql.Open(m.minioth.Config.MiniothDbDriver, m.DBpath)
+		db, err = sql.Open(m.minioth.Config.MiniothDBDriver, m.DBpath)
 		m.db = db
 		if err != nil {
 			log.Printf("Failed to connect to DuckDB: %v", err)
+
 			return nil, err
 		}
 	}
+
 	return db, err
 }
 
@@ -93,6 +97,7 @@ func (m *DBHandler) insertRootUser(user ut.User, db *sql.DB) error {
 		if err != nil {
 			return err
 		}
+
 		return fmt.Errorf("failed to insert root user: %w", err)
 	}
 
@@ -103,12 +108,14 @@ func (m *DBHandler) insertRootUser(user ut.User, db *sql.DB) error {
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("failed to insert rootUser, hashing failed: %v", err)
+
+		return fmt.Errorf("failed to insert rootUser, hashing failed: %w", err)
 	}
 
 	passwordQuery := `
     INSERT INTO 
-        passwords (uid, hashpass, lastPasswordChange, minimumPasswordAge, maximumPasswordAge, warningPeriod, inactivityPeriod, expirationDate) 
+        passwords (uid, hashpass, lastPasswordChange, minimumPasswordAge,
+		 maximumPasswordAge, warningPeriod, inactivityPeriod, expirationDate) 
     VALUES 
         (?, ?, ?, ?, ?, ?, ?, ?)`
 	_, err = tx.Exec(passwordQuery, user.UID, hashPass, user.Password.LastPasswordChange, user.Password.MinimumPasswordAge,
@@ -118,6 +125,7 @@ func (m *DBHandler) insertRootUser(user ut.User, db *sql.DB) error {
 		if err != nil {
 			return err
 		}
+
 		return fmt.Errorf("failed to insert root password: %w", err)
 	}
 
@@ -132,6 +140,7 @@ func (m *DBHandler) insertRootUser(user ut.User, db *sql.DB) error {
 		if err != nil {
 			return err
 		}
+
 		return fmt.Errorf("failed to group root user: %w", err)
 	}
 
@@ -167,7 +176,6 @@ func (m *DBHandler) Init() {
 	err = os.MkdirAll(cpath+"/"+dbPath, 0o644)
 	if err != nil {
 		panic(err)
-
 	}
 
 	db, err := m.getConn()
@@ -255,20 +263,23 @@ func (m *DBHandler) Useradd(user ut.User) (int, int, error) {
 	tx, err := db.Begin()
 	if err != nil {
 		log.Printf("failed to begin transaction: %v", err)
+
 		return -1, -1, err
 	}
 
 	// check if user exists...
 	var exists int
 	err = db.QueryRow("SELECT 1 FROM users WHERE username = ?", user.Username).Scan(&exists)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		log.Printf("User with name %q does not exist.", user.Username)
 	} else if err != nil {
 		log.Printf("Error checking for user existence: %v", err)
+
 		return -1, -1, fmt.Errorf("error checking for user existence: %w", err)
 	} else {
 		log.Printf("User with name %q already exists.", user.Username)
-		return -1, -1, fmt.Errorf("user already exists")
+
+		return -1, -1, errors.New("user already exists")
 	}
 
 	userQuery := `
@@ -281,6 +292,7 @@ func (m *DBHandler) Useradd(user ut.User) (int, int, error) {
 	user.UID, err = m.nextID("users")
 	if err != nil {
 		log.Printf("failed to retrieve the next avaible uid: %v", err)
+
 		return -1, -1, err
 	}
 	user.Pgroup = user.UID
@@ -292,7 +304,8 @@ func (m *DBHandler) Useradd(user ut.User) (int, int, error) {
 		if err != nil {
 			return -1, -1, err
 		}
-		return -1, -1, fmt.Errorf("failed to add user: %v", err)
+
+		return -1, -1, fmt.Errorf("failed to add user: %w", err)
 	}
 
 	passwordQuery := `
@@ -301,9 +314,10 @@ func (m *DBHandler) Useradd(user ut.User) (int, int, error) {
   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `
 	/* add the user inique group */
-	gid, err := m.Groupadd(ut.Group{Groupname: user.Username, Gid: user.UID})
+	gid, err := m.Groupadd(ut.Group{Groupname: user.Username, GID: user.UID})
 	if err != nil {
 		log.Printf("failed to insert user unique/primary group: %v", err)
+
 		return -1, -1, err
 	}
 
@@ -320,7 +334,8 @@ func (m *DBHandler) Useradd(user ut.User) (int, int, error) {
 			return -1, -1, err
 		}
 		log.Printf("failed to group user: %v", err)
-		return -1, -1, fmt.Errorf("failed to execute insertion: %v", err)
+
+		return -1, -1, fmt.Errorf("failed to execute insertion: %w", err)
 	}
 
 	hashPass, err := hash([]byte(user.Password.Hashpass))
@@ -330,7 +345,8 @@ func (m *DBHandler) Useradd(user ut.User) (int, int, error) {
 		if err != nil {
 			return -1, -1, err
 		}
-		return -1, -1, fmt.Errorf("failed to execute insertion: %v", err)
+
+		return -1, -1, fmt.Errorf("failed to execute insertion: %w", err)
 	}
 
 	_, err = tx.Exec(passwordQuery, user.UID, hashPass, ut.CurrentTime(), user.Password.MinimumPasswordAge,
@@ -341,11 +357,13 @@ func (m *DBHandler) Useradd(user ut.User) (int, int, error) {
 			return -1, -1, err
 		}
 		log.Printf("failed to execute query: %v", err)
-		return -1, -1, fmt.Errorf("failed to execute insertion: %v", err)
+
+		return -1, -1, fmt.Errorf("failed to execute insertion: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {
 		log.Printf("failed to commit transaction: %v", err)
+
 		return -1, -1, err
 	}
 
@@ -357,12 +375,14 @@ func (m *DBHandler) Useradd(user ut.User) (int, int, error) {
 func (m *DBHandler) Userdel(uid string) error {
 	if err := checkIfRoot(uid); err != nil {
 		log.Print("can't delete the root...")
+
 		return fmt.Errorf("deleting the root?%v", nil)
 	}
 
 	db, err := m.getConn()
 	if err != nil {
 		log.Printf("failed to get db conn: %v", err)
+
 		return err
 	}
 
@@ -408,12 +428,14 @@ func (m *DBHandler) Userdel(uid string) error {
 		_, err = db.Exec(deletePrimaryGroupQuery, gid)
 		if err != nil {
 			log.Printf("error, failed to delete user primary group: %v", err)
+
 			return err
 		}
 
 		_, err = db.Exec(cleanRemenantsQuery, gid)
 		if err != nil {
 			log.Printf("error, failed to clean the user_group to the deleted group relation: %v", err)
+
 			return err
 		}
 	}
@@ -421,30 +443,35 @@ func (m *DBHandler) Userdel(uid string) error {
 	_, err = db.Exec(deleteUserGroupQuery, uid)
 	if err != nil {
 		log.Printf("error, failed to delete usergroups: %v", err)
+
 		return err
 	}
 
 	_, err = db.Exec(deletePasswordQuery, uid)
 	if err != nil {
 		log.Printf("error, failed to delete password: %v", err)
+
 		return err
 	}
 
 	res, err := db.Exec(deleteUserQuery, uid)
 	if err != nil {
 		log.Printf("error, failed to delete user: %v", err)
+
 		return err
 	}
 
 	rAffected, err := res.RowsAffected()
 	if err != nil {
 		log.Printf("failed to get the rows affected")
+
 		return err
 	}
 
 	if rAffected == 0 {
 		log.Print("no users were deleted")
-		return fmt.Errorf("user not found")
+
+		return errors.New("user not found")
 	}
 
 	return nil
@@ -456,6 +483,7 @@ func (m *DBHandler) Usermod(user ut.User) error {
 	db, err := m.getConn()
 	if err != nil {
 		log.Printf("Failed to get DB connection: %v", err)
+
 		return err
 	}
 
@@ -463,6 +491,7 @@ func (m *DBHandler) Usermod(user ut.User) error {
 	tx, err := db.Begin()
 	if err != nil {
 		log.Printf("Failed to begin transaction: %v", err)
+
 		return err
 	}
 
@@ -482,6 +511,7 @@ func (m *DBHandler) Usermod(user ut.User) error {
 	_, err = tx.Exec(deleteUserGroupsQuery, user.UID)
 	if err != nil {
 		log.Printf("Failed to delete user-group associations: %v", err)
+
 		return fmt.Errorf("failed to delete user-group associations: %w", err)
 	}
 
@@ -489,6 +519,7 @@ func (m *DBHandler) Usermod(user ut.User) error {
 	_, err = tx.Exec(deletePasswordQuery, user.UID)
 	if err != nil {
 		log.Printf("Failed to delete password: %v", err)
+
 		return fmt.Errorf("failed to delete password: %w", err)
 	}
 
@@ -504,11 +535,13 @@ func (m *DBHandler) Usermod(user ut.User) error {
 	res, err := tx.Exec(updateUserQuery, user.Username, user.Info, user.Home, user.Shell, user.UID)
 	if err != nil {
 		log.Printf("failed to update user: %v", err)
+
 		return fmt.Errorf("failed to update user: %w", err)
 	}
 
 	if rAff, err := res.RowsAffected(); err != nil {
 		log.Printf("failed to get rows affected: %v", err)
+
 		return err
 	} else if rAff == 0 {
 		return ut.NewWarning("user with uid: %v doesn't exist", user.UID)
@@ -517,6 +550,7 @@ func (m *DBHandler) Usermod(user ut.User) error {
 	hashPass, err := hash([]byte(user.Password.Hashpass))
 	if err != nil {
 		log.Printf("failed to hash the pass: %v", err)
+
 		return err
 	}
 
@@ -531,6 +565,7 @@ func (m *DBHandler) Usermod(user ut.User) error {
 		user.Password.InactivityPeriod, user.Password.ExpirationDate)
 	if err != nil {
 		log.Printf("Failed to insert password: %v", err)
+
 		return fmt.Errorf("failed to insert password: %w", err)
 	}
 
@@ -547,12 +582,13 @@ func (m *DBHandler) Usermod(user ut.User) error {
 			if i < len(user.Groups)-1 {
 				insertUserGroupsQuery += ", "
 			}
-			params = append(params, user.UID, group.Gid)
+			params = append(params, user.UID, group.GID)
 		}
 
 		_, err = tx.Exec(insertUserGroupsQuery, params...)
 		if err != nil {
 			log.Printf("Failed to insert user-group associations: %v", err)
+
 			return fmt.Errorf("failed to insert user-group associations: %w", err)
 		}
 	}
@@ -561,6 +597,7 @@ func (m *DBHandler) Usermod(user ut.User) error {
 	err = tx.Commit()
 	if err != nil {
 		log.Printf("Failed to commit transaction: %v", err)
+
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
@@ -578,9 +615,11 @@ func (m *DBHandler) Userpatch(uid string, fields map[string]any) error {
 	for key, value := range fields {
 		switch key {
 		case "uid":
+
 			continue
 		case "groups":
 			groups = fields[key]
+
 			continue
 		case "password":
 			password = fields[key].(string)
@@ -588,7 +627,7 @@ func (m *DBHandler) Userpatch(uid string, fields map[string]any) error {
 			if fields[key] == "" {
 				continue
 			}
-			query += fmt.Sprintf("%s = ?, ", key)
+			query += key + " = ?, "
 			args = append(args, value)
 		}
 	}
@@ -599,6 +638,7 @@ func (m *DBHandler) Userpatch(uid string, fields map[string]any) error {
 	tx, err := db.Begin()
 	if err != nil {
 		log.Printf("failed to begin transaction: %v", err)
+
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
@@ -612,7 +652,7 @@ func (m *DBHandler) Userpatch(uid string, fields map[string]any) error {
 			return fmt.Errorf("failed to execute update query: %w", err)
 		}
 		if rAff, err := res.RowsAffected(); err != nil {
-			return err
+			return fmt.Errorf("checking rows affected: %w", err)
 		} else if rAff == 0 {
 			return ut.NewWarning("user with uid: %v doesn't exist", uid)
 		}
@@ -624,6 +664,7 @@ func (m *DBHandler) Userpatch(uid string, fields map[string]any) error {
 		_, err := tx.Exec("DELETE FROM user_groups WHERE uid = ?", uid)
 		if err != nil {
 			log.Printf("failed to delete old relations..:%v", err)
+
 			return fmt.Errorf("failed to delete old relations: %w", err)
 		}
 
@@ -648,6 +689,7 @@ func (m *DBHandler) Userpatch(uid string, fields map[string]any) error {
 		_, err = tx.Exec(insQuery, args...)
 		if err != nil {
 			log.Printf("failed to insert user groups: %v", err)
+
 			return fmt.Errorf("failed to insert user groups: %w", err)
 		}
 	}
@@ -657,6 +699,7 @@ func (m *DBHandler) Userpatch(uid string, fields map[string]any) error {
 		hashPass, err := hash([]byte(password))
 		if err != nil {
 			log.Printf("failed to hash the pass: %v", err)
+
 			return err
 		}
 		pquery := `
@@ -676,6 +719,7 @@ func (m *DBHandler) Userpatch(uid string, fields map[string]any) error {
 	err = tx.Commit()
 	if err != nil {
 		log.Printf("failed to commit transaction: %v", err)
+
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
@@ -689,20 +733,23 @@ func (m *DBHandler) Groupadd(group ut.Group) (int, error) {
 	db, err := m.getConn()
 	if err != nil {
 		log.Printf("failed to get the db conn: %v", err)
+
 		return -1, err
 	}
 
 	// check if group exists...
 	var exists int
 	err = db.QueryRow("SELECT 1 FROM groups WHERE groupname = ?", group.Groupname).Scan(&exists)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		log.Printf("group with name %q does not exist.", group.Groupname)
 	} else if err != nil {
 		log.Printf("errror checking for group existence: %v", err)
+
 		return -1, fmt.Errorf("error checking for group existence: %w", err)
 	} else {
 		log.Printf("group with name %q already exists.", group.Groupname)
-		return -1, fmt.Errorf("group already exists")
+
+		return -1, errors.New("group already exists")
 	}
 
 	groupAddQuery := `
@@ -717,12 +764,14 @@ func (m *DBHandler) Groupadd(group ut.Group) (int, error) {
 	gid, err := m.nextID("groups")
 	if err != nil {
 		log.Printf("failed to retrieve the nextid")
+
 		return -1, err
 	}
 
 	_, err = db.Exec(groupAddQuery, gid, group.Groupname)
 	if err != nil {
 		log.Printf("error executing groupAddQuery: %v", err)
+
 		return -1, err
 	}
 
@@ -730,7 +779,7 @@ func (m *DBHandler) Groupadd(group ut.Group) (int, error) {
 	if len(group.Users) > 0 {
 		placeholders := strings.Repeat("(?, ?),", len(group.Users))
 		placeholders = strings.TrimSuffix(placeholders, ",") // Remove trailing comma
-		userGroupQuery := fmt.Sprintf("INSERT INTO user_groups (uid, gid) VALUES %s", placeholders)
+		userGroupQuery := "INSERT INTO user_groups (uid, gid) VALUES " + placeholders
 
 		args := []any{}
 		for _, user := range group.Users {
@@ -740,6 +789,7 @@ func (m *DBHandler) Groupadd(group ut.Group) (int, error) {
 		_, err = db.Exec(userGroupQuery, args...)
 		if err != nil {
 			log.Printf("Error executing userGroupQuery: %v", err)
+
 			return -1, err
 		}
 	}
@@ -753,6 +803,7 @@ func (m *DBHandler) Groupdel(gid string) error {
 	db, err := m.getConn()
 	if err != nil {
 		log.Printf("failed to get db conn: %v", err)
+
 		return err
 	}
 	groupDelQuery := `DELETE FROM groups WHERE gid = ?`
@@ -761,23 +812,27 @@ func (m *DBHandler) Groupdel(gid string) error {
 	res, err := db.Exec(groupDelQuery, gid)
 	if err != nil {
 		log.Printf("error, failed to delete group: %v", err)
+
 		return err
 	}
 
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
 		log.Printf("error getting rows affected num: %v", err)
+
 		return err
 	}
 
 	if rowsAffected == 0 {
 		log.Printf("group: %q doesn't exist", gid)
-		return fmt.Errorf("group doens't exist")
+
+		return errors.New("group doens't exist")
 	}
 
 	_, err = db.Exec(userGroupDel, gid)
 	if err != nil {
 		log.Printf("error, failed to delete usergroups: %v", err)
+
 		return err
 	}
 
@@ -790,6 +845,7 @@ func (m *DBHandler) Groupmod(group ut.Group) error {
 	db, err := m.getConn()
 	if err != nil {
 		log.Printf("Failed to get DB connection: %v", err)
+
 		return err
 	}
 
@@ -799,43 +855,48 @@ func (m *DBHandler) Groupmod(group ut.Group) error {
     SET groupname = ?
     WHERE gid = ?;
   `
-	res, err := db.Exec(updateGroupQuery, group.Groupname, group.Gid)
+	res, err := db.Exec(updateGroupQuery, group.Groupname, group.GID)
 	if err != nil {
 		log.Printf("Failed to update group: %v", err)
+
 		return err
 	}
 
 	if rAff, err := res.RowsAffected(); err != nil {
 		log.Printf("failed to get rows affected by query: %v", err)
+
 		return err
 	} else if rAff == 0 {
-		return ut.NewWarning("group with gid %v doesn't exist", group.Gid)
+		return ut.NewWarning("group with gid %v doesn't exist", group.GID)
 	}
 
 	// Update user-group relations
 	deleteUserGroupsQuery := `DELETE FROM user_groups WHERE gid = ?`
-	_, err = db.Exec(deleteUserGroupsQuery, group.Gid)
+	_, err = db.Exec(deleteUserGroupsQuery, group.GID)
 	if err != nil {
 		log.Printf("Failed to delete user-group associations: %v", err)
+
 		return err
 	}
 
 	if len(group.Users) > 0 {
 		placeholders := strings.Repeat("(?, ?),", len(group.Users))
 		placeholders = strings.TrimSuffix(placeholders, ",")
-		insertUserGroupsQuery := fmt.Sprintf("INSERT INTO user_groups (uid, gid) VALUES %s", placeholders)
+		insertUserGroupsQuery := "INSERT INTO user_groups (uid, gid) VALUES " + placeholders
 
 		args := []any{}
 		for _, user := range group.Users {
-			args = append(args, user.UID, group.Gid)
+			args = append(args, user.UID, group.GID)
 		}
 
 		_, err = db.Exec(insertUserGroupsQuery, args...)
 		if err != nil {
 			log.Printf("Failed to insert user-group associations: %v", err)
+
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -845,6 +906,7 @@ func (m *DBHandler) Grouppatch(gid string, fields map[string]any) error {
 	db, err := m.getConn()
 	if err != nil {
 		log.Printf("Failed to get DB connection: %v", err)
+
 		return err
 	}
 
@@ -852,7 +914,7 @@ func (m *DBHandler) Grouppatch(gid string, fields map[string]any) error {
 	query := "UPDATE groups SET "
 	args := []any{}
 	for field, value := range fields {
-		query += fmt.Sprintf("%s = ?, ", field)
+		query += field + " = ?, "
 		args = append(args, value)
 	}
 	query = strings.TrimSuffix(query, ", ") // Remove the trailing comma
@@ -862,18 +924,21 @@ func (m *DBHandler) Grouppatch(gid string, fields map[string]any) error {
 	res, err := db.Exec(query, args...)
 	if err != nil {
 		log.Printf("failed to patch group: %v", err)
+
 		return err
 	}
 
 	rAff, err := res.RowsAffected()
 	if err != nil {
 		log.Printf("failed to get rows affected: %v", err)
+
 		return err
 	}
 
 	if rAff == 0 {
 		return ut.NewWarning("group with uid: %v doesn't exist", gid)
 	}
+
 	return nil
 }
 
@@ -886,12 +951,14 @@ func (m *DBHandler) Passwd(username, password string) error {
 	db, err := m.getConn()
 	if err != nil {
 		log.Printf("failed to connect to database: %v", err)
+
 		return err
 	}
 
 	hashPass, err := hash([]byte(password))
 	if err != nil {
 		log.Printf("failed to hash the pass: %v", err)
+
 		return err
 	}
 
@@ -914,6 +981,7 @@ func (m *DBHandler) Passwd(username, password string) error {
 	_, err = db.Exec(updateQuery, hashPass, ut.CurrentTime(), username)
 	if err != nil {
 		log.Printf("failed to exec update query: %v", err)
+
 		return err
 	}
 
@@ -938,6 +1006,7 @@ func (m *DBHandler) Select(id string) any {
 	db, err := m.getConn()
 	if err != nil {
 		log.Printf("failed to connect to database: %v", err)
+
 		return nil
 	}
 
@@ -968,7 +1037,6 @@ func (m *DBHandler) Select(id string) any {
 	  		`, param)
 
 			rows, err = db.Query(userQuery, value)
-
 		} else {
 			userQuery = `
 			SELECT  
@@ -984,11 +1052,10 @@ func (m *DBHandler) Select(id string) any {
 			  u.uid, u.username, u.info, u.home, u.shell, u.pgroup, p.hashpass, p.lastPasswordChange, p.minimumPasswordAge, p.maximumPasswordAge, p.warningPeriod, p.inactivityPeriod, p.expirationDate;
 	  		`
 			rows, err = db.Query(userQuery)
-
 		}
-
 		if err != nil {
 			log.Printf("failed to query users: %v", err)
+
 			return nil
 		}
 		defer func() {
@@ -1005,6 +1072,7 @@ func (m *DBHandler) Select(id string) any {
 			err := rows.Scan(&user.UID, &user.Username, &user.Password.Hashpass, &user.Password.LastPasswordChange, &user.Password.MinimumPasswordAge, &user.Password.MaximumPasswordAge, &user.Password.WarningPeriod, &user.Password.InactivityPeriod, &user.Password.ExpirationDate, &user.Info, &user.Home, &user.Shell, &user.Pgroup, &groupNames, &grouIDs)
 			if err != nil {
 				log.Printf("failed to scan user: %v", err)
+
 				return nil
 			}
 
@@ -1019,7 +1087,7 @@ func (m *DBHandler) Select(id string) any {
 					}
 					groups = append(groups, ut.Group{
 						Groupname: groupName,
-						Gid:       gid,
+						GID:       gid,
 					})
 				}
 			}
@@ -1045,6 +1113,7 @@ func (m *DBHandler) Select(id string) any {
 		rows, err := db.Query(groupQuery)
 		if err != nil {
 			log.Printf("failed to query groups: %v", err)
+
 			return nil
 		}
 		defer func() {
@@ -1058,9 +1127,10 @@ func (m *DBHandler) Select(id string) any {
 			var group ut.Group
 			var userNames sql.NullString
 			var userIDs sql.NullString
-			err := rows.Scan(&group.Gid, &group.Groupname, &userNames, &userIDs)
+			err := rows.Scan(&group.GID, &group.Groupname, &userNames, &userIDs)
 			if err != nil {
 				log.Printf("failed to scan group: %v", err)
+
 				return nil
 			}
 
@@ -1074,6 +1144,7 @@ func (m *DBHandler) Select(id string) any {
 					uid, err := strconv.Atoi(userIDsList[i])
 					if err != nil {
 						log.Printf("failed to atoi a uid: %v", userIDsList[i])
+
 						return nil
 					}
 					users = append(users, ut.User{
@@ -1092,6 +1163,7 @@ func (m *DBHandler) Select(id string) any {
 		if verbose {
 			log.Printf("Invalid id: %s", id)
 		}
+
 		return nil
 	}
 }
@@ -1105,14 +1177,14 @@ func (m *DBHandler) Authenticate(username, password string) (ut.User, error) {
 	}
 	user := getUser(username, db)
 	if user.Username == "" {
-		return ut.User{}, fmt.Errorf("user not found")
+		return ut.User{}, errors.New("user not found")
 	}
 
 	if verifyPass([]byte(user.Password.Hashpass), []byte(password)) {
 		return user, nil
 	}
-	return ut.User{}, fmt.Errorf("failed to authenticate bad credentials: %v", nil)
 
+	return ut.User{}, fmt.Errorf("failed to authenticate bad credentials: %v", nil)
 }
 
 // Purge method of Database Minioth Handler
@@ -1166,6 +1238,7 @@ func getUser(username string, db *sql.DB) ut.User {
 	rows, err := db.Query(userQuery, username)
 	if err != nil {
 		log.Printf("error on query: %v", err)
+
 		return ut.User{}
 	}
 	defer func() {
@@ -1186,12 +1259,13 @@ func getUser(username string, db *sql.DB) ut.User {
 	for rows.Next() {
 		if err := rows.Scan(&user.Username, &user.Info, &user.Home, &user.Shell, &user.UID, &user.Pgroup, &gid, &gname); err != nil {
 			log.Printf("failed to ugr scan row: %v", err)
+
 			return ut.User{}
 		}
 
 		if gid.Valid && gname.Valid {
 			groups = append(groups, ut.Group{
-				Gid:       int(gid.Int64),
+				GID:       int(gid.Int64),
 				Groupname: gname.String,
 			})
 		}
@@ -1217,6 +1291,7 @@ func getUser(username string, db *sql.DB) ut.User {
 		&password.MaximumPasswordAge, &password.WarningPeriod, &password.InactivityPeriod, &password.ExpirationDate)
 	if err != nil {
 		log.Printf("failed to scan password: %v", err)
+
 		return ut.User{}
 	}
 	user.Password = password
@@ -1253,11 +1328,13 @@ func checkIfRoot(uid string) error {
 	iuid, err := strconv.Atoi(uid)
 	if err != nil {
 		log.Printf("failed to atoi: %v", err)
+
 		return err
 	}
 
 	if iuid == 0 {
 		return fmt.Errorf("indeed root: %v", nil)
 	}
+
 	return nil
 }

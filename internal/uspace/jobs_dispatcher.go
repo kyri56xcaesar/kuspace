@@ -25,15 +25,15 @@ import (
   - RemoveJob(int) error
   - RemoveJobs([]int) error
 
-the default one is is JDispatcher which works as a scheduler
+the default one is JDispatcher which works as a scheduler
 */
 type JobDispatcher interface {
 	Start()
-	PublishJob(ut.Job) error
-	PublishJobs([]ut.Job) error
-	RemoveJob(int) error
-	RemoveJobs([]int) error
-	Subscribe(ut.Job) error
+	PublishJob(job ut.Job) error
+	PublishJobs(jobs []ut.Job) error
+	RemoveJob(jid int) error
+	RemoveJobs(jids []int) error
+	Subscribe(job ut.Job) error
 }
 
 // DispatcherShipment function for creating (or "shipping") the appropriate Dispatcher
@@ -41,14 +41,19 @@ type JobDispatcher interface {
 func DispatcherShipment(dispatcherType string, srv *UService) (JobDispatcher, error) {
 	switch dispatcherType {
 	case "scheduler", "default", "local":
+
 		return JobDispatcherImpl{Manager: NewJobManager(srv)}, nil
 	case "kafka":
+
 		return nil, ut.NewWarning("kafka dispatcher not implemented")
 	case "rabbitmq":
+
 		return nil, ut.NewWarning("rabbitmq dispatcher not implemented")
 	case "natss":
+
 		return nil, ut.NewWarning("natss dispatcher not implemented")
 	default:
+
 		return nil, ut.NewWarning("unknown dispatcher type: %s", dispatcherType)
 	}
 }

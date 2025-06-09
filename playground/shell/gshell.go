@@ -18,13 +18,16 @@ func checkIfandExecBuiltIn(cmd string) error {
 	switch cmd {
 	case builtInCommands[0].Name:
 		os.Exit(0)
+
 		return nil
 
 	case builtInCommands[1].Name:
 		usage()
+
 		return nil
 
 	default:
+
 		return &CommandError{
 			completeFlag: 0,
 			message:      "notfound",
@@ -67,7 +70,7 @@ func getShellPrompt() string {
 	// Trim the input
 	input := Trim(string(line))
 
-	// Should Provide methods for new line extentions.
+	// Should Provide methods for new line extensions.
 
 	return input
 }
@@ -107,7 +110,6 @@ func Run() error {
 
 	welcome()
 	for {
-
 		// fmt.Printf("i: %v\n", i)
 		cmd := getShellPrompt()
 
@@ -121,13 +123,12 @@ func Run() error {
 		err := checkIfandExecBuiltIn(cmd)
 
 		if err == nil {
-			// If there is no err (meaning it exists) and is executed
-			// continue safely
+			// If there is no err (meaning it exists) and is executed safely
+
 			continue
 		}
 
 		// Exec command
 		// Check if piped // Perhaps check for malicious input?
-
 	}
 }

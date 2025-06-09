@@ -22,14 +22,13 @@ import (
 	"syscall"
 	"time"
 
-	ut "kyri56xcaesar/kuspace/internal/utils"
-
-	// swagger documentation
-	_ "kyri56xcaesar/kuspace/api/minioth"
-
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+
+	// swagger documentation
+	_ "kyri56xcaesar/kuspace/api/minioth"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
 /*
@@ -102,6 +101,16 @@ func NewMService(m *Minioth) MService {
 		}()
 	}
 
+	// create the jwks filepath
+	p := strings.Split(jwksFilePath, "/")
+	if len(p) == 0 {
+		log.Fatalf("invalid jwksFilePath: %s", jwksFilePath)
+	}
+	err = os.MkdirAll(strings.Join(p[:len(p)-1], "/"), 0o755)
+	if err != nil {
+		log.Fatalf("failed to initialize the path to jwks: %v", err)
+	}
+
 	log.Printf("[INIT]updating jwt key...: %s", jwtSecretKey)
 	log.Printf("[INIT]updating jwks path...: %s", jwksFilePath)
 	log.Printf("[INIT]setting issuer to: %s", issuer)
@@ -122,7 +131,6 @@ func NewMService(m *Minioth) MService {
  * /audit/logs, /admin/users, /admin/users
  */
 func (srv *MService) ServeHTTP() {
-
 	srv.RegisterRoutes()
 
 	server := &http.Server{
@@ -136,15 +144,14 @@ func (srv *MService) ServeHTTP() {
 
 	go func() {
 		if srv.Minioth.Config.APIUseTLS {
-			if err := server.ListenAndServeTLS(srv.Minioth.Config.APICertFile, srv.Minioth.Config.APIKeyFile); err != nil && err != http.ErrServerClosed {
+			if err := server.ListenAndServeTLS(srv.Minioth.Config.APICertFile, srv.Minioth.Config.APIKeyFile); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				log.Fatalf("listen: %s\n", err)
 			}
 		} else {
-			if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				log.Fatalf("listen: %s\n", err)
 			}
 		}
-
 	}()
 	<-ctx.Done()
 
@@ -219,7 +226,7 @@ func (srv *MService) RegisterRoutes() {
 	}
 }
 
-/* Filter incoming login and register requests. Don't allow wierd chars...*/
+/* Filter incoming login and register requests. Don't allow weird chars...*/
 func (l *LoginClaim) validateClaim() error {
 	if l.Username == "" {
 		return errors.New("username cannot be empty")
@@ -242,7 +249,7 @@ func (u *RegisterClaim) validateUser() error {
 	}
 
 	if len(u.User.Username) < 3 || len(u.User.Username) > 32 {
-		return fmt.Errorf("username must be between 3 and 32 characters")
+		return errors.New("username must be between 3 and 32 characters")
 	}
 
 	if offLimits(u.User.Username) {
@@ -254,7 +261,7 @@ func (u *RegisterClaim) validateUser() error {
 	}
 
 	if len(u.User.Info) > 100 {
-		return fmt.Errorf("info field is too long: maximum allowed length is 100 characters")
+		return errors.New("info field is too long: maximum allowed length is 100 characters")
 	}
 
 	if !ut.IsAlphanumericPlusSome(u.User.Info) {
@@ -279,6 +286,7 @@ func offLimits(str string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 

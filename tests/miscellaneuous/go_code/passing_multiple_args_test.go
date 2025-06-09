@@ -1,4 +1,4 @@
-package test
+package gocode_test
 
 import (
 	"fmt"
@@ -11,7 +11,6 @@ func testFunc(args ...any) {
 	fmt.Printf("args: %+v\n", args)
 	// m := args[3].(map[string]int)
 	// fmt.Printf("map arg: %v\n", m["hello"])
-
 }
 
 func TestMArgs(t *testing.T) {

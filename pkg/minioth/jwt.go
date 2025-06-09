@@ -43,7 +43,7 @@ type JWK struct {
 }
 
 func loadJWKS() (*JWKS, error) {
-	data, err := os.ReadFile("path/to/jwks.json") // or fetch from URL if remote
+	data, err := os.ReadFile(jwksFilePath) // or fetch from URL if remote
 	if err != nil {
 		return nil, fmt.Errorf("failed to read JWKS file: %w", err)
 	}
@@ -135,17 +135,19 @@ func DecodeJWT(tokenString string) (bool, *CustomClaims, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
+
 		return jwtSecretKey, nil
 	})
-
 	if err != nil {
 		log.Printf("%v token, exiting", token)
+
 		return false, nil, err
 	}
 
 	claims, ok := token.Claims.(*CustomClaims)
 	if !ok {
 		log.Printf("not okay when retrieving claims")
+
 		return false, nil, errors.New("invalid claims")
 	}
 
@@ -157,16 +159,19 @@ func ParseJWT(tokenStr string) (*jwt.Token, error) {
 	return jwt.ParseWithClaims(tokenStr, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
 		alg, ok := token.Header["alg"].(string)
 		if !ok {
-			return nil, fmt.Errorf("invalid token header (missing alg)")
+			return nil, errors.New("invalid token header (missing alg)")
 		}
 
 		switch alg {
 		case "HS256":
+
 			return jwtSecretKey, nil // your internal symmetric key
 		case "RS256":
 			// load your RSA public key (or use JWKS cache)
+
 			return getRSAPublicKey(token, true) // validate via kid or static
 		default:
+
 			return nil, fmt.Errorf("unsupported signing method: %s", alg)
 		}
 	})
@@ -188,7 +193,7 @@ func rotateKey() {
 	currentKID = kid
 	log.Printf("[INIT]rotated key, new kid: %s", kid)
 
-	//perform a cleanup prune of old keys
+	// perform a cleanup prune of old keys
 	for kid, key := range signingKeys {
 		if time.Since(key.CreatedAt) > time.Duration(rsaKeyTTL)*time.Hour {
 			delete(signingKeys, kid)
@@ -196,7 +201,7 @@ func rotateKey() {
 	}
 
 	if err := updateJWKS(); err != nil {
-		log.Fatalf("failed to update JWKS...")
+		log.Fatalf("failed to update JWKS...: %v", err)
 	}
 }
 
@@ -217,26 +222,26 @@ func updateJWKS() error {
 		}
 		// Append the new key
 		jwks.Keys = append(jwks.Keys, newJWK)
-
 	}
 	data, err := json.MarshalIndent(jwks, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal jwks: %w", err)
 	}
 
-	return os.WriteFile(jwksFilePath, data, 0644)
+	return os.WriteFile(jwksFilePath, data, 0o644)
 }
 
 func getRSAPublicKey(token *jwt.Token, static bool) (any, error) {
 	if static {
 		// Use locally stored RSA public key (e.g., loaded at server start)
+
 		return signingKeys[currentKID].PublicKey, nil
 	}
 
 	// Get kid from token header
 	kid, ok := token.Header["kid"].(string)
 	if !ok {
-		return nil, fmt.Errorf("no kid in token header")
+		return nil, errors.New("no kid in token header")
 	}
 
 	// Look up JWKs (could be cached in memory or fetched from remote)
@@ -252,6 +257,7 @@ func getRSAPublicKey(token *jwt.Token, static bool) (any, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse RSA key from JWK: %w", err)
 			}
+
 			return pubKey, nil
 		}
 	}
@@ -286,5 +292,6 @@ func keyToRSAPublicKey(jwk JWK) (*rsa.PublicKey, error) {
 		N: n,
 		E: e,
 	}
+
 	return pubKey, nil
 }

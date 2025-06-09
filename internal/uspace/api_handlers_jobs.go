@@ -58,20 +58,23 @@ func (srv *UService) handleJob(c *gin.Context) {
 		offset, _ := c.GetQuery("offset")
 		uids, _ := c.GetQuery("uids")
 		if uids != "" {
-			// return all jobs from database by uids
+			// all jobs from database by uids
 			uidsInt, err := ut.SplitToInt(uids, ",")
 			if err != nil {
 				log.Printf("failed to atoi uids: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "failed to atoi uids"})
+
 				return
 			}
-			jobs, err := srv.getJobsByUids(uidsInt)
+			jobs, err := srv.getJobsByUIDs(uidsInt)
 			if err != nil {
 				log.Printf("failed to retrieve jobs by uid: %v, %v", uidsInt, err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve jobs by uid"})
+
 				return
 			}
 			c.JSON(http.StatusOK, gin.H{"content": jobs})
+
 			return
 		}
 
@@ -81,41 +84,48 @@ func (srv *UService) handleJob(c *gin.Context) {
 			if err != nil {
 				log.Printf("failed to atoi uid: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "failed to atoi uid"})
+
 				return
 			}
 			jobs, err := srv.getJobsByUID(uidInt)
 			if err != nil {
 				log.Printf("failed to retrieve jobs by uid: %v, %v", uidInt, err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve jobs by uid"})
+
 				return
 			}
 			c.JSON(http.StatusOK, gin.H{"content": jobs})
+
 			return
 		}
 
 		jid, _ := c.GetQuery("jids")
 		if jid == "" || jid == "*" {
-			// return all jobs from database
+			// all jobs from database
 			jobs, err := srv.getAllJobs(limit, offset)
 			if err != nil {
 				log.Printf("failed to retrieve the jobs: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the jobs"})
+
 				return
 			}
 			// log.Printf("jobs retrieved from db: %+v", jobs)
 			c.JSON(http.StatusOK, gin.H{"content": jobs})
+
 			return
 		}
 		jidInt, err := strconv.Atoi(jid)
 		if err != nil {
 			log.Printf("failed to atoi jid: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to atoi jid"})
+
 			return
 		}
 		job, err = srv.getJobByID(jidInt)
 		if err != nil {
 			log.Printf("failed to retrieve the job: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the job"})
+
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"content": job})
@@ -125,6 +135,7 @@ func (srv *UService) handleJob(c *gin.Context) {
 		if err != nil {
 			log.Printf("failed to read request body: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read request body"})
+
 			return
 		}
 
@@ -132,6 +143,7 @@ func (srv *UService) handleJob(c *gin.Context) {
 			if err = json.Unmarshal(body, &jobs); err != nil {
 				log.Printf("failed to bind job(s): %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "failed to bind job(s)"})
+
 				return
 			}
 			// check for job validity.s
@@ -141,6 +153,7 @@ func (srv *UService) handleJob(c *gin.Context) {
 			if err != nil {
 				log.Printf("failed to save jobs in the db: %+v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert into db"})
+
 				return
 			}
 
@@ -149,6 +162,7 @@ func (srv *UService) handleJob(c *gin.Context) {
 			if err != nil {
 				log.Printf("failed to publish the jobs: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to publish jobs"})
+
 				return
 			}
 
@@ -156,6 +170,7 @@ func (srv *UService) handleJob(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
 				"status": "job(s) published",
 			})
+
 			return
 		}
 		// log.Printf("job: %v", job)
@@ -167,15 +182,17 @@ func (srv *UService) handleJob(c *gin.Context) {
 		if err != nil {
 			log.Printf("failed to insert the job in the db: %+v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert into db"})
+
 			return
 		}
-		job.Jid = jid
+		job.JID = jid
 		log.Printf("[Database] Job id acquired: %d", jid)
 		// "publish" job
 		err = srv.jdp.PublishJob(job)
 		if err != nil {
 			log.Printf("failed to publish the job: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to publish job"})
+
 			return
 		}
 
@@ -229,20 +246,23 @@ func (srv *UService) handleJobAdmin(c *gin.Context) {
 	case http.MethodGet:
 		uids, _ := c.GetQuery("uids")
 		if uids != "" {
-			// return all jobs from database by uids
+			//  all jobs from database by uids
 			uidsInt, err := ut.SplitToInt(uids, ",")
 			if err != nil {
 				log.Printf("failed to atoi uids: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "failed to atoi uids"})
+
 				return
 			}
-			jobs, err := srv.getJobsByUids(uidsInt)
+			jobs, err := srv.getJobsByUIDs(uidsInt)
 			if err != nil {
 				log.Printf("failed to retrieve jobs by uid: %v, %v", uidsInt, err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve jobs by uid"})
+
 				return
 			}
 			c.JSON(http.StatusOK, gin.H{"content": jobs})
+
 			return
 		}
 
@@ -252,41 +272,48 @@ func (srv *UService) handleJobAdmin(c *gin.Context) {
 			if err != nil {
 				log.Printf("failed to atoi uid: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "failed to atoi uid"})
+
 				return
 			}
 			jobs, err := srv.getJobsByUID(uidInt)
 			if err != nil {
 				log.Printf("failed to retrieve jobs by uid: %v, %v", uidInt, err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve jobs by uid"})
+
 				return
 			}
 			c.JSON(http.StatusOK, gin.H{"content": jobs})
+
 			return
 		}
 		limit, _ := c.GetQuery("limit")
 		offset, _ := c.GetQuery("offset")
 		jid, _ := c.GetQuery("jids")
 		if jid == "" || jid == "*" {
-			// return all jobs from database
+			//  all jobs from database
 			jobs, err := srv.getAllJobs(limit, offset)
 			if err != nil {
 				log.Printf("failed to retrieve the jobs: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the jobs"})
+
 				return
 			}
 			c.JSON(http.StatusOK, gin.H{"content": jobs})
+
 			return
 		}
 		jidInt, err := strconv.Atoi(jid)
 		if err != nil {
 			log.Printf("failed to atoi jid: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to atoi jid"})
+
 			return
 		}
 		job, err := srv.getJobByID(jidInt)
 		if err != nil {
 			log.Printf("failed to retrieve the job: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the job"})
+
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"content": job})
@@ -296,6 +323,7 @@ func (srv *UService) handleJobAdmin(c *gin.Context) {
 		if err != nil {
 			log.Printf("failed to read request body: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read request body"})
+
 			return
 		}
 
@@ -303,6 +331,7 @@ func (srv *UService) handleJobAdmin(c *gin.Context) {
 			if err = json.Unmarshal(body, &jobs); err != nil {
 				log.Printf("failed to bind job(s): %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "failed to bind job(s)"})
+
 				return
 			}
 			// check for job validity.s
@@ -312,22 +341,16 @@ func (srv *UService) handleJobAdmin(c *gin.Context) {
 			if err != nil {
 				log.Printf("failed to save jobs in the db: %+v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert into db"})
+
 				return
 			}
-
-			// // "publish" jobs
-			// err = srv.jdp.PublishJobs(jobs)
-			// if err != nil {
-			// 	log.Printf("failed to publish the jobs: %v", err)
-			// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to publish jobs"})
-			// 	return
-			// }
 
 			// respond with status
 			c.JSON(http.StatusOK, gin.H{
 				"status": "job(s) published",
 				"jid":    -1,
 			})
+
 			return
 		}
 		// log.Printf("job: %v", job)
@@ -339,15 +362,17 @@ func (srv *UService) handleJobAdmin(c *gin.Context) {
 		if err != nil {
 			log.Printf("failed to insert the job in the db: %+v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert into db"})
+
 			return
 		}
-		job.Jid = jid
+		job.JID = jid
 		log.Printf("[Database] Job id acquired: %d", jid)
 		// "publish" job
 		err = srv.jdp.PublishJob(job)
 		if err != nil {
 			log.Printf("failed to publish the job: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to publish job"})
+
 			return
 		}
 
@@ -361,20 +386,23 @@ func (srv *UService) handleJobAdmin(c *gin.Context) {
 		err := c.BindJSON(&job)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to bind data"})
+
 			return
 		}
 
-		if job.Jid == 0 {
+		if job.JID == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "must specify a valid job id"})
+
 			return
 		}
 
 		err = srv.updateJob(job)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update the job"})
+
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"status": "update sucess"})
+		c.JSON(http.StatusOK, gin.H{"status": "update success"})
 
 	case http.MethodDelete:
 		jids, _ := c.GetQuery("jids")
@@ -382,14 +410,17 @@ func (srv *UService) handleJobAdmin(c *gin.Context) {
 			jidsInt, err := ut.SplitToInt(strings.TrimSpace(jids), ",")
 			if err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "failed to atoi"})
+
 				return
 			}
 			err = srv.removeJobs(jidsInt)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete the jobs"})
+
 				return
 			}
 			c.JSON(http.StatusOK, gin.H{"status": "job(s) deleted successfully"})
+
 			return
 		}
 
@@ -398,14 +429,17 @@ func (srv *UService) handleJobAdmin(c *gin.Context) {
 			jidInt, err := strconv.Atoi(strings.TrimSpace(jid))
 			if err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "failed to atoi"})
+
 				return
 			}
 			err = srv.removeJob(jidInt)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete the job"})
+
 				return
 			}
 			c.JSON(http.StatusOK, gin.H{"status": "job deleted successfully"})
+
 			return
 		}
 

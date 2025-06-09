@@ -43,15 +43,24 @@ func googleCallbackHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Token exchange failed",
 		})
+
 		return
 	}
 
-	resp, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?accessToken=" + token.AccessToken)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://www.googleapis.com/oauth2/v2/userinfo?accessToken="+token.AccessToken, nil)
+	if err != nil {
+		log.Printf("failed to create a new get request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create a new request"})
+
+		return
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Println("Google user info request error:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "User info retrieval failed.",
 		})
+
 		return
 	}
 	defer func() {
@@ -66,6 +75,7 @@ func googleCallbackHandler(c *gin.Context) {
 	if err != nil {
 		log.Printf("failed to decode to json: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to decode json"})
+
 		return
 	}
 	c.JSON(http.StatusOK, userInfo)
@@ -82,14 +92,23 @@ func githubCallbackHandler(c *gin.Context) {
 	if err != nil {
 		log.Println("GitHub token exchange error:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Token exchange failed"})
+
 		return
 	}
 
 	// Retrieve user info
-	resp, err := http.Get("https://api.github.com/user?accessToken=" + token.AccessToken)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://api.github.com/user?accessToken="+token.AccessToken, nil)
+	if err != nil {
+		log.Printf("failed to create a new get request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create a new request"})
+
+		return
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Println("GitHub user info request error:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "User info request failed"})
+
 		return
 	}
 	defer func() {
@@ -104,6 +123,7 @@ func githubCallbackHandler(c *gin.Context) {
 	if err != nil {
 		log.Printf("failed to decode to json: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to decode json"})
+
 		return
 	}
 	c.JSON(http.StatusOK, userInfo)

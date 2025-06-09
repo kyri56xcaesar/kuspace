@@ -5,23 +5,23 @@ metadata:
   namespace: kuspace
 data:
   minioth.conf: |
-    IP=0.0.0.0
-    VERBOSE=true
-    PROFILE=container
-    API_PORT=9090
-    MINIOTH_DB=data/db/minioth/minioth.db
-    MINIOTH_ACCESS_KEY=kuspaceadmin
-    ALLOWED_ORIGINS=*
     ALLOWED_METHODS=GET,POST,DELETE,PUT,OPTIONS,HEAD
+    MINIOTH_DB=data/db/minioth/minioth.db
     MINIOTH_DB_DRIVER=duckdb
-    MINIOTH_HANDLER=database
     MINIOTH_AUDIT_LOGS=data/logs/minioth/minioth_audit.log
     MINIOTH_AUDIT_LOGS_MAX_FETCH=1000
-    API_USE_TLS=false
-    HASH_COST=4
     ALLOWED_HEADERS=Origin,Content-Type,Authorization,Access-Control-Allow-Origin
-    JWT_VALIDITY_HOURS=2
-    API_GIN_MODE=release
-    API_CERT_FILE=data/certs/minioth.crt
     API_KEY_FILE=data/certs/minioth.key
+    JWT_VALIDITY_HOURS=2
     ISSUER=minioth
+    IP=0.0.0.0
+    VERBOSE=true
+    ALLOWED_ORIGINS=*
+    API_USE_TLS=false
+    API_GIN_MODE=release
+    PROFILE=container
+    API_PORT=9090
+    MINIOTH_ACCESS_KEY=kuspaceadmin
+    MINIOTH_HANDLER=database
+    API_CERT_FILE=data/certs/minioth.crt
+    HASH_COST=4

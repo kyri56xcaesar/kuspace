@@ -3,6 +3,7 @@ package wss
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
@@ -32,7 +32,9 @@ var (
 	}
 
 	upgrader = websocket.Upgrader{
-		CheckOrigin: func(_ *http.Request) bool { return true },
+		CheckOrigin: func(_ *http.Request) bool {
+			return true
+		},
 	}
 )
 
@@ -42,7 +44,7 @@ type Role string
 const (
 	// Producer the one who sends the broadcasted messages
 	Producer Role = "producer"
-	// Consumer the one who recieves
+	// Consumer the one who receives
 	Consumer Role = "consumer"
 	// JackOfAllTrades both
 	JackOfAllTrades Role = "jack"
@@ -77,7 +79,7 @@ func NewSocketServer(jid string) *SocketServer {
 		log.Fatalf("failed to create path to logs: %v", err)
 	}
 
-	logFile, err := os.OpenFile(jobLogPath+"ws-server-"+jid+".log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	logFile, err := os.OpenFile(jobLogPath+"ws-server-"+jid+".log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o666)
 	if err != nil {
 		log.Fatalf("failed to open log file: %v", err)
 	}
@@ -103,6 +105,7 @@ func getOrCreateServer(jobID string) *SocketServer {
 		registry.servers[jobID] = server
 		go server.Start()
 	}
+
 	return server
 }
 
@@ -155,11 +158,13 @@ func HandleWSsession(c *gin.Context) {
 	roleStr := strings.ToLower(c.Query("role"))
 	if id == "" || roleStr == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing jid or role"})
+
 		return
 	}
 	role := Role(roleStr)
 	if role != Producer && role != Consumer && role != JackOfAllTrades {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid role"})
+
 		return
 	}
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
@@ -179,7 +184,6 @@ func HandleWSsession(c *gin.Context) {
 
 	go writeMessages(client)
 	go broadcastMessages(client, server)
-
 }
 
 // HandleWSsessionClose a handler for the endpoint
@@ -187,6 +191,7 @@ func HandleWSsessionClose(c *gin.Context) {
 	jobID := c.Query("jid")
 	if jobID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing jid"})
+
 		return
 	}
 	registry.Lock()
@@ -270,6 +275,7 @@ func Serve(cfg ut.EnvConfig) {
 		if err != nil {
 			log.Printf("[API_sysConf] failed to read frontapp config: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+
 			return
 		}
 		c.JSON(http.StatusOK, wss)
@@ -284,7 +290,7 @@ func Serve(cfg ut.EnvConfig) {
 	}
 
 	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("listen: %s\n", err)
 		}
 	}()
@@ -300,5 +306,4 @@ func Serve(cfg ut.EnvConfig) {
 	}
 
 	log.Println("Server exiting")
-
 }

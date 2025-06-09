@@ -307,7 +307,8 @@ select {
     border-left: 6px solid #2196F3;
     margin: 0;
     padding: 0;
-    word-wrap: break-word;
+    word-wrap: 
+break-word;
     white-space: nowrap;
   }
 
@@ -1246,7 +1247,8 @@ select {
     }
     #result span, #verify-result {
       display: block; /* Ensures proper spacing */
-      word-wrap: break-word; /* Breaks long words to the next line */
+      word-wrap: 
+break-word; /* Breaks long words to the next line */
       max-width: 100%; /* Prevents overflow */
       white-space: pre-wrap; /* Preserves spacing but allows wrapping */
     }
@@ -3318,7 +3320,8 @@ select {
   /* Each line in the terminal */
   & .line {
     margin-bottom: 5px;
-    word-wrap: break-word;
+    word-wrap: 
+break-word;
   }
   
   /* Prompt and input field */

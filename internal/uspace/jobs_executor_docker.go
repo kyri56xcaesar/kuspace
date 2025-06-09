@@ -2,6 +2,7 @@ package uspace
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -56,12 +57,14 @@ int main() {
 	in_fp = fopen("%s", "r");
 	if (in_fp == NULL) {
 		perror("Error opening input file");
-		return 1;
+		
+return 1;
 	}
 	out_fp = fopen("%s", "w");
 	if (out_fp == NULL) {
 		perror("Error opening output file");
-		return 1;
+		
+return 1;
 	}
 	char buffer[BUFFER_SIZE];
  	while (fgets(buffer, BUFFER_SIZE, in_fp) != NULL) {
@@ -70,7 +73,8 @@ int main() {
 	}
 	fclose(in_fp);
 	fclose(out_fp);
-	return 0;
+	
+return 0;
 }`
 	goIoSkeletonCode = `package main
 	import "os"
@@ -130,6 +134,7 @@ func (je JDockerExecutor) ExecuteJob(job ut.Job) error {
 	_, err := je.jm.srv.storage.Stat(asResource)
 	if err != nil {
 		log.Printf("failed to find input resource: %v", err)
+
 		return err
 	}
 
@@ -137,6 +142,7 @@ func (je JDockerExecutor) ExecuteJob(job ut.Job) error {
 	cmd, duration, err := prepareExecution(job, true)
 	if err != nil {
 		log.Printf("failed to prepare or perform job: %v", err)
+
 		return err
 	}
 	job.Duration = duration.Abs().Seconds()
@@ -148,6 +154,7 @@ func (je JDockerExecutor) ExecuteJob(job ut.Job) error {
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Printf("error creating stdout pipe: %v", err)
+
 		return err
 	}
 	scanner := bufio.NewScanner(stdout)
@@ -160,30 +167,31 @@ func (je JDockerExecutor) ExecuteJob(job ut.Job) error {
 	log.Printf("starting job execution")
 	if err := cmd.Start(); err != nil {
 		log.Printf("error starting command: %v", err)
-		je.updateJobStatus(job.Jid, "failed", 0)
+		updateJobStatus(&je, job.JID, "failed", 0)
+
 		return err
 	}
 	log.Printf("streaming to socket")
-	go streamToSocketWS(job.Jid, wsChan)
+	go streamToSocketWS(job.JID, wsChan)
 
 	log.Printf("waiting...")
 	err = cmd.Wait()
 	if err != nil {
-		log.Printf("Job %d failed: %s\n", job.Jid, err)
-		// je.updateJobStatus(job.Jid, "failed", 0)
-
+		log.Printf("Job %d failed: %s\n", job.JID, err)
+		// je.updateJobStatus(job.JID, "failed", 0)
 	}
 
-	//success
-	log.Printf("Job %d completed successfully\n", job.Jid)
-	// je.updateJobStatus(job.Jid, "completed", duration)
+	// success
+	log.Printf("Job %d completed successfully\n", job.JID)
+	// je.updateJobStatus(job.JID, "completed", duration)
 
 	// // insert the output resource
 	// go je.syncOutputResource(job)
 
 	// should cleanup the tmps, etc..
-	//lets cleanup the debree
-	cleanup(job.Jid, true, job.Logic)
+	// lets cleanup the debree
+	cleanup(job.JID, true, job.Logic)
+
 	return err
 }
 
@@ -197,6 +205,7 @@ func prepareExecution(job ut.Job, verbose bool) (*exec.Cmd, time.Duration, error
 	command, err := formatJobCommandD(job, true)
 	if err != nil {
 		log.Printf("failed to format command: %v", err)
+
 		return nil, 0, err
 	}
 	if verbose {
@@ -215,23 +224,18 @@ func formatJobCommandD(job ut.Job, fileSave bool) ([]string, error) {
 		"run",
 		"-v", "'"+cwd+"/tests/input/job.in:/input/job.in"+"'", //input
 		"-v", "'"+cwd+"/tests/output:/output"+"'", //output
-		"-v", "'"+cwd+fmt.Sprintf("/tests/job-%d.py:/script.py", job.Jid),
+		"-v", "'"+cwd+fmt.Sprintf("/tests/job-%d.py:/script.py", job.JID),
 		language+":"+version,
 		command,
 	*/
 	cwd, err := os.Getwd()
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve working directory")
+		return nil, errors.New("failed to retrieve working directory")
 	}
 
 	// how should we handle multiple input files? 1] lets combine (append) them to a single file for now...
-	// err = ut.MergeFiles(fmt.Sprintf("%sinput-%d", tmpPath, job.Jid), defaultVPath+"/", job.Input)
-	// if err != nil {
-	// 	log.Printf("failed to merge input files: %v", err)
-	// 	return nil, err
-	// }
 
-	inp := fmt.Sprintf("input-%d", job.Jid)
+	inp := fmt.Sprintf("input-%d", job.JID)
 	out := strings.Split(job.Output, "/")
 	parts := strings.Split(job.Logic, ":")
 	language := parts[0]
@@ -241,19 +245,20 @@ func formatJobCommandD(job ut.Job, fileSave bool) ([]string, error) {
 		version = parts[1]
 	}
 
-	var command = []string{"run"}
+	command := []string{"run"}
 	switch language {
 	case "python":
 		if fileSave {
-			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.py", job.Jid), []byte(fmt.Sprintf(pythonIoSkeletonCode, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
+			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.py", job.JID), []byte(fmt.Sprintf(pythonIoSkeletonCode, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
 			if err != nil {
 				log.Printf("failed to write file: %v", err)
-				return nil, fmt.Errorf("failed to write tmp file script: %v", err)
+
+				return nil, fmt.Errorf("failed to write tmp file script: %w", err)
 			}
 			command = append(command, []string{
 				"-v", cwd + "/" + tmpPath + inp + ":/input/" + inp, // input
 				"-v", cwd + "/" + defaultVPath + "output:/output", // output,
-				"-v", cwd + fmt.Sprintf("/tmp/job-%d.py", job.Jid) + ":/script.py", // script to run
+				"-v", cwd + fmt.Sprintf("/tmp/job-%d.py", job.JID) + ":/script.py", // script to run
 				language + ":" + version, // image
 				"python", "./script.py",
 				"ls", "-lrth",
@@ -261,20 +266,22 @@ func formatJobCommandD(job ut.Job, fileSave bool) ([]string, error) {
 
 			return command, nil
 		}
-		// return "python -c " + fmt.Sprintf(pythonIOSkeletonCode, job.LogicBody, "/input/"+inp[len(inp)-1], "/output/"+out[len(out)-1])
+		// return "python -c " +
+		// fmt.Sprintf(pythonIOSkeletonCode, job.LogicBody, "/input/"+inp[len(inp)-1], "/output/"+out[len(out)-1])
 
 	case "node", "javascript":
 		language = "node"
 		if fileSave {
-			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.js", job.Jid), []byte(fmt.Sprintf(nodeIoSkeletonCode, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
+			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.js", job.JID), []byte(fmt.Sprintf(nodeIoSkeletonCode, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
 			if err != nil {
 				log.Printf("failed to write file: %v", err)
-				return nil, fmt.Errorf("failed to write tmp file script: %v", err)
+
+				return nil, fmt.Errorf("failed to write tmp file script: %w", err)
 			}
 			command = append(command, []string{
 				"-v", cwd + "/" + tmpPath + inp + ":/input/" + inp, // input
 				"-v", cwd + "/" + defaultVPath + "/output:/output", // output,
-				"-v", cwd + fmt.Sprintf("/tmp/job-%d.js", job.Jid) + ":/script.js", // script to run
+				"-v", cwd + fmt.Sprintf("/tmp/job-%d.js", job.JID) + ":/script.js", // script to run
 				language + ":" + version, // image
 				"node", "./script.js",
 			}...)
@@ -284,15 +291,16 @@ func formatJobCommandD(job ut.Job, fileSave bool) ([]string, error) {
 	case "go", "golang":
 		language = "golang"
 		if fileSave {
-			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.go", job.Jid), []byte(fmt.Sprintf(goIoSkeletonCode, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
+			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.go", job.JID), []byte(fmt.Sprintf(goIoSkeletonCode, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
 			if err != nil {
 				log.Printf("failed to write file: %v", err)
-				return nil, fmt.Errorf("failed to write tmp file script: %v", err)
+
+				return nil, fmt.Errorf("failed to write tmp file script: %w", err)
 			}
 			command = append(command, []string{
 				"-v", cwd + "/" + tmpPath + inp + ":/input/" + inp, // input
 				"-v", cwd + "/" + defaultVPath + "/output:/output", // output,
-				"-v", cwd + fmt.Sprintf("/tmp/job-%d.go", job.Jid) + ":/script.go", // script to run
+				"-v", cwd + fmt.Sprintf("/tmp/job-%d.go", job.JID) + ":/script.go", // script to run
 				language + ":" + version, // image
 				"go", "run", "/script.go",
 			}...)
@@ -302,15 +310,16 @@ func formatJobCommandD(job ut.Job, fileSave bool) ([]string, error) {
 	case "openjdk", "java": // java
 		language = "openjdk"
 		if fileSave {
-			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.java", job.Jid), []byte(fmt.Sprintf(javaIoSkeletonCode, job.LogicHeaders, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
+			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.java", job.JID), []byte(fmt.Sprintf(javaIoSkeletonCode, job.LogicHeaders, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
 			if err != nil {
 				log.Printf("failed to write file: %v", err)
-				return nil, fmt.Errorf("failed to write tmp file script: %v", err)
+
+				return nil, fmt.Errorf("failed to write tmp file script: %w", err)
 			}
 			command = append(command, []string{
 				"-v", cwd + "/" + tmpPath + inp + ":/input/" + inp, // input
 				"-v", cwd + "/" + defaultVPath + "/output:/output", // output,
-				"-v", cwd + fmt.Sprintf("/tmp/job-%d.java", job.Jid) + ":/Main.java", // script to run
+				"-v", cwd + fmt.Sprintf("/tmp/job-%d.java", job.JID) + ":/Main.java", // script to run
 				language + ":" + version,      // image
 				"sh", "-c", "java /Main.java", // compile and run
 			}...)
@@ -320,15 +329,16 @@ func formatJobCommandD(job ut.Job, fileSave bool) ([]string, error) {
 		}
 	case "c", "gcc":
 		if fileSave {
-			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.c", job.Jid), []byte(fmt.Sprintf(cIoSkeletonCode, job.LogicHeaders, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
+			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.c", job.JID), []byte(fmt.Sprintf(cIoSkeletonCode, job.LogicHeaders, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
 			if err != nil {
 				log.Printf("failed to write file: %v", err)
-				return nil, fmt.Errorf("failed to write tmp file script: %v", err)
+
+				return nil, fmt.Errorf("failed to write tmp file script: %w", err)
 			}
 			command = append(command, []string{
 				"-v", cwd + "/" + tmpPath + inp + ":/input/" + inp, // input
 				"-v", cwd + "/" + defaultVPath + "/output:/output", // output,
-				"-v", cwd + fmt.Sprintf("/tmp/job-%d.c", job.Jid) + ":/program.c", // script to run
+				"-v", cwd + fmt.Sprintf("/tmp/job-%d.c", job.JID) + ":/program.c", // script to run
 				language + ":" + version,                             // image
 				"sh", "-c", "gcc /program.c -o program && ./program", // compile and run
 			}...)
@@ -338,25 +348,26 @@ func formatJobCommandD(job ut.Job, fileSave bool) ([]string, error) {
 		}
 	default:
 		log.Printf("language: %s", language)
-		return nil, fmt.Errorf("unrecognised/unsupported language")
+
+		return nil, errors.New("unrecognised/unsupported language")
 	}
 
-	return nil, fmt.Errorf("bad state")
+	return nil, errors.New("bad state")
 }
 
-func (je *JDockerExecutor) updateJobStatus(jid int64, status string, duration time.Duration) {
+func updateJobStatus(je *JDockerExecutor, jid int64, status string, duration time.Duration) {
 	log.Printf("updating %v job status: %v", jid, status)
 	err := je.jm.srv.markJobStatus(jid, status, duration)
 	if err != nil {
 		log.Printf("failed to update job %d status (%s): %v", jid, status, err)
 	}
-
 }
 
-func (je *JDockerExecutor) syncOutputResource(job ut.Job) {
+func syncOutputResource(je *JDockerExecutor, job ut.Job) {
 	fInfo, err := os.Stat(defaultVPath + "/output/" + job.Output)
 	if err != nil {
 		log.Printf("failed to find/stat the output file: %v", err)
+
 		return
 	}
 
@@ -368,10 +379,10 @@ func (je *JDockerExecutor) syncOutputResource(job ut.Job) {
 		UpdatedAt:  currentTime,
 		AccessedAt: currentTime,
 		Perms:      "rw-r--r--",
-		Rid:        0,
+		RID:        0,
 		UID:        job.UID,
-		Vid:        0,
-		Gid:        job.UID,
+		VID:        0,
+		GID:        job.UID,
 		Size:       fInfo.Size(),
 		Links:      0,
 	}
@@ -388,7 +399,6 @@ func cleanup(jid int64, verbose bool, language string) {
 	err := os.Remove(fmt.Sprintf("tmp/input-%d", jid))
 	if err != nil && verbose {
 		log.Printf("failed to remove tmp file: %v", err)
-
 	}
 
 	if strings.Contains(language, "python") {
@@ -416,12 +426,7 @@ func cleanup(jid int64, verbose bool, language string) {
 		if err != nil && verbose {
 			log.Printf("failed to remove tmp file: %v", err)
 		}
-	} else {
-		if verbose {
-			log.Printf("no such language support")
-		}
+	} else if verbose {
+		log.Printf("no such language support")
 	}
-
 }
-
-// err = os.Remove(fmt.Sprintf("tmp/job-%d.out", jid))

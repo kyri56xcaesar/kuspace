@@ -33,7 +33,7 @@ func health(c *gin.Context) {
 func (srv *MService) openidConfiguration(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"issuer":   srv.Minioth.Config.Issuer,
-		"jwks_uri": fmt.Sprintf("%s/.well-known/jwks.json", srv.Minioth.Config.Issuer),
+		"jwks_uri": srv.Minioth.Config.Issuer + "/.well-known/jwks.json",
 		// "authorization_endpoint":                fmt.Sprintf("%s/%s/login", srv.Config.ISSUER, VERSION),
 		"token_endpoint":                        fmt.Sprintf("%s/%s/login", srv.Minioth.Config.Issuer, version),
 		"userinfo_endpoint":                     fmt.Sprintf("%s/%s/user/me", srv.Minioth.Config.Issuer, version),
@@ -53,6 +53,7 @@ func jwksHandler(c *gin.Context) {
 	if err != nil {
 		log.Printf("failed to open jwks.json file: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load JWKS"})
+
 		return
 	}
 	defer func() {
@@ -66,6 +67,7 @@ func jwksHandler(c *gin.Context) {
 	if err != nil {
 		log.Printf("failed to read jwks.json file: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read JWKS"})
+
 		return
 	}
 
@@ -73,6 +75,7 @@ func jwksHandler(c *gin.Context) {
 	if err := json.Unmarshal(jwksData, &jwks); err != nil {
 		log.Printf("failed to parse jwks.json file: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse JWKS"})
+
 		return
 	}
 

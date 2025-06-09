@@ -30,6 +30,7 @@ package utils
 *
 * */
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -47,7 +48,7 @@ import (
 *
 *
 * each resource is owned by a user, a group, a volume, a parent... Perhaps the term shared is more appropriate..
-* even though there is singularity in ownership since only one group can own a file... (feels wierd)
+* even though there is singularity in ownership since only one group can own a file... (feels weird)
 *
 * NOTE: Question: What relation should the "parent" resource have with its "child"?
 * I would guess solely as in reference hierarchy. Perhaps give it some common access permissions as well...
@@ -61,19 +62,19 @@ type Resource struct {
 	Type string `json:"type,omitempty"`
 
 	CreatedAt  string `json:"createdAt,omitempty"`
-	UpdatedAt  string `json:"updated_at,omitempty"`
-	AccessedAt string `json:"accessed_at,omitempty"`
+	UpdatedAt  string `json:"updatedAt,omitempty"`
+	AccessedAt string `json:"accessedAt,omitempty"`
 
 	Perms string `json:"perms,omitempty"`
 
-	Rid int `json:"rid,omitempty"`
+	RID int `json:"rid,omitempty"`
 	UID int `json:"uid,omitempty"` // as in user id (owner)
-	Gid int `json:"gid,omitempty"` // as in group id
+	GID int `json:"gid,omitempty"` // as in group id
 
 	Size  int64 `json:"size,omitempty"`
 	Links int   `json:"links,omitempty"`
 
-	Vid   int    `json:"vid,omitempty"`
+	VID   int    `json:"vid,omitempty"`
 	Vname string `json:"vname,omitempty"`
 
 	Reader io.Reader `json:"reader,omitempty"`
@@ -86,28 +87,32 @@ type Resource struct {
 // in a specific order suitable for database operations or serialization.
 // The returned slice includes all fields, including IDs and metadata.
 func (r *Resource) Fields() []any {
-	return []any{r.Rid, r.UID, r.Gid, r.Vid, r.Vname, r.Size, r.Links, r.Perms, r.Name, r.Path, r.Type, r.CreatedAt, r.UpdatedAt, r.AccessedAt}
+	return []any{r.RID, r.UID, r.GID, r.VID, r.Vname, r.Size, r.Links,
+		r.Perms, r.Name, r.Path, r.Type, r.CreatedAt, r.UpdatedAt, r.AccessedAt}
 }
 
 // PtrFields returns a slice of pointers to the Resource struct fields,
 // in a specific order. This is useful for scanning database rows directly
 // into the struct fields or for generic update operations.
 func (r *Resource) PtrFields() []any {
-	return []any{&r.Rid, &r.UID, &r.Gid, &r.Vid, &r.Vname, &r.Size, &r.Links, &r.Perms, &r.Name, &r.Path, &r.Type, &r.CreatedAt, &r.UpdatedAt, &r.AccessedAt}
+	return []any{&r.RID, &r.UID, &r.GID, &r.VID, &r.Vname, &r.Size, &r.Links,
+		&r.Perms, &r.Name, &r.Path, &r.Type, &r.CreatedAt, &r.UpdatedAt, &r.AccessedAt}
 }
 
 // FieldsNoID returns a slice containing the values of the Resource struct fields,
 // excluding the primary ID (Rid). This is typically used for insert or update
 // operations where the ID is auto-generated or not required.
 func (r *Resource) FieldsNoID() []any {
-	return []any{r.UID, r.Gid, r.Vid, r.Vname, r.Size, r.Links, r.Perms, r.Name, r.Path, r.Type, r.CreatedAt, r.UpdatedAt, r.AccessedAt}
+	return []any{r.UID, r.GID, r.VID, r.Vname, r.Size, r.Links,
+		r.Perms, r.Name, r.Path, r.Type, r.CreatedAt, r.UpdatedAt, r.AccessedAt}
 }
 
 // PtrFieldsNoID returns a slice of pointers to the Resource struct fields,
 // excluding the primary ID (Rid). This is typically used for insert or update
 // operations where the ID is auto-generated or not required.
 func (r *Resource) PtrFieldsNoID() []any {
-	return []any{&r.UID, &r.Gid, &r.Vid, &r.Vname, &r.Size, &r.Links, &r.Perms, &r.Name, &r.Path, &r.Type, &r.CreatedAt, &r.UpdatedAt, &r.AccessedAt}
+	return []any{&r.UID, &r.GID, &r.VID, &r.Vname, &r.Size, &r.Links,
+		&r.Perms, &r.Name, &r.Path, &r.Type, &r.CreatedAt, &r.UpdatedAt, &r.AccessedAt}
 }
 
 /* this method belongs to the Resource objects
@@ -117,10 +122,10 @@ func (r *Resource) PtrFieldsNoID() []any {
 * */
 
 // HasAccess method checks whether the given AccessClaim applies Read authorization upon the Resource Object
-func (r *Resource) HasAccess(userInfo AccessClaim) bool {
+func (r Resource) HasAccess(userInfo AccessClaim) bool {
 	/* parse permissions
-	*  rwx     rwx     rwx       644, (unix inode metadata)
-	*   |       |       |
+	*  rwx     644, (unix inode metadata)
+	*   |
 	* owner   group   others
 	* */
 
@@ -128,6 +133,7 @@ func (r *Resource) HasAccess(userInfo AccessClaim) bool {
 	err := perm.FillFromStr(r.Perms)
 	if err != nil {
 		log.Printf("failed to retrieve permissions normally: %v", err)
+
 		return false
 	}
 
@@ -136,6 +142,7 @@ func (r *Resource) HasAccess(userInfo AccessClaim) bool {
 	* */
 	if uid, err := strconv.Atoi(userInfo.UID); err != nil {
 		log.Printf("error atoing user id")
+
 		return false
 	} else if uid == r.UID {
 		return perm.Owner.Read
@@ -147,27 +154,30 @@ func (r *Resource) HasAccess(userInfo AccessClaim) bool {
 	for _, gid := range gids {
 		if igid, err := strconv.Atoi(gid); err != nil {
 			log.Printf("error atoing group id")
+
 			return false
-		} else if igid == r.Gid {
+		} else if igid == r.GID {
 			return perm.Group.Read
 		}
 	}
 	/* check others */
+
 	return perm.Other.Read
 }
 
 // HasWriteAccess method checks whether the given AccessClaim applies Write authorization upon the Resource object
 /* similar as above just for write access*/
-func (r *Resource) HasWriteAccess(userInfo AccessClaim) bool {
+func (r Resource) HasWriteAccess(userInfo AccessClaim) bool {
 	/* parse permissions
-	*  rwx     rwx     rwx       644, (unix inode metadata)
-	*   |       |       |
+	*  rwx     644, (unix inode metadata)
+	*   |
 	* owner   group   others
 	* */
 	var perm Permissions
 	err := perm.FillFromStr(r.Perms)
 	if err != nil {
 		log.Printf("failed to retrieve permissions normally: %v", err)
+
 		return false
 	}
 
@@ -176,6 +186,7 @@ func (r *Resource) HasWriteAccess(userInfo AccessClaim) bool {
 	* */
 	if uid, err := strconv.Atoi(userInfo.UID); err != nil {
 		log.Printf("error atoing user id")
+
 		return false
 	} else if uid == r.UID {
 		return perm.Owner.Write
@@ -187,45 +198,52 @@ func (r *Resource) HasWriteAccess(userInfo AccessClaim) bool {
 	for _, gid := range gids {
 		if igid, err := strconv.Atoi(gid); err != nil {
 			log.Printf("error atoing group id")
+
 			return false
-		} else if igid == r.Gid {
+		} else if igid == r.GID {
 			return perm.Group.Write
 		}
 	}
 	/* check others */
+
 	return perm.Other.Write
 }
 
 // HasExecutionAccess method checks the given AccessClaim applies Execution authorization upon the Resource object
 /* execution access is somewhat trivial at this point, perhaps it can be used in the future*/
-func (r *Resource) HasExecutionAccess(_ AccessClaim) bool {
+func (r Resource) HasExecutionAccess(_ AccessClaim) bool {
 	return false
 }
 
 // IsOwner method will check the given AccessClaim applies Ownership authorization upon the Resource object
 // this shall check if the resource owner is of the claim OR if the resource group ownership is included in the claim groups
-func (r *Resource) IsOwner(ac AccessClaim) bool {
+func (r Resource) IsOwner(ac AccessClaim) bool {
 	intUID, err := strconv.Atoi(ac.UID)
 	if err != nil {
 		log.Printf("[ownership-controller] failed to atoi access_claim")
+
 		return false
 	} else if r.UID == intUID {
 		log.Printf("[ownership-controller] user id %d matches item id %d", intUID, r.UID)
+
 		return true
 	}
 
 	intGids, err := SplitToInt(strings.TrimSpace(ac.Gids), ",")
 	if err != nil {
 		log.Printf("[ownership-controller] failed to atoi group ids")
+
 		return false
 	}
 	for _, gid := range intGids {
-		if gid == r.Gid {
-			log.Printf("[ownership-controller] user group id %d allows item group %d", gid, r.Gid)
+		if gid == r.GID {
+			log.Printf("[ownership-controller] user group id %d allows item group %d", gid, r.GID)
+
 			return true
 		}
 	}
 	// check for group ownership
+
 	return false
 }
 
@@ -244,7 +262,8 @@ type Permissions struct {
 func (p *Permissions) FillFromStr(representation string) error {
 	if len(representation) != 9 {
 		log.Printf("fill fail, invalid representation input")
-		return fmt.Errorf("invalid representation")
+
+		return errors.New("invalid representation")
 	}
 
 	chunks := [3]string{
@@ -256,8 +275,10 @@ func (p *Permissions) FillFromStr(representation string) error {
 	parseTriplet := func(triplet string) (PermTriplet, error) {
 		if len(triplet) != 3 {
 			log.Printf("invalid tripled input length")
-			return PermTriplet{}, fmt.Errorf("invalid triplet")
+
+			return PermTriplet{}, errors.New("invalid triplet")
 		}
+
 		return PermTriplet{
 			Read:    triplet[0] == 'r',
 			Write:   triplet[1] == 'w',
@@ -268,16 +289,19 @@ func (p *Permissions) FillFromStr(representation string) error {
 	p.Owner, err = parseTriplet(chunks[0])
 	if err != nil {
 		log.Printf("failed to parse owner triplet: %v", err)
+
 		return err
 	}
 	p.Group, err = parseTriplet(chunks[1])
 	if err != nil {
 		log.Printf("failed to parse group triplet: %v", err)
+
 		return err
 	}
 	p.Other, err = parseTriplet(chunks[2])
 	if err != nil {
 		log.Printf("failed to parse other triplet: %v", err)
+
 		return err
 	}
 
@@ -285,7 +309,7 @@ func (p *Permissions) FillFromStr(representation string) error {
 }
 
 // ToString method formats and returns the permission object to a string
-func (p Permissions) ToString() string {
+func (p *Permissions) ToString() string {
 	return fmt.Sprintf("%s%s%s", p.Owner.ToString(), p.Group.ToString(), p.Other.ToString())
 }
 
@@ -322,12 +346,12 @@ func (pt PermTriplet) ToString() string {
 type Volume struct {
 	Name        string  `json:"name" form:"name"`
 	Path        string  `json:"path,omitempty" form:"path,omitempty"`
-	Vid         int     `json:"vid,omitempty" form:"vid,omitempty"`
+	VID         int     `json:"vid,omitempty" form:"vid,omitempty"`
 	Dynamic     bool    `json:"dynamic,omitempty" form:"dynamic,omitempty"`
 	Capacity    float64 `json:"capacity,omitempty" form:"capacity,omitempty"`
 	Usage       float64 `json:"usage,omitempty" form:"usage,omitempty"`
 	CreatedAt   string  `json:"createdAt,omitempty" form:"createdAt,omitempty"`
-	ObjectCount int     `json:"object_count,omitempty" form:"object_count,omitempty"`
+	ObjectCount int     `json:"objectCount,omitempty" form:"objectCount,omitempty"`
 }
 
 /* fields and ptr fields for "volume" struct helper methods*/
@@ -335,21 +359,21 @@ type Volume struct {
 // Fields returns a slice containing the values of the Volume struct fields,
 // in a specific order suitable for database operations or serialization.
 // The returned slice includes all fields, including IDs and metadata.
-func (v Volume) Fields() []any {
-	return []any{v.Vid, v.Name, v.Path, v.Dynamic, v.Capacity, v.Usage, v.CreatedAt}
+func (v *Volume) Fields() []any {
+	return []any{v.VID, v.Name, v.Path, v.Dynamic, v.Capacity, v.Usage, v.CreatedAt}
 }
 
 // PtrFields returns a slice of pointers to the Volume struct fields,
 // in a specific order. This is useful for scanning database rows directly
 // into the struct fields or for generic update operations.
 func (v *Volume) PtrFields() []any {
-	return []any{&v.Vid, &v.Name, &v.Path, &v.Dynamic, &v.Capacity, &v.Usage, &v.CreatedAt}
+	return []any{&v.VID, &v.Name, &v.Path, &v.Dynamic, &v.Capacity, &v.Usage, &v.CreatedAt}
 }
 
 // FieldsNoID returns a slice containing the values of the Volume struct fields,
 // excluding the primary ID (Rid). This is typically used for insert or update
 // operations where the ID is auto-generated or not required.
-func (v Volume) FieldsNoID() []any {
+func (v *Volume) FieldsNoID() []any {
 	return []any{v.Name, v.Path, v.Dynamic, v.Capacity, v.Usage, v.CreatedAt}
 }
 
@@ -368,15 +392,15 @@ func (v *Volume) Validate(maxCapacity, fallbackCapacity float64, plusChars strin
 
 	// for starters, check just the name
 	if len(v.Name) < 4 {
-		return fmt.Errorf("volume name cannot be less or equal than 3 characters")
+		return errors.New("volume name cannot be less or equal than 3 characters")
 	}
 
 	if len(v.Name) > 63 {
-		return fmt.Errorf("volume name too large: max 63 chars")
+		return errors.New("volume name too large: max 63 chars")
 	}
 
 	if !IsAlphanumericPlus(v.Name, plusChars) {
-		return fmt.Errorf("volume name must contain only alphanumeric characters and '.' or '-'")
+		return errors.New("volume name must contain only alphanumeric characters and '.' or '-'")
 	}
 
 	if maxCapacity > 0 && v.Capacity > maxCapacity {
@@ -390,8 +414,8 @@ func (v *Volume) Validate(maxCapacity, fallbackCapacity float64, plusChars strin
 
 // UserVolume struct describes the "chunk" of a user upon a volume
 type UserVolume struct {
-	UpdatedAt string  `json:"updated_at"`
-	Vid       int     `json:"vid"`
+	UpdatedAt string  `json:"updatedAt"`
+	VID       int     `json:"vid"`
 	UID       int     `json:"uid"`
 	Usage     float64 `json:"usage"`
 	Quota     float64 `json:"quota"`
@@ -401,23 +425,23 @@ type UserVolume struct {
 // in a specific order. This is useful for scanning database rows directly
 // into the struct fields or for generic update operations.
 func (uv *UserVolume) PtrFields() []any {
-	return []any{&uv.Vid, &uv.UID, &uv.Usage, &uv.Quota, &uv.UpdatedAt}
+	return []any{&uv.VID, &uv.UID, &uv.Usage, &uv.Quota, &uv.UpdatedAt}
 }
 
 // Fields returns a slice containing the values of the UserVolume struct fields,
 // in a specific order suitable for database operations or serialization.
 // The returned slice includes all fields, including IDs and metadata.
 func (uv *UserVolume) Fields() []any {
-	return []any{uv.Vid, uv.UID, uv.Usage, uv.Quota, uv.UpdatedAt}
+	return []any{uv.VID, uv.UID, uv.Usage, uv.Quota, uv.UpdatedAt}
 }
 
 /* a struct to represent a volume claim by a group*/
 
 // GroupVolume struct describes the "chunk" of volume a group inflicts upon it
 type GroupVolume struct {
-	UpdatedAt string  `json:"updated_at"`
-	Vid       int     `json:"vid"`
-	Gid       int     `json:"gid"`
+	UpdatedAt string  `json:"updatedAt"`
+	VID       int     `json:"vid"`
+	GID       int     `json:"gid"`
 	Usage     float64 `json:"usage"`
 	Quota     float64 `json:"quota"`
 }
@@ -426,14 +450,14 @@ type GroupVolume struct {
 // in a specific order. This is useful for scanning database rows directly
 // into the struct fields or for generic update operations.
 func (gv *GroupVolume) PtrFields() []any {
-	return []any{&gv.Vid, &gv.Gid, &gv.Usage, &gv.Quota, &gv.UpdatedAt}
+	return []any{&gv.VID, &gv.GID, &gv.Usage, &gv.Quota, &gv.UpdatedAt}
 }
 
 // Fields returns a slice containing the values of the GroupVolume struct fields,
 // in a specific order suitable for database operations or serialization.
 // The returned slice includes all fields, including IDs and metadata.
 func (gv *GroupVolume) Fields() []any {
-	return []any{gv.Vid, gv.Gid, gv.Usage, gv.Quota, gv.UpdatedAt}
+	return []any{gv.VID, gv.GID, gv.Usage, gv.Quota, gv.UpdatedAt}
 }
 
 /* Header information the service needs to handle requests.
@@ -445,19 +469,19 @@ func (gv *GroupVolume) Fields() []any {
 type AccessClaim struct {
 	// UID is the user ID.
 	// @example 1001
-	UID string `json:"userID" example:"1001"`
+	UID string `json:"userId" example:"1001"`
 
 	// Gids is a comma-separated string of group IDs.
 	// @example 2001,2002
-	Gids string `json:"groupIDs" example:"2001,2002"`
+	Gids string `json:"groupIds" example:"2001,2002"`
 
 	// Vid is the volume ID.
 	// @example 1
-	Vid string `json:"volume_id" example:"1"`
+	VID string `json:"volumeId" example:"1"`
 
 	// Vname is the name of the volume.
 	// @example default
-	Vname string `json:"volume_name" example:"default"`
+	Vname string `json:"volumeName" example:"default"`
 
 	// HasKeyword indicates if the user used a special keyword in the request.
 	HasKeyword bool `json:"haskeyword,omitempty"`
@@ -470,21 +494,22 @@ type AccessClaim struct {
 // Filter method cleans the object data, mostly strings
 func (ac *AccessClaim) Filter() AccessClaim {
 	/* can enrich this method */
+
 	return AccessClaim{
 		UID:    strings.TrimSpace(ac.UID),
 		Gids:   strings.TrimSpace(ac.Gids),
 		Target: strings.TrimSpace(ac.Target),
-		Vid:    ac.Vid,
+		VID:    ac.VID,
 	}
 }
 
 // Validate method verifies the object is within limits
 func (ac *AccessClaim) Validate() error {
 	if ac.UID == "" && ac.Gids == "" {
-		return fmt.Errorf("cannot have empty ids")
+		return errors.New("cannot have empty ids")
 	}
 	if ac.Target == "" {
-		return fmt.Errorf("cannot have empty target")
+		return errors.New("cannot have empty target")
 	}
 
 	return nil
@@ -499,6 +524,9 @@ type User struct {
 
 	// Info is optional user metadata or notes.
 	Info string `json:"info,omitempty" example:"researcher in group A"`
+
+	// Verified means if a user email has his email verified
+	Verified bool `json:"verified,omitempty"`
 
 	// Home is the user’s home directory path.
 	Home string `json:"home,omitempty" example:"/home/johndoe"`
@@ -529,8 +557,7 @@ func (u *User) ToString() string {
 
 // UsersToString function is similar to ToString method but works for a slice of User objects
 func UsersToString(users []User) string {
-	var res []string
-
+	res := make([]string, 0, len(users))
 	for _, user := range users {
 		res = append(res, user.Username)
 	}
@@ -604,25 +631,24 @@ type Group struct {
 
 	// Gid is the numeric group ID.
 	// @example 3001
-	Gid int `json:"gid" example:"3001"`
+	GID int `json:"gid" example:"3001"`
 }
 
 // PtrFields returns a slice of pointers to the Resource struct fields,
 // in a specific order. This is useful for scanning database rows directly
 // into the struct fields or for generic update operations.
 func (g *Group) PtrFields() []any {
-	return []any{&g.Groupname, &g.Gid}
+	return []any{&g.Groupname, &g.GID}
 }
 
 // ToString method formats and returns the permission object to a string
 func (g *Group) ToString() string {
-	return fmt.Sprintf("%v", g.Groupname)
+	return g.Groupname
 }
 
 // GroupsToString function is similar to ToString method but works for a slice of Group objects and affects only names
 func GroupsToString(groups []Group) string {
-	var res []string
-
+	res := make([]string, 0, len(groups))
 	for _, group := range groups {
 		res = append(res, group.ToString())
 	}
@@ -632,50 +658,51 @@ func GroupsToString(groups []Group) string {
 
 // GidsToString function is similar to ToString method but works for a slice of Group objects but affects only group ids
 func GidsToString(groups []Group) string {
-	var res []string
+	res := make([]string, 0, len(groups))
 	for _, group := range groups {
-		res = append(res, strconv.Itoa(group.Gid))
+		res = append(res, strconv.Itoa(group.GID))
 	}
+
 	return strings.Join(res, ",")
 }
 
 // Job struct defines all the data required and optional for executing a Job.
 type Job struct {
-	Jid int64 `json:"jid,omitempty" form:"jid"`
+	JID int64 `json:"jid,omitempty" form:"jid"`
 	UID int   `json:"uid" form:"uid"`
 
 	Parallelism int `json:"parallelism,omitempty" form:"parallelism"`
 	Priority    int `json:"priority,omitempty" form:"priority"`
 
-	MemoryRequest string `json:"memory_request,omitempty" form:"memory_request"`
-	CPURequest    string `json:"cpu_request,omitempty" form:"cpu_request"`
-	MemoryLimit   string `json:"memory_limit,omitempty" form:"memory_limit"`
-	CPULimit      string `json:"cpu_limit,omitempty" form:"cpu_limit"`
+	MemoryRequest string `json:"memoryRequest,omitempty" form:"memory_request"`
+	CPURequest    string `json:"cpuRequest,omitempty" form:"cpuRequest"`
+	MemoryLimit   string `json:"memoryLimit,omitempty" form:"memoryLimit"`
+	CPULimit      string `json:"cpuLimit,omitempty" form:"cpuLimit"`
 
-	EphimeralStorageRequest string `json:"ephimeral_storage_request,omitempty" form:"ephimeral_storage_request"`
-	EphimeralStorageLimit   string `json:"ephimeral_storage_limit,omitempty" form:"ephimeral_storage_limit"`
+	EphimeralStorageRequest string `json:"ephimeralStorageRequest,omitempty" form:"ephimeralStorageRequest"`
+	EphimeralStorageLimit   string `json:"ephimeralStorageLimit,omitempty" form:"ephimeralStorageLimit"`
 
 	Description string  `json:"description,omitempty" form:"description"`
 	Duration    float64 `json:"duration,omitempty" form:"duration"`
 
 	Input   string `json:"input" form:"input"`
 	Output  string `json:"output" form:"output"`
-	Timeout int    `json:"timeout,omitempty" form:"timeout"` // in minutes
+	Timeout int    `json:"timeout,omitempty" form:"timeout" ` // in minutes
 
 	Env map[string]string `json:"env,omitempty"`
 
-	// perhaps unecessary
-	InputFormat  string `json:"input_format,omitempty"`
-	OutputFormat string `json:"output_format,omitempty"`
+	// perhaps unnecessary
+	InputFormat  string `json:"inputFormat,omitempty"`
+	OutputFormat string `json:"outputFormat,omitempty"`
 
 	Logic        string   `json:"logic" form:"logic"`
-	LogicBody    string   `json:"logic_body" form:"logic_body"`
-	LogicHeaders string   `json:"logic_headers,omitempty" form:"logic_headers"`
+	LogicBody    string   `json:"logicBody" form:"logicBody"`
+	LogicHeaders string   `json:"logicHeaders,omitempty" form:"logicHeaders"`
 	Params       []string `json:"params,omitempty" form:"params"`
 
 	Status      string `json:"status,omitempty" form:"status"`
 	Completed   bool   `json:"completed,omitempty" form:"completed"`
-	CompletedAt string `json:"completed_at,omitempty" form:"completed_at"`
+	CompletedAt string `json:"completedAt,omitempty" form:"completedAt"`
 	CreatedAt   string `json:"createdAt,omitempty" form:"createdAt"`
 }
 
@@ -683,23 +710,23 @@ type Job struct {
 func (j *Job) ValidateForm(maxCPU, maxMem, maxStorage, maxParal, maxTimeout, maxChars int64) error {
 	// Validate
 	if j.Description != "" && !IsValidUTF8String(j.Description) {
-		return fmt.Errorf("description must contain valid characters")
+		return errors.New("description must contain valid characters")
 	}
 
 	if j.LogicHeaders != "" && !IsValidUTF8String(j.LogicHeaders) {
-		return fmt.Errorf("headers must contain valid characters")
+		return errors.New("headers must contain valid characters")
 	}
 
 	if j.Logic == "" {
-		return fmt.Errorf("must provide logic")
+		return errors.New("must provide logic")
 	}
 
 	if !IsValidUTF8String(j.Logic) {
-		return fmt.Errorf("logic must contain valid characters")
+		return errors.New("logic must contain valid characters")
 	}
 
 	if len(j.LogicBody) == 0 {
-		return fmt.Errorf("must provide logic")
+		return errors.New("must provide logic")
 	}
 
 	if int64(len(j.LogicBody)) > maxChars {
@@ -707,23 +734,23 @@ func (j *Job) ValidateForm(maxCPU, maxMem, maxStorage, maxParal, maxTimeout, max
 	}
 
 	if j.Params != nil && !IsValidUTF8String(strings.Join(j.Params, " ")) {
-		return fmt.Errorf("headers must contain valid characters")
+		return errors.New("headers must contain valid characters")
 	}
 
 	if j.Input == "" {
-		return fmt.Errorf("must provide input")
+		return errors.New("must provide input")
 	}
 
 	if j.Output == "" {
-		return fmt.Errorf("must provide output")
+		return errors.New("must provide output")
 	}
 	// Validate paths
 	if !IsValidPath(j.Input) || !IsValidPath(j.Output) {
-		return fmt.Errorf("input/output paths contain invalid characters")
+		return errors.New("input/output paths contain invalid characters")
 	}
 
 	if len(j.Description) > 150 {
-		return fmt.Errorf("description must be less or equal than 150 characters")
+		return errors.New("description must be less or equal than 150 characters")
 	}
 
 	if j.Parallelism > int(maxParal) || j.Parallelism < 0 {
@@ -774,7 +801,7 @@ func (j *Job) ValidateForm(maxCPU, maxMem, maxStorage, maxParal, maxTimeout, max
 	if p := strings.Split(j.Output, "/"); len(p) != 2 || p[1] == "" {
 		r, err := generateRandomString(16)
 		if err != nil {
-			return fmt.Errorf("failed to generate output name, must provide an output object name")
+			return errors.New("failed to generate output name, must provide an output object name")
 		}
 		j.Output = j.Output + r
 	}
@@ -795,31 +822,47 @@ func (j *Job) ValidateForm(maxCPU, maxMem, maxStorage, maxParal, maxTimeout, max
 // in a specific order. This is useful for scanning database rows directly
 // into the struct fields or for generic update operations.
 func (j *Job) PtrFields() []any {
-	return []any{&j.Jid, &j.UID, &j.Description, &j.Duration, &j.Input, &j.InputFormat, &j.Output, &j.OutputFormat, &j.Logic, &j.LogicBody, &j.LogicHeaders, &j.Params, &j.Status, &j.Completed, &j.CompletedAt, &j.CreatedAt, &j.Parallelism, &j.Priority, &j.MemoryRequest, &j.CPURequest, &j.MemoryLimit, &j.CPULimit, &j.EphimeralStorageRequest, &j.EphimeralStorageLimit}
+	return []any{&j.JID, &j.UID, &j.Description, &j.Duration, &j.Input,
+		&j.InputFormat, &j.Output, &j.OutputFormat, &j.Logic, &j.LogicBody,
+		&j.LogicHeaders, &j.Params, &j.Status, &j.Completed, &j.CompletedAt,
+		&j.CreatedAt, &j.Parallelism, &j.Priority, &j.MemoryRequest, &j.CPURequest,
+		&j.MemoryLimit, &j.CPULimit, &j.EphimeralStorageRequest, &j.EphimeralStorageLimit}
 }
 
 // Fields returns a slice containing the values of the Job struct fields,
 // in a specific order suitable for database operations or serialization.
 // The returned slice includes all fields, including IDs and metadata.
 func (j *Job) Fields() []any {
-	return []any{j.Jid, j.UID, j.Description, j.Duration, j.Input, j.InputFormat, j.Output, j.OutputFormat, j.Logic, j.LogicBody, j.LogicHeaders, j.Params, j.Status, j.Completed, j.CompletedAt, j.CreatedAt, j.Parallelism, j.Priority, j.MemoryRequest, j.CPURequest, j.MemoryLimit, j.CPULimit, j.EphimeralStorageRequest, j.EphimeralStorageLimit}
+	return []any{j.JID, j.UID, j.Description, j.Duration, j.Input,
+		j.InputFormat, j.Output, j.OutputFormat, j.Logic, j.LogicBody,
+		j.LogicHeaders, j.Params, j.Status, j.Completed, j.CompletedAt,
+		j.CreatedAt, j.Parallelism, j.Priority, j.MemoryRequest, j.CPURequest,
+		j.MemoryLimit, j.CPULimit, j.EphimeralStorageRequest, j.EphimeralStorageLimit}
 }
 
 // PtrFieldsNoID returns a slice of pointers to the Job struct fields,
 // excluding the primary ID (Rid). This is typically used for insert or update
 // operations where the ID is auto-generated or not required.
 func (j *Job) PtrFieldsNoID() []any {
-	return []any{&j.UID, &j.Description, &j.Duration, &j.Input, &j.InputFormat, &j.Output, &j.OutputFormat, &j.Logic, &j.LogicBody, &j.LogicHeaders, &j.Params, &j.Status, &j.Completed, &j.CompletedAt, &j.CreatedAt, &j.Parallelism, &j.Priority, &j.MemoryRequest, &j.CPURequest, &j.MemoryLimit, &j.CPULimit, &j.EphimeralStorageRequest, &j.EphimeralStorageLimit}
+	return []any{&j.UID, &j.Description, &j.Duration, &j.Input,
+		&j.InputFormat, &j.Output, &j.OutputFormat, &j.Logic, &j.LogicBody,
+		&j.LogicHeaders, &j.Params, &j.Status, &j.Completed, &j.CompletedAt,
+		&j.CreatedAt, &j.Parallelism, &j.Priority, &j.MemoryRequest, &j.CPURequest,
+		&j.MemoryLimit, &j.CPULimit, &j.EphimeralStorageRequest, &j.EphimeralStorageLimit}
 }
 
 // FieldsNoID returns a slice containing the values of the Job struct fields,
 // excluding the primary ID (Rid). This is typically used for insert or update
 // operations where the ID is auto-generated or not required.
 func (j *Job) FieldsNoID() []any {
-	return []any{j.UID, j.Description, j.Duration, j.Input, j.InputFormat, j.Output, j.OutputFormat, j.Logic, j.LogicBody, j.LogicHeaders, j.Params, j.Status, j.Completed, j.CompletedAt, j.CreatedAt, j.Parallelism, j.Priority, j.MemoryRequest, j.CPURequest, j.MemoryLimit, j.CPULimit, j.EphimeralStorageRequest, j.EphimeralStorageLimit}
+	return []any{j.UID, j.Description, j.Duration, j.Input,
+		j.InputFormat, j.Output, j.OutputFormat, j.Logic, j.LogicBody,
+		j.LogicHeaders, j.Params, j.Status, j.Completed, j.CompletedAt,
+		j.CreatedAt, j.Parallelism, j.Priority, j.MemoryRequest, j.CPURequest,
+		j.MemoryLimit, j.CPULimit, j.EphimeralStorageRequest, j.EphimeralStorageLimit}
 }
 
-// APIResponse aims to unite the type of responses the microservices return, bricking the "Response Model"
+// APIResponse aims to unite the type of responses of microservices , bricking the "Response Model"
 type APIResponse[T any] struct {
 	Status  string `json:"status"`  // e.g., "success", "error"
 	Message string `json:"message"` // e.g., "Operation successful"
@@ -834,7 +877,7 @@ type Application struct {
 	Description string `json:"description,omitempty" form:"description"`
 	Version     string `json:"version" form:"version"`
 	Author      string `json:"author" form:"author"`
-	AuthorID    int    `json:"author_id,omitempty"`
+	AuthorID    int    `json:"authorId,omitempty" form:"authorId"`
 	Status      string `json:"status" form:"status"`
 	InsertedAt  string `json:"insertedAt,omitempty" form:"insertedAt"`
 	CreatedAt   string `json:"createdAt,omitempty" form:"createdAt"`
