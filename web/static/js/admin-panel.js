@@ -762,20 +762,20 @@ function modJobModal(div, parentDiv) {
   const output = div.querySelector('.output').textContent.replace("Output: ", "").trim();
   const description = div.querySelector('.description').textContent.replace("Description:", "").trim();
   const createdAt = div.querySelector('.createdAt').textContent.replace('CreatedAt:', '').trim();
-  const completed_at = div.querySelector('.completed_at').textContent.replace('CompletedAt:', '').trim();
+  const completed_at = div.querySelector('.completedAt').textContent.replace('CompletedAt:', '').trim();
   const completed = div.querySelector('.completed').textContent.replace("Completed:", "").trim();
   const timeout = div.querySelector('.timeout').textContent.trim();
   const parallelism = div.querySelector('.parallelism').textContent.trim();
   const priority = div.querySelector('.priority').textContent.trim();
-  const memory_request = div.querySelector('.memory_request').textContent.trim();
-  const cpu_request = div.querySelector('.cpu_request').textContent.trim();
-  const memory_limit = div.querySelector('.memory_limit').textContent.trim();
-  const cpu_limit = div.querySelector('.cpu_limit').textContent.trim();
-  const ephimeral_storage_request = div.querySelector('.ephimeral_storage_request').textContent.trim();
-  const ephimeral_storage_limit = div.querySelector('.ephimeral_storage_limit').textContent.trim();
+  const memory_request = div.querySelector('.memoryRequest').textContent.trim();
+  const cpu_request = div.querySelector('.cpuRequest').textContent.trim();
+  const memory_limit = div.querySelector('.memoryLimit').textContent.trim();
+  const cpu_limit = div.querySelector('.cpuLimit').textContent.trim();
+  const ephimeral_storage_request = div.querySelector('.ephimeralStorageRequest').textContent.trim();
+  const ephimeral_storage_limit = div.querySelector('.ephimeralStorageLimit').textContent.trim();
   const logic = div.querySelector('.logic').textContent.trim();
-  const logic_body = div.querySelector('.logic_body').textContent.trim();
-  const logic_headers = div.querySelector('.logic_headers').textContent.trim();
+  const logic_body = div.querySelector('.logicBody').textContent.trim();
+  const logic_headers = div.querySelector('.logicHeaders').textContent.trim();
 
   const html = `
   <div class="modal-content">
@@ -810,18 +810,18 @@ function modJobModal(div, parentDiv) {
       </div><br>
       <div>
         CompletedAt
-        <input type="text" name="completed_at" value="${completed_at}" readonly="readonly">
+        <input type="text" name="completedAt" value="${completed_at}" readonly="readonly">
       </div><br>
       <div>
         <input type="text" name="logic" value="${logic}" hidden>
-        <input type="text" name="logic_body" value="${logic_body}" hidden>
-        <input type="text" name="logic_headers" value="${logic_headers}" hidden>
-        <input type="text" name="ephimeral_storage_limit" value="${ephimeral_storage_limit}" hidden>
-        <input type="text" name="ephimeral_storage_request" value="${ephimeral_storage_request}" hidden>
-        <input type="text" name="cpu_limit" value="${cpu_limit}" hidden>
-        <input type="text" name="memory_limit" value="${memory_limit}" hidden>
-        <input type="text" name="cpu_request" value="${cpu_request}" hidden>
-        <input type="text" name="memory_request" value="${memory_request}" hidden>
+        <input type="text" name="logicBody" value="${logic_body}" hidden>
+        <input type="text" name="logicHeaders" value="${logic_headers}" hidden>
+        <input type="text" name="ephimeralStorageLimit" value="${ephimeral_storage_limit}" hidden>
+        <input type="text" name="ephimeralStorageRequest" value="${ephimeral_storage_request}" hidden>
+        <input type="text" name="cpuLimit" value="${cpu_limit}" hidden>
+        <input type="text" name="memoryLimit" value="${memory_limit}" hidden>
+        <input type="text" name="cpuRequest" value="${cpu_request}" hidden>
+        <input type="text" name="memoryRequest" value="${memory_request}" hidden>
         <input type="number" name="priority" value="${priority}" hidden>
         <input type="number" name="parallelism" value="${parallelism}" hidden>
         <input type="number" name="timeout" value="${timeout}" hidden>
@@ -880,7 +880,7 @@ function modAppModal(div, parentDiv) {
   const status = div.querySelector('.app-status').textContent.trim();
   const image = div.querySelector('.image').textContent.replace("Image:", "").trim();
   const author = div.querySelector('.author').textContent.replace("Author: ", "").trim();
-  const author_id = div.querySelector('.author_id').textContent.trim();
+  const author_id = div.querySelector('.authorId').textContent.trim();
   const createdAt = div.querySelector('.createdAt').textContent.replace("Created: ", "").trim();
   const insertedAt = div.querySelector('.insertedAt').textContent.trim();
   const description = div.querySelector('.app-description').textContent.trim();
@@ -909,7 +909,7 @@ function modAppModal(div, parentDiv) {
           <input type="text" name="insertedAt" value="${insertedAt}" readonly="readonly"  tabindex="-1">
         </div><br>
         <div>
-          <input type="hidden" name="author_id" value="${author_id}"  tabindex="-1">
+          <input type="hidden" name="authorId" value="${author_id}"  tabindex="-1">
         </div>
         
       </div>

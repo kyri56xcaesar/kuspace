@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+
 	// fslite swagger docs
 	_ "kyri56xcaesar/kuspace/api/fslite"
 	ut "kyri56xcaesar/kuspace/internal/utils"
@@ -27,7 +28,7 @@ const (
 // The server listens for system interrupt signals to gracefully shut down, closing
 // database connections and waiting for in-flight requests to complete before exiting.
 func (fsl *FsLite) ListenAndServe() {
-	srv := fsl.engine
+	srv := fsl.Engine
 
 	srv.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "alive"})

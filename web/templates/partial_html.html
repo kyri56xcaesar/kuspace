@@ -236,21 +236,21 @@
           </div>
           <div>
             <span class="createdAt"> CreatedAt: {{ $j.CreatedAt }} </span>
-            <span class="completed_at"> CompletedAt: {{ $j.CompletedAt }} </span>
+            <span class="completedAt"> CompletedAt: {{ $j.CompletedAt }} </span>
             <span class="completed"> Completed: {{ $j.Completed }} </span>
           </div>
           <div class="hidden">
             <span class="parallelism">{{ $j.Parallelism }}</span>
             <span class="priority">{{ $j.Priority }}</span>
-            <span class="memory_request">{{ $j.MemoryRequest }}</span>
-            <span class="cpu_request">{{ $j.CPURequest }}</span>
-            <span class="memory_limit">{{ $j.MemoryLimit }}</span>
-            <span class="cpu_limit">{{ $j.CPULimit }}</span>
-            <span class="ephimeral_storage_request">{{ $j.EphimeralStorageRequest }}</span>
-            <span class="ephimeral_storage_limit">{{ $j.EphimeralStorageLimit }}</span>
+            <span class="memoryRequest">{{ $j.MemoryRequest }}</span>
+            <span class="cpuRequest">{{ $j.CPURequest }}</span>
+            <span class="memoryLimit">{{ $j.MemoryLimit }}</span>
+            <span class="cpuLimit">{{ $j.CPULimit }}</span>
+            <span class="ephimeralStorageRequest">{{ $j.EphimeralStorageRequest }}</span>
+            <span class="ephimeralStorageLimit">{{ $j.EphimeralStorageLimit }}</span>
             <span class="logic">{{ $j.Logic }}</span>
-            <span class="logic_body">{{ $j.LogicBody }}</span>
-            <span class="logic_headers">{{ $j.LogicHeaders }}</span>
+            <span class="logicBody">{{ $j.LogicBody }}</span>
+            <span class="logicHeaders">{{ $j.LogicHeaders }}</span>
             <span class="timeout">{{ $j.Timeout }}</span>
           </div>
         </div>
@@ -288,7 +288,7 @@
       </div>
       <p class="app-description">{{ .Description }}</p>
       <div class="hidden">
-        <span class="author_id">{{ .AuthorID }}</span>
+        <span class="authorId">{{ .AuthorID }}</span>
         <span class="insertedAt">{{ .InsertedAt }}</span>
       </div>
       {{ if $.Admin }}

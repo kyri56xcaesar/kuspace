@@ -9,7 +9,7 @@ import (
 )
 
 // AuthMiddleware middleware function, for authorization control
-/* For this service, authorization is required only for admin role. */
+/* for this service, authorization is required only for admin role. */
 func AuthMiddleware(role string, srv *MService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// if service secret exists and validated, grant access
@@ -33,7 +33,6 @@ func AuthMiddleware(role string, srv *MService) gin.HandlerFunc {
 			return
 		}
 
-		// Extract the token from the Authorization header
 		tokenString := authHeader[len("Bearer "):]
 		if tokenString == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Bearer token is required"})
@@ -42,7 +41,6 @@ func AuthMiddleware(role string, srv *MService) gin.HandlerFunc {
 			return
 		}
 
-		// Parse and validate the token
 		token, err := ParseJWT(tokenString)
 		if err != nil || !token.Valid {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})

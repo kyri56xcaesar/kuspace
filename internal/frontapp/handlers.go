@@ -1757,8 +1757,6 @@ func (srv *HTTPService) jobAdminHandler(c *gin.Context) {
 			return
 		}
 
-		log.Printf("job incoming: %+v", job)
-
 		err = job.ValidateForm(srv.Config.UspaceJobMaxCPU, srv.Config.UspaceJobMaxMemory, srv.Config.UspaceJobMaxStorage,
 			int64(srv.Config.UspaceJobMaxParallelism), srv.Config.UspaceJobMaxTimeout, srv.Config.UspaceJobMaxLogicSize)
 		if err != nil {

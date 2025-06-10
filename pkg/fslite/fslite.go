@@ -118,7 +118,8 @@ const (
 type FsLite struct {
 	config ut.EnvConfig
 	dbh    ut.DBHandler
-	engine *gin.Engine
+	// Engine exported for testing
+	Engine *gin.Engine
 }
 
 // NewFsLite initializes a new FsLite instance with the provided configuration.
@@ -134,7 +135,7 @@ func NewFsLite(cfg ut.EnvConfig) FsLite {
 	fsl := FsLite{
 		config: cfg,
 		dbh:    ut.NewDBHandler(cfg.FslDB, cfg.FslDBPath, cfg.FslDBDriver),
-		engine: ginEngine,
+		Engine: ginEngine,
 	}
 	fsl.dbh.Init(initSQL, cfg.FslDBMaxOpenConns, cfg.FslDBMaxIdleConns, cfg.FslDBMaxLifetime)
 	if _, err := fsl.insertAdmin(cfg.FslAccessKey, cfg.FslSecretKey); err != nil {
