@@ -85,6 +85,7 @@ func TestLogin_ValidCredentials(t *testing.T) {
 	}
 }
 
+// TODO ALL
 func TestPasswd(t *testing.T) {
 
 }

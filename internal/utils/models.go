@@ -799,7 +799,7 @@ func (j *Job) ValidateForm(maxCPU, maxMem, maxStorage, maxParal, maxTimeout, max
 	j.Output = strings.TrimSpace(j.Output)
 
 	if p := strings.Split(j.Output, "/"); len(p) != 2 || p[1] == "" {
-		r, err := generateRandomString(16)
+		r, err := GenerateRandomString(16)
 		if err != nil {
 			return errors.New("failed to generate output name, must provide an output object name")
 		}

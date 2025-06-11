@@ -114,9 +114,9 @@ func (srv *MService) handleLogin(c *gin.Context) {
 	if err != nil {
 		log.Printf("error: %v", err)
 		if strings.Contains(err.Error(), "not found") {
-			c.JSON(404, gin.H{"error": "user not found"})
+			c.JSON(401, gin.H{"error": "user not found"})
 		} else {
-			c.JSON(400, gin.H{
+			c.JSON(401, gin.H{
 				"error": "failed to authenticate",
 			})
 		}
@@ -782,7 +782,6 @@ func (srv *MService) handleUsermod(c *gin.Context) {
 		username = "[debug]admin"
 	}
 	logAudit("user_mod", username.(string), "user: "+ruser.User.ToString(), "admin", c.ClientIP())
-
 	c.JSON(http.StatusOK, gin.H{"message": "User updated successfully"})
 }
 
@@ -803,7 +802,8 @@ func (srv *MService) handleGroupadd(c *gin.Context) {
 		return
 	}
 
-	if _, err := srv.Minioth.Groupadd(group); err != nil {
+	gid, err := srv.Minioth.Groupadd(group)
+	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "") {
 			c.JSON(403, gin.H{"error": "already exists!"})
 		} else {
@@ -819,9 +819,9 @@ func (srv *MService) handleGroupadd(c *gin.Context) {
 	if !ok {
 		username = "[debug]admin"
 	}
-	logAudit("group_mod", username.(string), "group: "+group.ToString(), "admin", c.ClientIP())
+	logAudit("group_add", username.(string), "group: "+group.ToString(), "admin", c.ClientIP())
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Group added successfully"})
+	c.JSON(http.StatusCreated, gin.H{"message": "Group added successfully", "gid": gid})
 }
 
 // @Summary Patch an existing group

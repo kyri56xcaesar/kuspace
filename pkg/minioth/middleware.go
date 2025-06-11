@@ -43,7 +43,8 @@ func AuthMiddleware(role string, srv *MService) gin.HandlerFunc {
 
 		token, err := ParseJWT(tokenString)
 		if err != nil || !token.Valid {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			log.Printf("invalid token: %v", err)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 			c.Abort()
 
 			return

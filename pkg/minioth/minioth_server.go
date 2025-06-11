@@ -180,7 +180,7 @@ func (srv *MService) RegisterRoutes() {
 		apiV1.POST("/passwd", AuthMiddleware("admin,user", srv), srv.handlePasswd)
 		apiV1.GET("/user/me", srv.handleTokenUserInfo)
 		apiV1.GET("/user/token", handleTokenInfo)
-		apiV1.GET("/user/refresh-token", handleTokenRefresh)
+		apiV1.POST("/user/refresh-token", handleTokenRefresh)
 	}
 
 	/* admin endpoints */

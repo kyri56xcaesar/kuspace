@@ -156,7 +156,7 @@ func DecodeJWT(tokenString string) (bool, *CustomClaims, error) {
 
 // ParseJWT will parse properly a string to a jwt token object
 func ParseJWT(tokenStr string) (*jwt.Token, error) {
-	return jwt.ParseWithClaims(tokenStr, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
+	return jwt.ParseWithClaims(tokenStr, &CustomClaims{}, func(token *jwt.Token) (any, error) {
 		alg, ok := token.Header["alg"].(string)
 		if !ok {
 			return nil, errors.New("invalid token header (missing alg)")
@@ -164,14 +164,11 @@ func ParseJWT(tokenStr string) (*jwt.Token, error) {
 
 		switch alg {
 		case "HS256":
-
 			return jwtSecretKey, nil // your internal symmetric key
 		case "RS256":
 			// load your RSA public key (or use JWKS cache)
-
 			return getRSAPublicKey(token, true) // validate via kid or static
 		default:
-
 			return nil, fmt.Errorf("unsupported signing method: %s", alg)
 		}
 	})

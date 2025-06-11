@@ -175,10 +175,8 @@ func NewMinioth(cfgPath string) Minioth {
 func handlerFactory(minioth *Minioth) Handler {
 	switch minioth.Config.MiniothHandler {
 	case "db", "database":
-
-		return &DBHandler{DBpath: minioth.Config.MiniothDB, minioth: minioth}
+		return &DBHandler{dbh: ut.NewDBHandler(minioth.Config.MiniothDB, minioth.Config.MiniothDBPath, minioth.Config.MiniothDBDriver), cfg: minioth.Config}
 	case "plain", "text", "file":
-
 		return &PlainHandler{minioth: minioth}
 	default:
 		log.Fatal("not a valid handler, cannot operate")

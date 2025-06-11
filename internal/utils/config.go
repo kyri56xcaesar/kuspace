@@ -135,6 +135,7 @@ type EnvConfig struct {
 	MiniothAccessKey         string
 	MiniothSecretKey         string
 	MiniothDB                string // a path + name of the database
+	MiniothDBPath            string
 	MiniothDBDriver          string
 	MiniothHandler           string // either database/db or plain/text
 	MiniothAuditLogs         string
@@ -230,7 +231,8 @@ func LoadConfig(path string) EnvConfig {
 
 		MiniothAccessKey:         getEnv("MINIOTH_ACCESS_KEY", "root"),
 		MiniothSecretKey:         getEnv("MINIOTH_SECRET_KEY", "root"),
-		MiniothDB:                getEnv("MINIOTH_DB", "data/db/minioth/minioth.db"),
+		MiniothDB:                getEnv("MINIOTH_DB", "minioth.db"),
+		MiniothDBPath:            getEnv("MINIOTH_DB_PATH", "data/db/minioth"),
 		MiniothDBDriver:          getEnv("MINIOTH_DB_DRIVER", "duckdb"),
 		MiniothHandler:           getEnv("MINIOTH_HANDLER", "database"),
 		MiniothAuditLogs:         getEnv("MINIOTH_AUDIT_LOGS", "data/logs/minioth/audit.logs"),

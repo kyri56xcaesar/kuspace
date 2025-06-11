@@ -12,3 +12,6 @@ func setupTestServer() *gin.Engine {
 	srv.RegisterRoutes()
 	return srv.Engine
 }
+
+// TODO ALL
+// use mocking tools for this one

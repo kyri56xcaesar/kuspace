@@ -423,7 +423,7 @@ func IsAlphanumericPlus(s, plus string) bool {
 // IsAlphanumericPlusSome function checks if the given string matches the regex of numericals
 // and letter characters plus some special characters already defined
 func IsAlphanumericPlusSome(s string) bool {
-	re := regexp.MustCompile(`^[a-zA-Z0-9@_]+$`)
+	re := regexp.MustCompile(`^[a-zA-Z0-9@_.]+$`)
 
 	return re.MatchString(s)
 }
@@ -595,7 +595,7 @@ func parseCPU(s string) (float64, error) {
 	return strconv.ParseFloat(s, 64)
 }
 
-func generateRandomString(length int) (string, error) {
+func GenerateRandomStringAll(length int) (string, error) {
 	byteLength := (length * 6 / 8) + 1 // because base64 encodes 6 bits per character
 	bytes := make([]byte, byteLength)
 
@@ -605,4 +605,18 @@ func generateRandomString(length int) (string, error) {
 	}
 
 	return base64.RawURLEncoding.EncodeToString(bytes)[:length], nil
+}
+
+func GenerateRandomString(length int) (string, error) {
+	const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	bytes := make([]byte, length)
+	random := make([]byte, length)
+	_, err := rand.Read(random)
+	if err != nil {
+		return "", err
+	}
+	for i := 0; i < length; i++ {
+		bytes[i] = chars[int(random[i])%len(chars)]
+	}
+	return string(bytes), nil
 }

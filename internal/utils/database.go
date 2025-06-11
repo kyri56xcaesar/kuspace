@@ -64,35 +64,37 @@ func NewDBHandler(dbname, dbpath, dbDriver string) DBHandler {
 	if dbDriver != "sqlite3" && dbDriver != "duckdb" {
 		log.Fatalf("unsupported database driver: %s", dbDriver)
 	}
-	// check if the database path is valid
-	if dbpath == "" {
-		log.Fatalf("database path is empty")
-	}
-	// check if the database name is valid
-	if dbname == "" {
-		log.Fatalf("database name is empty")
-	}
-	// check if the database path is valid
-	if dbpath[len(dbpath)-1:] != "/" {
-		log.Printf("database path %q should end with /... fixing...", dbpath)
-		dbpath += "/"
-	}
-	// check if the database name is valid
-	if dbname[len(dbname)-3:] != ".db" {
-		log.Fatalf("database name %q should end with .db", dbname)
+
+	inMemory := dbname == ":memory:" || dbpath == ":memory:" || dbpath == "" && dbname == ""
+	if !inMemory {
+		// check if the database path is valid
+		if dbpath == "" {
+			log.Fatalf("database path is empty")
+		}
+		// check if the database name is valid
+		if dbname == "" {
+			log.Fatalf("database name is empty")
+		}
+		// check if the database path is valid
+		if dbpath[len(dbpath)-1:] != "/" {
+			log.Printf("database path %q should end with /... fixing...", dbpath)
+			dbpath += "/"
+		}
+		// check if the database name is valid
+		if dbname[len(dbname)-3:] != ".db" {
+			log.Fatalf("database name %q should end with .db", dbname)
+		}
+
+		if err := os.MkdirAll(dbpath, 0o755); err != nil {
+			log.Fatalf("failed to create the path: %v", err)
+		}
 	}
 
-	if err := os.MkdirAll(dbpath, 0o755); err != nil {
-		log.Fatalf("failed to create the path: %v", err)
-	}
-
-	dbh := DBHandler{
+	return DBHandler{
 		DBName:   dbname,
 		dbPath:   dbpath,
 		dbDriver: dbDriver,
 	}
-
-	return dbh
 }
 
 // GetConn as a method returns the actual db Driver, if it doesn't exist it instatiates it
@@ -100,13 +102,24 @@ func NewDBHandler(dbname, dbpath, dbDriver string) DBHandler {
 // "Singleton"
 func (m *DBHandler) GetConn() (*sql.DB, error) {
 	if m.db == nil {
-		db, err := sql.Open(m.dbDriver, m.dbPath+m.DBName)
+		var dsn string
+		if m.DBName == ":memory:" || m.dbPath == ":memory:" {
+			if m.dbDriver == "duckdb" {
+				dsn = "" // DuckDB in-memory
+			} else {
+				dsn = ":memory:" // SQLite in-memory
+			}
+		} else {
+			dsn = m.dbPath + m.DBName
+		}
+
+		db, err := sql.Open(m.dbDriver, dsn)
 		if err != nil {
+			log.Printf("Failed to connect to %s: %v", m.dbDriver, err)
 			return nil, err
 		}
 		m.db = db
 	}
-
 	return m.db, nil
 }
 

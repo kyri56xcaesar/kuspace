@@ -56,27 +56,13 @@ const (
 // the Minioth cetrnalle
 // and  a path
 type DBHandler struct {
-	db      *sql.DB
-	minioth *Minioth
-	DBpath  string
+	dbh ut.DBHandler
+	cfg ut.EnvConfig
 }
 
 /* "singleton" like db connection reference */
 func (m *DBHandler) getConn() (*sql.DB, error) {
-	db := m.db
-	var err error
-
-	if db == nil {
-		db, err = sql.Open(m.minioth.Config.MiniothDBDriver, m.DBpath)
-		m.db = db
-		if err != nil {
-			log.Printf("Failed to connect to DuckDB: %v", err)
-
-			return nil, err
-		}
-	}
-
-	return db, err
+	return m.dbh.GetConn()
 }
 
 /* initialization method for root user, could be reconfigured*/
@@ -164,27 +150,10 @@ func (m *DBHandler) Init() {
 		}
 	}
 
-	cpath, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	parts := strings.Split(m.DBpath, "/")
-	if strings.HasSuffix(m.DBpath, "/") || len(parts) == 0 {
-		panic("invalid db path value")
-	}
-	dbPath := strings.Join(parts[:len(parts)-1], "/")
-	err = os.MkdirAll(cpath+"/"+dbPath, 0o644)
-	if err != nil {
-		panic(err)
-	}
-
 	db, err := m.getConn()
 	if err != nil {
 		panic("destructive")
 	}
-
-	// set ref to db
-	m.db = db
 
 	_, err = db.Exec(initSQL)
 	if err != nil {
@@ -221,7 +190,7 @@ func (m *DBHandler) Init() {
 	log.Print("[INIT_DB]Checking for root user...")
 	// Check if the root user already exists
 	var rootExists bool
-	err = db.QueryRow(fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM users WHERE username = '%s')", m.minioth.Config.MiniothAccessKey)).Scan(&rootExists)
+	err = db.QueryRow(fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM users WHERE username = '%s')", m.cfg.MiniothAccessKey)).Scan(&rootExists)
 	if err != nil {
 		log.Fatalf("Failed to check for root user: %v", err)
 	}
@@ -231,11 +200,11 @@ func (m *DBHandler) Init() {
 		// Directly insert the root user with UID 0
 
 		err = m.insertRootUser(ut.User{
-			Username: m.minioth.Config.MiniothAccessKey,
+			Username: m.cfg.MiniothAccessKey,
 			UID:      0,
 			Pgroup:   0,
 			Password: ut.Password{
-				Hashpass: m.minioth.Config.MiniothSecretKey,
+				Hashpass: m.cfg.MiniothSecretKey,
 			},
 		}, db)
 		if err != nil {
@@ -1199,12 +1168,7 @@ func (m *DBHandler) Purge() {
 // @look utils/database
 // close the prev "singleton" db connection */
 func (m *DBHandler) Close() {
-	if m.db != nil {
-		err := m.db.Close()
-		if err != nil {
-			log.Printf("failed to close database connection: %v", err)
-		}
-	}
+	m.dbh.Close()
 }
 
 /* somewhat UTILITY functions and methods */
