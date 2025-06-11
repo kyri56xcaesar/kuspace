@@ -1,4 +1,4 @@
-# less version of the makefile 
+# less version of the makefile  for wundows
 #
 # build.ps1
 

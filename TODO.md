@@ -18,7 +18,7 @@
 >
 > 9. [x] handle secrets as environment variables.. not configuration
 >
-> 10. [ ] automate unit tests / enhance with some CI/CD tool perhaps... / OPENAPI standard / Improve swagger
+> 10. [x] [todo] [partial]automate unit tests / enhance with some CI/CD tool perhaps... / OPENAPI standard / Improve swagger
 >
 > 11. [ ] Write Thesis
 >
