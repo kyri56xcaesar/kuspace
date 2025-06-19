@@ -323,8 +323,8 @@ func getAllResources(db *sql.DB) ([]ut.Resource, error) {
 }
 
 func getResourcesByIDs(db *sql.DB, rids []int) ([]ut.Resource, error) {
-	placeholders := make([]string, 0, len(rids))
-	args := make([]any, 0, len(rids))
+	placeholders := make([]string, len(rids))
+	args := make([]any, len(rids))
 	for i, uid := range rids {
 		placeholders[i] = "?"
 		args[i] = uid
@@ -511,8 +511,8 @@ func deleteResourcesByIDs(db *sql.DB, rids []string) (int64, error) {
 		return 0, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	placeholders := make([]string, 0, len(rids))
-	args := make([]any, 0, len(rids))
+	placeholders := make([]string, len(rids))
+	args := make([]any, len(rids))
 	for i := range rids {
 		placeholders[i] = "?"
 		args[i] = rids[i]

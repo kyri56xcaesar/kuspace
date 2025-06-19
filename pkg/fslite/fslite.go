@@ -407,15 +407,16 @@ func (fsl *FsLite) SelectObjects(how map[string]any) (any, error) {
 	if ok && rids != "" {
 		rids, err := ut.SplitToInt(rids.(string), ",")
 		if err == nil {
+
 			return getResourcesByIDs(db, rids)
 		}
+		log.Printf("failed to split to int the given rids: %v", err)
 
 		return nil, err
 	}
 
 	name, ok = how["name"]
 	volume, ok2 := how["volume"]
-	log.Printf("name: %v. volume: %v, ok: %v, ok2: %v", name, volume, ok, ok2)
 	if ok && ok2 {
 		return getResourceByNameAndVolume(db, name.(string), volume.(string))
 	}

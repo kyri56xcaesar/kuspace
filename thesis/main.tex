@@ -20,6 +20,7 @@
 \documentclass[
 	12pt, % The default document font size, options: 10pt, 11pt, 12pt
 	% oneside, % Two side (alternating margins) for binding by default, uncomment to switch to one side
+	twoside,
 	english,
 	onehalfspacing, % Single line spacing, alternatives: singlespacing or doublespacing
 	%draft, % Uncomment to enable draft mode (no pictures, no links, overfull hboxes indicated)
@@ -29,7 +30,7 @@
 	parskip, % Uncomment to add space between paragraphs
 	%nohyperref, % Uncomment to not load the hyperref package
 	headsepline, % Uncomment to get a line under the header
-	% chapterinoneline, % Uncomment to place the chapter title next to the number on one line
+	chapterinoneline, % Uncomment to place the chapter title next to the number on one line
 	% consistentlayout, % Uncomment to change the layout of the declaration, abstract and acknowledgements pages to match the default layout
 ]{MastersDoctoralThesis} % The class file specifying the document structure
 
@@ -49,7 +50,11 @@
 \usepackage[noend]{algpseudocode}
 \usepackage{hyperref}
 \usepackage{graphicx}
+\usepackage{subcaption}
 \usepackage{amsmath}
+\usepackage{algpseudocode}
+
+
 
 \makeatletter
 \makeatother
@@ -75,7 +80,7 @@
 	bindingoffset=.5cm, % Binding offset
 	top=1.5cm, % Top margin
 	bottom=1.5cm, % Bottom margin
-	%showframe, % Uncomment to show how the type block is set on the page
+	% showframe, % Uncomment to show how the type block is set on the page
 }
 
 %----------------------------------------------------------------------------------------
@@ -132,11 +137,11 @@
 			\begin{flushright} \large
 				\emph{Thesis Committee:} \\
 				% Todo: fill correct link
-				\href{https://www.ece.tuc.gr/el/index.php?id=4109&tx_tuclabspersonnel_list%5Bperson%5D=361&tx_tuclabspersonnel_list%5Baction%5D=person&tx_tuclabspersonnel_list%5Bcontroller%5D=List}{\supname}\\ % Supervisor name - remove the \href bracket to remove the link
+				\href{https://www.ece.tuc.gr/el/index.php?id=4109&tx_tuclabspersonnel_list%5Bperson%5D=361&tx_tuclabspersonnel_list%5Baction%5D=person&tx_tuclabspersonnel_list%5Bcontroller%5D=List}{\supname}\\ % chktex 15 % Supervisor name - remove the \href bracket to remove the link
 				% Todo: fill correct link, full name
-				\href{https://www.ece.tuc.gr/el/i-scholi/prosopiko/single-display-person?tx_tuclabspersonnel_pi3%5Bpersonid%5D=771&cHash=7632eaf07b3963f9d990de818bdbcda9}{Prof. Name \textsc{Giatrakos}}\\
+				\href{https://www.ece.tuc.gr/el/i-scholi/prosopiko/single-display-person?tx_tuclabspersonnel_pi3%5Bpersonid%5D=771&cHash=7632eaf07b3963f9d990de818bdbcda9}{Prof. Nikolaos \textsc{Giatrakos}}\\
 				% Todo: fill correct link, full name
-				\href{https://www.ece.tuc.gr/el/index.php?id=4109&tx_tuclabspersonnel_list%5Bperson%5D=353&tx_tuclabspersonnel_list%5Baction%5D=person&tx_tuclabspersonnel_list%5Bcontroller%5D=List}{Prof. Name \textsc{Petrakis}}
+				\href{https://www.ece.tuc.gr/el/index.php?id=4109&tx_tuclabspersonnel_list%5Bperson%5D=353&tx_tuclabspersonnel_list%5Baction%5D=person&tx_tuclabspersonnel_list%5Bcontroller%5D=List}{Prof. Euripides \textsc{Petrakis}}
 			\end{flushright}
 		\end{minipage}\\[0.2cm]
 
@@ -164,7 +169,28 @@
 \begin{abstract}
 	\addchaptertocentry{\abstractname} % Add the abstract to the table of contents
 	% Todo: Add English Abstract
-	The Thesis Abstract is written here (and usually kept to just this page). The page is kept centered vertically so can expand into the blank space above the title too\ldots
+	The following thesis presents the design and implementation of a 
+	user-oriented analytical computing system deployed on the Kubernetes 
+	platform. The system draws inspiration from core Unix design principles, 
+	particularly in file and directory permissions, user hiererchy and 
+	authorization management.
+
+	The central ambition is to ease the operational quality of life for 
+	data analysts working with sizable or not datasets, while maintaining 
+	strict access control and support for concurrent multi-user interactions. 
+	Users can upload and share datasets, submit batch job into execution using 
+	pre-integrated applications, such as DuckDB, Bash, Octave, Pandas and others. 
+	Designed with modularity and extensibility in mind, the platform aims to 
+	abstract the complexity of orchestration, achieves abstraction of resource 
+	allocation and job scheduling, providing users with a seamless interface 
+	for analytical workflows. Each job lives and dies in a sandboxed containerized 
+	environment, ensuring reproducibility and isolation.
+
+	The solution demonstrates the feasibility of delivering a lightweight, flexible platform 
+	that leverages Kubernetes’ native scalability to manage user resources, data, and jobs 
+	efficiently. It offers a pathway for democratizing access to powerful analytics tooling, 
+	especially in research and educational contexts where ease of deployment and extensibility 
+	are vital.
 \end{abstract}
 
 %----------------------------------------------------------------------------------------
@@ -175,8 +201,31 @@
 	\addchaptertocentry{\abstractname} % Add the abstract to the table of contents
 	% Todo: Add Greek Abstract
     \selectlanguage{greek}
-	Η περίληψη της διπλωματικής γράφεται εδώ (και συνήθως αποτελεί αυτή την μία μόνο σελίδα). Η σελίδα αυτή κρατάται στοιχισμένη στην μέση οριζόντια και κάθετα, ώστε να μπορεί να επεκτίνεται στον κενό χώρο και πάνω από τον τίτλο\ldots
-	
+	Η παρούσα διπλωματική εργασία παρουσιάζει τον σχεδιασμό και την υλοποίηση 
+	ενός υπολογιστικού συστήματος ανάλυσης δεδομένων προσανατολισμένου στον 
+	χρήστη, το οποίο αναπτύσσεται στην πλατφόρμα \textlatin{Kubernetes}. 
+	Το σύστημα αντλέι έμπνευση από τις θεμελιώδεις αρχές σχεδιασμού του 
+	\textlatin{Unix}, ιδιαίετερα ως προς τα δικαιώματα αρχείων, την ιεραρχία 
+	χρηστών και τη διαχείρηση εξουσιοδοτήσεων. Κεντρική φιλοδοξία αποτελεί η 
+	βελτίωση της καθημερινής εμπειρίας των αναλυτών δεδομένων που εργάζονται 
+	με μεγάλους και όχι όγκους δεδομένων, διατηρώντας παράλληλα αυστηρό έλεγχο 
+	πρόσβασης και υποστήριξη για ταυτόχρονη αλληλεπίδραση πολλών χρηστών. 
+	Οι χρήστες μπορούν να ανεβάζουν και να διαμοιράζονται σύνολα δεδομένων, 
+	καθώς και να υποβάλλουν παρτίδες εργασιών προς εκτέλεση χρησιμοποιώντας 
+	προενσωματωμένες εφαρφμογές, όπως \textlatin{DuckDB}, \textlatin{Bash}, 
+	\textlatin{Octave}, \textlatin{Pandas} και άλλες. Με σχεδιασμό που δίνει
+	έμφαση στην μοντελοποίηση και την επεκτασιμότητα, η πλατφόρμα στοχεύει 
+	στην απόκρυψη της πολυπλοκότητας της ενορχήστρωσης, της διαχείρισης πόρων 
+	και του χρονοπρογραμματισμού εργασιών, προσφέροντας στους χρήστες ένα 
+	ενιαίο και εύχρηστο περιβάλλον για ροές εργασίας ανάλυσης δεδομένων. 
+	Κάθε εργασία εκτελέιται και τερματίζεται μέσα σε απομονωμένο περιβάλλον, 
+	διασφαλίζοντας της αναπαραγωγιμότητα και την απομόνωση. Η λύση καταδεικνύει 
+	τη δυνατότητα δημιουργίας μιας ελαφριάς και ευέλικτης πλατφόρμας που αξιοποιεί 
+	την εγγενή επεκτασιμότητα του \textlatin{Kubernetes} για την αποδοτική διαχείριση 
+	των χρηστών, των δεδομένων και των εργασιών. Αποτελεί μια προσέγγιση που διευρυνεί
+	την πρόσβαση σε ισχυρά εργαλεία ανάλυσης, ιδιαίτερα σε ερευνητικά και εκπαιδευτικά 
+	περιβάλλοντα όπου η ευκολία ανάπτυξης και η δυνατότητα επέκτασης είναι καθοριστικής 
+	σημασίας.
 \end{abstract}
 
 %----------------------------------------------------------------------------------------
@@ -186,7 +235,24 @@
 \begin{acknowledgements}
 	\addchaptertocentry{\acknowledgementname} % Add the acknowledgements to the table of contents
 	% Todo: Add Acknowledgements
-	The acknowledgments and the people to thank go here, don't forget to include your project advisor\ldots
+	First and foremost, I would like to  express my deep respect and appriciation 
+	towards my advisor, Professor Vasilis Samoladas. His precise guidance served 
+	as a beacon of clarity and stability throughout the often chaotic process of 
+	designing and developing an entire system independently.
+	
+	I am also deeply grateful for the unwavering support and patience shown by my 
+	close friends and family, who stood by me selflessly and with enduring encouragement 
+	during this demanding journey.
+
+	Last but not least, I would like to extend my heartfelt thanks to the esteemed members 
+	of the Thesis Committee, Professor E. Petrakis and Professor N. Giatrakos, as well as 
+	to my fellow colleagues and students on campus who shared this experience.
+
+	% I would like to acknowledge the use of OpenAI's ChatGPT, which assisted me throughout 
+	% the thesis process — from refining ideas and structuring sections and rephrasing many 
+	% aspects to improving language clarity and generating code examples. While all critical 
+	% decisions, validations, and final wording were made by me, the AI served as a helpful 
+	% companion during development and documentation and information digging.
 \end{acknowledgements}
 
 %----------------------------------------------------------------------------------------
@@ -206,34 +272,34 @@
 % Todo: edit to your requirements
 % spell-checker: disable
 \begin{abbreviations}{ll} % Include a list of abbreviations (a table of two columns)]
-	\textbf{ALU}	& \textbf{A}rithmetic \textbf{L}ogic \textbf{U}nit\\
-	\textbf{ASIC}	& \textbf{A}pplication \textbf{S}pecific \textbf{I}ntegrated \textbf{C}ircuit\\
-	\textbf{BRAM}	& \textbf{B}lock \textbf{R}andom \textbf{A}ccess \textbf{M}emory\\
-	\textbf{CPU}	& \textbf{C}entral \textbf{P}rocessor \textbf{U}nit\\
+	\textbf{API}	& \textbf{A}pplication \textbf{P}rogramming \textbf{I}nterface\\
+	\textbf{CNS}	& \textbf{C}loud \textbf{N}ative \textbf{S}torage\\
 	\textbf{CS}		& \textbf{C}omputer \textbf{S}cience\\
-	\textbf{DDR4}	& \textbf{D}ouble \textbf{D}ata \textbf{R}ate type \textbf{4} memory\\
-	\textbf{DRAM}	& \textbf{D}ynamic \textbf{R}andom \textbf{A}ccess \textbf{M}emory\\
-	\textbf{DSP}	& \textbf{D}igital \textbf{S}ignal \textbf{P}rocessor\\
-	\textbf{FF}		& \textbf{F}lip \textbf{F}lops\\
-	\textbf{FPGA}	& \textbf{F}ield \textbf{P}rogrammable \textbf{G}ate \textbf{A}rray\\
-	\textbf{GDDR6}	& \textbf{G}raphics \textbf{D}ouble \textbf{D}ata \textbf{R}ate type \textbf{6} memory\\
-	\textbf{GPU}	& \textbf{G}raphic \textbf{P}rocessor \textbf{U}nit\\
-	\textbf{HBM}	& \textbf{H}igh \textbf{B}andwidth \textbf{M}emory\\
-	\textbf{HDL}	& \textbf{H}ardware \textbf{D}escription \textbf{L}anguage\\
-	\textbf{HLS}	& \textbf{H}igh \textbf{L}evel \textbf{S}ynthesis\\
-	\textbf{HPC}	& \textbf{H}ight \textbf{P}erformance \textbf{C}omputing\\
-	\textbf{LUT}	& \textbf{L}ook \textbf{U}p \textbf{T}able\\
-	\textbf{MPSoC}	& \textbf{M}ulti \textbf{P}rocessor \textbf{S}ystem \textbf{o}n \textbf{C}hip\\
-	\textbf{PL}		& \textbf{P}rogrammable \textbf{L}ogic\\
-	\textbf{PS}		& \textbf{P}rocessing \textbf{S}ystem\\
-	\textbf{RAM}	& \textbf{R}andom \textbf{A}ccess \textbf{M}emory\\
-	\textbf{SDK}	& \textbf{S}oftware \textbf{D}evelopment \textbf{K}it\\
-	\textbf{SIMD}	& \textbf{S}ingle \textbf{I}nstruction \textbf{M}ultiple \textbf{D}ata\\
-	\textbf{SSE}	& \textbf{S}treaming \textbf{S}IMD \textbf{E}xtensions\\
-	\textbf{SSD}	& \textbf{S}olid \textbf{S}tate \textbf{D}rive\\
-	\textbf{TDP}	& \textbf{T}hermal \textbf{D}esign \textbf{P}ower\\
-	\textbf{URAM}	& \textbf{U}ltra \textbf{R}andom \textbf{A}ccess \textbf{M}emory\\
-	\textbf{USD}	& \textbf{U}nited \textbf{S}tates \textbf{D}ollar\\
+	\textbf{CRUD}	& \textbf{C}reate \textbf{R}ead \textbf{U}pdate \textbf{D}elete\\
+	\textbf{CSS}	& \textbf{C}ascade \textbf{S}tyle \textbf{S}heets\\
+	\textbf{CSV}	& \textbf{C}omma \textbf{S}eperated \textbf{V}alues\\
+	\textbf{DAG}	& \textbf{D}irected \textbf{A}cyclic \textbf{G}raph\\
+	\textbf{DSL}	& \textbf{D}omain \textbf{S}pecific \textbf{L}anguage\\
+	\textbf{ETL}	& \textbf{E}xtract \textbf{T}ransform \textbf{L}oad\\
+	\textbf{HTTP}	& \textbf{H}yper\textbf{T}ext \textbf{T}ransfer \textbf{P}rotocol\\
+	\textbf{HTML}	& \textbf{H}yper\textbf{T}ext \textbf{M}arkup \textbf{L}anguange\\
+	\textbf{I/O}	& \textbf{I}nput / \textbf{O}utput\\
+	\textbf{JWKS}	& \textbf{J}SON \textbf{W}eb \textbf{K}ey \textbf{S}et\\
+	\textbf{JWT}	& \textbf{J}son \textbf{W}eb \textbf{T}oken\\
+	\textbf{JS}		& \textbf{J}ava\textbf{S}cript\\
+	\textbf{JSON} 	& \textbf{J}ava\textbf{S}cript \textbf{O}bject \textbf{N}otation\\
+	\textbf{K8S}	& \textbf{K}ubernete\textbf{S}\\
+	\textbf{PaaS}	& \textbf{P}latform \textbf{a}s \textbf{a} \textbf{S}ervice\\
+	\textbf{PV}		& Kubernetes \textbf{P}ersistent \textbf{V}olume\\
+	\textbf{PVC}	& Kubernetes \textbf{P}ersistent \textbf{V}olume \textbf{C}laim\\
+	\textbf{RBAC}	& \textbf{R}ole \textbf{B}ased \textbf{A}ccess \textbf{C}ontrol\\
+	\textbf{S3}		& Amazon \textbf{S}imple \textbf{S}torage \textbf{S}ervice\\
+	\textbf{SQL}	& \textbf{S}tructured \textbf{Q}uery \textbf{L}anguage\\
+	\textbf{UID}	& \textbf{U}ser \textbf{ID}entification\\
+	\textbf{GID}	& \textbf{G}roup \textbf{ID}entification\\
+	\textbf{VID}	& \textbf{V}olume \textbf{ID}entification\\
+	\textbf{RID}	& \textbf{R}esource \textbf{ID}entification\\
+	\textbf{JID}	& \textbf{J}ob \textbf{ID}entification\\
 \end{abbreviations}
 % spell-checker: enable
 
@@ -255,9 +321,10 @@
 \include{Chapters/01-Introduction}
 \include{Chapters/02-TheoreticalBackground}
 \include{Chapters/03-RelatedWork}
-\include{Chapters/04-RobustnessAnalysis}
-\include{Chapters/06-Results}
-\include{Chapters/07-ConclusionsAndFutureWork}
+\include{Chapters/04-SystemDesignAndArchitecture}
+\include{Chapters/05-SystemUsage}
+\include{Chapters/06-EvaluationAndRobustness}
+\include{Chapters/07-ConclusionsFutureWork}
 
 %----------------------------------------------------------------------------------------
 %	THESIS CONTENT - APPENDICES
@@ -269,8 +336,8 @@
 % Uncomment the lines as you write the Appendices
 
 % Todo: comment out if not needed
-\include{Appendices/AppendixA}
-% \include{Appendices/AppendixB}
+% \include{Appendices/AppendixA}
+\include{Appendices/AppendixB}
 % \include{Appendices/AppendixC}
 
 %----------------------------------------------------------------------------------------
@@ -278,8 +345,8 @@
 %----------------------------------------------------------------------------------------
 
 \cleardoublepage\phantomsection\addcontentsline{toc}{chapter}{References}
-\printbibliography[keyword={References}, title={References}]
-\printbibliography[keyword={Link}, title={External Links}]
+\printbibliography[keyword={references}, title={References}]
+\printbibliography[keyword={link}, title={External Links}]
 
 %----------------------------------------------------------------------------------------
 

@@ -163,7 +163,6 @@ func isOwner(srv *UService) gin.HandlerFunc {
 
 			return
 		}
-		log.Printf("ac: %+v", ac)
 		if ac.HasKeyword {
 			res, err := srv.fsl.SelectObjects(map[string]any{"rids": strings.TrimPrefix(ac.Target, "/"), "vname": ac.Vname})
 			if err != nil {
@@ -174,7 +173,6 @@ func isOwner(srv *UService) gin.HandlerFunc {
 				return
 			}
 			resources, ok := res.([]ut.Resource)
-			log.Printf("res: %+v", resources)
 
 			if !ok {
 				log.Printf("[Middleware-Ownership] failed to cast access-target object(s), (corrupt data?)")

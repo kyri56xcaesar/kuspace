@@ -3,8 +3,42 @@
 \babel@toc {english}{}\relax 
 \addvspace {10\p@ }
 \addvspace {10\p@ }
+\contentsline {figure}{\numberline {2.1}{\ignorespaces Kubernetes}}{5}{figure.caption.19}%
+\contentsline {figure}{\numberline {2.2}{\ignorespaces MicroServices vs Monolithic}}{6}{figure.caption.21}%
+\contentsline {figure}{\numberline {2.3}{\ignorespaces MinIO}}{7}{figure.caption.24}%
+\contentsline {figure}{\numberline {2.4}{\ignorespaces Why DuckDB}}{8}{figure.caption.27}%
+\contentsline {figure}{\numberline {2.5}{\ignorespaces SQLite}}{9}{figure.caption.29}%
+\contentsline {figure}{\numberline {2.6}{\ignorespaces WebSockets}}{10}{figure.caption.31}%
+\contentsline {figure}{\numberline {2.7}{\ignorespaces Docker Containers}}{11}{figure.caption.33}%
+\contentsline {figure}{\numberline {2.8}{\ignorespaces CNS}}{13}{figure.caption.37}%
 \addvspace {10\p@ }
+\contentsline {figure}{\numberline {3.1}{\ignorespaces Batch Processing Platforms}}{15}{figure.caption.40}%
+\contentsline {figure}{\numberline {3.2}{\ignorespaces Data Lake Platforms}}{16}{figure.caption.42}%
+\contentsline {figure}{\numberline {3.3}{\ignorespaces PaaS}}{16}{figure.caption.44}%
+\contentsline {figure}{\numberline {3.4}{\ignorespaces CN-Auth Services}}{17}{figure.caption.46}%
 \addvspace {10\p@ }
+\contentsline {figure}{\numberline {4.1}{\ignorespaces Kuspace System Overview}}{19}{figure.caption.49}%
+\contentsline {figure}{\numberline {4.2}{\ignorespaces Kuspace logo}}{20}{figure.caption.50}%
+\contentsline {figure}{\numberline {4.3}{\ignorespaces Minioth logo}}{20}{figure.caption.52}%
+\contentsline {figure}{\numberline {4.4}{\ignorespaces Minioth Block Diagram}}{24}{figure.caption.61}%
+\contentsline {figure}{\numberline {4.5}{\ignorespaces Uspace Storage Overview}}{30}{figure.caption.76}%
+\contentsline {figure}{\numberline {4.6}{\ignorespaces Job Lifecycle}}{34}{figure.caption.88}%
+\contentsline {figure}{\numberline {4.7}{\ignorespaces Available Kuspace Applications}}{35}{figure.caption.91}%
+\contentsline {figure}{\numberline {4.8}{\ignorespaces FsLite logo}}{36}{figure.caption.94}%
+\contentsline {figure}{\numberline {4.9}{\ignorespaces FsLite Block Diagram}}{36}{figure.caption.95}%
+\contentsline {figure}{\numberline {4.10}{\ignorespaces FsLite Integration}}{38}{figure.caption.102}%
+\contentsline {figure}{\numberline {4.11}{\ignorespaces Minio Service Overview}}{39}{figure.caption.104}%
+\contentsline {figure}{\numberline {4.12}{\ignorespaces Wss Block Diagram}}{41}{figure.caption.109}%
+\contentsline {figure}{\numberline {4.13}{\ignorespaces FrontEnd Technologies}}{42}{figure.caption.112}%
+\contentsline {figure}{\numberline {4.14}{\ignorespaces Frontapp Overview diagram}}{43}{figure.caption.113}%
 \addvspace {10\p@ }
+\contentsline {figure}{\numberline {5.1}{\ignorespaces Kuspace Login and Register Pages}}{48}{figure.caption.126}%
+\contentsline {figure}{\numberline {5.2}{\ignorespaces User Interface Actions in Kuspace}}{49}{figure.caption.128}%
+\contentsline {figure}{\numberline {5.3}{\ignorespaces Kuspace user views for navigating files and inspecting volumes.}}{50}{figure.caption.129}%
+\contentsline {figure}{\numberline {5.4}{\ignorespaces Kuspace user interface for submitting jobs.}}{51}{figure.caption.130}%
+\contentsline {figure}{\numberline {5.5}{\ignorespaces Kuspace admin interface for managing users, groups, and resources.}}{52}{figure.caption.132}%
+\contentsline {figure}{\numberline {5.6}{\ignorespaces Kuspace admin views for storage and job management.}}{53}{figure.caption.133}%
+\contentsline {figure}{\numberline {5.7}{\ignorespaces Bash job: Counting occurrences of a word in a large file}}{55}{figure.caption.138}%
+\contentsline {figure}{\numberline {5.8}{\ignorespaces DuckDB job: Character frequency histogram from first line characters}}{57}{figure.caption.142}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }

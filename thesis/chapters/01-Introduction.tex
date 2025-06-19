@@ -1,15 +1,118 @@
 \chapter{Introduction}
 \label{Chapter-Introduction}
 
-\section{Motivation}
-\section{Scientific Contributions}
+\section{Purpose and Motivation}
+\hspace{2mm}This project began as an effort to integrate a user-friendly `environment' layer into Kubernetes—an infrastructure known 
+for its power and scalability, yet lacking direct support for user-centric entities. The goal was to make 
+an environment where individual users can perform analytical computing in their own `space', especially enabling
+data analysts to work with large-scale datasets, by abstracting the complexity of orchestration and container management.
+As the system evolved, the focus deviated slightly towards a fully modular full stack platform that supports multiple users, secures
+access with custom authentication, and enables storage provisioning, sharing, and execution of batch jobs using familiar tools such
+as DuckDB, Bash, Octave, and Pandas~\cite{mckinney-proc-scipy-2010}. The motivation became to deliver a system 
+that combines the robustness of cloud-native
+technologies with the ease of use of desktop analytical environments—bridging the gap between DevOps infrastructure and 
+end-user data workflows.
+
+Ultimately, amongst some services, the bar was set to implement already existing enterprise level technology stacks to 
+more basic and developer friendly as in ease of access and deployment versions. It had been a personal aspiration and 
+challenge to create some utilities that are scoped for development with a laconic tone while maintaining inspiration by others.
+
+\newpage
+
+\section{Problem Statement}
+
+\hspace{2mm}While modern data platforms such as Apache Airflow or Spark 
+address large-scale, enterprise-level orchestration needs, they are often complex, heavyweight, and 
+not designed with ease of use or modularity in mind—especially for individual analysts or smaller 
+teams working on self-contained workflows.
+
+This thesis does not seek to compete with such platforms, nor to introduce fundamentally new orchestration paradigms. 
+Instead, it focuses on designing and implementing a lightweight, extensible system that simplifies the execution of batch 
+data analysis jobs in a multi-user environment.
+
+The core problem addressed is the absence of a simple, user-accessible platform where authenticated users can:
+\begin{itemize}
+    \item Upload datasets to a common, structured storage layer,
+    \item Submit analytical jobs using containerized tools such as DuckDB, Pandas, or Octave,
+    \item View job outputs and logs through a unified interface,
+    \item And share or manage their data and jobs in a collaborative way.
+\end{itemize}
+
+This project presents a custom application built on top of Kubernetes~\cite{google-kubernetes} that abstracts away infrastructure complexity, 
+offering a modular foundation upon which analytical tools can be plugged and executed in a reproducible, isolated manner. 
+The overarching goal is to improve the user experience in running batch data workflows—not by reimagining distributed computation, 
+but by making its power more accessible and flexible for real-world analysis tasks.
+
+
+
+\section{Scope of the Project}
+\hspace{2mm}The scope of this thesis includes the design, development, and integration of a modular microservice-based platform tailored to Kubernetes. 
+The system introduces:
+
+\begin{itemize}
+    \item A custom authentication and user management service (\texttt{Minioth}).
+    \item A central orchestration service (\texttt{Uspace}) that defines and manages user environments.
+    \item A lightweight virtual filesystem abstraction (\texttt{Fslite}) for managing user data and metadata.
+    \item Integration with MinIO for physical object storage.
+    \item A WebSocket-enabled frontend service that provides real-time interaction and job monitoring capabilities.
+\end{itemize}
+
+The system supports uploading, sharing, and executing batch jobs using containerized tools, while abstracting the complexity of 
+Kubernetes operations from the end user.
+
+Out of scope for this project are scheduling algorithms, dynamic autoscaling and support for third-party 
+authentication (e.g., OAuth~\cite{oauth2-rfc6749}).
+
+The system is implemented in Go~\cite{golang}, a statically typed, compiled programming language designed for simplicity and concurrency.
+
+The backend for the Services is implemented using the Gin web framework for Go~\cite{gingonic}, which provides performant HTTP routing and middleware integration.
+
+\section{Thesis Contributions}
+\hspace{2mm}The primary contributions of this thesis are as follows:
+\begin{itemize}
+    \item The design and implementation of a fully functional user-centric platform deployed on Kubernetes, 
+    abstracting core orchestration mechanics from the user.
+    \item A custom authentication service (\texttt{Minioth}) implementing user/group-based access control with secure 
+    token issuance and verification.
+    \item The \texttt{Uspace} service that defines and manages user environments, enabling secure job submission and resource 
+    isolation.
+    \item The \texttt{Fslite} abstraction layer that models user data and virtual resources in a hierarchical structure, 
+    backed by object storage (MinIO).
+    \item A WebSocket-integrated frontend allowing users to interactively monitor jobs and access 
+    their workspace in real time.
+    \item A demonstration of how Kubernetes-native resources and batch execution can be adapted to serve multi-user analytical 
+    workflows in an accessible, extensible system.
+\end{itemize}
+
+
+
+\newpage
 \section{Thesis Outline}
 % Todo: Fill chapter descriptions
 \begin{itemize}
-	\item \textbf{Chapter 2 - Theoretical Background:} Chapter 2 description
-	\item \textbf{Chapter 3 - Related Work:} Chapter 3 description
-	\item \textbf{Chapter 4 - Robustness Analysis:} Chapter 4 description
-	\item \textbf{Chapter 5 - FPGA Implementation:} Chapter 5 description
-	\item \textbf{Chapter 6 - Results:} Chapter 6 description
-	\item \textbf{Chapter 7 - Conclusions and Related Work:} Chapter 7 description
+    \item \textbf{Chapter 2 – Background and Theoretical Foundations:}  
+    An overview of the core technologies and concepts underpinning the system, including Kubernetes, microservices, authentication models, 
+    containerized workloads, and object storage.
+
+    \item \textbf{Chapter 3 – Related Work:}  
+    A review of existing platforms and tools related to data processing, user environment provisioning, and cloud-native architectures. 
+    It highlights their limitations and positions this work within the broader landscape.
+
+    \item \textbf{Chapter 4 – System Design and Architecture:}  
+    The Architectural blueprint of the system, detailing the interactions between core services such as Minioth, Uspace, Fslite, and the Frontend. 
+    The design goals of modularity, scalability, and security are emphasized.
+
+    \item \textbf{Chapter 5 – System Usage \& Execution Flow:}  
+    Describes how the system operates from both user and administrative perspectives. It details the deployment setup, system access points, 
+    request-response structure, and error feedback mechanisms.  
+    End-to-end workflows are illustrated through UI examples, including the job submission lifecycle.  
+
+    \item \textbf{Chapter 6 – Evaluation and Robustness:}  
+    An evaluation of the system’s behavior under various conditions, including performance, scalability, fault tolerance, and security. 
+    Observations and informal benchmarks are included where applicable..
+
+    \item \textbf{Chapter 7 – Conclusions and Future Work:}  
+    Summarizes the work, reflects on its outcomes and limitations, and discusses potential directions for further development 
+    and enhancement of the system.
 \end{itemize}
+

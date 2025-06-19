@@ -1,0 +1,42 @@
+\chapter{Evaluation and Robustness}
+\label{Chapter-Evaluation-Robustness}
+
+\section{Scalability Tests}
+
+While no formal scalability benchmarks have been executed, the system design inherently supports horizontal scaling via Kubernetes. Each microservice is independently deployable and can be replicated or scaled depending on the workload.
+
+Batch job execution is managed by Kubernetes Jobs, allowing multiple jobs to run concurrently, subject to resource constraints and cluster capacity. Storage and job queue sizes can be configured, and the system is prepared to integrate with scalable object storage solutions like MinIO or external S3-compatible services.
+
+Future work may include stress-testing job submission rates, concurrent WebSocket connections, and storage read/write throughput.
+
+\section{Security}
+
+Authentication and authorization are enforced using JWT tokens issued by a dedicated service (Minioth) which are short-lived, and access control is modeled after a Unix-style permission system using FsLite. Sensitive inter-service communication is secured using a shared service secret.
+
+The system properly distinguishes between user and admin roles, enforces ownership and group permissions on data access, and guards access to privileged routes. However, a formal security audit has not been conducted. Future improvements could include:
+
+\begin{itemize}
+    \item Rate limiting and brute-force protection.
+    \item Improved logging and audit trails.
+    \item Formal threat modeling and penetration testing.
+\end{itemize}
+
+\section{Fault Tolerance}
+
+Fault tolerance is largely delegated to the Kubernetes runtime, which automatically restarts failed pods, monitors service health, and maintains declared desired state.
+
+Jobs are submitted through an internal queue system and executed as isolated Kubernetes jobs. Failures in job execution do not compromise the stability of the core system; failed jobs are logged and reported via status messages.
+
+Non-critical services such as the WebSocket server are loosely coupled and can be restarted independently without affecting core operations.
+
+\section{Resource Usage}
+
+Resource consumption is dynamic and depends on job definitions. Users may configure CPU, memory, and ephemeral storage requirements per job. After completion, jobs are deleted by Kubernetes, reducing runtime overhead. Metadata about jobs, volumes, and users is persistently stored in embedded databases (e.g., DuckDB, SQLite), which may grow over time but remain manageable.
+
+Currently, no automatic cleanup of job metadata or disk quotas is enforced. Persistent logs are written to stdout and can be aggregated using external tools if deployed in production. Future work may explore:
+
+\begin{itemize}
+    \item Periodic pruning of old metadata and logs.
+    \item Integration with resource monitoring dashboards (e.g., Grafana).
+    \item Quota enforcement for user volume usage and job submissions.
+\end{itemize}

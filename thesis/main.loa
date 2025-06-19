@@ -2,4 +2,9 @@
 \babel@toc {english}{}\relax 
 \babel@toc {greek}{}\relax 
 \babel@toc {english}{}\relax 
+\contentsline {algorithm}{\numberline {1}{\ignorespaces Password Hashing using \texttt {bcrypt}}}{22}{algorithm.57}%
+\contentsline {algorithm}{\numberline {2}{\ignorespaces Abstract Handler Interface (pseudocode)}}{23}{algorithm.59}%
+\contentsline {algorithm}{\numberline {3}{\ignorespaces Abstract \texttt {StorageSystem} Interface (pseudocode)}}{29}{algorithm.74}%
+\contentsline {algorithm}{\numberline {4}{\ignorespaces Abstract \texttt {JobDispatcher} Interface (pseudocode)}}{31}{algorithm.78}%
+\contentsline {algorithm}{\numberline {5}{\ignorespaces Abstract \texttt {JobExecutor} Interface (pseudocode)}}{31}{algorithm.79}%
 \providecommand \tocbasic@end@toc@file {}\tocbasic@end@toc@file 

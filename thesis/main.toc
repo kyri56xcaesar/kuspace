@@ -5,34 +5,93 @@
 \babel@toc {english}{}\relax 
 \contentsline {chapter}{Acknowledgements}{\EnsureStandardFontEncoding {vii}}{section*.3}%
 \contentsline {chapter}{Contents}{\EnsureStandardFontEncoding {ix}}{chapter*.4}%
-\contentsline {chapter}{List of Figures}{\EnsureStandardFontEncoding {xi}}{chapter*.5}%
-\contentsline {chapter}{List of Tables}{\EnsureStandardFontEncoding {xiii}}{chapter*.6}%
-\contentsline {chapter}{List of Algorithms}{\EnsureStandardFontEncoding {xv}}{chapter*.7}%
-\contentsline {chapter}{List of Abbreviations}{\EnsureStandardFontEncoding {xvii}}{chapter*.8}%
+\contentsline {chapter}{List of Figures}{\EnsureStandardFontEncoding {xiii}}{chapter*.5}%
+\contentsline {chapter}{List of Tables}{\EnsureStandardFontEncoding {xv}}{chapter*.6}%
+\contentsline {chapter}{List of Algorithms}{\EnsureStandardFontEncoding {xvii}}{chapter*.7}%
+\contentsline {chapter}{List of Abbreviations}{\EnsureStandardFontEncoding {xix}}{chapter*.8}%
 \contentsline {chapter}{\numberline {1}Introduction}{1}{chapter.11}%
-\contentsline {section}{\numberline {1.1}Motivation}{1}{section.12}%
-\contentsline {section}{\numberline {1.2}Scientific Contributions}{1}{section.13}%
-\contentsline {section}{\numberline {1.3}Thesis Outline}{1}{section.14}%
-\contentsline {chapter}{\numberline {2}Theoretical Background}{3}{chapter.15}%
-\contentsline {section}{\numberline {2.1}Subject A}{3}{section.16}%
-\contentsline {section}{\numberline {2.2}Subject B}{3}{section.17}%
-\contentsline {section}{\numberline {2.3}Theoretical knowledge sources}{3}{section.18}%
-\contentsline {chapter}{\numberline {3}Related Work}{5}{chapter.19}%
-\contentsline {section}{\numberline {3.1}Related work A}{5}{section.20}%
-\contentsline {section}{\numberline {3.2}Related work B}{5}{section.21}%
-\contentsline {section}{\numberline {3.3}The FPGA Perspective}{5}{section.22}%
-\contentsline {section}{\numberline {3.4}Thesis Approach}{5}{section.23}%
-\contentsline {chapter}{\numberline {4}Robustness Analysis}{7}{chapter.24}%
-\contentsline {section}{\numberline {4.1}Experiment A}{7}{section.25}%
-\contentsline {section}{\numberline {4.2}Experiment B}{7}{section.26}%
-\contentsline {chapter}{\numberline {5}Results}{9}{chapter.27}%
-\contentsline {section}{\numberline {5.1}Specification of Compared Platforms}{9}{section.28}%
-\contentsline {section}{\numberline {5.2}Power Consumption}{9}{section.29}%
-\contentsline {section}{\numberline {5.3}Energy Consumption}{9}{section.30}%
-\contentsline {section}{\numberline {5.4}Throughput and Latency Speedup}{9}{section.31}%
-\contentsline {section}{\numberline {5.5}Final Performance}{9}{section.32}%
-\contentsline {chapter}{\numberline {6}Conclusions and Future Work}{11}{chapter.33}%
-\contentsline {section}{\numberline {6.1}Conclusions}{11}{section.34}%
-\contentsline {section}{\numberline {6.2}Future Work}{11}{section.35}%
-\contentsline {chapter}{\numberline {A}Frequently Asked Questions}{13}{appendix.36}%
-\contentsline {section}{\numberline {A.1}How do I change the colors of links?}{13}{section.37}%
+\contentsline {section}{\numberline {1.1}Purpose and Motivation}{1}{section.12}%
+\contentsline {section}{\numberline {1.2}Problem Statement}{2}{section.13}%
+\contentsline {section}{\numberline {1.3}Scope of the Project}{2}{section.14}%
+\contentsline {section}{\numberline {1.4}Thesis Contributions}{3}{section.15}%
+\contentsline {section}{\numberline {1.5}Thesis Outline}{4}{section.16}%
+\contentsline {chapter}{\numberline {2}Background and Theoritical Foundations}{5}{chapter.17}%
+\contentsline {section}{\numberline {2.1}Kubernetes}{5}{section.18}%
+\contentsline {section}{\numberline {2.2}Microservices}{6}{section.20}%
+\contentsline {section}{\numberline {2.3}Batch Job Execution}{6}{section.22}%
+\contentsline {section}{\numberline {2.4}MinIO}{7}{section.23}%
+\contentsline {section}{\numberline {2.5}DuckDB}{7}{section.25}%
+\contentsline {section}{\numberline {2.6}SQLite}{9}{section.28}%
+\contentsline {section}{\numberline {2.7}WebSockets}{10}{section.30}%
+\contentsline {section}{\numberline {2.8}Containers}{10}{section.32}%
+\contentsline {section}{\numberline {2.9}Multi-User System Design}{11}{section.34}%
+\contentsline {section}{\numberline {2.10}Authentication Model}{12}{section.35}%
+\contentsline {section}{\numberline {2.11}Cloud-Native Storage}{13}{section.36}%
+\contentsline {chapter}{\numberline {3}Related Work}{15}{chapter.38}%
+\contentsline {section}{\numberline {3.1}Existing Batch-Processing Platforms}{15}{section.39}%
+\contentsline {section}{\numberline {3.2}Data Lake Platforms}{15}{section.41}%
+\contentsline {section}{\numberline {3.3}Platform-as-a-Service Solutions}{16}{section.43}%
+\contentsline {section}{\numberline {3.4}Cloud-Native Auth Frameworks}{17}{section.45}%
+\contentsline {chapter}{\numberline {4}System Design and Architecture}{19}{chapter.47}%
+\contentsline {section}{\numberline {4.1}Overview diagram}{19}{section.48}%
+\contentsline {section}{\numberline {4.2}Minioth: Authentication Service}{20}{section.51}%
+\contentsline {subsection}{\numberline {4.2.1}Authorization Details}{21}{subsection.53}%
+\contentsline {subsection}{\numberline {4.2.2}Authentication Details}{21}{subsection.54}%
+\contentsline {paragraph}{Token Signing Algorithm}{21}{section*.55}%
+\contentsline {paragraph}{Password Hashing}{21}{section*.56}%
+\contentsline {subsection}{\numberline {4.2.3}Pluggable Authentication Handlers}{22}{subsection.58}%
+\contentsline {paragraph}{Available Handlers:}{23}{section*.60}%
+\contentsline {subsection}{\numberline {4.2.4}Minioth Public API Endpoints}{24}{subsection.62}%
+\contentsline {subsection}{\numberline {4.2.5}Minioth Admin API Endpoints}{25}{subsection.64}%
+\contentsline {subsection}{\numberline {4.2.6}Integration}{25}{subsection.66}%
+\contentsline {section}{\numberline {4.3}Uspace: Central Orchestration and Job Management Service}{26}{section.67}%
+\contentsline {subsection}{\numberline {4.3.1}Responsibilities and Purpose}{26}{subsection.68}%
+\contentsline {subsection}{\numberline {4.3.2}Middleware and Access Control}{27}{subsection.71}%
+\contentsline {subsection}{\numberline {4.3.3}Core Structure}{28}{subsection.72}%
+\contentsline {subsection}{\numberline {4.3.4}Storage Provider Abstraction}{29}{subsection.73}%
+\contentsline {subsection}{\numberline {4.3.5}Storage Control}{30}{subsection.75}%
+\contentsline {subsection}{\numberline {4.3.6}Job Dispatcher and Executor}{30}{subsection.77}%
+\contentsline {subsection}{\numberline {4.3.7}Job Execution Pipeline}{32}{subsection.80}%
+\contentsline {subsection}{\numberline {4.3.8}Job Scheduling}{33}{subsection.87}%
+\contentsline {subsection}{\numberline {4.3.9}Available Applications}{34}{subsection.89}%
+\contentsline {subsection}{\numberline {4.3.10}Integration and Security}{35}{subsection.92}%
+\contentsline {section}{\numberline {4.4}Fslite}{36}{section.93}%
+\contentsline {subsection}{\numberline {4.4.1}Purpose and Design}{36}{subsection.96}%
+\contentsline {subsection}{\numberline {4.4.2}Deployment and Initialization}{37}{subsection.97}%
+\contentsline {subsection}{\numberline {4.4.3}API Endpoints}{37}{subsection.98}%
+\contentsline {subsection}{\numberline {4.4.4}Integration in the System}{38}{subsection.100}%
+\contentsline {subsubsection}{Local vs Remote Operation}{38}{section*.101}%
+\contentsline {section}{\numberline {4.5}Storage Layer (MinIO)}{38}{section.103}%
+\contentsline {section}{\numberline {4.6}Frontend and WebSocket Server}{39}{section.105}%
+\contentsline {subsection}{\numberline {4.6.1}Overview}{39}{subsection.106}%
+\contentsline {subsection}{\numberline {4.6.2}WebSocket Server (WSS)}{40}{subsection.107}%
+\contentsline {subsection}{\numberline {4.6.3}Frontend–WSS Separation of Concerns}{41}{subsection.110}%
+\contentsline {subsection}{\numberline {4.6.4}Frontend Technology Stack}{41}{subsection.111}%
+\contentsline {subsection}{\numberline {4.6.5}Integration}{42}{subsection.114}%
+\contentsline {section}{\numberline {4.7}Kubernetes Integration}{43}{section.115}%
+\contentsline {chapter}{\numberline {5}System Usage \bbl@greek@ampersand Execution Flow}{45}{chapter.116}%
+\contentsline {section}{\numberline {5.1}Deployment and Tooling}{45}{section.117}%
+\contentsline {subsection}{\numberline {5.1.1}Deployment Procedure}{45}{subsection.118}%
+\contentsline {subsection}{\numberline {5.1.2}Infrastructure Overview}{46}{subsection.119}%
+\contentsline {section}{\numberline {5.2}System Access and Communication}{46}{section.120}%
+\contentsline {subsection}{\numberline {5.2.1}Access Points and Interfaces}{46}{subsection.121}%
+\contentsline {subsection}{\numberline {5.2.2}Request-Response Model}{47}{subsection.122}%
+\contentsline {subsection}{\numberline {5.2.3}Error Handling and Feedback}{47}{subsection.123}%
+\contentsline {section}{\numberline {5.3}End-to-End Workflow}{48}{section.124}%
+\contentsline {subsection}{\numberline {5.3.1}Overview and User Roles}{48}{subsection.125}%
+\contentsline {subsection}{\numberline {5.3.2}User Perspective}{49}{subsection.127}%
+\contentsline {subsection}{\numberline {5.3.3}Admin Perspective}{52}{subsection.131}%
+\contentsline {subsection}{\numberline {5.3.4}Job Examples}{54}{subsection.134}%
+\contentsline {paragraph}{Job Logic:}{54}{section*.136}%
+\contentsline {paragraph}{Result:}{54}{section*.137}%
+\contentsline {paragraph}{Job Logic:}{56}{section*.140}%
+\contentsline {paragraph}{Result:}{56}{section*.141}%
+\contentsline {chapter}{\numberline {6}Evaluation and Robustness}{59}{chapter.143}%
+\contentsline {section}{\numberline {6.1}Scalability Tests}{59}{section.144}%
+\contentsline {section}{\numberline {6.2}Security}{59}{section.145}%
+\contentsline {section}{\numberline {6.3}Fault Tolerance}{60}{section.146}%
+\contentsline {section}{\numberline {6.4}Resource Usage}{60}{section.147}%
+\contentsline {chapter}{\numberline {7}Conclusions and Future Work}{61}{chapter.148}%
+\contentsline {section}{\numberline {7.1}Conclusions}{61}{section.149}%
+\contentsline {section}{\numberline {7.2}Future Work}{61}{section.150}%
+\contentsline {chapter}{References}{65}{section*.152}%

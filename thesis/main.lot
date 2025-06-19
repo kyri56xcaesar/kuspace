@@ -5,6 +5,13 @@
 \addvspace {10\p@ }
 \addvspace {10\p@ }
 \addvspace {10\p@ }
+\contentsline {table}{\numberline {4.1}{\ignorespaces Minioth public/user API endpoints}}{24}{table.caption.63}%
+\contentsline {table}{\numberline {4.2}{\ignorespaces Minioth public/admin API endpoints}}{25}{table.caption.65}%
+\contentsline {table}{\numberline {4.3}{\ignorespaces Uspace User API Endpoints}}{27}{table.caption.69}%
+\contentsline {table}{\numberline {4.4}{\ignorespaces Uspace Admin API Endpoints}}{27}{table.caption.70}%
+\contentsline {table}{\numberline {4.5}{\ignorespaces Currently supported applications in Uspace}}{35}{table.caption.90}%
+\contentsline {table}{\numberline {4.6}{\ignorespaces FsLite public API endpoints}}{37}{table.caption.99}%
+\contentsline {table}{\numberline {4.7}{\ignorespaces Supported WebSocket communication roles}}{40}{table.caption.108}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }
 \addvspace {10\p@ }
