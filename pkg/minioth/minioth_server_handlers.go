@@ -135,9 +135,9 @@ func (srv *MService) handleLogin(c *gin.Context) {
 	var token string
 	switch signingAlg {
 	case rs:
-		token, err = GenerateAccessRS256JWT(strconv.Itoa(user.UID), loginClaim.Username, strGroups, strGids)
+		token, err = GenerateAccessRS256JWT(fmt.Sprintf("%v", user.UID), loginClaim.Username, strGroups, strGids)
 	default:
-		token, err = GenerateAccessHS256JWT(strconv.Itoa(user.UID), loginClaim.Username, strGroups, strGids)
+		token, err = GenerateAccessHS256JWT(fmt.Sprintf("%v", user.UID), loginClaim.Username, strGroups, strGids)
 	}
 	if err != nil {
 		log.Printf("failed to generate jwt: %v", err)

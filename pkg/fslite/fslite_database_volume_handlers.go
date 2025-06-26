@@ -102,7 +102,7 @@ func updateVolume(db *sql.DB, volume ut.Volume) error {
 	return nil
 }
 
-func deleteVolume(db *sql.DB, vid int) error {
+func deleteVolume(db *sql.DB, vid int64) error {
 	tx, err := db.Begin()
 	if err != nil {
 		log.Printf("[FSL_DB_deleteVolume] failed to begin transaction: %v", err)
@@ -447,7 +447,7 @@ func getAllUserVolumes(db *sql.DB) (any, error) {
 	return userVolumes, nil
 }
 
-func getUserVolumeByUID(db *sql.DB, uid int) (ut.UserVolume, error) {
+func getUserVolumeByUID(db *sql.DB, uid int64) (ut.UserVolume, error) {
 	query := `SELECT * FROM userVolume WHERE uid = ?`
 	var userVolume ut.UserVolume
 	err := db.QueryRow(query, uid).Scan(userVolume.PtrFields()...)

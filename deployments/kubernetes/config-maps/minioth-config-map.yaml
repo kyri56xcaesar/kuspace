@@ -5,24 +5,24 @@ metadata:
   namespace: kuspace
 data:
   minioth.conf: |
-    ALLOWED_HEADERS=Origin,Content-Type,Authorization,Access-Control-Allow-Origin
-    API_PORT=9090
-    MINIOTH_HANDLER=database
-    MINIOTH_AUDIT_LOGS=data/logs/minioth/minioth_audit.log
     ALLOWED_ORIGINS=*
-    API_CERT_FILE=data/certs/minioth.crt
+    ALLOWED_METHODS=GET,POST,DELETE,PUT,OPTIONS,HEAD
+    ALLOWED_HEADERS=Origin,Content-Type,Authorization,Access-Control-Allow-Origin
+    API_USE_TLS=false
     JWT_VALIDITY_HOURS=2
-    IP=0.0.0.0
-    PROFILE=container
-    MINIOTH_DB=minioth.db
-    MINIOTH_DB_PATH=data/db/minioth/
-    API_KEY_FILE=data/certs/minioth.key
+    MINIOTH_DB_DRIVER=duckdb
+    MINIOTH_AUDIT_LOGS_MAX_FETCH=1000
     ISSUER=minioth
-    HASH_COST=4
     VERBOSE=true
     API_GIN_MODE=release
+    MINIOTH_DB_PATH=data/db/minioth/
+    MINIOTH_HANDLER=database
+    API_CERT_FILE=data/certs/minioth.crt
+    API_KEY_FILE=data/certs/minioth.key
+    HASH_COST=4
+    IP=0.0.0.0
+    PROFILE=container
+    API_PORT=9090
+    MINIOTH_DB=minioth.db
     MINIOTH_ACCESS_KEY=kuspaceadmin
-    MINIOTH_AUDIT_LOGS_MAX_FETCH=1000
-    API_USE_TLS=false
-    MINIOTH_DB_DRIVER=duckdb
-    ALLOWED_METHODS=GET,POST,DELETE,PUT,OPTIONS,HEAD
+    MINIOTH_AUDIT_LOGS=data/logs/minioth/minioth_audit.log

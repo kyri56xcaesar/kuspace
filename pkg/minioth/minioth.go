@@ -102,13 +102,13 @@ type Minioth struct {
 //     Releases any resources held by the handler and performs cleanup operations.
 type Handler interface {
 	Init()
-	Useradd(user ut.User) (uid, pgroup int, err error) /* should
+	Useradd(user ut.User) (uid, pgroup int64, err error) /* should
 	return the uid as well*/
 	Userdel(uid string) error
 	Usermod(user ut.User) error
 	Userpatch(uid string, fields map[string]any) error
 
-	Groupadd(group ut.Group) (gid int, err error) /* should
+	Groupadd(group ut.Group) (gid int64, err error) /* should
 	return the gid inserted as well*/
 	Groupdel(gid string) error
 	Groupmod(group ut.Group) error
@@ -186,7 +186,7 @@ func handlerFactory(minioth *Minioth) Handler {
 }
 
 // Useradd wrapper forwarding to Minioth handler
-func (m *Minioth) Useradd(user ut.User) (int, int, error) {
+func (m *Minioth) Useradd(user ut.User) (int64, int64, error) {
 	return m.handler.Useradd(user)
 }
 
@@ -206,7 +206,7 @@ func (m *Minioth) Userpatch(uid string, fields map[string]interface{}) error {
 }
 
 // Groupadd wrapper forwarding to Minioth handler
-func (m *Minioth) Groupadd(group ut.Group) (int, error) {
+func (m *Minioth) Groupadd(group ut.Group) (int64, error) {
 	return m.handler.Groupadd(group)
 }
 

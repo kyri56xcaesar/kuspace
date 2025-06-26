@@ -251,6 +251,27 @@ func SplitToInt(input, separator string) ([]int, error) {
 	return result, nil
 }
 
+func SplitToInt64(input, seperator string) ([]int64, error) {
+	// split the input by the seperator
+	parts := strings.Split(input, seperator)
+
+	// trim spaces and parse int64
+	trimAndConvert := func(s string) (int64, error) {
+		return strconv.ParseInt(strings.TrimSpace(s), 10, 64)
+	}
+
+	result := make([]int64, len(parts))
+	for i, part := range parts {
+		value, err := trimAndConvert(part)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = value
+	}
+
+	return result, nil
+}
+
 // MergeFiles will read the input files and create 1 output with the inputs appended
 // Mux Many to 1
 func MergeFiles(outputFile string, inputLocation string, inputFiles []string) error {

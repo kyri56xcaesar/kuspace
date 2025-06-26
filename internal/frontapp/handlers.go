@@ -1493,7 +1493,7 @@ func (srv *HTTPService) jobsHandler(c *gin.Context) {
 
 			return
 		}
-		job.UID, err = strconv.Atoi(uid.(string))
+		job.UID, err = strconv.ParseInt(uid.(string), 10, 64)
 		if err != nil {
 			log.Printf("failed to atoi uid value: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to atoi uid"})
@@ -1687,7 +1687,7 @@ func (srv *HTTPService) jobAdminHandler(c *gin.Context) {
 
 			return
 		}
-		job.UID, err = strconv.Atoi(uid.(string))
+		job.UID, err = strconv.ParseInt(uid.(string), 10, 64)
 		if err != nil {
 			log.Printf("failed to atoi uid value: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to atoi uid"})
@@ -2877,7 +2877,7 @@ func (srv *HTTPService) updateUser(c *gin.Context) {
 	// log.Printf("user updated: %+v", user)
 
 	var userFormat struct {
-		UID  int    `json:"uid"`
+		UID  int64  `json:"uid"`
 		Info string `json:"info"`
 	}
 	userFormat.UID = users[0].UID
@@ -3351,8 +3351,8 @@ type UseraddClaim struct {
 type RegResponse struct {
 	Message  string `json:"message"`
 	LoginURL string `json:"loginUrl"`
-	UID      int    `json:"uid"`
-	Pgroup   int    `json:"pgroup"`
+	UID      int64  `json:"uid"`
+	Pgroup   int64  `json:"pgroup"`
 }
 
 // TreeNode struct describes the "set" of resources in a tree like representation

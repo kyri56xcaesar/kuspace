@@ -382,7 +382,7 @@ func (fsl *FsLite) deleteResourceHandler(c *gin.Context) {
 func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
 	id, ok := c.Get("uid")
 	uidStr, ok2 := id.(string)
-	uid, err := strconv.Atoi(uidStr)
+	uid, err := strconv.ParseInt(uidStr, 10, 64)
 	if !ok || !ok2 || err != nil {
 		log.Printf("[FSL_API_uploadResource] uid wasn't set properly.")
 		if strings.ToLower(fsl.config.APIGinMode) == "debug" {

@@ -67,14 +67,14 @@ type Resource struct {
 
 	Perms string `json:"perms,omitempty"`
 
-	RID int `json:"rid,omitempty"`
-	UID int `json:"uid,omitempty"` // as in user id (owner)
-	GID int `json:"gid,omitempty"` // as in group id
+	RID int64 `json:"rid,omitempty"`
+	UID int64 `json:"uid,omitempty"` // as in user id (owner)
+	GID int64 `json:"gid,omitempty"` // as in group id
 
 	Size  int64 `json:"size,omitempty"`
 	Links int   `json:"links,omitempty"`
 
-	VID   int    `json:"vid,omitempty"`
+	VID   int64  `json:"vid,omitempty"`
 	Vname string `json:"vname,omitempty"`
 
 	Reader io.Reader `json:"reader,omitempty"`
@@ -140,7 +140,7 @@ func (r Resource) HasAccess(userInfo AccessClaim) bool {
 	/* check ownership
 	* if true, can exit prematurely
 	* */
-	if uid, err := strconv.Atoi(userInfo.UID); err != nil {
+	if uid, err := strconv.ParseInt(userInfo.UID, 10, 64); err != nil {
 		log.Printf("error atoing user id")
 
 		return false
@@ -152,7 +152,7 @@ func (r Resource) HasAccess(userInfo AccessClaim) bool {
 	gids := strings.Split(userInfo.Gids, ",")
 
 	for _, gid := range gids {
-		if igid, err := strconv.Atoi(gid); err != nil {
+		if igid, err := strconv.ParseInt(gid, 10, 64); err != nil {
 			log.Printf("error atoing group id")
 
 			return false
@@ -184,7 +184,7 @@ func (r Resource) HasWriteAccess(userInfo AccessClaim) bool {
 	/* check ownership
 	* if true, can exit prematurely
 	* */
-	if uid, err := strconv.Atoi(userInfo.UID); err != nil {
+	if uid, err := strconv.ParseInt(userInfo.UID, 10, 64); err != nil {
 		log.Printf("error atoing user id")
 
 		return false
@@ -196,7 +196,7 @@ func (r Resource) HasWriteAccess(userInfo AccessClaim) bool {
 	gids := strings.Split(userInfo.Gids, ",")
 
 	for _, gid := range gids {
-		if igid, err := strconv.Atoi(gid); err != nil {
+		if igid, err := strconv.ParseInt(gid, 10, 64); err != nil {
 			log.Printf("error atoing group id")
 
 			return false
@@ -218,7 +218,7 @@ func (r Resource) HasExecutionAccess(_ AccessClaim) bool {
 // IsOwner method will check the given AccessClaim applies Ownership authorization upon the Resource object
 // this shall check if the resource owner is of the claim OR if the resource group ownership is included in the claim groups
 func (r Resource) IsOwner(ac AccessClaim) bool {
-	intUID, err := strconv.Atoi(ac.UID)
+	intUID, err := strconv.ParseInt(ac.UID, 10, 64)
 	if err != nil {
 		log.Printf("[ownership-controller] failed to atoi access_claim")
 
@@ -229,7 +229,7 @@ func (r Resource) IsOwner(ac AccessClaim) bool {
 		return true
 	}
 
-	intGids, err := SplitToInt(strings.TrimSpace(ac.Gids), ",")
+	intGids, err := SplitToInt64(ac.Gids, ",")
 	if err != nil {
 		log.Printf("[ownership-controller] failed to atoi group ids")
 
@@ -346,12 +346,12 @@ func (pt PermTriplet) ToString() string {
 type Volume struct {
 	Name        string  `json:"name" form:"name"`
 	Path        string  `json:"path,omitempty" form:"path,omitempty"`
-	VID         int     `json:"vid,omitempty" form:"vid,omitempty"`
+	VID         int64   `json:"vid,omitempty" form:"vid,omitempty"`
 	Dynamic     bool    `json:"dynamic,omitempty" form:"dynamic,omitempty"`
 	Capacity    float64 `json:"capacity,omitempty" form:"capacity,omitempty"`
 	Usage       float64 `json:"usage,omitempty" form:"usage,omitempty"`
 	CreatedAt   string  `json:"createdAt,omitempty" form:"createdAt,omitempty"`
-	ObjectCount int     `json:"objectCount,omitempty" form:"objectCount,omitempty"`
+	ObjectCount int64   `json:"objectCount,omitempty" form:"objectCount,omitempty"`
 }
 
 /* fields and ptr fields for "volume" struct helper methods*/
@@ -415,8 +415,8 @@ func (v *Volume) Validate(maxCapacity, fallbackCapacity float64, plusChars strin
 // UserVolume struct describes the "chunk" of a user upon a volume
 type UserVolume struct {
 	UpdatedAt string  `json:"updatedAt"`
-	VID       int     `json:"vid"`
-	UID       int     `json:"uid"`
+	VID       int64   `json:"vid"`
+	UID       int64   `json:"uid"`
 	Usage     float64 `json:"usage"`
 	Quota     float64 `json:"quota"`
 }
@@ -440,8 +440,8 @@ func (uv *UserVolume) Fields() []any {
 // GroupVolume struct describes the "chunk" of volume a group inflicts upon it
 type GroupVolume struct {
 	UpdatedAt string  `json:"updatedAt"`
-	VID       int     `json:"vid"`
-	GID       int     `json:"gid"`
+	VID       int64   `json:"vid"`
+	GID       int64   `json:"gid"`
 	Usage     float64 `json:"usage"`
 	Quota     float64 `json:"quota"`
 }
@@ -541,10 +541,10 @@ type User struct {
 	Groups []Group `json:"groups,omitempty"`
 
 	// UID is the user’s numeric ID.
-	UID int `json:"uid,omitempty"`
+	UID int64 `json:"uid,omitempty"`
 
 	// Pgroup is the user’s primary group ID.
-	Pgroup int `json:"pgroup,omitempty"`
+	Pgroup int64 `json:"pgroup,omitempty"`
 }
 
 // ToString method formats and returns the permission object to a string
@@ -631,7 +631,7 @@ type Group struct {
 
 	// Gid is the numeric group ID.
 	// @example 3001
-	GID int `json:"gid" example:"3001"`
+	GID int64 `json:"gid" example:"3001"`
 }
 
 // PtrFields returns a slice of pointers to the Resource struct fields,
@@ -660,7 +660,7 @@ func GroupsToString(groups []Group) string {
 func GidsToString(groups []Group) string {
 	res := make([]string, 0, len(groups))
 	for _, group := range groups {
-		res = append(res, strconv.Itoa(group.GID))
+		res = append(res, fmt.Sprintf("%v", group.GID))
 	}
 
 	return strings.Join(res, ",")
@@ -669,7 +669,7 @@ func GidsToString(groups []Group) string {
 // Job struct defines all the data required and optional for executing a Job.
 type Job struct {
 	JID int64 `json:"jid,omitempty" form:"jid"`
-	UID int   `json:"uid" form:"uid"`
+	UID int64 `json:"uid" form:"uid"`
 
 	Parallelism int `json:"parallelism,omitempty" form:"parallelism"`
 	Priority    int `json:"priority,omitempty" form:"priority"`
@@ -877,7 +877,7 @@ type Application struct {
 	Description string `json:"description,omitempty" form:"description"`
 	Version     string `json:"version" form:"version"`
 	Author      string `json:"author" form:"author"`
-	AuthorID    int    `json:"authorId,omitempty" form:"authorId"`
+	AuthorID    int64  `json:"authorId,omitempty" form:"authorId"`
 	Status      string `json:"status" form:"status"`
 	InsertedAt  string `json:"insertedAt,omitempty" form:"insertedAt"`
 	CreatedAt   string `json:"createdAt,omitempty" form:"createdAt"`

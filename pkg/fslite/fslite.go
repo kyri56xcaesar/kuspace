@@ -75,10 +75,10 @@ const (
 			hashpass TEXT
 		);
     	CREATE TABLE IF NOT EXISTS resources (
-    	  rid INTEGER PRIMARY KEY,
-    	  uid INTEGER,
-    	  gid INTEGER,
-    	  vid INTEGER,
+    	  rid BIGINT PRIMARY KEY,
+    	  uid BIGINT,
+    	  gid BIGINT,
+    	  vid BIGINT,
 		  vname TEXT,
     	  size BIGINT,
     	  links INTEGER,
@@ -91,7 +91,7 @@ const (
     	  accessedAt DATETIME
     	);
     	CREATE TABLE IF NOT EXISTS volumes (
-    	  vid INTEGER PRIMARY KEY,
+    	  vid BIGINT PRIMARY KEY,
     	  name TEXT,
     	  path TEXT,
 		  dynamic BOOLEAN,
@@ -100,8 +100,8 @@ const (
 		  createdAt DATETIME
     	);
 		CREATE TABLE IF NOT EXISTS userVolume(
-			vid INTEGER,
-			uid INTEGER,
+			vid BIGINT,
+			uid BIGINT,
 			usage FLOAT,
 			quota FLOAT,
 			updatedAt DATETIME
@@ -669,7 +669,7 @@ func (fsl *FsLite) claimVolumeSpace(size int64, volumeName, uid string) error {
 	}
 
 	// if not dynamic, we should check for per user/group quota
-	iuid, err := strconv.Atoi(uid)
+	iuid, err := strconv.ParseInt(uid, 10, 64)
 	if err != nil {
 		return err
 	}
@@ -724,7 +724,7 @@ func (fsl *FsLite) releaseVolumeSpace(size int64, volumeName, uid string) error 
 	sizeInGB := ut.SizeInGb(size)
 	newUsageInGB := max(volume.Usage-sizeInGB, 0)
 
-	iuid, err := strconv.Atoi(uid)
+	iuid, err := strconv.ParseInt(uid, 10, 64)
 	if err != nil {
 		return err
 	}

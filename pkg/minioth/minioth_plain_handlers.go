@@ -28,11 +28,11 @@ const (
 )
 
 var (
-	writeLock      = sync.Mutex{}
-	currentAdminID = 0
-	currentModID   = 100
-	currentUserID  = 1000
-	currentGroupID = 1000
+	writeLock            = sync.Mutex{}
+	currentAdminID int64 = 0
+	currentModID   int64 = 100
+	currentUserID  int64 = 1000
+	currentGroupID int64 = 1000
 )
 
 // PlainHandler struct holding of the Plain Minioth Handler,
@@ -170,7 +170,7 @@ func (m *PlainHandler) insertAdminAndMainGroups(user ut.User, groups []ut.Group)
 }
 
 // Useradd method of the Plain Minioth Handler
-func (m *PlainHandler) Useradd(user ut.User) (int, int, error) {
+func (m *PlainHandler) Useradd(user ut.User) (int64, int64, error) {
 	// Open/Create files first to handle all file errors at once.
 	file, err := os.OpenFile(miniothPasswd, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o644)
 	if err != nil {
@@ -342,7 +342,7 @@ func (m *PlainHandler) Usermod(user ut.User) error {
 			continue
 		}
 
-		if parts[2] != strconv.Itoa(user.UID) {
+		if parts[2] != fmt.Sprintf("%v", user.UID) {
 			updated = append(updated, line)
 		} else {
 			parts[0] = user.Username
@@ -470,7 +470,7 @@ func (m *PlainHandler) Userpatch(uid string, fields map[string]any) error {
 }
 
 // Groupadd method of the Plain Minioth Handler
-func (m *PlainHandler) Groupadd(group ut.Group) (int, error) {
+func (m *PlainHandler) Groupadd(group ut.Group) (int64, error) {
 	file, err := os.OpenFile(miniothGroup, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o644)
 	if err != nil {
 		log.Printf("error opening file: %v", err)
@@ -592,7 +592,7 @@ func (m *PlainHandler) Groupmod(group ut.Group) error {
 		if len(parts) < 3 {
 			continue
 		}
-		if parts[1] != strconv.Itoa(group.GID) {
+		if parts[1] != fmt.Sprintf("%v", group.GID) {
 			updated = append(updated, line)
 		} else {
 			parts[0] = group.Groupname
@@ -869,11 +869,11 @@ func (m *PlainHandler) Authenticate(username, password string) (ut.User, error) 
 		}
 		user.Username = username
 		user.Password = ut.Password{}
-		user.UID, err = strconv.Atoi(p[2])
+		user.UID, err = strconv.ParseInt(p[2], 10, 64)
 		if err != nil {
 			return user, errors.New("failed to atoi user id")
 		}
-		user.Pgroup, err = strconv.Atoi(p[3])
+		user.Pgroup, err = strconv.ParseInt(p[3], 10, 64)
 		if err != nil {
 			return user, errors.New("failed to atoi user pgroup")
 		}
@@ -1164,11 +1164,11 @@ func getUserEntries(f *os.File) ([]ut.User, error) {
 		if len(p) != 7 {
 			return nil, errors.New("invalid passwd entries format")
 		}
-		uid, err := strconv.Atoi(p[2])
+		uid, err := strconv.ParseInt(p[2], 10, 64)
 		if err != nil {
 			return nil, errors.New("failed to atoi  uid, invalid passwd entry")
 		}
-		pgroup, err := strconv.Atoi(p[3])
+		pgroup, err := strconv.ParseInt(p[3], 10, 64)
 		if err != nil {
 			return nil, errors.New("failed to atoi pgroup, invalid passwd entry")
 		}
@@ -1235,11 +1235,11 @@ func getUserEntryByID(id string, f *os.File) (ut.User, error) {
 				ExpirationDate:     pp[7],
 			}
 
-			uid, err := strconv.Atoi(parts[2])
+			uid, err := strconv.ParseInt(parts[2], 10, 64)
 			if err != nil {
 				return ut.User{}, errors.New("failed to atoi  uid, invalid passwd entry")
 			}
-			pgroup, err := strconv.Atoi(parts[3])
+			pgroup, err := strconv.ParseInt(parts[3], 10, 64)
 			if err != nil {
 				return ut.User{}, errors.New("failed to atoi pgroup, invalid passwd entry")
 			}
@@ -1274,7 +1274,7 @@ func getGroupEntries(f *os.File) ([]ut.Group, error) {
 		}
 		var group ut.Group
 		group.Groupname = parts[0]
-		gid, err := strconv.Atoi(parts[1])
+		gid, err := strconv.ParseInt(parts[1], 10, 64)
 		if err != nil {
 			return nil, errors.New("failed to atoi gid, invalid entry format")
 		}
@@ -1304,7 +1304,7 @@ func getGroupEntryByID(gid string, file *os.File) (ut.Group, error) {
 			return ut.Group{}, errors.New("no content found")
 		}
 		if gid == parts[1] {
-			gid, err := strconv.Atoi(parts[1])
+			gid, err := strconv.ParseInt(parts[1], 10, 64)
 			if err != nil {
 				return ut.Group{}, errors.New("failed to atoi gid, bad entry format")
 			}
@@ -1340,7 +1340,7 @@ func getUserGroups(username string, file *os.File) ([]ut.Group, error) {
 			return nil, errors.New("invalid group format entry")
 		}
 		if strings.Contains(parts[2], username) { // we have a group where the user belongs
-			gid, err := strconv.Atoi(parts[1])
+			gid, err := strconv.ParseInt(parts[1], 10, 64)
 			if err != nil {
 				return nil, errors.New("invalid group format entry")
 			}
@@ -1381,7 +1381,7 @@ func syncCurrentIDs() {
 	}
 
 	for _, strID := range currentUids {
-		iuid, err := strconv.Atoi(strID)
+		iuid, err := strconv.ParseInt(strID, 10, 64)
 		if err != nil {
 			log.Fatalf("failed to parse id: %v", err)
 		}
@@ -1420,7 +1420,7 @@ func syncCurrentIDs() {
 	}
 
 	for _, strID := range currentGids {
-		igid, err := strconv.Atoi(strID)
+		igid, err := strconv.ParseInt(strID, 10, 64)
 		if err != nil {
 			log.Fatalf("failed to parse id: %v", err)
 		}

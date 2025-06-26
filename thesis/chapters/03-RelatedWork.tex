@@ -22,7 +22,7 @@
 \end{figure}
 
 Batch-processing platforms are commonly used for running large-scale data workflows in analytics, ETL (Extract, Transform, Load), 
-and machine learning pipelines. Examples include Apache Airflow~\cite{airflow}, Apache Spark~\cite{spark}, and Luigi~\cite{luigi}.
+and machine learning pipelines. Examples include Apache Airflow~\cite{airflow}, Apache Spark~\cite{spark}, and Hadoop~\cite{luigi}.
 
 While these systems excel in orchestrating complex, DAG-based workflows~\cite{airflow-dag}, they typically assume a single system-level user or are 
 operated by DevOps teams. They are not inherently designed to support multiple authenticated users submitting independent jobs with 
@@ -30,6 +30,26 @@ isolated resources.
 
 In contrast, the system developed in this thesis places emphasis on user-level isolation, sandboxed execution, and seamless 
 submission of containerized jobs without requiring workflow DSLs~\cite{fowler-dsl} or deep infrastructure knowledge.
+
+\subsection{Apache Airflow}
+Apache Airflow is a platform to programmatically author, schedule, and monitor workflows. It allows
+users to define workflows as directed acyclic graphs (DAGs) using Python code. Airflow is designed for complex data pipelines,
+providing features like task dependencies, retries, and scheduling. However, it is primarily focused on
+orchestrating workflows rather than providing a user-friendly interface for individual users to run ad-hoc jobs.
+
+\subsection{Apache Hadoop}
+Apache Hadoop is a framework that allows for the distributed processing of large data sets across clusters of computers using simple programming models.
+It is designed to scale up from a single server to thousands of machines, each offering local computation
+and storage. Hadoop is often used for batch processing of large data sets, but it requires significant
+infrastructure and is not user-friendly for individual users who want to run small, isolated jobs.
+
+\subsection{Apache Spark}
+Apache Spark is a unified analytics engine for large-scale data processing, known for its speed and ease
+of use. It provides APIs in Java, Scala, Python, and R, and supports SQL queries, streaming data, machine learning, and graph processing.
+Spark is designed for distributed data processing and is often used in big data environments. However, it
+requires significant infrastructure setup and is not tailored for individual users who want to run
+ad-hoc analytical jobs in a multi-user environment.
+
 
 \section{Data Lake Platforms}
 
@@ -104,12 +124,9 @@ Platform-as-a-Service (PaaS)~\cite{nist-paas} offerings such as Heroku~\cite{her
 deploy and scale applications without managing infrastructure. Some educational platforms like JupyterHub~\cite{jupyterhub} 
 provide multi-user notebooks for teaching and research purposes.
 
-While JupyterHub is closer in spirit to the goals of this project, it focuses primarily on interactive notebooks and lacks 
-generalized batch job support or modular tool integration (e.g., DuckDB, Octave, Bash). Most PaaS platforms also abstract away 
-Kubernetes primitives, limiting extensibility and custom control.
+Most PaaS platforms abstract away Kubernetes primitives, limiting extensibility and custom control. They are typically focused on application deployment rather than providing flexible, user-controlled batch job execution or modular tool integration.
 
-This project, by contrast, builds directly atop Kubernetes, giving fine-grained control over jobs, volumes, and user environments, 
-and supporting arbitrary containerized tools within secure, user-defined workflows.
+This project, by contrast, builds directly atop Kubernetes, giving fine-grained control over jobs, volumes, and user environments, and supporting arbitrary containerized tools within secure, user-defined workflows.
 
 \section{Cloud-Native Auth Frameworks}
 

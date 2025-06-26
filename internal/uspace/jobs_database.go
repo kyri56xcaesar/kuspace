@@ -23,8 +23,8 @@ import (
 const (
 	initSQLJobs = `
 	CREATE TABLE IF NOT EXISTS jobs (
-		jid INTEGER PRIMARY KEY,
-		uid INTEGER,
+		jid BIGINT PRIMARY KEY,
+		uid BIGINT,
 		description TEXT,
 		duration FLOAT,
 		input TEXT,
@@ -49,13 +49,13 @@ const (
 		ephimeralStorageLimit TEXT
 	);
 	CREATE TABLE IF NOT EXISTS apps (
-		id INTEGER PRIMARY KEY,
+		id BIGINT PRIMARY KEY,
 		name TEXT,
 		image TEXT,
 		description TEXT,
 		version TEXT,
 		author TEXT,
-		authorId INTEGER,
+		authorId BIGINT,
 		status TEXT,
 		insertedAt DATETIME,
 		createdAt DATETIME

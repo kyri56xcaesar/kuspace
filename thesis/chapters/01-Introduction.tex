@@ -21,10 +21,12 @@ challenge to create some utilities that are scoped for development with a laconi
 
 \section{Problem Statement}
 
-\hspace{2mm}While modern data platforms such as Apache Airflow or Spark 
-address large-scale, enterprise-level orchestration needs, they are often complex, heavyweight, and 
-not designed with ease of use or modularity in mind—especially for individual analysts or smaller 
-teams working on self-contained workflows.
+\hspace{2mm}While modern data platforms such as Apache Airflow, Apache Hadoop~\cite{hadoop}, and Apache Spark 
+address large-scale, enterprise-level orchestration needs, they often come with significant complexity and overhead,
+making them less accessible for individual users or small teams. These platforms are designed to handle distributed computing
+at scale, providing extensive features for job scheduling, resource management, and data processing. However, they require
+substantial infrastructure setup, configuration, and maintenance, which can be daunting for users who simply want to run
+analytical jobs on their data without delving into the intricacies of distributed systems.
 
 This thesis does not seek to compete with such platforms, nor to introduce fundamentally new orchestration paradigms. 
 Instead, it focuses on designing and implementing a lightweight, extensible system that simplifies the execution of batch 
@@ -46,44 +48,27 @@ but by making its power more accessible and flexible for real-world analysis tas
 
 
 \section{Scope of the Project}
-\hspace{2mm}The scope of this thesis includes the design, development, and integration of a modular microservice-based platform tailored to Kubernetes. 
-The system introduces:
+\hspace{2mm}The scope of this thesis is to design and implement a modular, microservice-based platform on Kubernetes that enables multi-user analytical computing. The project covers the following aspects:
 
 \begin{itemize}
-    \item A custom authentication and user management service (\texttt{Minioth}).
-    \item A central orchestration service (\texttt{Uspace}) that defines and manages user environments.
-    \item A lightweight virtual filesystem abstraction (\texttt{Fslite}) for managing user data and metadata.
-    \item Integration with MinIO for physical object storage.
-    \item A WebSocket-enabled frontend service that provides real-time interaction and job monitoring capabilities.
+    \item Development of core backend services for authentication, orchestration, and virtual filesystem abstraction.
+    \item Integration with object storage (MinIO) for user data management.
+    \item Provision of a frontend for real-time job monitoring and user interaction.
+    \item Support for batch job execution using containerized analytical tools.
 \end{itemize}
 
-The system supports uploading, sharing, and executing batch jobs using containerized tools, while abstracting the complexity of 
-Kubernetes operations from the end user.
-
-Out of scope for this project are scheduling algorithms, dynamic autoscaling and support for third-party 
-authentication (e.g., OAuth~\cite{oauth2-rfc6749}).
-
-The system is implemented in Go~\cite{golang}, a statically typed, compiled programming language designed for simplicity and concurrency.
-
-The backend for the Services is implemented using the Gin web framework for Go~\cite{gingonic}, which provides performant HTTP routing and middleware integration.
+The project intentionally excludes advanced scheduling algorithms, dynamic autoscaling, and third-party authentication (e.g., OAuth~\cite{oauth2-rfc6749}). The implementation is primarily in Go~\cite{golang} using the Gin web framework~\cite{gingonic}.
 
 \section{Thesis Contributions}
-\hspace{2mm}The primary contributions of this thesis are as follows:
+\hspace{2mm}The main contributions of this thesis are:
 \begin{itemize}
-    \item The design and implementation of a fully functional user-centric platform deployed on Kubernetes, 
-    abstracting core orchestration mechanics from the user.
-    \item A custom authentication service (\texttt{Minioth}) implementing user/group-based access control with secure 
-    token issuance and verification.
-    \item The \texttt{Uspace} service that defines and manages user environments, enabling secure job submission and resource 
-    isolation.
-    \item The \texttt{Fslite} abstraction layer that models user data and virtual resources in a hierarchical structure, 
-    backed by object storage (MinIO).
-    \item A WebSocket-integrated frontend allowing users to interactively monitor jobs and access 
-    their workspace in real time.
-    \item A demonstration of how Kubernetes-native resources and batch execution can be adapted to serve multi-user analytical 
-    workflows in an accessible, extensible system.
+    \item A novel, user-centric platform architecture that abstracts Kubernetes orchestration for end users.
+    \item Implementation of a custom authentication service (\texttt{Minioth}) with secure, user/group-based access control.
+    \item The design of the \texttt{Uspace} service for managing isolated user environments and secure job submission.
+    \item Introduction of the \texttt{Fslite} virtual filesystem abstraction for hierarchical user data management.
+    \item A real-time, WebSocket-enabled frontend for interactive job monitoring and workspace access.
+    \item Demonstration of how cloud-native technologies can be adapted for accessible, multi-user analytical workflows.
 \end{itemize}
-
 
 
 \newpage

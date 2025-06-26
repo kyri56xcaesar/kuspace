@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	ut "kyri56xcaesar/kuspace/internal/utils"
 
@@ -355,7 +354,7 @@ func (srv *UService) handleDownload(c *gin.Context) {
 	parts := strings.Split(ac.Target, "/")
 	path := strings.Join(parts[1:], "/")
 	name := parts[len(parts)-1]
-	vid, err := strconv.Atoi(ac.VID)
+	vid, err := strconv.ParseInt(ac.VID, 10, 64)
 	if err != nil && ac.Vname == "" {
 		log.Printf("failed to atoi vid: %v and vname not provided", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad vid"})
@@ -457,14 +456,14 @@ func (srv *UService) handleUpload(c *gin.Context) {
 	// 4]: perform the upload stream
 	/* I would like to do this concurrently perpahps*/
 	for _, fileHeader := range c.Request.MultipartForm.File["files"] {
-		uid, err := strconv.Atoi(ac.UID)
+		uid, err := strconv.ParseInt(ac.UID, 10, 64)
 		if err != nil {
 			log.Printf("failed to atoi uid: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "bad uid"})
 
 			return
 		}
-		vid, err := strconv.Atoi(ac.VID)
+		vid, err := strconv.ParseInt(ac.VID, 10, 64)
 		if err != nil {
 			log.Printf("failed to atoi vid: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "bad vid"})
@@ -487,7 +486,7 @@ func (srv *UService) handleUpload(c *gin.Context) {
 			}
 		}()
 
-		currentTime := time.Now().UTC().Format("2006-01-02 15:04:05-07:00")
+		currentTime := ut.CurrentTime()
 		/* Insert the appropriate metadata as a resource */
 		resource := ut.Resource{
 			VID:    vid,

@@ -24,15 +24,15 @@ import (
 const (
 	initSQL string = `
   CREATE TABLE IF NOT EXISTS users (
-		uid INTEGER,
+		uid BIGINT,
 		username TEXT,
 		info TEXT,
 		home TEXT,
 		shell TEXT,
-		pgroup INTEGER
+		pgroup BIGINT
 	);
 	CREATE TABLE IF NOT EXISTS passwords (
-		uid INTEGER,
+		uid BIGINT,
 		hashpass TEXT,
 		lastPasswordChange TEXT,
 		minimumPasswordAge TEXT,
@@ -42,13 +42,15 @@ const (
 		expirationDate TEXT
 	);
 	CREATE TABLE IF NOT EXISTS groups (
-		gid INTEGER,
+		gid BIGINT,
 		groupname TEXT 
 	);
   CREATE TABLE IF NOT EXISTS user_groups (
-    uid INTEGER NOT NULL,
-    gid INTEGER NOT NULL
+	uid BIGINT NOT NULL,
+	gid BIGINT NOT NULL
   );
+  CREATE SEQUENCE IF NOT EXISTS seq_userid START 1000;
+  CREATE SEQUENCE IF NOT EXISTS seq_groupid START 1001;
   `
 )
 
@@ -223,7 +225,7 @@ func (m *DBHandler) Init() {
 *
 * Each user should be associated with his own group
 * */
-func (m *DBHandler) Useradd(user ut.User) (int, int, error) {
+func (m *DBHandler) Useradd(user ut.User) (int64, int64, error) {
 	db, err := m.getConn()
 	if err != nil {
 		return -1, -1, err
@@ -237,17 +239,19 @@ func (m *DBHandler) Useradd(user ut.User) (int, int, error) {
 	}
 
 	// check if user exists...
+	// Check if user exists within transaction
 	var exists int
-	err = db.QueryRow("SELECT 1 FROM users WHERE username = ?", user.Username).Scan(&exists)
-	if errors.Is(err, sql.ErrNoRows) {
-		log.Printf("User with name %q does not exist.", user.Username)
+	err = tx.QueryRow("SELECT 1 FROM users WHERE username = ?", user.Username).Scan(&exists)
+	if err == sql.ErrNoRows {
+		// user does not exist — good
 	} else if err != nil {
 		log.Printf("Error checking for user existence: %v", err)
-
-		return -1, -1, fmt.Errorf("error checking for user existence: %w", err)
+		tx.Rollback()
+		return -1, -1, fmt.Errorf("error checking user existence: %w", err)
 	} else {
-		log.Printf("User with name %q already exists.", user.Username)
-
+		if verbose {
+			log.Printf("User with name %q already exists.", user.Username)
+		}
 		return -1, -1, errors.New("user already exists")
 	}
 
@@ -255,18 +259,12 @@ func (m *DBHandler) Useradd(user ut.User) (int, int, error) {
   INSERT INTO 
     users (uid, username, info, home, shell, pgroup) 
   VALUES 
-    (?, ?, ?, ?, ?, ?)
+    (nextval('seq_userid'), ?, ?, ?, ?, ?)
+  RETURNING (uid);
   `
 
-	user.UID, err = m.nextID("users")
-	if err != nil {
-		log.Printf("failed to retrieve the next avaible uid: %v", err)
-
-		return -1, -1, err
-	}
-	user.Pgroup = user.UID
-
-	_, err = tx.Exec(userQuery, user.UID, user.Username, user.Info, user.Home, user.Shell, user.Pgroup)
+	var UID int64
+	err = tx.QueryRow(userQuery, user.Username, user.Info, user.Home, user.Shell, user.Pgroup).Scan(&UID)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
 		err = tx.Rollback()
@@ -276,6 +274,9 @@ func (m *DBHandler) Useradd(user ut.User) (int, int, error) {
 
 		return -1, -1, fmt.Errorf("failed to add user: %w", err)
 	}
+
+	user.UID = UID
+	user.Pgroup = UID + 1
 
 	passwordQuery := `
   INSERT INTO
@@ -698,7 +699,7 @@ func (m *DBHandler) Userpatch(uid string, fields map[string]any) error {
 // Groupadd method of Database Minioth Handler
 // inserts a new Group in the database
 // retrieves a new id
-func (m *DBHandler) Groupadd(group ut.Group) (int, error) {
+func (m *DBHandler) Groupadd(group ut.Group) (int64, error) {
 	db, err := m.getConn()
 	if err != nil {
 		log.Printf("failed to get the db conn: %v", err)
@@ -725,19 +726,15 @@ func (m *DBHandler) Groupadd(group ut.Group) (int, error) {
     INSERT INTO
       groups (gid, groupname)
     VALUES
-      (?, ?);
+      (nextval('seq_groupid'), ?)
+	RETURNING (gid);
     
   `
 
 	// insert group
-	gid, err := m.nextID("groups")
-	if err != nil {
-		log.Printf("failed to retrieve the nextid")
 
-		return -1, err
-	}
-
-	_, err = db.Exec(groupAddQuery, gid, group.Groupname)
+	var gid int64
+	err = db.QueryRow(groupAddQuery, group.Groupname).Scan(&gid)
 	if err != nil {
 		log.Printf("error executing groupAddQuery: %v", err)
 
@@ -1050,7 +1047,7 @@ func (m *DBHandler) Select(id string) any {
 				groupNameList := strings.Split(groupNames.String, ",")
 				groupIDsList := strings.Split(grouIDs.String, ",")
 				for i, groupName := range groupNameList {
-					gid, err := strconv.Atoi(groupIDsList[i])
+					gid, err := strconv.ParseInt(groupIDsList[i], 10, 64)
 					if err != nil {
 						log.Printf("failed to atoi gid from: %v", groupIDsList[i])
 					}
@@ -1110,7 +1107,7 @@ func (m *DBHandler) Select(id string) any {
 				userNameList := strings.Split(userNames.String, ",")
 				userIDsList := strings.Split(userIDs.String, ",")
 				for i, userName := range userNameList {
-					uid, err := strconv.Atoi(userIDsList[i])
+					uid, err := strconv.ParseInt(userIDsList[i], 10, 64)
 					if err != nil {
 						log.Printf("failed to atoi a uid: %v", userIDsList[i])
 
@@ -1229,7 +1226,7 @@ func getUser(username string, db *sql.DB) ut.User {
 
 		if gid.Valid && gname.Valid {
 			groups = append(groups, ut.Group{
-				GID:       int(gid.Int64),
+				GID:       gid.Int64,
 				Groupname: gname.String,
 			})
 		}
@@ -1261,31 +1258,6 @@ func getUser(username string, db *sql.DB) ut.User {
 	user.Password = password
 
 	return user
-}
-
-func (m *DBHandler) nextID(table string) (int, error) {
-	db, err := m.getConn()
-	if err != nil {
-		return 0, fmt.Errorf("failed to connect to database: %w", err)
-	}
-
-	var id, query string
-	switch table {
-	case "users":
-		id = "uid"
-		query = "SELECT COALESCE(MAX(uid), 999) + 1 FROM " + table + " WHERE " + id + " >= 1000"
-	case "groups":
-		id = "gid"
-		query = "SELECT COALESCE(MAX(gid), 999) + 1 FROM " + table + " WHERE " + id + " >= 1000"
-	}
-
-	var nextUID int
-	err = db.QueryRow(query).Scan(&nextUID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to retrieve next UID: %w", err)
-	}
-
-	return nextUID, nil
 }
 
 func checkIfRoot(uid string) error {
