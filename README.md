@@ -31,16 +31,14 @@ use scripts/kuspacectl.go to deploy/destroy/build
 
 - storage provider (configurable)
   - minio  
-            (defaults creds for its builtin management gateway)  
-            - minioadmin  
-            - minioadmin  
+            (defaults creds for its builtin management gateway set in config file)  
     or
   - fslite [custom implementation]
             (a pretty basic fs storing mechanism, with an api and a database holding file metadata)
 
 - minioth (identity provider) [custom implementation]
 
-    default creds for admin: (miniothadmin, miniothadmin)
+    default creds for admin: (miniothadmin, miniothadmin) - set in config file
 
     storage as
 
