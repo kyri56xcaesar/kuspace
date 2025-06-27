@@ -87,32 +87,40 @@ type Resource struct {
 // in a specific order suitable for database operations or serialization.
 // The returned slice includes all fields, including IDs and metadata.
 func (r *Resource) Fields() []any {
-	return []any{r.RID, r.UID, r.GID, r.VID, r.Vname, r.Size, r.Links,
-		r.Perms, r.Name, r.Path, r.Type, r.CreatedAt, r.UpdatedAt, r.AccessedAt}
+	return []any{
+		r.RID, r.UID, r.GID, r.VID, r.Vname, r.Size, r.Links,
+		r.Perms, r.Name, r.Path, r.Type, r.CreatedAt, r.UpdatedAt, r.AccessedAt,
+	}
 }
 
 // PtrFields returns a slice of pointers to the Resource struct fields,
 // in a specific order. This is useful for scanning database rows directly
 // into the struct fields or for generic update operations.
 func (r *Resource) PtrFields() []any {
-	return []any{&r.RID, &r.UID, &r.GID, &r.VID, &r.Vname, &r.Size, &r.Links,
-		&r.Perms, &r.Name, &r.Path, &r.Type, &r.CreatedAt, &r.UpdatedAt, &r.AccessedAt}
+	return []any{
+		&r.RID, &r.UID, &r.GID, &r.VID, &r.Vname, &r.Size, &r.Links,
+		&r.Perms, &r.Name, &r.Path, &r.Type, &r.CreatedAt, &r.UpdatedAt, &r.AccessedAt,
+	}
 }
 
 // FieldsNoID returns a slice containing the values of the Resource struct fields,
 // excluding the primary ID (Rid). This is typically used for insert or update
 // operations where the ID is auto-generated or not required.
 func (r *Resource) FieldsNoID() []any {
-	return []any{r.UID, r.GID, r.VID, r.Vname, r.Size, r.Links,
-		r.Perms, r.Name, r.Path, r.Type, r.CreatedAt, r.UpdatedAt, r.AccessedAt}
+	return []any{
+		r.UID, r.GID, r.VID, r.Vname, r.Size, r.Links,
+		r.Perms, r.Name, r.Path, r.Type, r.CreatedAt, r.UpdatedAt, r.AccessedAt,
+	}
 }
 
 // PtrFieldsNoID returns a slice of pointers to the Resource struct fields,
 // excluding the primary ID (Rid). This is typically used for insert or update
 // operations where the ID is auto-generated or not required.
 func (r *Resource) PtrFieldsNoID() []any {
-	return []any{&r.UID, &r.GID, &r.VID, &r.Vname, &r.Size, &r.Links,
-		&r.Perms, &r.Name, &r.Path, &r.Type, &r.CreatedAt, &r.UpdatedAt, &r.AccessedAt}
+	return []any{
+		&r.UID, &r.GID, &r.VID, &r.Vname, &r.Size, &r.Links,
+		&r.Perms, &r.Name, &r.Path, &r.Type, &r.CreatedAt, &r.UpdatedAt, &r.AccessedAt,
+	}
 }
 
 /* this method belongs to the Resource objects
@@ -822,44 +830,52 @@ func (j *Job) ValidateForm(maxCPU, maxMem, maxStorage, maxParal, maxTimeout, max
 // in a specific order. This is useful for scanning database rows directly
 // into the struct fields or for generic update operations.
 func (j *Job) PtrFields() []any {
-	return []any{&j.JID, &j.UID, &j.Description, &j.Duration, &j.Input,
+	return []any{
+		&j.JID, &j.UID, &j.Description, &j.Duration, &j.Input,
 		&j.InputFormat, &j.Output, &j.OutputFormat, &j.Logic, &j.LogicBody,
 		&j.LogicHeaders, &j.Params, &j.Status, &j.Completed, &j.CompletedAt,
 		&j.CreatedAt, &j.Parallelism, &j.Priority, &j.MemoryRequest, &j.CPURequest,
-		&j.MemoryLimit, &j.CPULimit, &j.EphimeralStorageRequest, &j.EphimeralStorageLimit}
+		&j.MemoryLimit, &j.CPULimit, &j.EphimeralStorageRequest, &j.EphimeralStorageLimit,
+	}
 }
 
 // Fields returns a slice containing the values of the Job struct fields,
 // in a specific order suitable for database operations or serialization.
 // The returned slice includes all fields, including IDs and metadata.
 func (j *Job) Fields() []any {
-	return []any{j.JID, j.UID, j.Description, j.Duration, j.Input,
+	return []any{
+		j.JID, j.UID, j.Description, j.Duration, j.Input,
 		j.InputFormat, j.Output, j.OutputFormat, j.Logic, j.LogicBody,
 		j.LogicHeaders, j.Params, j.Status, j.Completed, j.CompletedAt,
 		j.CreatedAt, j.Parallelism, j.Priority, j.MemoryRequest, j.CPURequest,
-		j.MemoryLimit, j.CPULimit, j.EphimeralStorageRequest, j.EphimeralStorageLimit}
+		j.MemoryLimit, j.CPULimit, j.EphimeralStorageRequest, j.EphimeralStorageLimit,
+	}
 }
 
 // PtrFieldsNoID returns a slice of pointers to the Job struct fields,
 // excluding the primary ID (Rid). This is typically used for insert or update
 // operations where the ID is auto-generated or not required.
 func (j *Job) PtrFieldsNoID() []any {
-	return []any{&j.UID, &j.Description, &j.Duration, &j.Input,
+	return []any{
+		&j.UID, &j.Description, &j.Duration, &j.Input,
 		&j.InputFormat, &j.Output, &j.OutputFormat, &j.Logic, &j.LogicBody,
 		&j.LogicHeaders, &j.Params, &j.Status, &j.Completed, &j.CompletedAt,
 		&j.CreatedAt, &j.Parallelism, &j.Priority, &j.MemoryRequest, &j.CPURequest,
-		&j.MemoryLimit, &j.CPULimit, &j.EphimeralStorageRequest, &j.EphimeralStorageLimit}
+		&j.MemoryLimit, &j.CPULimit, &j.EphimeralStorageRequest, &j.EphimeralStorageLimit,
+	}
 }
 
 // FieldsNoID returns a slice containing the values of the Job struct fields,
 // excluding the primary ID (Rid). This is typically used for insert or update
 // operations where the ID is auto-generated or not required.
 func (j *Job) FieldsNoID() []any {
-	return []any{j.UID, j.Description, j.Duration, j.Input,
+	return []any{
+		j.UID, j.Description, j.Duration, j.Input,
 		j.InputFormat, j.Output, j.OutputFormat, j.Logic, j.LogicBody,
 		j.LogicHeaders, j.Params, j.Status, j.Completed, j.CompletedAt,
 		j.CreatedAt, j.Parallelism, j.Priority, j.MemoryRequest, j.CPURequest,
-		j.MemoryLimit, j.CPULimit, j.EphimeralStorageRequest, j.EphimeralStorageLimit}
+		j.MemoryLimit, j.CPULimit, j.EphimeralStorageRequest, j.EphimeralStorageLimit,
+	}
 }
 
 // APIResponse aims to unite the type of responses of microservices , bricking the "Response Model"

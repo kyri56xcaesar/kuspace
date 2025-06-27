@@ -79,7 +79,7 @@ func NewMService(m *Minioth) MService {
 	if err != nil {
 		p := strings.Split(auditLogPath, "/")
 		if len(p) < 2 {
-			log.Fatalf("bad audit logs path")
+			log.Fatalf("bad audit logs path: %v", err)
 		}
 		err = os.MkdirAll(strings.Join(p[:len(p)-1], "/"), 0o644)
 		if err != nil {
@@ -87,7 +87,7 @@ func NewMService(m *Minioth) MService {
 		}
 		f, err := os.Create(auditLogPath)
 		if err != nil {
-			log.Fatalf("failed to touch the audit log file")
+			log.Fatalf("failed to touch the audit log file: %v", err)
 		}
 		_, err = f.WriteString("==> minioth - audit logs <==\n")
 		if err != nil {

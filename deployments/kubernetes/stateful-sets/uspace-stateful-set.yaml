@@ -55,6 +55,6 @@ spec:
       - name: database 
         persistentVolumeClaim:
           claimName: uspace-pvc
-      #nodeSelector:
+      nodeSelector:
         # kubernetes.io/hostname: docker-desktop
-        #kubernetes.io/hostname: minikube
+        kubernetes.io/hostname: minikube

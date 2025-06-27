@@ -612,7 +612,7 @@ func (srv *MService) handleUseradd(c *gin.Context) {
 
 	uid, pgroup, err := srv.Minioth.Useradd(uclaim.User)
 	if err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "") {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") {
 			c.JSON(403, gin.H{"error": "already exists!"})
 		} else {
 			log.Print("failed to add user")
