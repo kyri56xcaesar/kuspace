@@ -55,8 +55,7 @@ CREATE TABLE IF NOT EXISTS passwords (
 
 CREATE TABLE IF NOT EXISTS groups (
     gid INTEGER PRIMARY KEY AUTOINCREMENT,
-    groupname TEXT NOT NULL UNIQUE,
-		FOREIGN KEY (gid) REFERENCES users(pgroup) ON DELETE CASCADE
+    groupname TEXT NOT NULL UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS user_groups (
@@ -230,6 +229,13 @@ func (m *DBHandler) Init() {
 	} else {
 		log.Print("[INIT_DB]Root user already exists")
 	}
+
+	// apply cascade effect:
+	log.Print("[INIT_DB]enabling foreign_keys cascading...")
+	_, err = db.Exec(`PRAGMA foreign_keys = ON;`)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 // Useradd method
@@ -364,19 +370,40 @@ func (m *DBHandler) Userdel(uid string) error {
 		return fmt.Errorf("failed to retrieve the database conn: %w", err)
 	}
 
-	deleteUserQuery := `DELETE FROM users WHERE uid = ?`
-	res, err := db.Exec(deleteUserQuery, uid)
+	// lets begin a transaction
+	tx, err := db.Begin()
 	if err != nil {
-		return fmt.Errorf("failed to delete the user: %w", err)
+		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	rAffected, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to retrieve the rows affected: %w", err)
-	}
+	_, err = tx.Exec(`DELETE FROM users WHERE uid = ?`, uid)
+	if err == sql.ErrNoRows {
+		err2 := tx.Rollback()
+		if err2 != nil {
+			return fmt.Errorf("%w: failed to rollback as well: %w", err, err2)
+		}
 
-	if rAffected == 0 {
 		return errors.New("user not found")
+	}
+	if err != nil {
+		tx.Rollback()
+
+		return fmt.Errorf("failed to delete user: %w", err)
+	}
+
+	// delete group
+	_, err = tx.Exec("DELETE FROM groups WHERE gid = ?", uid)
+	if err != nil {
+		err2 := tx.Rollback()
+		if err2 != nil {
+			return fmt.Errorf("%w: failed to rollback as well: %w", err, err2)
+		}
+
+		return fmt.Errorf("failed to execute delete group query: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
