@@ -436,7 +436,7 @@ func (srv *UService) handleUpload(c *gin.Context) {
 
 	// 3]: determine physical destination path
 	// parse the form files
-	err := c.Request.ParseMultipartForm(10 << 10)
+	err := c.Request.ParseMultipartForm(100 << 20)
 	if err != nil {
 		log.Printf("failed to parse multipart form: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to parse multipart form"})

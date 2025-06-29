@@ -17,84 +17,101 @@
 \contentsline {section}{\numberline {1.5}Thesis Outline}{4}{section.16}%
 \contentsline {chapter}{\numberline {2}Background and Theoretical Foundations}{5}{chapter.17}%
 \contentsline {section}{\numberline {2.1}Kubernetes}{5}{section.18}%
-\contentsline {section}{\numberline {2.2}Microservices}{6}{section.20}%
-\contentsline {section}{\numberline {2.3}Batch Job Execution}{6}{section.22}%
-\contentsline {section}{\numberline {2.4}MinIO}{7}{section.23}%
-\contentsline {section}{\numberline {2.5}DuckDB}{7}{section.25}%
-\contentsline {section}{\numberline {2.6}SQLite}{9}{section.28}%
-\contentsline {section}{\numberline {2.7}WebSockets}{10}{section.30}%
-\contentsline {section}{\numberline {2.8}Containers}{10}{section.32}%
-\contentsline {section}{\numberline {2.9}Multi-User System Design}{11}{section.34}%
-\contentsline {section}{\numberline {2.10}Authentication Model}{12}{section.35}%
-\contentsline {section}{\numberline {2.11}Cloud-Native Storage}{13}{section.36}%
-\contentsline {chapter}{\numberline {3}Related Work}{15}{chapter.38}%
-\contentsline {section}{\numberline {3.1}Existing Batch-Processing Platforms}{15}{section.39}%
-\contentsline {subsection}{\numberline {3.1.1}Apache Airflow}{15}{subsection.41}%
-\contentsline {subsection}{\numberline {3.1.2}Apache Hadoop}{16}{subsection.42}%
-\contentsline {subsection}{\numberline {3.1.3}Apache Spark}{16}{subsection.43}%
-\contentsline {section}{\numberline {3.2}Data Lake Platforms}{16}{section.44}%
-\contentsline {section}{\numberline {3.3}Platform-as-a-Service Solutions}{17}{section.46}%
-\contentsline {section}{\numberline {3.4}Cloud-Native Auth Frameworks}{17}{section.48}%
-\contentsline {chapter}{\numberline {4}System Design and Architecture}{19}{chapter.50}%
-\contentsline {section}{\numberline {4.1}Overview diagram}{19}{section.51}%
-\contentsline {section}{\numberline {4.2}Minioth: Authentication Service}{20}{section.54}%
-\contentsline {subsection}{\numberline {4.2.1}Authorization Details}{21}{subsection.56}%
-\contentsline {subsection}{\numberline {4.2.2}Authentication Details}{21}{subsection.57}%
-\contentsline {paragraph}{Token Signing Algorithm}{21}{section*.58}%
-\contentsline {paragraph}{Password Hashing}{21}{section*.59}%
-\contentsline {subsection}{\numberline {4.2.3}Pluggable Authentication Handlers}{22}{subsection.61}%
-\contentsline {paragraph}{Available Handlers:}{23}{section*.63}%
-\contentsline {subsection}{\numberline {4.2.4}Minioth Public API Endpoints}{24}{subsection.65}%
-\contentsline {subsection}{\numberline {4.2.5}Minioth Admin API Endpoints}{25}{subsection.67}%
-\contentsline {subsection}{\numberline {4.2.6}Integration}{25}{subsection.69}%
-\contentsline {section}{\numberline {4.3}Uspace: Central Orchestration and Job Management Service}{26}{section.70}%
-\contentsline {subsection}{\numberline {4.3.1}Responsibilities and Purpose}{26}{subsection.71}%
-\contentsline {subsection}{\numberline {4.3.2}Middleware and Access Control}{27}{subsection.74}%
-\contentsline {subsection}{\numberline {4.3.3}Core Structure}{28}{subsection.75}%
-\contentsline {subsection}{\numberline {4.3.4}Storage Provider Abstraction}{29}{subsection.76}%
-\contentsline {subsection}{\numberline {4.3.5}Storage Control}{30}{subsection.78}%
-\contentsline {subsection}{\numberline {4.3.6}Job Dispatcher and Executor}{30}{subsection.80}%
-\contentsline {subsection}{\numberline {4.3.7}Job Execution Pipeline}{32}{subsection.83}%
-\contentsline {subsection}{\numberline {4.3.8}Job Scheduling}{33}{subsection.90}%
-\contentsline {subsection}{\numberline {4.3.9}Available Applications}{34}{subsection.92}%
-\contentsline {subsection}{\numberline {4.3.10}Integration and Security}{35}{subsection.95}%
-\contentsline {section}{\numberline {4.4}Fslite}{36}{section.96}%
-\contentsline {subsection}{\numberline {4.4.1}Purpose and Design}{36}{subsection.99}%
-\contentsline {subsection}{\numberline {4.4.2}Deployment and Initialization}{37}{subsection.100}%
-\contentsline {subsection}{\numberline {4.4.3}API Endpoints}{37}{subsection.101}%
-\contentsline {subsection}{\numberline {4.4.4}Integration in the System}{38}{subsection.103}%
-\contentsline {subsubsection}{Local vs Remote Operation}{38}{section*.104}%
-\contentsline {section}{\numberline {4.5}Storage Layer (MinIO)}{38}{section.106}%
-\contentsline {section}{\numberline {4.6}Frontend and WebSocket Server}{39}{section.108}%
-\contentsline {subsection}{\numberline {4.6.1}Overview}{39}{subsection.109}%
-\contentsline {subsection}{\numberline {4.6.2}WebSocket Server (WSS)}{40}{subsection.110}%
-\contentsline {subsection}{\numberline {4.6.3}Frontend–WSS Separation of Concerns}{41}{subsection.113}%
-\contentsline {subsection}{\numberline {4.6.4}Frontend Technology Stack}{41}{subsection.114}%
-\contentsline {subsection}{\numberline {4.6.5}Integration}{42}{subsection.117}%
-\contentsline {section}{\numberline {4.7}Kubernetes Integration}{43}{section.118}%
-\contentsline {chapter}{\numberline {5}System Usage \bbl@greek@ampersand Execution Flow}{45}{chapter.119}%
-\contentsline {section}{\numberline {5.1}Deployment and Tooling}{45}{section.120}%
-\contentsline {subsection}{\numberline {5.1.1}Deployment Procedure}{45}{subsection.121}%
-\contentsline {subsection}{\numberline {5.1.2}Infrastructure Overview}{46}{subsection.122}%
-\contentsline {section}{\numberline {5.2}System Access and Communication}{46}{section.123}%
-\contentsline {subsection}{\numberline {5.2.1}Access Points and Interfaces}{46}{subsection.124}%
-\contentsline {subsection}{\numberline {5.2.2}Request-Response Model}{47}{subsection.125}%
-\contentsline {subsection}{\numberline {5.2.3}Error Handling and Feedback}{47}{subsection.126}%
-\contentsline {section}{\numberline {5.3}End-to-End Workflow}{48}{section.127}%
-\contentsline {subsection}{\numberline {5.3.1}Overview and User Roles}{48}{subsection.128}%
-\contentsline {subsection}{\numberline {5.3.2}User Perspective}{49}{subsection.130}%
-\contentsline {subsection}{\numberline {5.3.3}Admin Perspective}{52}{subsection.134}%
-\contentsline {subsection}{\numberline {5.3.4}Job Examples}{54}{subsection.137}%
-\contentsline {paragraph}{Job Logic:}{54}{section*.139}%
-\contentsline {paragraph}{Result:}{54}{section*.140}%
-\contentsline {paragraph}{Job Logic:}{56}{section*.143}%
-\contentsline {paragraph}{Result:}{56}{section*.144}%
-\contentsline {chapter}{\numberline {6}Evaluation and Robustness}{59}{chapter.146}%
-\contentsline {section}{\numberline {6.1}Scalability Tests}{59}{section.147}%
-\contentsline {section}{\numberline {6.2}Security}{59}{section.148}%
-\contentsline {section}{\numberline {6.3}Fault Tolerance}{60}{section.149}%
-\contentsline {section}{\numberline {6.4}Resource Usage}{60}{section.150}%
-\contentsline {chapter}{\numberline {7}Conclusions and Future Work}{61}{chapter.151}%
-\contentsline {section}{\numberline {7.1}Conclusions}{61}{section.152}%
-\contentsline {section}{\numberline {7.2}Future Work}{61}{section.153}%
-\contentsline {chapter}{References}{65}{section*.155}%
+\contentsline {subsection}{\numberline {2.1.1}Kubernetes API}{6}{subsection.20}%
+\contentsline {subsection}{\numberline {2.1.2}Kubernetes Jobs}{6}{subsection.21}%
+\contentsline {subsection}{\numberline {2.1.3}Kubernetes Persistent Volumes}{6}{subsection.22}%
+\contentsline {section}{\numberline {2.2}Containers}{7}{section.23}%
+\contentsline {subsection}{\numberline {2.2.1}Containerization}{7}{subsection.25}%
+\contentsline {subsection}{\numberline {2.2.2}Docker}{7}{subsection.26}%
+\contentsline {subsection}{\numberline {2.2.3}Container Runtimes}{8}{subsection.27}%
+\contentsline {section}{\numberline {2.3}Microservices Architecture}{8}{section.28}%
+\contentsline {subsection}{\numberline {2.3.1}Microservices Communication Patterns}{9}{subsection.30}%
+\contentsline {subsubsection}{REST and JSON}{9}{section*.31}%
+\contentsline {subsubsection}{WebSockets}{10}{section*.32}%
+\contentsline {subsection}{\numberline {2.3.2}Microservices Storage Patterns}{12}{subsection.34}%
+\contentsline {subsubsection}{Embedded Databases in Microservices}{12}{section*.35}%
+\contentsline {subsubsection}{SQLite as a Storage Solution}{12}{section*.36}%
+\contentsline {subsubsection}{SQLite in Kubernetes Deployments}{13}{section*.38}%
+\contentsline {section}{\numberline {2.4}Cloud-Native Storage}{14}{section.39}%
+\contentsline {subsection}{\numberline {2.4.1}Object Storage}{14}{subsection.41}%
+\contentsline {subsection}{\numberline {2.4.2}MinIO}{15}{subsection.42}%
+\contentsline {section}{\numberline {2.5}Analytical Databases and Batch Processing}{15}{section.44}%
+\contentsline {subsection}{\numberline {2.5.1}DuckDB}{16}{subsection.45}%
+\contentsline {section}{\numberline {2.6}Multi-User System and Authentication Models}{17}{section.48}%
+\contentsline {subsection}{\numberline {2.6.1}Multi-User System Design}{18}{subsection.49}%
+\contentsline {subsection}{\numberline {2.6.2}Authentication and Authorization Model}{18}{subsection.50}%
+\contentsline {chapter}{\numberline {3}Related Work}{21}{chapter.51}%
+\contentsline {section}{\numberline {3.1}Batch-Processing Platforms}{21}{section.52}%
+\contentsline {subsection}{\numberline {3.1.1}Apache Hadoop}{21}{subsection.54}%
+\contentsline {subsection}{\numberline {3.1.2}Apache Spark}{22}{subsection.55}%
+\contentsline {subsection}{\numberline {3.1.3}Apache Airflow}{23}{subsection.56}%
+\contentsline {subsection}{\numberline {3.1.4}Relation to This Work}{24}{subsection.58}%
+\contentsline {section}{\numberline {3.2}Data Lake Platforms}{24}{section.59}%
+\contentsline {section}{\numberline {3.3}Platform-as-a-Service Solutions}{25}{section.61}%
+\contentsline {section}{\numberline {3.4}Cloud-Native Auth Frameworks}{26}{section.63}%
+\contentsline {chapter}{\numberline {4}System Design and Architecture}{27}{chapter.65}%
+\contentsline {section}{\numberline {4.1}Overview diagram}{27}{section.66}%
+\contentsline {section}{\numberline {4.2}Uspace: Central Orchestration and Job Management Service}{28}{section.69}%
+\contentsline {subsection}{\numberline {4.2.1}Responsibilities and Purpose}{28}{subsection.70}%
+\contentsline {subsection}{\numberline {4.2.2}Middleware and Access Control}{29}{subsection.73}%
+\contentsline {subsection}{\numberline {4.2.3}Core Structure}{30}{subsection.74}%
+\contentsline {subsection}{\numberline {4.2.4}Storage Provider Abstraction}{31}{subsection.75}%
+\contentsline {subsection}{\numberline {4.2.5}Storage Control}{32}{subsection.77}%
+\contentsline {subsection}{\numberline {4.2.6}Job Dispatcher and Executor}{32}{subsection.79}%
+\contentsline {subsection}{\numberline {4.2.7}Job Execution Pipeline}{34}{subsection.82}%
+\contentsline {subsection}{\numberline {4.2.8}Job Scheduling}{35}{subsection.89}%
+\contentsline {subsection}{\numberline {4.2.9}Available Applications}{36}{subsection.91}%
+\contentsline {subsection}{\numberline {4.2.10}Integration and Security}{37}{subsection.94}%
+\contentsline {section}{\numberline {4.3}Fslite: Storage Abstraction}{38}{section.95}%
+\contentsline {subsection}{\numberline {4.3.1}Purpose and Design}{38}{subsection.98}%
+\contentsline {subsection}{\numberline {4.3.2}Deployment and Initialization}{39}{subsection.99}%
+\contentsline {subsection}{\numberline {4.3.3}API Endpoints}{39}{subsection.100}%
+\contentsline {subsection}{\numberline {4.3.4}Integration in the System}{40}{subsection.102}%
+\contentsline {subsubsection}{Local vs Remote Operation}{40}{section*.103}%
+\contentsline {section}{\numberline {4.4}Storage Layer (MinIO)}{40}{section.105}%
+\contentsline {section}{\numberline {4.5}Minioth: Authentication Service}{41}{section.107}%
+\contentsline {subsection}{\numberline {4.5.1}Authorization Details}{42}{subsection.109}%
+\contentsline {subsection}{\numberline {4.5.2}Authentication Details}{42}{subsection.110}%
+\contentsline {paragraph}{Token Signing Algorithm}{43}{section*.111}%
+\contentsline {paragraph}{Password Hashing}{43}{section*.112}%
+\contentsline {subsection}{\numberline {4.5.3}Pluggable Authentication Handlers}{43}{subsection.114}%
+\contentsline {paragraph}{Available Handlers:}{44}{section*.116}%
+\contentsline {subsection}{\numberline {4.5.4}Minioth Public API Endpoints}{45}{subsection.118}%
+\contentsline {subsection}{\numberline {4.5.5}Minioth Admin API Endpoints}{46}{subsection.120}%
+\contentsline {subsection}{\numberline {4.5.6}Integration}{46}{subsection.122}%
+\contentsline {section}{\numberline {4.6}Frontend and WebSocket Server}{47}{section.123}%
+\contentsline {subsection}{\numberline {4.6.1}Overview}{47}{subsection.124}%
+\contentsline {subsection}{\numberline {4.6.2}WebSocket Server (WSS)}{47}{subsection.125}%
+\contentsline {subsection}{\numberline {4.6.3}Frontend–WSS Separation of Concerns}{48}{subsection.128}%
+\contentsline {subsection}{\numberline {4.6.4}Frontend Technology Stack}{49}{subsection.129}%
+\contentsline {subsection}{\numberline {4.6.5}Integration}{50}{subsection.132}%
+\contentsline {section}{\numberline {4.7}Kubernetes Integration}{51}{section.133}%
+\contentsline {chapter}{\numberline {5}System Usage \bbl@greek@ampersand Execution Flow}{53}{chapter.134}%
+\contentsline {section}{\numberline {5.1}Deployment and Tooling}{53}{section.135}%
+\contentsline {subsection}{\numberline {5.1.1}Deployment Procedure}{53}{subsection.136}%
+\contentsline {subsection}{\numberline {5.1.2}Infrastructure Overview}{54}{subsection.137}%
+\contentsline {section}{\numberline {5.2}System Access and Communication}{54}{section.138}%
+\contentsline {subsection}{\numberline {5.2.1}Access Points and Interfaces}{54}{subsection.139}%
+\contentsline {subsection}{\numberline {5.2.2}Request-Response Model}{55}{subsection.140}%
+\contentsline {subsection}{\numberline {5.2.3}Error Handling and Feedback}{55}{subsection.141}%
+\contentsline {section}{\numberline {5.3}End-to-End Workflow}{56}{section.142}%
+\contentsline {subsection}{\numberline {5.3.1}Overview and User Roles}{56}{subsection.143}%
+\contentsline {subsection}{\numberline {5.3.2}User Perspective}{57}{subsection.145}%
+\contentsline {subsection}{\numberline {5.3.3}Admin Perspective}{60}{subsection.149}%
+\contentsline {subsection}{\numberline {5.3.4}Job Examples}{62}{subsection.152}%
+\contentsline {paragraph}{Job Logic:}{62}{section*.154}%
+\contentsline {paragraph}{Result:}{62}{section*.155}%
+\contentsline {paragraph}{Job Logic:}{64}{section*.158}%
+\contentsline {paragraph}{Result:}{64}{section*.159}%
+\contentsline {chapter}{\numberline {6}Evaluation and Robustness}{67}{chapter.161}%
+\contentsline {section}{\numberline {6.1}Scalability Testing Methodology}{67}{section.162}%
+\contentsline {subsection}{\numberline {6.1.1}API Endpoint Performance}{67}{subsection.164}%
+\contentsline {subsection}{\numberline {6.1.2}Authentication Endpoint}{68}{subsection.165}%
+\contentsline {subsection}{\numberline {6.1.3}Scalability Evaluation}{70}{subsection.170}%
+\contentsline {section}{\numberline {6.2}Security}{71}{section.171}%
+\contentsline {subsection}{\numberline {6.2.1}Security Model}{71}{subsection.172}%
+\contentsline {subsection}{\numberline {6.2.2}Security Evaluation}{72}{subsection.174}%
+\contentsline {chapter}{\numberline {7}Conclusions and Future Work}{73}{chapter.175}%
+\contentsline {section}{\numberline {7.1}Conclusions}{73}{section.176}%
+\contentsline {section}{\numberline {7.2}Future Work}{73}{section.177}%
+\contentsline {chapter}{References}{77}{section*.179}%

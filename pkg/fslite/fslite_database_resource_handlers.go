@@ -49,8 +49,8 @@ import (
 func insertResource(db *sql.DB, resource ut.Resource) error {
 	query := `
     INSERT INTO 
-      resources (rid, uid, gid, vid, vname, size, links, perms, name, path, type, createdAt, updatedAt, accessedAt)
-	VALUES (nextval('seqResourceId'), ?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,?, ?, ?);  
+      resources (uid, gid, vid, vname, size, links, perms, name, path, type, createdAt, updatedAt, accessedAt)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,?, ?, ?);  
 	`
 	currentTime := ut.CurrentTime()
 	resource.AccessedAt = currentTime
@@ -89,8 +89,8 @@ func insertResourceUniqueName(db *sql.DB, resource ut.Resource) error {
 	// Insert the resource if no duplicate was found
 	queryInsert := `
     INSERT INTO 
-      resources (rid, uid, gid, vid, vname, size, links, perms, name, path, type, createdAt, updatedAt, accessedAt)
-	VALUES (nextval('seqResourceId'), ?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,?, ?, ?);
+      resources (uid, gid, vid, vname, size, links, perms, name, path, type, createdAt, updatedAt, accessedAt)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,?, ?, ?);
   `
 
 	_, err = db.Exec(queryInsert, resource.FieldsNoID()...)
@@ -113,8 +113,8 @@ func insertResources(db *sql.DB, resources []ut.Resource) error {
 
 	query := `
     INSERT INTO 
-      resources (rid, uid, gid, vid, vname, size, links, perms, name, path, type, createdAt, updatedAt, accessedAt)
-	VALUES (nextval('seqResourceId'), ?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,?, ?, ?);
+      resources (uid, gid, vid, vname, size, links, perms, name, path, type, createdAt, updatedAt, accessedAt)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,?, ?, ?);
 	`
 
 	stmt, err := tx.Prepare(query)
@@ -178,8 +178,8 @@ func insertResourcesUniqueName(db *sql.DB, resources []ut.Resource) error {
 	// Prepare the INSERT statement
 	queryInsert := `
     INSERT INTO 
-      resources (rid, uid, gid, vid, vname, size, links, perms, name, path, type, createdAt, updatedAt, accessedAt)
-	VALUES (nextval('seqResourceId'), ?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,?, ?, ?);
+      resources (uid, gid, vid, vname, size, links, perms, name, path, type, createdAt, updatedAt, accessedAt)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,?, ?, ?);
 	`
 	stmtInsert, err := tx.Prepare(queryInsert)
 	if err != nil {
@@ -323,21 +323,12 @@ func getAllResources(db *sql.DB) ([]ut.Resource, error) {
 }
 
 func getResourcesByIDs(db *sql.DB, rids []int) ([]ut.Resource, error) {
-	placeholders := make([]string, len(rids))
 	args := make([]any, len(rids))
 	for i, uid := range rids {
-		placeholders[i] = "?"
 		args[i] = uid
 	}
-	placeholderStr := strings.Join(placeholders, ",")
 
-	query := fmt.Sprintf(`
-	SELECT
-      *
-    FROM 
-      resources 
-    WHERE 
-      rid IN (%s)`, placeholderStr)
+	query := fmt.Sprintf("SELECT size FROM resources WHERE rid IN (%s)", strings.TrimRight(strings.Repeat("?,", len(rids)), ","))
 
 	rows, err := db.Query(query, args...)
 	if err != nil {

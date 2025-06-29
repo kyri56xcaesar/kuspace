@@ -225,7 +225,7 @@ func updateJWKS() error {
 		return fmt.Errorf("failed to marshal jwks: %w", err)
 	}
 
-	return os.WriteFile(jwksFilePath, data, 0o644)
+	return os.WriteFile(jwksFilePath, data, 0o600)
 }
 
 func getRSAPublicKey(token *jwt.Token, static bool) (any, error) {

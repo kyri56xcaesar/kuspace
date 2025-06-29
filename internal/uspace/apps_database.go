@@ -29,10 +29,10 @@ func (srv *UService) insertApp(app ut.Application) (int64, error) {
 
 	query := `
 		INSERT INTO 
-			apps (id, name, image, description, version,
+			apps (name, image, description, version,
 			 author, authorId, status, insertedAt, createdAt)
 		VALUES
-			(nextval('seq_appid'), ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			(?, ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING (id);
 	`
 
@@ -60,10 +60,10 @@ func (srv *UService) insertApps(apps []ut.Application) error {
 	}
 	query := `
 		INSERT INTO 
-			apps (id, name, image, description, version,
+			apps (name, image, description, version,
 			 author, authorId, status, insertedAt, createdAt)
 		VALUES
-			(nextval('seq_appid'), ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			(?, ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING (id);`
 
 	tx, err := db.Begin()

@@ -687,8 +687,8 @@ type Job struct {
 	MemoryLimit   string `json:"memoryLimit,omitempty" form:"memoryLimit"`
 	CPULimit      string `json:"cpuLimit,omitempty" form:"cpuLimit"`
 
-	EphimeralStorageRequest string `json:"ephimeralStorageRequest,omitempty" form:"ephimeralStorageRequest"`
-	EphimeralStorageLimit   string `json:"ephimeralStorageLimit,omitempty" form:"ephimeralStorageLimit"`
+	EphemeralStorageRequest string `json:"ephemeralStorageRequest,omitempty" form:"ephemeralStorageRequest"`
+	EphemeralStorageLimit   string `json:"ephemeralStorageLimit,omitempty" form:"ephemeralStorageLimit"`
 
 	Description string  `json:"description,omitempty" form:"description"`
 	Duration    float64 `json:"duration,omitempty" form:"duration"`
@@ -792,12 +792,12 @@ func (j *Job) ValidateForm(maxCPU, maxMem, maxStorage, maxParal, maxTimeout, max
 	}
 
 	// Ephemeral Storage
-	storageReq, err := parseGi(j.EphimeralStorageRequest)
+	storageReq, err := parseGi(j.EphemeralStorageRequest)
 	if err != nil || storageReq > float64(maxStorage) {
 		return fmt.Errorf("ephemeral_storage_request must be less than %vGi", maxStorage)
 	}
 
-	storageLim, err := parseGi(j.EphimeralStorageLimit)
+	storageLim, err := parseGi(j.EphemeralStorageLimit)
 	if err != nil || storageLim > float64(maxStorage) {
 		return fmt.Errorf("ephemeral_storage_limit must be less than %vGi", maxStorage)
 	}
@@ -817,8 +817,8 @@ func (j *Job) ValidateForm(maxCPU, maxMem, maxStorage, maxParal, maxTimeout, max
 	j.MemoryRequest = appendIfMissing(strings.TrimSpace(j.MemoryRequest), "Mi")
 	j.MemoryLimit = appendIfMissing(strings.TrimSpace(j.MemoryLimit), "Mi")
 
-	j.EphimeralStorageRequest = appendIfMissing(strings.TrimSpace(j.EphimeralStorageRequest), "Gi")
-	j.EphimeralStorageLimit = appendIfMissing(strings.TrimSpace(j.EphimeralStorageLimit), "Gi")
+	j.EphemeralStorageRequest = appendIfMissing(strings.TrimSpace(j.EphemeralStorageRequest), "Gi")
+	j.EphemeralStorageLimit = appendIfMissing(strings.TrimSpace(j.EphemeralStorageLimit), "Gi")
 
 	j.CPURequest = strings.TrimSpace(j.CPURequest)
 	j.CPULimit = strings.TrimSpace(j.CPULimit)
@@ -835,7 +835,7 @@ func (j *Job) PtrFields() []any {
 		&j.InputFormat, &j.Output, &j.OutputFormat, &j.Logic, &j.LogicBody,
 		&j.LogicHeaders, &j.Params, &j.Status, &j.Completed, &j.CompletedAt,
 		&j.CreatedAt, &j.Parallelism, &j.Priority, &j.MemoryRequest, &j.CPURequest,
-		&j.MemoryLimit, &j.CPULimit, &j.EphimeralStorageRequest, &j.EphimeralStorageLimit,
+		&j.MemoryLimit, &j.CPULimit, &j.EphemeralStorageRequest, &j.EphemeralStorageLimit,
 	}
 }
 
@@ -848,7 +848,7 @@ func (j *Job) Fields() []any {
 		j.InputFormat, j.Output, j.OutputFormat, j.Logic, j.LogicBody,
 		j.LogicHeaders, j.Params, j.Status, j.Completed, j.CompletedAt,
 		j.CreatedAt, j.Parallelism, j.Priority, j.MemoryRequest, j.CPURequest,
-		j.MemoryLimit, j.CPULimit, j.EphimeralStorageRequest, j.EphimeralStorageLimit,
+		j.MemoryLimit, j.CPULimit, j.EphemeralStorageRequest, j.EphemeralStorageLimit,
 	}
 }
 
@@ -861,7 +861,7 @@ func (j *Job) PtrFieldsNoID() []any {
 		&j.InputFormat, &j.Output, &j.OutputFormat, &j.Logic, &j.LogicBody,
 		&j.LogicHeaders, &j.Params, &j.Status, &j.Completed, &j.CompletedAt,
 		&j.CreatedAt, &j.Parallelism, &j.Priority, &j.MemoryRequest, &j.CPURequest,
-		&j.MemoryLimit, &j.CPULimit, &j.EphimeralStorageRequest, &j.EphimeralStorageLimit,
+		&j.MemoryLimit, &j.CPULimit, &j.EphemeralStorageRequest, &j.EphemeralStorageLimit,
 	}
 }
 
@@ -874,7 +874,7 @@ func (j *Job) FieldsNoID() []any {
 		j.InputFormat, j.Output, j.OutputFormat, j.Logic, j.LogicBody,
 		j.LogicHeaders, j.Params, j.Status, j.Completed, j.CompletedAt,
 		j.CreatedAt, j.Parallelism, j.Priority, j.MemoryRequest, j.CPURequest,
-		j.MemoryLimit, j.CPULimit, j.EphimeralStorageRequest, j.EphimeralStorageLimit,
+		j.MemoryLimit, j.CPULimit, j.EphemeralStorageRequest, j.EphemeralStorageLimit,
 	}
 }
 

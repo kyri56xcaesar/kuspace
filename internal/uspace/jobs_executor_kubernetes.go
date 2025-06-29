@@ -78,6 +78,7 @@ func buildK8sJob(
 	parallelism int32,
 	namespace string,
 	timeout int64,
+	ttlSeconds int32,
 ) *batchv1.Job {
 	envVars := []corev1.EnvVar{}
 	for k, v := range env {
@@ -95,10 +96,11 @@ func buildK8sJob(
 			Namespace: namespace,
 		},
 		Spec: batchv1.JobSpec{
-			ActiveDeadlineSeconds: deadlinePtr,
-			Parallelism:           &parallelism,
-			Completions:           &parallelism,
-			BackoffLimit:          pointerToInt32(0),
+			ActiveDeadlineSeconds:   deadlinePtr,
+			Parallelism:             &parallelism,
+			Completions:             &parallelism,
+			BackoffLimit:            pointerToInt32(0),
+			TTLSecondsAfterFinished: &ttlSeconds,
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					RestartPolicy: corev1.RestartPolicyNever,
@@ -296,6 +298,7 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 		parallelism, // parallelism // should default to 1
 		namespace,
 		int64(job.Timeout*60),
+		je.jm.srv.config.UspaceJobTTL,
 	)
 
 	wsChan <- []byte("[executor] launcing job...\n")
@@ -303,7 +306,7 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 		fmt.Sprintf(`[executor] specs: {parallelism: %v, timeout: %v, cpu_limit: %v, cpu_request: %v,
 		 mem_limit: %v, mem_req: %v, storage_limit: %v, storage_request: %v}\n`,
 			job.Parallelism, job.Timeout, job.CPULimit, job.CPURequest, job.MemoryLimit,
-			job.MemoryRequest, job.EphimeralStorageLimit, job.EphimeralStorageRequest))
+			job.MemoryRequest, job.EphemeralStorageLimit, job.EphemeralStorageRequest))
 
 	clientset, err := k.GetKubeClient() // from config
 	if err != nil {

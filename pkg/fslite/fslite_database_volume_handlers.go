@@ -153,8 +153,8 @@ func deleteVolumeByName(db *sql.DB, name string) error {
 func insertVolume(db *sql.DB, volume ut.Volume) error {
 	_, err := db.Exec(`
 		INSERT INTO 
-			volumes (vid, name, path, dynamic, capacity, usage, createdAt) 
-		VALUES (nextval('seqVolumeId'), ?, ?, ?, ?, ?, ?)`, volume.FieldsNoID()...)
+			volumes (name, path, dynamic, capacity, usage, createdAt) 
+		VALUES (?, ?, ?, ?, ?, ?)`, volume.FieldsNoID()...)
 	if err != nil {
 		log.Printf("[FSL_DB_insertVolume] error upon executing insert query: %v", err)
 
@@ -172,8 +172,8 @@ func insertVolumes(db *sql.DB, volumes []ut.Volume) error {
 		return fmt.Errorf("[fsl] failed to start transaction %w", err)
 	}
 
-	placeholder := strings.Repeat("(nextval('seqVolumeId'), ?, ?, ?, ?, ?, ?),", len(volumes))
-	query := "\n    INSERT INTO \n\t\tvolumes (vid, name, path, dynamic, capacity, usage, createdAt) \n    VALUES " + placeholder[:len(placeholder)-1]
+	placeholder := strings.Repeat("(?, ?, ?, ?, ?, ?),", len(volumes))
+	query := "\n INSERT INTO \n\t\tvolumes (name, path, dynamic, capacity, usage, createdAt) \n    VALUES " + placeholder[:len(placeholder)-1]
 
 	stmt, err := tx.Prepare(query)
 	if err != nil {
@@ -282,7 +282,7 @@ func insertUserVolumes(db *sql.DB, uvs []ut.UserVolume) error {
 	}
 
 	placeholder := strings.Repeat("(?, ?, ?, ?, ?),", len(uvs))
-	query := "\n    INSERT INTO \n      userVolume (vid, uid, usage, quota, updatedAt)\n    VALUES " + placeholder[:len(placeholder)-1]
+	query := "INSERT INTO userVolume (vid, uid, usage, quota, updatedAt) VALUES " + placeholder[:len(placeholder)-1]
 
 	stmt, err := tx.Prepare(query)
 	if err != nil {
@@ -322,7 +322,6 @@ func insertUserVolumes(db *sql.DB, uvs []ut.UserVolume) error {
 
 func deleteUserVolumeByUID(db *sql.DB, uid int) error {
 	query := `DELETE FROM userVolume WHERE uid = ?`
-
 	_, err := db.Exec(query, uid)
 	if err != nil {
 		return fmt.Errorf("failed to delete user volume: %w", err)
@@ -332,9 +331,7 @@ func deleteUserVolumeByUID(db *sql.DB, uid int) error {
 }
 
 func deleteUserVolumeByVid(db *sql.DB, vid int) error {
-	query := `DELETE FROM userVolume WHERE vid = ?`
-
-	_, err := db.Exec(query, vid)
+	_, err := db.Exec("DELETE FROM userVolume WHERE vid = ?", vid)
 	if err != nil {
 		return fmt.Errorf("failed to delete user volume: %w", err)
 	}
@@ -603,7 +600,7 @@ func insertGroupVolumes(db *sql.DB, gvs []ut.GroupVolume) error {
 		return fmt.Errorf("[fsl] failed to start transaction %w", err)
 	}
 	placeholder := strings.Repeat("(?, ?, ?, ?, ?),", len(gvs))
-	query := "\n    INSERT INTO \n      groupVolume (vid, gid, usage, quota, updatedAt)\n    VALUES " + placeholder[:len(placeholder)-1]
+	query := "INSERT INTO  groupVolume (vid, gid, usage, quota, updatedAt) VALUES " + placeholder[:len(placeholder)-1]
 
 	stmt, err := tx.Prepare(query)
 	if err != nil {
@@ -641,9 +638,7 @@ func insertGroupVolumes(db *sql.DB, gvs []ut.GroupVolume) error {
 }
 
 func deleteGroupVolumeByGID(db *sql.DB, gid int) error {
-	query := `DELETE FROM groupVolume WHERE gid = ?`
-
-	_, err := db.Exec(query, gid)
+	_, err := db.Exec("DELETE FROM groupVolume WHERE gid = ?", gid)
 	if err != nil {
 		return fmt.Errorf("failed to delete group volume: %w", err)
 	}
@@ -652,8 +647,7 @@ func deleteGroupVolumeByGID(db *sql.DB, gid int) error {
 }
 
 func deleteGroupVolumeByVid(db *sql.DB, vid int) error {
-	query := `DELETE FROM groupVolume WHERE vid = ?`
-	_, err := db.Exec(query, vid)
+	_, err := db.Exec("DELETE FROM groupVolume WHERE vid = ?", vid)
 	if err != nil {
 		return fmt.Errorf("failed to delete group volume: %w", err)
 	}

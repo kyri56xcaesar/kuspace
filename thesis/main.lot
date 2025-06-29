@@ -5,13 +5,15 @@
 \addvspace {10\p@ }
 \addvspace {10\p@ }
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {4.1}{\ignorespaces Minioth public/user API endpoints}}{24}{table.caption.66}%
-\contentsline {table}{\numberline {4.2}{\ignorespaces Minioth public/admin API endpoints}}{25}{table.caption.68}%
-\contentsline {table}{\numberline {4.3}{\ignorespaces Uspace User API Endpoints}}{27}{table.caption.72}%
-\contentsline {table}{\numberline {4.4}{\ignorespaces Uspace Admin API Endpoints}}{27}{table.caption.73}%
-\contentsline {table}{\numberline {4.5}{\ignorespaces Currently supported applications in Uspace}}{35}{table.caption.93}%
-\contentsline {table}{\numberline {4.6}{\ignorespaces FsLite public API endpoints}}{37}{table.caption.102}%
-\contentsline {table}{\numberline {4.7}{\ignorespaces Supported WebSocket communication roles}}{40}{table.caption.111}%
+\contentsline {table}{\numberline {4.1}{\ignorespaces Uspace User API Endpoints}}{29}{table.caption.71}%
+\contentsline {table}{\numberline {4.2}{\ignorespaces Uspace Admin API Endpoints}}{29}{table.caption.72}%
+\contentsline {table}{\numberline {4.3}{\ignorespaces Currently supported applications in Uspace}}{37}{table.caption.92}%
+\contentsline {table}{\numberline {4.4}{\ignorespaces FsLite public API endpoints}}{39}{table.caption.101}%
+\contentsline {table}{\numberline {4.5}{\ignorespaces Minioth public/user API endpoints}}{45}{table.caption.119}%
+\contentsline {table}{\numberline {4.6}{\ignorespaces Minioth public/admin API endpoints}}{46}{table.caption.121}%
+\contentsline {table}{\numberline {4.7}{\ignorespaces Supported WebSocket communication roles}}{48}{table.caption.126}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }
+\contentsline {table}{\numberline {6.1}{\ignorespaces Scalability Test Results for API Endpoints: Performance Metrics (top), Upload Test (middle) and Setup (bottom).}}{67}{table.caption.163}%
+\contentsline {table}{\numberline {6.2}{\ignorespaces Security Aspects of the System}}{71}{table.caption.173}%
 \addvspace {10\p@ }

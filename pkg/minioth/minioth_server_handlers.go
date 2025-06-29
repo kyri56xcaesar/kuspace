@@ -55,7 +55,7 @@ func (srv *MService) handleRegister(c *gin.Context) {
 	uid, pgroup, err := srv.Minioth.Useradd(uclaim.User)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") {
-			log.Print("failed to add user: %v", err)
+			log.Printf("failed to add user: %v", err)
 			c.JSON(403, gin.H{"error": "already exists!"})
 		} else {
 			c.JSON(400, gin.H{
@@ -615,7 +615,7 @@ func (srv *MService) handleUseradd(c *gin.Context) {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") {
 			c.JSON(403, gin.H{"error": "already exists!"})
 		} else {
-			log.Print("failed to add user: %v", err)
+			log.Printf("failed to add user: %v", err)
 			c.JSON(400, gin.H{
 				"error": "failed to insert the user",
 			})
@@ -655,11 +655,10 @@ func (srv *MService) handleUserdel(c *gin.Context) {
 
 	err := srv.Minioth.Userdel(uid)
 	if err != nil {
-		log.Printf("error: %v", err)
 		if strings.Contains(err.Error(), "not found") {
 			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		} else if strings.Contains(err.Error(), "root") {
-			c.JSON(400, gin.H{"error": "really bro?"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "not allowed"})
 		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete user"})
 		}
@@ -774,6 +773,7 @@ func (srv *MService) handleUsermod(c *gin.Context) {
 
 	err = srv.Minioth.Usermod(ruser.User)
 	if err != nil {
+		log.Printf("failed to execute usermod: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user"})
 
 		return

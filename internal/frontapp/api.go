@@ -127,13 +127,12 @@ func (srv *HTTPService) ServeHTTP() {
 
 			return nil
 		},
-		"toJSON": func(v any) template.JS {
+		"toJSON": func(v any) string {
 			b, err := json.Marshal(v)
 			if err != nil {
-				return template.JS("{}")
+				return "{}"
 			}
-
-			return template.JS(b)
+			return template.HTMLEscapeString(string(b))
 		},
 		"lower":     strings.ToLower,
 		"bytesToMB": bytesToMB,

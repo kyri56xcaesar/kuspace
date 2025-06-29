@@ -120,6 +120,7 @@ type EnvConfig struct {
 	UspaceJobMaxParallelism int
 	UspaceJobMaxTimeout     int64
 	UspaceJobMaxLogicSize   int64
+	UspaceJobTTL            int32
 	// database storage of the jobs
 	UspaceJobsDB             string
 	UspaceJobsDBDriver       string
@@ -218,6 +219,7 @@ func LoadConfig(path string) EnvConfig {
 		UspaceJobMaxParallelism:  int(getInt64Env("J_MAX_PARALLELISM", 16)),
 		UspaceJobMaxTimeout:      getInt64Env("J_MAX_TIMEOUT", 6000),
 		UspaceJobMaxLogicSize:    getInt64Env("J_MAX_LOGIC_CHARS", 1000000),
+		UspaceJobTTL:             getInt32Env("J_TTL", 3600),
 		UspaceJobsDB:             getEnv("DB_JOBS", "jobs.db"),
 		UspaceJobsDBDriver:       getEnv("DB_JOBS_DRIVER", "sqlite3"),
 		UspaceJobsDBPath:         getEnv("DB_JOBS_PATH", "data/db/uspace"),
@@ -275,6 +277,18 @@ func getInt64Env(key string, fallback int64) int64 {
 	}
 
 	return keyInt
+}
+
+func getInt32Env(key string, fallback int32) int32 {
+	key = getEnv(key, "")
+	keyInt, err := strconv.ParseInt(key, 10, 32)
+	if err != nil {
+		log.Printf("failed to parse int32 from var %v: %v\nfalling back to %v", key, err, fallback)
+
+		return fallback
+	}
+
+	return int32(keyInt)
 }
 
 func getFloatEnv(key string, fallback float64) float64 {
@@ -468,7 +482,7 @@ func MakeConfig(path string, fields any) error {
 		return err
 	}
 
-	err = os.WriteFile(cpth+"/"+path, jsonData, os.ModePerm)
+	err = os.WriteFile(cpth+"/"+path, jsonData, 0o600)
 	if err != nil {
 		log.Printf("failed to write config.json: %v", err)
 

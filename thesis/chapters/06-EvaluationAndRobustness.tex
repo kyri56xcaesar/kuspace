@@ -1,42 +1,213 @@
 \chapter{Evaluation and Robustness}
 \label{Chapter-Evaluation-Robustness}
 
-\section{Scalability Tests}
+\section{Scalability Testing Methodology}
 
-While no formal scalability benchmarks have been executed, the system design inherently supports horizontal scaling via Kubernetes. Each microservice is independently deployable and can be replicated or scaled depending on the workload.
+Scalability tests were performed using the \texttt{bombardier} load testing tool. The primary goal was to evaluate the system's ability to handle concurrent HTTP requests to key API endpoints.
 
-Batch job execution is managed by Kubernetes Jobs, allowing multiple jobs to run concurrently, subject to resource constraints and cluster capacity. Storage and job queue sizes can be configured, and the system is prepared to integrate with scalable object storage solutions like MinIO or external S3-compatible services.
+Tests focused on the main user-facing endpoints, including data retrieval, job submission, and authentication. Each endpoint was tested independently under varying levels of concurrency and request volumes. Resource utilization was monitored using Kubernetes-native tools (\texttt{kubectl top}) to correlate system load with CPU and memory consumption.
 
-Future work may include stress-testing job submission rates, concurrent WebSocket connections, and storage read/write throughput.
 
+\begin{table}[h!]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|l|c|c|c|c|c|c|c|l|}
+\hline
+\textbf{Endpoint} & \textbf{Avg RPS} & \textbf{Max RPS} & \textbf{Avg Latency} & \textbf{Max Latency} & \textbf{Error Rate (\%)} & \textbf{Throughput} & \textbf{Duration} & \textbf{Notes} \\ \hline
+\texttt{/api/v1}  & ~3057 & 24599.13  & ~33s & 950ms & 0 & 12.32MB/s & ~328s & Very stable\\ \hline
+\texttt{/v1/login}  & 6087 & 11730 & ~16~17ms & 244ms & 0 & 5.13MB/s & ~164s & Stable\\ \hline
+\texttt{/v1/register} & 3692 & 8129 & ~27~90ms & 2s & 0.01 & ~1.37MB/s & 270s & 98 timeouts \\ \hline
+\texttt{/api/v1/resources}  & 1470.31 & 4296.58ms & 661ms & 68.02 &  0 & 151.14MB/s & 680s & Stable \\ \hline
+\texttt{/api/v1/job}  & 115.57 & 549.25 & 387.99ms & 2s & 6.4\% & 87.98KB/s & 4s & load-sensitive\\ \hline
+\end{tabular}%
+}
+
+\vspace{1em} 
+
+
+\centering
+\label{tab:upload-test}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{|l|c|c|c|c|l|}
+\hline
+\textbf{Endpoint} & \textbf{Concurrency (C)} & \textbf{Throughput (files/sec)} & \textbf{Avg Latency (ms)} & \textbf{Max Latency (ms)} & \textbf{Notes} \\ \hline
+
+\texttt{/api/v1/resource/upload} & 50 & 111.22 & 322.29 & 3058.23 & 500 uploads, 100\% success, minor latency variance due to file I/O. \\ \hline
+
+\end{tabular}
+}
+
+
+\vspace{1em} 
+
+\resizebox{\textwidth}{!}{
+\begin{tabular}{|l|c|c|l|}
+\hline
+\textbf{Endpoint} & \textbf{Concurrency (C)} & \textbf{No. Requests Sent} & \textbf{Notes} \\ \hline 
+\texttt{/api/v1}  & 100 & 1,000,000 & (Front) Main homepage or landing data.\\ \hline
+\texttt{/v1/login} & 100 & 1,000,000 & (Auth) Login token generation load. \\ \hline 
+\texttt{/v1/register} & 100 & 1,000,000 & (Auth) User registration endpoint. \\ \hline
+\texttt{/api/v1/resource/upload} & 50 & 500  & (Uspace) Upload files. \\ \hline
+\texttt{/api/v1/resources} & 100 & 1,000,000 & (Uspace) List resources. \\ \hline
+\texttt{/api/v1/job} & 50 & 500 & (Uspace) Job submission endpoint.\\ \hline
+\end{tabular}%
+}
+
+\caption{Scalability Test Results for API Endpoints: Performance Metrics (top), Upload Test (middle) and Setup (bottom).}
+\label{tab:scalability-results}
+\end{table}
+
+\subsection{API Endpoint Performance}
+The frontend endpoint (\texttt{/api/v1/}) was subjected to a load of 1,000,000 
+requests using 100 concurrent connections. The service sustained an average 
+throughput of approximately 3,058 requests per second, with an average latency 
+of 33 milliseconds. No errors were recorded during the test. 
+his result demonstrates the scalability of stateless endpoints 
+under high concurrency. Resource monitoring indicated that CPU utilization 
+remained within acceptable limits, with no service crashes or degradation observed.
+
+
+\subsection{Authentication Endpoint}
+
+\subsubsection*{Login}
+The authentication endpoint (\texttt{/v1/login}) achieved a sustained throughput of 
+approximately 6,089 requests per second with 100 concurrent connections. Average 
+latency was 16.4 milliseconds, with a maximum observed latency of 245 milliseconds. 
+The system processed one million requests with zero errors or failed connections.
+
+These results confirm that the authentication service can handle significant load 
+while maintaining low latency. The observed throughput reflects the stateless nature 
+of the login process, where token issuance relies primarily on CPU and lightweight 
+database read/write operations. Resource usage remained within acceptable thresholds 
+during testing.
+
+It is noted that throughput and latency may vary based on deployment configuration 
+and backend load; however, this test demonstrates the scalability of the API 
+authentication layer under typical demand scenarios.
+
+\subsubsection*{Register}
+The user registration endpoint (\texttt{/v1/register}) was tested under a high-contention 
+scenario where one million requests attempted to register the same username concurrently. 
+As expected, only the first request succeeded, while all subsequent requests were rejected 
+with HTTP 4xx errors due to violation of the username uniqueness constraint.
+
+Despite the high failure rate being the correct functional behavior, the service sustained 
+an average throughput of 3,692 requests per second, with an average latency of 27 milliseconds. 
+The maximum observed latency reached 2 seconds during periods of elevated database constraint 
+checking. A total of 98 timeouts occurred during the test, likely attributable to transient 
+database locking under contention.
+
+This test demonstrates that the authentication service correctly enforces username uniqueness 
+under extreme load, while maintaining high throughput and acceptable latency for failure 
+responses. The observed timeouts suggest a potential opportunity for optimization in handling 
+high write contention, particularly in future deployments with distributed or more robust 
+database backends.
+
+
+\subsection*{Uspace Main Endpoint}
+The resource upload endpoint (\texttt{/api/v1/resource/upload}) was tested with 500 file 
+uploads using 50 concurrent clients. The system achieved a throughput of approximately 111 
+files per second, with an average latency of 322 milliseconds per upload. The maximum observed 
+latency peaked at 3.05 seconds, likely due to disk I/O or database locking under concurrent load. 
+All requests succeeded with no errors.
+
+This result demonstrates that the system's upload service handles concurrent uploads reliably. 
+While upload operations naturally exhibit higher latency compared to lightweight API calls, 
+the overall performance remains stable and predictable. Further scalability can be achieved 
+with distributed storage or parallelized backends.
+
+
+
+The resource listing endpoint (\texttt{/api/v1/resources}) was tested with one million requests 
+at a concurrency level of 100. The system sustained an average throughput of 1,470 requests per 
+second, with an average latency of 68 milliseconds and a maximum observed latency of 661 
+milliseconds.
+
+No errors were recorded during the test, demonstrating the system's ability to handle high read 
+loads efficiently. The high throughput of 154 MB/s suggests that the response payloads are 
+non-trivial, likely depending on the number of resources returned per request. These results 
+indicate that the metadata querying and database read paths are highly scalable in the current 
+architecture.
+
+
+\subsection*{Job Submission Performance}
+The job submission endpoint (\texttt{/api/v1/verified/jobs}) was evaluated with 500 concurrent 
+requests using 50 parallel connections. The system achieved an average throughput of 115 requests 
+per second, with an average latency of 388 milliseconds and a maximum latency of 2 seconds.
+
+Out of 500 requests, 468 completed successfully while 32 failed due to timeouts, indicating a 
+6.4\% error rate under load. This behavior is expected given the nature of job submission, 
+which involves database writes, resource validation, and interaction with the job execution backend. 
+
+These results highlight that the job submission pathway is more sensitive to load compared to 
+stateless API endpoints. Performance bottlenecks are due to the configuration of the jobs queue 
+size on configuration file, which is set to 100. This limits the number of concurrent job 
+submissions that can be processed, leading to increased latencies and timeouts under high load. 
+
+
+
+\subsection{Scalability Evaluation}
+The current scalability evaluation is constrained to a single-node deployment due to the use of 
+embedded databases (SQLite, DuckDB) which do not support distributed scaling. Consequently, while 
+stateless API components can scale horizontally, the database remains a bottleneck for write-heavy 
+workloads. Future scalability tests on a multi-node deployment with a distributed database backend 
+are planned as future work.
+
+
+\newpage
 \section{Security}
 
-Authentication and authorization are enforced using JWT tokens issued by a dedicated service (Minioth) which are short-lived, and access control is modeled after a Unix-style permission system using FsLite. Sensitive inter-service communication is secured using a shared service secret.
+\subsection{Security Model}
 
-The system properly distinguishes between user and admin roles, enforces ownership and group permissions on data access, and guards access to privileged routes. However, a formal security audit has not been conducted. Future improvements could include:
+The security model of this platform is designed around fundamental security principles, with a focus 
+on user isolation, access control, and operational integrity within a multi-tenant environment. While 
+the current implementation covers key aspects such as authentication, authorization, and availability, 
+other areas like comprehensive audit trails and advanced runtime defenses are identified as areas for 
+future development.
+
+The main security components are summarized in Table~\ref{tab:security-aspects}.
+
+\begin{table}[h!]
+\centering
+\caption{Security Aspects of the System}
+\label{tab:security-aspects}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{|l|p{7cm}|p{4cm}|}
+\hline
+\textbf{Aspect} & \textbf{Description} & \textbf{Implementation} \\ \hline
+
+\textbf{Authentication (AuthN)} & Verifies user identity before granting access. & 
+JWT-based authentication using the \texttt{Minioth} service. 
+Tokens encode user identity and group memberships. \\ \hline
+
+\textbf{Authorization (AuthZ)} & 
+Determines user permissions and access to resources after authentication. 
+Controls actions like data access, and resource sharing/editing. 
+& Unix-like permission model implemented in \texttt{FsLite}, using user/group-based 
+access control (owner, group, other). \\ \hline
+
+\textbf{Availability} & Ensures that services remain operational and resilient in the face of failures. 
+& Leveraged via Kubernetes native fault tolerance: automatic pod restarts, health checks, 
+and job rescheduling. Stateless services can be redeployed with minimal disruption. \\ \hline
+
+\textbf{Audit and Logging (Partial)} & Provides traceability of user actions and security events. 
+Essential for accountability, debugging, and incident response. 
+& Currently limited to authentication events (login, token issuance).
+ No full audit trail for resource access or job execution yet. 
+ Logs are primarily written to stdout for aggregation. \\ \hline
+
+\end{tabular}
+}
+\end{table}
+
+\subsection{Security Evaluation}
+The system properly distinguishes between user and admin roles, enforces ownership and group 
+permissions on data access, and guards access to privileged routes. However, a formal security 
+audit has not been conducted. Future improvements could include:
 
 \begin{itemize}
+    \item Apply different inter-service communication protocols (e.g., gRPC) to enhance security.
     \item Rate limiting and brute-force protection.
-    \item Improved logging and audit trails.
     \item Formal threat modeling and penetration testing.
 \end{itemize}
 
-\section{Fault Tolerance}
-
-Fault tolerance is largely delegated to the Kubernetes runtime, which automatically restarts failed pods, monitors service health, and maintains declared desired state.
-
-Jobs are submitted through an internal queue system and executed as isolated Kubernetes jobs. Failures in job execution do not compromise the stability of the core system; failed jobs are logged and reported via status messages.
-
-Non-critical services such as the WebSocket server are loosely coupled and can be restarted independently without affecting core operations.
-
-\section{Resource Usage}
-
-Resource consumption is dynamic and depends on job definitions. Users may configure CPU, memory, and ephemeral storage requirements per job. After completion, jobs are deleted by Kubernetes, reducing runtime overhead. Metadata about jobs, volumes, and users is persistently stored in embedded databases (e.g., DuckDB, SQLite), which may grow over time but remain manageable.
-
-Currently, no automatic cleanup of job metadata or disk quotas is enforced. Persistent logs are written to stdout and can be aggregated using external tools if deployed in production. Future work may explore:
-
-\begin{itemize}
-    \item Periodic pruning of old metadata and logs.
-    \item Integration with resource monitoring dashboards (e.g., Grafana).
-    \item Quota enforcement for user volume usage and job submissions.
-\end{itemize}

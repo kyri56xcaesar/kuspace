@@ -5,24 +5,24 @@ metadata:
   namespace: kuspace
 data:
   minioth.conf: |
-    MINIOTH_AUDIT_LOGS=data/logs/minioth/audit.log
-    MINIOTH_AUDIT_LOGS_MAX_FETCH=1000
-    API_USE_TLS=false
-    ISSUER=minioth
-    PROFILE=container
-    MINIOTH_DB_PATH=data/db/minioth/
-    MINIOTH_ACCESS_KEY=kuspaceadmin
-    MINIOTH_HANDLER=database
-    ALLOWED_HEADERS=Origin,Content-Type,Authorization,Access-Control-Allow-Origin
-    API_CERT_FILE=data/certs/minioth.crt
-    API_KEY_FILE=data/certs/minioth.key
     VERBOSE=true
-    API_GIN_MODE=release
-    ALLOWED_ORIGINS=*
+    MINIOTH_AUDIT_LOGS=data/logs/minioth/audit.log
     ALLOWED_METHODS=GET,POST,DELETE,PUT,OPTIONS,HEAD
-    HASH_COST=4
+    API_GIN_MODE=release
+    MINIOTH_DB=minioth.db
+    MINIOTH_DB_DRIVER=sqlite3
+    MINIOTH_ACCESS_KEY=kuspaceadmin
+    MINIOTH_AUDIT_LOGS_MAX_FETCH=1000
     IP=0.0.0.0
     API_PORT=9090
-    MINIOTH_DB=minioth.db
+    MINIOTH_DB_PATH=data/db/minioth/
+    MINIOTH_HANDLER=database
+    ALLOWED_ORIGINS=*
+    ALLOWED_HEADERS=Origin,Content-Type,Authorization,Access-Control-Allow-Origin
+    ISSUER=minioth
+    PROFILE=container
+    API_USE_TLS=false
+    API_CERT_FILE=data/certs/minioth.crt
+    API_KEY_FILE=data/certs/minioth.key
     JWT_VALIDITY_HOURS=2
-    MINIOTH_DB_DRIVER=sqlite3
+    HASH_COST=4

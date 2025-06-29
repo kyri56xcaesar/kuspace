@@ -412,18 +412,17 @@ func (m *DBHandler) Userdel(uid string) error {
 // Usermod method of Database Minioth Handler
 // replaces the existing user with the given UID with the given  user
 func (m *DBHandler) Usermod(user ut.User) error {
+	log.Printf("attempting to usermod on user: %+v", user)
 	db, err := m.getConn()
 	if err != nil {
 		return fmt.Errorf("failed to retrieve the database conn: %w", err)
 	}
 
-	// Start a transaction
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("failed to begin the transaction: %w", err)
 	}
 
-	// Rollback in case of any error
 	defer func() {
 		if err != nil {
 			log.Printf("Rolling back transaction due to error: %v", err)
@@ -434,20 +433,14 @@ func (m *DBHandler) Usermod(user ut.User) error {
 		}
 	}()
 
-	// Step 1: Delete dependent records
+	// firstly, delete dependent records
 	deleteUserGroupsQuery := `DELETE FROM user_groups WHERE uid = ?`
 	_, err = tx.Exec(deleteUserGroupsQuery, user.UID)
 	if err != nil {
 		return fmt.Errorf("failed to delete user-group associations: %w", err)
 	}
 
-	deletePasswordQuery := `DELETE FROM passwords WHERE uid = ?`
-	_, err = tx.Exec(deletePasswordQuery, user.UID)
-	if err != nil {
-		return fmt.Errorf("failed to delete password: %w", err)
-	}
-
-	// Step 2: Update the `users` table
+	// then update the `users` table
 	updateUserQuery := `
     UPDATE users 
     SET username = ?, info = ?, home = ?, shell = ? 
@@ -469,20 +462,20 @@ func (m *DBHandler) Usermod(user ut.User) error {
 		return fmt.Errorf("failed to hash the pass: %v", err)
 	}
 
-	// Step 3: Reinsert into `passwords`
-	insertPasswordQuery := `
-    INSERT INTO 
-      passwords (uid, hashpass, lastpasswordchange, minimumpasswordage, maximumpasswordage, warningperiod, inactivityperiod, expirationdate)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+	// update `passwords`
+	updatePasswordQuery := `
+    UPDATE passwords 
+    SET hashpass = ?, lastpasswordchange = ?, minimumpasswordage = ?, maximumpasswordage = ?, warningperiod = ?, inactivityperiod = ?, expirationdate = ?
+	WHERE uid = ?;
   `
-	_, err = tx.Exec(insertPasswordQuery, user.UID, hashPass, ut.CurrentTime(),
+	_, err = tx.Exec(updatePasswordQuery, hashPass, ut.CurrentTime(),
 		user.Password.MinimumPasswordAge, user.Password.MaximumPasswordAge, user.Password.WarningPeriod,
-		user.Password.InactivityPeriod, user.Password.ExpirationDate)
+		user.Password.InactivityPeriod, user.Password.ExpirationDate, user.UID)
 	if err != nil {
-		return fmt.Errorf("failed to insert password: %w", err)
+		return fmt.Errorf("failed to update password: %w", err)
 	}
 
-	// Step 4: Reinsert into `user_groups`
+	// insert new user group relations.
 	if len(user.Groups) > 0 {
 		insertUserGroupsQuery := `
       INSERT INTO 
@@ -649,7 +642,7 @@ func (m *DBHandler) Groupadd(group ut.Group) (int64, error) {
 	if len(group.Users) > 0 {
 		placeholders := strings.Repeat("(?, ?),", len(group.Users))
 		placeholders = strings.TrimSuffix(placeholders, ",") // Remove trailing comma
-		userGroupQuery := "INSERT INTO user_groups (uid, gid) VALUES " + placeholders
+		userGroupQuery := fmt.Sprintf("INSERT INTO user_groups (uid, gid) VALUES %s", placeholders)
 
 		args := []any{}
 		for _, user := range group.Users {
@@ -734,7 +727,7 @@ func (m *DBHandler) Groupmod(group ut.Group) error {
 	if len(group.Users) > 0 {
 		placeholders := strings.Repeat("(?, ?),", len(group.Users))
 		placeholders = strings.TrimSuffix(placeholders, ",")
-		insertUserGroupsQuery := "INSERT INTO user_groups (uid, gid) VALUES " + placeholders
+		insertUserGroupsQuery := fmt.Sprintf("INSERT INTO user_groups (uid, gid) VALUES %s", placeholders)
 
 		args := []any{}
 		for _, user := range group.Users {

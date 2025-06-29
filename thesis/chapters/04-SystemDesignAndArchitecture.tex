@@ -14,233 +14,10 @@
 
 \begin{figure}[h!]
   \centering
-  \includegraphics[width=0.5\textwidth]{Images/kuspace-logo.png}
+  \includegraphics[width=0.3\textwidth]{Images/kuspace-logo.png}
   \caption{Kuspace logo}
   \label{fig:kuspace-overview}
 \end{figure}
-
-
-\section{Minioth: Authentication Service}
-
-Minioth~\cite{minioth} is a custom authentication and authorization microservice responsible for managing user identities and enforcing access control
-within the system. It implements a secure token-based authentication model using JSON Web Tokens (JWT)~\cite{jwt-spec}, allowing users to authenticate
-once and interact with other services securely.
-
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=0.3\textwidth]{Images/minioth_logo_chatgpt_draft1.png}
-\end{figure}
-
-Minioth supports essential user and group management operations such as registration, login, group assignment, and permission checking.
-It exposes a RESTful API~\cite{fielding-rest} that other services use to validate user tokens and retrieve identity-related metadata (e.g., UID, GID). 
-This decouples authentication logic from the rest of the system, promoting modularity and reusability.
-
-All user interactions begin with Minioth, and its integration is critical to enabling multi-user isolation, secure job execution, and 
-controlled access to shared data resources.
-
-Minioth aspires to become a fully capable identity provider!
-
-\subsection{Authorization Details}
-
-Minioth implements a simplified Role-Based Access Control (RBAC) model centered around user groups. Each user is assigned a unique primary group upon creation, which serves as the basis for resource ownership and sharing semantics. Group membership information is embedded in the issued JWTs, enabling downstream services to perform access checks without additional lookups.
-
-At present, the system distinguishes between regular users and administrators. Membership in the \texttt{admin} group grants elevated privileges, including access to user and group management endpoints, system introspection, and key rotation. All other users are constrained to operations permitted within their assigned roles and groups.
-
-\subsection{Authentication Details}
-
-The Minioth authentication service implements secure, configurable user login and token issuance. Upon a successful login request via the \texttt{POST /login} endpoint, the system issues a JSON Web Token (JWT) containing the authenticated user's identity claims.
-
-\paragraph{Token Signing Algorithm}
-Clients can specify the desired signing algorithm by including the optional HTTP header:
-
-\begin{quote}
-\texttt{X-Auth-Signing-Alg: HS256} \quad or \quad \texttt{RS256}~\cite{jose-algorithms}
-\end{quote}
-
-\begin{itemize}
-  \item \textbf{HS256} — HMAC using SHA-256~\cite{sha256-rfc6234}, with a system-defined shared secret.
-  \item \textbf{RS256} — RSA signature using SHA-256, with a system-configured private/public key pair. 
-  The public key is exposed via the JWKS endpoint (\texttt{/.well-known/jwks.json}).
-\end{itemize}
-
-If the header is omitted, the system uses the default signing algorithm defined in the configuration file. 
-This design supports interoperability with external identity providers and ensures future extensibility toward OpenID Connect.
-
-\paragraph{Password Hashing}
-User passwords are never stored in plain text. Instead, all passwords are hashed using the \textbf{bcrypt}~\cite{bcrypt} 
-algorithm prior to storage. The hashing cost (also referred to as the computational work factor) is system-defined and configurable. 
-It controls the computational difficulty of the hashing process, allowing the system to be tuned for performance versus security:
-
-\begin{algorithm}
-\caption{Password Hashing using \texttt{bcrypt}}\label{alg:bcrypt}
-\begin{algorithmic}[1]
-\Procedure{HashPassword}{$password, cost$}
-    \State $salt \gets \text{GenerateSalt}(cost)$
-    \State $hash \gets \text{Bcrypt}(password, salt)$
-    \State \Return $hash$
-\EndProcedure
-\end{algorithmic}
-\end{algorithm}
-
-
-A higher cost increases the time required to compute the hash, improving resistance to brute-force attacks at the expense of login speed.
-
-\subsection{Pluggable Authentication Handlers}
-
-Minioth is designed with extensibility in mind, offering a flexible backend architecture based on pluggable \textit{handlers}. A handler is a concrete implementation of a unified interface responsible for managing users, groups, and authentication state.
-
-This architecture decouples the authentication logic from the underlying storage mechanism, enabling multiple interchangeable backends with minimal effort. All handlers implement the following interface:
-
-\begin{algorithm}[H]
-\caption{Abstract Handler Interface (pseudocode)}
-\begin{algorithmic}
-\Function{Init}{}
-\EndFunction
-
-\Function{UserAdd}{User}
-  \State Returns: (UID, primaryGroup, Error)
-\EndFunction
-
-\Function{UserDel}{UID}
-\EndFunction
-
-\Function{UserMod}{User}
-\EndFunction
-
-\Function{UserPatch}{UID, Fields}
-\EndFunction
-
-\Function{GroupAdd}{Group}
-  \State Returns: (GID, Error)
-\EndFunction
-
-\Function{GroupDel}{GID}
-\EndFunction
-
-\Function{GroupMod}{Group}
-\EndFunction
-
-\Function{GroupPatch}{GID, Fields}
-\EndFunction
-
-\Function{Authenticate}{Username, Password}
-  \State Returns: User or Error
-\EndFunction
-
-\Function{Select}{ID}
-  \State Returns: Any
-\EndFunction
-
-\Function{Purge}{}
-\EndFunction
-
-\Function{Close}{}
-\EndFunction
-\end{algorithmic}
-\end{algorithm}
-
-
-
-\paragraph{Available Handlers:}
-\begin{itemize}
-    \item \textbf{Database Handler:}  
-    A fully featured implementation that uses a relational database backend (such as SQLite or DuckDB). This handler persists user, group, and credential data in structured tables, enabling query flexibility, indexing, and transactional safety.
-
-    \item \textbf{Plain Handler:}  
-    A minimalist implementation that stores user-related data in three flat files, following a UNIX-like structure:
-    \begin{itemize}
-        \item \texttt{mpasswd} — stores basic user account data (username, UID, GID)
-        \item \texttt{mgroup} — stores group records (name, GID, members)
-        \item \texttt{mshadow} — stores password hashes
-    \end{itemize}
-    This mode is particularly useful for lightweight deployments, testing, or portability.
-\end{itemize}
-
-Each handler supports core operations such as user/group creation, deletion, modification, and password-based authentication. 
-By implementing the same interface, they are interchangeable at runtime, allowing the system to be easily configured for 
-different deployment targets or performance/security trade-offs. 
-
-New handlers suitable for other databases can be implemented.
-
-\begin{figure}[h!]
-  \centering
-  \includegraphics[width=1\textwidth]{Images/minioth-blockdiagram.png}
-  \caption{Minioth Block Diagram}
-  \label{fig:minioth-blockdiagram}
-\end{figure}
-
-\subsection{Minioth Public API Endpoints}
-
-\begin{table}[H]
-\centering
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{|l|l|p{7cm}|c|}
-\hline
-\textbf{Method} & \textbf{Path} & \textbf{Description} & \textbf{Auth} \\
-\hline
-\hline
-POST  & \texttt{/v1/register}            & Register a new user.                           & No  \\
-POST  & \texttt{/v1/login}               & Authenticate and receive JWT token.            & No  \\
-POST  & \texttt{/v1/passwd}              & Change password for the authenticated user.    & Yes (user/admin) \\
-GET   & \texttt{/v1/user/me}             & Get information about the token's user.        & Token \\
-GET   & \texttt{/v1/user/token}          & View current token details.                    & No \\
-POST  & \texttt{/v1/user/refresh-token}  & Request a new access token using a refresh token. & No \\
-GET   & \texttt{/v1/swagger/*any}        & Swagger UI for live API documentation.         & No \\
-\hline
-\hline
-\end{tabular}%
-}
-\caption{Minioth public/user API endpoints}
-\label{tab:minioth-public-endpoints}
-\end{table}
-
-\subsection{Minioth Admin API Endpoints}
-
-\begin{table}[H]
-\centering
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{|l|l|p{7cm}|c|}
-\hline
-\textbf{Method} & \textbf{Path} & \textbf{Description} \\
-\hline
-\hline
-GET    & \texttt{/v1/admin/audit/logs}      & Retrieve system audit logs. \\
-POST   & \texttt{/v1/admin/hasher}          & Generate bcrypt hashes from plaintext passwords. \\
-POST   & \texttt{/v1/admin/verify-password} & Compare a password against a stored hash. \\
-GET    & \texttt{/v1/admin/users}           & List all registered users. \\
-GET    & \texttt{/v1/admin/groups}          & List all groups and their members. \\
-POST   & \texttt{/v1/admin/useradd}         & Add a new user to the system. \\
-DELETE & \texttt{/v1/admin/userdel}         & Delete a user by UID or username. \\
-PATCH  & \texttt{/v1/admin/userpatch}       & Update selected fields of a user. \\
-PUT    & \texttt{/v1/admin/usermod}         & Fully replace a user record. \\
-POST   & \texttt{/v1/admin/groupadd}        & Create a new group. \\
-PATCH  & \texttt{/v1/admin/grouppatch}      & Update specific fields of a group. \\
-PUT    & \texttt{/v1/admin/groupmod}        & Fully update a group definition. \\
-DELETE & \texttt{/v1/admin/groupdel}        & Remove a group from the system. \\
-POST   & \texttt{/v1/admin/rotate}          & Rotate the JWT signing key in use. \\
-GET    & \texttt{/v1/admin/system-conf}     & View current server configuration. \\
-\hline
-\hline
-\end{tabular}%
-}
-\caption{Minioth public/admin API endpoints}
-\label{tab:minioth-public-endpoints}
-\end{table}
-
-Essentially admin features include full user/group lifecycle management and 
-audit logging, key rotation and token inspection mechanisms.
-
-An Authorization header is required with the JWT token as a Bearer.
-
-\subsection{Integration}
-
-Minioth is integrated into the overall system architecture as a Kubernetes StatefulSet, with user and group data persisted on a dedicated Persistent Volume Claim (PVC). It serves as the central authentication authority by issuing JWT tokens consumed by other services, primarily the Frontend application, to authorize user actions.
-
-To ensure secure inter-service communication, all microservices, including Minioth, share a common \texttt{ServiceSecret} key. This key enables mutual trust and token verification across services. Additionally, the JWT signing key is generated at deployment time via a configurable secret generator and securely injected into the Minioth service configuration.
-
-
-\newpage
-
 
 
 \section{Uspace: Central Orchestration and Job Management Service}
@@ -629,9 +406,7 @@ Administrators can assign storage volumes, manage user data, inspect system metr
 
 \newpage
 
-
-
-\section{Fslite}
+\section{Fslite: Storage Abstraction}
 
 \begin{figure}[h]
   \centering
@@ -718,8 +493,6 @@ FsLite can operate in two modes:
   \label{fig:fslite-integration}
 \end{figure}
 
-
-
 \section{Storage Layer (MinIO)}
 
 MinIO serves as the system's object storage backend, offering a scalable, S3-compatible API for storing and retrieving binary data such as 
@@ -748,7 +521,226 @@ MinIO is deployed as a Kubernetes StatefulSet backed by persistent volumes. This
 
 Each service that interacts with MinIO is granted scoped credentials based on service identity. Access control is further enforced using path prefixes aligned with Fslite’s logical resource mappings. The system may optionally use signed URLs for temporary external access to datasets.
 
+\section{Minioth: Authentication Service}
 
+Minioth~\cite{minioth} is a custom authentication and authorization microservice responsible for managing user identities and enforcing access control
+within the system. It implements a secure token-based authentication model using JSON Web Tokens (JWT)~\cite{jwt-spec}, allowing users to authenticate
+once and interact with other services securely.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.3\textwidth]{Images/minioth_logo_chatgpt_draft1.png}
+\end{figure}
+
+Minioth supports essential user and group management operations such as registration, login, group assignment, and permission checking.
+It exposes a RESTful API~\cite{fielding-rest} that other services use to validate user tokens and retrieve identity-related metadata (e.g., UID, GID). 
+This decouples authentication logic from the rest of the system, promoting modularity and reusability.
+
+All user interactions begin with Minioth, and its integration is critical to enabling multi-user isolation, secure job execution, and 
+controlled access to shared data resources.
+
+Minioth aspires to become a fully capable identity provider!
+
+\subsection{Authorization Details}
+
+Minioth implements a simplified Role-Based Access Control (RBAC) model centered around user groups. Each user is assigned a unique primary group upon creation, which serves as the basis for resource ownership and sharing semantics. Group membership information is embedded in the issued JWTs, enabling downstream services to perform access checks without additional lookups.
+
+At present, the system distinguishes between regular users and administrators. Membership in the \texttt{admin} group grants elevated privileges, including access to user and group management endpoints, system introspection, and key rotation. All other users are constrained to operations permitted within their assigned roles and groups.
+
+\subsection{Authentication Details}
+
+The Minioth authentication service implements secure, configurable user login and token issuance. Upon a successful login request via the \texttt{POST /login} endpoint, the system issues a JSON Web Token (JWT) containing the authenticated user's identity claims.
+
+\paragraph{Token Signing Algorithm}
+Clients can specify the desired signing algorithm by including the optional HTTP header:
+
+\begin{quote}
+\texttt{X-Auth-Signing-Alg: HS256} \quad or \quad \texttt{RS256}~\cite{jose-algorithms}
+\end{quote}
+
+\begin{itemize}
+  \item \textbf{HS256} — HMAC using SHA-256~\cite{sha256-rfc6234}, with a system-defined shared secret.
+  \item \textbf{RS256} — RSA signature using SHA-256, with a system-configured private/public key pair. 
+  The public key is exposed via the JWKS endpoint (\texttt{/.well-known/jwks.json}).
+\end{itemize}
+
+If the header is omitted, the system uses the default signing algorithm defined in the configuration file. 
+This design supports interoperability with external identity providers and ensures future extensibility toward OpenID Connect.
+
+\paragraph{Password Hashing}
+User passwords are never stored in plain text. Instead, all passwords are hashed using the \textbf{bcrypt}~\cite{bcrypt} 
+algorithm prior to storage. The hashing cost (also referred to as the computational work factor) is system-defined and configurable. 
+It controls the computational difficulty of the hashing process, allowing the system to be tuned for performance versus security:
+
+\begin{algorithm}
+\caption{Password Hashing using \texttt{bcrypt}}\label{alg:bcrypt}
+\begin{algorithmic}[1]
+\Procedure{HashPassword}{$password, cost$}
+    \State $salt \gets \text{GenerateSalt}(cost)$
+    \State $hash \gets \text{Bcrypt}(password, salt)$
+    \State \Return $hash$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+
+A higher cost increases the time required to compute the hash, improving resistance to brute-force attacks at the expense of login speed.
+
+\subsection{Pluggable Authentication Handlers}
+
+Minioth is designed with extensibility in mind, offering a flexible backend architecture based on pluggable \textit{handlers}. A handler is a concrete implementation of a unified interface responsible for managing users, groups, and authentication state.
+
+This architecture decouples the authentication logic from the underlying storage mechanism, enabling multiple interchangeable backends with minimal effort. All handlers implement the following interface:
+
+\begin{algorithm}[H]
+\caption{Abstract Handler Interface (pseudocode)}
+\begin{algorithmic}
+\Function{Init}{}
+\EndFunction
+
+\Function{UserAdd}{User}
+  \State Returns: (UID, primaryGroup, Error)
+\EndFunction
+
+\Function{UserDel}{UID}
+\EndFunction
+
+\Function{UserMod}{User}
+\EndFunction
+
+\Function{UserPatch}{UID, Fields}
+\EndFunction
+
+\Function{GroupAdd}{Group}
+  \State Returns: (GID, Error)
+\EndFunction
+
+\Function{GroupDel}{GID}
+\EndFunction
+
+\Function{GroupMod}{Group}
+\EndFunction
+
+\Function{GroupPatch}{GID, Fields}
+\EndFunction
+
+\Function{Authenticate}{Username, Password}
+  \State Returns: User or Error
+\EndFunction
+
+\Function{Select}{ID}
+  \State Returns: Any
+\EndFunction
+
+\Function{Purge}{}
+\EndFunction
+
+\Function{Close}{}
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+
+
+\paragraph{Available Handlers:}
+\begin{itemize}
+    \item \textbf{Database Handler:}  
+    A fully featured implementation that uses a relational database backend (such as SQLite or DuckDB). This handler persists user, group, and credential data in structured tables, enabling query flexibility, indexing, and transactional safety.
+
+    \item \textbf{Plain Handler:}  
+    A minimalist implementation that stores user-related data in three flat files, following a UNIX-like structure:
+    \begin{itemize}
+        \item \texttt{mpasswd} — stores basic user account data (username, UID, GID)
+        \item \texttt{mgroup} — stores group records (name, GID, members)
+        \item \texttt{mshadow} — stores password hashes
+    \end{itemize}
+    This mode is particularly useful for lightweight deployments, testing, or portability.
+\end{itemize}
+
+Each handler supports core operations such as user/group creation, deletion, modification, and password-based authentication. 
+By implementing the same interface, they are interchangeable at runtime, allowing the system to be easily configured for 
+different deployment targets or performance/security trade-offs. 
+
+New handlers suitable for other databases can be implemented.
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=1\textwidth]{Images/minioth-blockdiagram.png}
+  \caption{Minioth Block Diagram}
+  \label{fig:minioth-blockdiagram}
+\end{figure}
+
+\subsection{Minioth Public API Endpoints}
+
+\begin{table}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|l|l|p{7cm}|c|}
+\hline
+\textbf{Method} & \textbf{Path} & \textbf{Description} & \textbf{Auth} \\
+\hline
+\hline
+POST  & \texttt{/v1/register}            & Register a new user.                           & No  \\
+POST  & \texttt{/v1/login}               & Authenticate and receive JWT token.            & No  \\
+POST  & \texttt{/v1/passwd}              & Change password for the authenticated user.    & Yes (user/admin) \\
+GET   & \texttt{/v1/user/me}             & Get information about the token's user.        & Token \\
+GET   & \texttt{/v1/user/token}          & View current token details.                    & No \\
+POST  & \texttt{/v1/user/refresh-token}  & Request a new access token using a refresh token. & No \\
+GET   & \texttt{/v1/swagger/*any}        & Swagger UI for live API documentation.         & No \\
+\hline
+\hline
+\end{tabular}%
+}
+\caption{Minioth public/user API endpoints}
+\label{tab:minioth-public-endpoints}
+\end{table}
+
+\subsection{Minioth Admin API Endpoints}
+
+\begin{table}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|l|l|p{7cm}|c|}
+\hline
+\textbf{Method} & \textbf{Path} & \textbf{Description} \\
+\hline
+\hline
+GET    & \texttt{/v1/admin/audit/logs}      & Retrieve system audit logs. \\
+POST   & \texttt{/v1/admin/hasher}          & Generate bcrypt hashes from plaintext passwords. \\
+POST   & \texttt{/v1/admin/verify-password} & Compare a password against a stored hash. \\
+GET    & \texttt{/v1/admin/users}           & List all registered users. \\
+GET    & \texttt{/v1/admin/groups}          & List all groups and their members. \\
+POST   & \texttt{/v1/admin/useradd}         & Add a new user to the system. \\
+DELETE & \texttt{/v1/admin/userdel}         & Delete a user by UID or username. \\
+PATCH  & \texttt{/v1/admin/userpatch}       & Update selected fields of a user. \\
+PUT    & \texttt{/v1/admin/usermod}         & Fully replace a user record. \\
+POST   & \texttt{/v1/admin/groupadd}        & Create a new group. \\
+PATCH  & \texttt{/v1/admin/grouppatch}      & Update specific fields of a group. \\
+PUT    & \texttt{/v1/admin/groupmod}        & Fully update a group definition. \\
+DELETE & \texttt{/v1/admin/groupdel}        & Remove a group from the system. \\
+POST   & \texttt{/v1/admin/rotate}          & Rotate the JWT signing key in use. \\
+GET    & \texttt{/v1/admin/system-conf}     & View current server configuration. \\
+\hline
+\hline
+\end{tabular}%
+}
+\caption{Minioth public/admin API endpoints}
+\label{tab:minioth-public-endpoints}
+\end{table}
+
+Essentially admin features include full user/group lifecycle management and 
+audit logging, key rotation and token inspection mechanisms.
+
+An Authorization header is required with the JWT token as a Bearer.
+
+\subsection{Integration}
+
+Minioth is integrated into the overall system architecture as a Kubernetes StatefulSet, with user and group data persisted on a dedicated Persistent Volume Claim (PVC). It serves as the central authentication authority by issuing JWT tokens consumed by other services, primarily the Frontend application, to authorize user actions.
+
+To ensure secure inter-service communication, all microservices, including Minioth, share a common \texttt{ServiceSecret} key. This key enables mutual trust and token verification across services. Additionally, the JWT signing key is generated at deployment time via a configurable secret generator and securely injected into the Minioth service configuration.
+
+
+\newpage
 
 \section{Frontend and WebSocket Server}
 \label{sec:frontend-wss}
@@ -866,10 +858,8 @@ Interface icons, tool indicators, and status badges are rendered using the Font 
 Both technology stacks are served from Frontapp, bypassing any cdn.
 
 \subsection{Integration}
-Both the Frontapp and the Wss are integrated in the system as Kubernetes Deployments remaining stateless. There is also ephimeral logging, 
+Both the Frontapp and the Wss are integrated in the system as Kubernetes Deployments remaining stateless. There is also ephemeral logging, 
 which can be used in the future.
-
-
 
 \section{Kubernetes Integration}
 

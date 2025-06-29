@@ -85,7 +85,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	err = os.WriteFile("%s", []byte(run(string(input))), 0644)
+	err = os.WriteFile("%s", []byte(run(string(input))), 0600)
 	if err != nil {
 		panic(err)
 	}
@@ -249,7 +249,7 @@ func formatJobCommandD(job ut.Job, fileSave bool) ([]string, error) {
 	switch language {
 	case "python":
 		if fileSave {
-			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.py", job.JID), []byte(fmt.Sprintf(pythonIoSkeletonCode, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
+			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.py", job.JID), []byte(fmt.Sprintf(pythonIoSkeletonCode, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o600)
 			if err != nil {
 				log.Printf("failed to write file: %v", err)
 
@@ -272,7 +272,7 @@ func formatJobCommandD(job ut.Job, fileSave bool) ([]string, error) {
 	case "node", "javascript":
 		language = "node"
 		if fileSave {
-			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.js", job.JID), []byte(fmt.Sprintf(nodeIoSkeletonCode, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
+			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.js", job.JID), []byte(fmt.Sprintf(nodeIoSkeletonCode, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o600)
 			if err != nil {
 				log.Printf("failed to write file: %v", err)
 
@@ -291,7 +291,7 @@ func formatJobCommandD(job ut.Job, fileSave bool) ([]string, error) {
 	case "go", "golang":
 		language = "golang"
 		if fileSave {
-			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.go", job.JID), []byte(fmt.Sprintf(goIoSkeletonCode, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
+			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.go", job.JID), []byte(fmt.Sprintf(goIoSkeletonCode, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o600)
 			if err != nil {
 				log.Printf("failed to write file: %v", err)
 
@@ -310,7 +310,7 @@ func formatJobCommandD(job ut.Job, fileSave bool) ([]string, error) {
 	case "openjdk", "java": // java
 		language = "openjdk"
 		if fileSave {
-			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.java", job.JID), []byte(fmt.Sprintf(javaIoSkeletonCode, job.LogicHeaders, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
+			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.java", job.JID), []byte(fmt.Sprintf(javaIoSkeletonCode, job.LogicHeaders, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o600)
 			if err != nil {
 				log.Printf("failed to write file: %v", err)
 
@@ -329,7 +329,7 @@ func formatJobCommandD(job ut.Job, fileSave bool) ([]string, error) {
 		}
 	case "c", "gcc":
 		if fileSave {
-			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.c", job.JID), []byte(fmt.Sprintf(cIoSkeletonCode, job.LogicHeaders, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o644)
+			err := os.WriteFile(fmt.Sprintf("tmp/job-%d.c", job.JID), []byte(fmt.Sprintf(cIoSkeletonCode, job.LogicHeaders, job.LogicBody, "/input/"+inp, "/output/"+out[len(out)-1])), 0o600)
 			if err != nil {
 				log.Printf("failed to write file: %v", err)
 

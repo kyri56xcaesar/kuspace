@@ -22,46 +22,45 @@ import (
 
 const (
 	initSQLJobs = `
-	CREATE TABLE IF NOT EXISTS jobs (
-		jid BIGINT PRIMARY KEY,
-		uid BIGINT,
-		description TEXT,
-		duration FLOAT,
-		input TEXT,
-		inputFormat TEXT,
-		output TEXT,
-		outputFormat TEXT,
-		logic TEXT,
-		logicBody TEXT,
-		logicHeaders TEXT,
-		parameters TEXT,
-		status TEXT,
-		completed BOOLEAN,
-		completedAt DATETIME,
-		createdAt DATETIME,
-		parallelism INTEGER,
-		priority INTEGER,
-		memoryRequest TEXT,
-		cpuRequest TEXT,
-		memoryLimit TEXT,
-		cpuLimit TEXT,
-		ephimeralStorageRequest TEXT,
-		ephimeralStorageLimit TEXT
-	);
-	CREATE TABLE IF NOT EXISTS apps (
-		id BIGINT PRIMARY KEY,
-		name TEXT,
-		image TEXT,
-		description TEXT,
-		version TEXT,
-		author TEXT,
-		authorId BIGINT,
-		status TEXT,
-		insertedAt DATETIME,
-		createdAt DATETIME
-	);
-	CREATE SEQUENCE IF NOT EXISTS seq_jobid START 1;
-	CREATE SEQUENCE IF NOT EXISTS seq_appid START 1;
+		CREATE TABLE IF NOT EXISTS jobs (
+		    jid INTEGER PRIMARY KEY AUTOINCREMENT, 
+		    uid INTEGER,                           
+		    description TEXT,
+		    duration REAL,                         
+		    input TEXT,
+		    inputFormat TEXT,
+		    output TEXT,
+		    outputFormat TEXT,
+		    logic TEXT,
+		    logicBody TEXT,
+		    logicHeaders TEXT,
+		    parameters TEXT,
+		    status TEXT,
+		    completed INTEGER,                     
+		    completedAt DATETIME,
+		    createdAt DATETIME,
+		    parallelism INTEGER,
+		    priority INTEGER,
+		    memoryRequest TEXT,
+		    cpuRequest TEXT,
+		    memoryLimit TEXT,
+		    cpuLimit TEXT,
+		    ephemeralStorageRequest TEXT,           
+		    ephemeralStorageLimit TEXT
+		);
+
+		CREATE TABLE IF NOT EXISTS apps (
+		    id INTEGER PRIMARY KEY AUTOINCREMENT,   
+		    name TEXT UNIQUE,
+		    image TEXT,
+		    description TEXT,
+		    version TEXT,
+		    author TEXT,
+		    authorId INTEGER,                       
+		    status TEXT,
+		    insertedAt DATETIME,
+		    createdAt DATETIME
+		);
 `
 )
 
@@ -76,11 +75,11 @@ func (srv *UService) insertJob(jb ut.Job) (int64, error) {
 
 	query := `
 		INSERT INTO 
-			jobs (jid, uid, description, duration, input, inputFormat, output, outputFormat, logic, logicBody,
+			jobs (uid, description, duration, input, inputFormat, output, outputFormat, logic, logicBody,
 			 logicHeaders, parameters, status, completed, createdAt, parallelism, priority, memoryRequest, cpuRequest,
-			  memoryLimit, cpuLimit, ephimeralStorageRequest, ephimeralStorageLimit)
+			  memoryLimit, cpuLimit, ephemeralStorageRequest, ephemeralStorageLimit)
 		VALUES
-			(nextval('seq_jobid'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING (jid);`
 
 	var jid int64
@@ -88,7 +87,7 @@ func (srv *UService) insertJob(jb ut.Job) (int64, error) {
 		jb.InputFormat, jb.Output, jb.OutputFormat, jb.Logic, jb.LogicBody,
 		jb.LogicHeaders, strings.Join(jb.Params, ","), "pending", jb.Completed,
 		ut.CurrentTime(), jb.Parallelism, jb.Priority, jb.MemoryRequest, jb.CPURequest,
-		jb.MemoryLimit, jb.CPULimit, jb.EphimeralStorageRequest, jb.EphimeralStorageLimit).Scan(&jid)
+		jb.MemoryLimit, jb.CPULimit, jb.EphemeralStorageRequest, jb.EphemeralStorageLimit).Scan(&jid)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
 
@@ -112,11 +111,11 @@ func (srv *UService) insertJobs(jobs []ut.Job) error {
 	}
 	query := `
 		INSERT INTO 
-			jobs (jid, uid, description, duration, input, inputFormat, output, outputFormat, logic,
+			jobs (uid, description, duration, input, inputFormat, output, outputFormat, logic,
 			 logicBody, logicHeaders, parameters, status, completed, createdAt, parallelism, priority,
-			  memoryRequest, cpuRequest, memoryLimit, cpuLimit, ephimeralStorageRequest, ephimeralStorageLimit)
+			  memoryRequest, cpuRequest, memoryLimit, cpuLimit, ephemeralStorageRequest, ephemeralStorageLimit)
 		VALUES
-			(nextval('seq_jobid'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING (jid);`
 
 	tx, err := db.Begin()
@@ -264,8 +263,8 @@ func (srv *UService) getJobByID(jid int) (ut.Job, error) {
 	err = db.QueryRow(query, jid).Scan(&job.JID, &job.UID, &job.Description, &job.Duration, &job.Input,
 		&job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders,
 		&params, &job.Status, &job.Completed, &completedAt, &createdAt, &job.Parallelism, &job.Priority,
-		&job.MemoryRequest, &job.CPURequest, &job.MemoryLimit, &job.CPULimit, &job.EphimeralStorageRequest,
-		&job.EphimeralStorageLimit)
+		&job.MemoryRequest, &job.CPURequest, &job.MemoryLimit, &job.CPULimit, &job.EphemeralStorageRequest,
+		&job.EphemeralStorageLimit)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
 
@@ -321,7 +320,7 @@ func (srv *UService) getJobsByUID(uid int) ([]ut.Job, error) {
 			&job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody,
 			&job.LogicHeaders, &params, &job.Status, &job.Completed, &completedAt, &createdAt,
 			&job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest, &job.MemoryLimit,
-			&job.CPULimit, &job.EphimeralStorageRequest, &job.EphimeralStorageLimit)
+			&job.CPULimit, &job.EphemeralStorageRequest, &job.EphemeralStorageLimit)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
 
@@ -401,7 +400,7 @@ func (srv *UService) getJobsByUIDs(uids []int) ([]ut.Job, error) {
 			&job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody,
 			&job.LogicHeaders, &params, &job.Status, &job.Completed, &completedAt, &createdAt,
 			&job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest, &job.MemoryLimit,
-			&job.CPULimit, &job.EphimeralStorageRequest, &job.EphimeralStorageLimit)
+			&job.CPULimit, &job.EphemeralStorageRequest, &job.EphemeralStorageLimit)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
 
@@ -473,7 +472,7 @@ func (srv *UService) getAllJobs(limit, offset string) ([]ut.Job, error) {
 		err = rows.Scan(&job.JID, &job.UID, &job.Description, &job.Duration, &job.Input, &job.InputFormat,
 			&job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status,
 			&job.Completed, &completedAt, &createdAt, &job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest,
-			&job.MemoryLimit, &job.CPULimit, &job.EphimeralStorageRequest, &job.EphimeralStorageLimit)
+			&job.MemoryLimit, &job.CPULimit, &job.EphemeralStorageRequest, &job.EphemeralStorageLimit)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
 

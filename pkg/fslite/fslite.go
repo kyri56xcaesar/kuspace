@@ -69,45 +69,55 @@ var (
 
 const (
 	initSQL = `
-		CREATE TABLE IF NOT EXISTS user_admin (
-			uuid TEXT PRIMARY KEY,
-			username TEXT,
-			hashpass TEXT
-		);
-    	CREATE TABLE IF NOT EXISTS resources (
-    	  rid BIGINT PRIMARY KEY,
-    	  uid BIGINT,
-    	  gid BIGINT,
-    	  vid BIGINT,
-		  vname TEXT,
-    	  size BIGINT,
-    	  links INTEGER,
-    	  perms TEXT,
-    	  name TEXT,
-		  path TEXT,
-    	  type TEXT,
-    	  createdAt DATETIME,
-    	  updatedAt DATETIME,
-    	  accessedAt DATETIME
-    	);
-    	CREATE TABLE IF NOT EXISTS volumes (
-    	  vid BIGINT PRIMARY KEY,
-    	  name TEXT,
-    	  path TEXT,
-		  dynamic BOOLEAN,
-    	  capacity FLOAT,
-    	  usage FLOAT,
-		  createdAt DATETIME
-    	);
-		CREATE TABLE IF NOT EXISTS userVolume(
-			vid BIGINT,
-			uid BIGINT,
-			usage FLOAT,
-			quota FLOAT,
-			updatedAt DATETIME
-		);
-    	CREATE SEQUENCE IF NOT EXISTS seqResourceId START 1;
-    	CREATE SEQUENCE IF NOT EXISTS seqVolumeId START 1; 
+	CREATE TABLE IF NOT EXISTS user_admin (
+	    uuid TEXT PRIMARY KEY,
+	    username TEXT UNIQUE,
+	    hashpass TEXT
+	);
+	
+	CREATE TABLE IF NOT EXISTS volumes (
+	    vid INTEGER PRIMARY KEY AUTOINCREMENT,
+	    name TEXT UNIQUE,
+	    path TEXT,
+	    dynamic BOOLEAN, 
+	    capacity REAL,
+	    usage REAL,
+	    createdAt DATETIME
+	);
+	
+	CREATE TABLE IF NOT EXISTS resources (
+	    rid INTEGER PRIMARY KEY AUTOINCREMENT,
+	    uid INTEGER,
+	    gid INTEGER,
+	    vid INTEGER,
+	    vname TEXT,
+	    size INTEGER,
+	    links INTEGER,
+	    perms TEXT,
+	    name TEXT,
+	    path TEXT,
+	    type TEXT,
+	    createdAt DATETIME,
+	    updatedAt DATETIME,
+	    accessedAt DATETIME,
+	    FOREIGN KEY (vid) REFERENCES volumes(vid) ON DELETE CASCADE
+	);
+	
+	CREATE TABLE IF NOT EXISTS user_volume (
+	    vid INTEGER,
+	    uid INTEGER,
+	    usage REAL,
+	    quota REAL,
+	    updatedAt DATETIME,
+	    PRIMARY KEY (vid, uid),
+	    FOREIGN KEY (vid) REFERENCES volumes(vid) ON DELETE CASCADE
+	);
+
+	-- faster lookup
+	CREATE INDEX IF NOT EXISTS idx_resources_vid ON resources(vid);
+	CREATE INDEX IF NOT EXISTS idx_resources_uid ON resources(uid);
+	CREATE INDEX IF NOT EXISTS idx_user_volume_uid ON user_volume(uid);
+
     `
 )
 
@@ -138,9 +148,14 @@ func NewFsLite(cfg ut.EnvConfig) FsLite {
 		Engine: ginEngine,
 	}
 	fsl.dbh.Init(initSQL, cfg.FslDBMaxOpenConns, cfg.FslDBMaxIdleConns, cfg.FslDBMaxLifetime)
-	if _, err := fsl.insertAdmin(cfg.FslAccessKey, cfg.FslSecretKey); err != nil {
+	_, err := fsl.insertAdmin(cfg.FslAccessKey, cfg.FslSecretKey)
+	if err != nil && strings.Contains(strings.ToLower(err.Error()), "unique") {
+		log.Printf("[FSL_init] admin user already exists")
+	} else if err != nil {
 		log.Fatalf("[FSL_init] error inserting main user, fatal...: %v", err)
 	}
+	// perhaps we should enable foreign keys here.
+
 	if fsl.config.FslLocality {
 		wd, err := os.Getwd()
 		if err != nil {
@@ -153,7 +168,7 @@ func NewFsLite(cfg ut.EnvConfig) FsLite {
 	}
 	defaultVolumeCap = cfg.LocalVolumesDefaultCapacity
 	defaultVolumeCap = min(defaultVolumeCap, maxVolumeCap)
-	err := fsl.CreateVolume(ut.Volume{Name: defaultVolumeName, Path: fsliteDataPath + "/" + defaultVolumeName, Capacity: defaultVolumeCap})
+	err = fsl.CreateVolume(ut.Volume{Name: defaultVolumeName, Path: fsliteDataPath + "/" + defaultVolumeName, Capacity: defaultVolumeCap})
 	if err != nil {
 		if !strings.Contains(err.Error(), "already exists") {
 			log.Fatalf("[FSL_init] failed to create default volume: %v", err)

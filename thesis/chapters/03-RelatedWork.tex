@@ -1,55 +1,123 @@
 \chapter{Related Work}
 \label{Chapter-Related-Work}
 
-% Todo: Edit to your liking
-\section{Existing Batch-Processing Platforms}
+\section{Batch-Processing Platforms}
+
+Batch-processing platforms are fundamental to modern data-intensive systems, providing 
+scalable infrastructure for executing large-scale data transformation, analytics, and machine 
+learning workflows. These platforms typically operate by orchestrating jobs over clusters of 
+machines, handling aspects such as task distribution, fault tolerance, and data locality.
+
+Prominent examples include \textbf{Apache Airflow}~\cite{airflow}, \textbf{Apache Spark}~\cite{spark}, 
+and the foundational framework \textbf{Apache Hadoop}~\cite{hadoop}. While these systems are highly 
+effective for managing production-grade pipelines, they are often complex, requiring 
+significant infrastructure setup and expertise.
 
 \begin{figure}[h!]
   \centering
-  \begin{subfigure}[b]{0.2\textwidth}
-    \includegraphics[width=\textwidth]{Images/airflow.png}
-    % \caption{Apache Airflow}
-    \label{fig:airflow}
+  \begin{subfigure}[b]{0.4\textwidth}
+    \includegraphics[width=\textwidth]{Images/hadoop.jpg}
+    \label{fig:hadoop}
   \end{subfigure}
+  \hfill
   \begin{subfigure}[b]{0.3\textwidth}
     \includegraphics[width=\textwidth]{Images/Apache_Spark_logo.svg.png}
-    % \caption{Apache Spark}
     \label{fig:spark}
   \end{subfigure}
   \hfill
-  \caption{Batch Processing Platforms}
-  \label{fig:authservices}
+  \caption{Apache Hadoop and Apache Spark}
+  \label{fig:batch-platforms}
 \end{figure}
 
-Batch-processing platforms are commonly used for running large-scale data workflows in analytics, ETL (Extract, Transform, Load), 
-and machine learning pipelines. Examples include Apache Airflow~\cite{airflow}, Apache Spark~\cite{spark}, and Hadoop~\cite{luigi}.
-
-While these systems excel in orchestrating complex, DAG-based workflows~\cite{airflow-dag}, they typically assume a single system-level user or are 
-operated by DevOps teams. They are not inherently designed to support multiple authenticated users submitting independent jobs with 
-isolated resources.
-
-In contrast, the system developed in this thesis places emphasis on user-level isolation, sandboxed execution, and seamless 
-submission of containerized jobs without requiring workflow DSLs~\cite{fowler-dsl} or deep infrastructure knowledge.
-
-\subsection{Apache Airflow}
-Apache Airflow is a platform to programmatically author, schedule, and monitor workflows. It allows
-users to define workflows as directed acyclic graphs (DAGs) using Python code. Airflow is designed for complex data pipelines,
-providing features like task dependencies, retries, and scheduling. However, it is primarily focused on
-orchestrating workflows rather than providing a user-friendly interface for individual users to run ad-hoc jobs.
-
 \subsection{Apache Hadoop}
-Apache Hadoop is a framework that allows for the distributed processing of large data sets across clusters of computers using simple programming models.
-It is designed to scale up from a single server to thousands of machines, each offering local computation
-and storage. Hadoop is often used for batch processing of large data sets, but it requires significant
-infrastructure and is not user-friendly for individual users who want to run small, isolated jobs.
+
+\textbf{Apache Hadoop} is one of the earliest and most influential frameworks for distributed batch processing of large-scale datasets. 
+Its architecture is based on the \textbf{MapReduce} programming model, introduced by Google~\cite{dean-mapreduce}, which enables the 
+decomposition of tasks into two key stages: 
+
+\begin{itemize}
+    \item \textbf{Map:} Processes input data and produces intermediate key-value pairs.
+    \item \textbf{Reduce:} Aggregates and processes intermediate results to produce final output.
+\end{itemize}
+
+Hadoop is built around two core components:
+\begin{itemize}
+    \item \textbf{HDFS (Hadoop Distributed File System)}: A fault-tolerant, scalable storage system that splits large files into blocks distributed across the cluster.
+    \item \textbf{YARN (Yet Another Resource Negotiator)}: A cluster resource manager that schedules and orchestrates tasks.
+\end{itemize}
+
+The strength of Hadoop lies in its ability to scale to thousands of nodes, offering data locality optimizations and fault tolerance. However, Hadoop jobs are 
+typically defined as Java programs or high-level abstractions built on top, such as Hive or Pig. The model assumes long-running batch jobs, with significant 
+overhead in job startup time, which is unsuitable for low-latency or interactive workloads.
+
+Moreover, Hadoop was designed for infrastructure-level users. It lacks native mechanisms for \textit{multi-user job isolation} beyond basic OS-level 
+permissions and does not provide end-user self-service capabilities without substantial operational overhead.
 
 \subsection{Apache Spark}
-Apache Spark is a unified analytics engine for large-scale data processing, known for its speed and ease
-of use. It provides APIs in Java, Scala, Python, and R, and supports SQL queries, streaming data, machine learning, and graph processing.
-Spark is designed for distributed data processing and is often used in big data environments. However, it
-requires significant infrastructure setup and is not tailored for individual users who want to run
-ad-hoc analytical jobs in a multi-user environment.
 
+\textbf{Apache Spark} evolved from the limitations of Hadoop’s MapReduce model, offering a more flexible and performant engine for distributed data processing. 
+Spark introduces an in-memory computation model, reducing the disk I/O bottlenecks inherent in Hadoop. It supports multiple workloads beyond batch processing, including:
+\begin{itemize}
+    \item SQL queries via SparkSQL.
+    \item Streaming data via Structured Streaming.
+    \item Machine learning via MLlib.
+    \item Graph computation via GraphX.
+\end{itemize}
+
+Spark utilizes the concept of \textbf{Resilient Distributed Datasets (RDDs)}, which are immutable collections of objects distributed across nodes. 
+Its Directed Acyclic Graph (DAG) execution engine optimizes task execution based on data dependencies.
+
+While Spark significantly improves upon Hadoop’s performance and flexibility, it still operates within a cluster-based, infrastructure-oriented paradigm. 
+Deployments typically involve YARN, Kubernetes, or Mesos, requiring considerable system administration. Like Hadoop, Spark lacks built-in multi-tenant 
+isolation at the user level; access control and job separation are delegated to external security frameworks or infrastructure controls.
+
+\subsection{Apache Airflow}
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.25\textwidth]{Images/airflow.png}
+  \caption{Apache Airflow}
+  \label{fig:airflow}
+\end{figure}
+
+\textbf{Apache Airflow} is not a data processing engine but an \textbf{orchestration platform} designed to define, schedule, and monitor workflows. 
+Airflow represents workflows as \textbf{Directed Acyclic Graphs (DAGs)}, where each node corresponds to a task. It is mentioned respectively 
+in the context of batch processing because it is often used to orchestrate Spark or Hadoop jobs, but it does not perform data processing itself. 
+This spirit of orchestration aspires the system proposed in this thesis but in a more primitive manner. Due to the nature of the 
+system, which essentially sets into motion a series of batch jobs, but in a more user-friendly way. 
+
+Airflow excels at:
+\begin{itemize}
+    \item Managing task dependencies.
+    \item Scheduling periodic workflows.
+    \item Monitoring execution status.
+\end{itemize}
+
+Airflow supports extensibility through operators, which can trigger Spark jobs, run Python scripts, submit SQL queries, or interact with APIs. 
+However, Airflow delegates computation to external systems; it does not execute data processing itself.
+
+While flexible for backend orchestration, Airflow is designed for infrastructure teams rather than end-users. There is no native user-level job isolation 
+or interactive job submission model. Users must define workflows in Python code, with access controlled at the infrastructure level rather than at the 
+application level.
+
+\subsection{Relation to This Work}
+
+The platform proposed in this thesis draws conceptual inspiration from these batch-processing frameworks in terms of distributed execution as an end goal 
+and job orchestration. 
+However, it fundamentally differs in its focus on:
+\begin{itemize}
+    \item \textbf{User-level isolation}: Each user operates within an isolated environment with sandboxed resources.
+    \item \textbf{Simplified job submission}: Users interact with the system through web interfaces or APIs without
+     needing to write DAG definitions, infrastructure configurations, or cluster-level code.
+    \item \textbf{Container-native execution}: Jobs are encapsulated in containers, leveraging Kubernetes orchestration 
+    for resource management, eliminating the need for specialized distributed data processing engines.
+    \item \textbf{Security and multi-tenancy}: Authentication, authorization, and resource isolation are built-in features, 
+    contrasting with the infrastructure-level security assumed by Hadoop, Spark, or Airflow.
+\end{itemize}
+
+Rather than replacing general-purpose data lake or ETL pipelines, this platform addresses a different niche — enabling 
+users to execute batch jobs and manage datasets in a secure, multi-tenant, containerized environment, without requiring 
+them to manage or interact with complex infrastructure directly.
 
 \section{Data Lake Platforms}
 
@@ -67,7 +135,7 @@ ad-hoc analytical jobs in a multi-user environment.
     \label{fig:databricks}
   \end{subfigure}
   \hfill
-  \begin{subfigure}[b]{0.3\textwidth}
+  \begin{subfigure}[b]{0.2\textwidth}
     \includegraphics[width=\textwidth]{Images/google-cloud.png}
     % \caption{GoogleCloudBigLake}
     \label{fig:google}
@@ -98,7 +166,7 @@ shared storage, and access-controlled workflows within a Kubernetes-native ecosy
     \label{fig:heroku}
   \end{subfigure}
   \hfill
-  \begin{subfigure}[b]{0.2\textwidth}
+  \begin{subfigure}[b]{0.15\textwidth}
     \includegraphics[width=\textwidth]{Images/google-app-engine.jpg}
     % \caption{GoogleAppEngine}
     \label{fig:gae}
@@ -117,7 +185,7 @@ shared storage, and access-controlled workflows within a Kubernetes-native ecosy
   \end{subfigure}
 
   \caption{PaaS}
-  \label{fig:authservices}
+  \label{fig:paas}
 \end{figure}
 
 Platform-as-a-Service (PaaS)~\cite{nist-paas} offerings such as Heroku~\cite{heroku}, Google App Engine~\cite{appengine}, and OpenShift~\cite{openshift} enable developers to 
@@ -158,10 +226,11 @@ Authentication frameworks such as Keycloak~\cite{keycloak}, Auth0~\cite{auth0}, 
 for web and API-based services. These tools often support OAuth2, OpenID Connect~\cite{openid-connect}, and role-based access control (RBAC)~\cite{sandhu-rbac}, and can be 
 integrated into Kubernetes clusters using service meshes or ingress controllers.
 
+These systems are powerful and mature enough to handle complex authentication and authorization needs, including multi-tenancy, single sign-on, and social logins. 
+They can safely scale to multiple replicas and provide secure user management across distributed applications.
+
 However, these systems can be complex to integrate, especially in lightweight or standalone academic settings. Moreover, their 
-abstraction level may not offer tight coupling with Kubernetes-native resource policies such as persistent volumes or job ownership.
+abstraction level may not offer tight coupling with Kubernetes-native resource policies such as volumes or job ownership.
 
-The system introduced in this thesis employs a custom authentication service (\texttt{Minioth}) tailored to Kubernetes, enabling 
-direct enforcement of user identity in batch jobs and storage access. This design simplifies integration and enhances flexibility 
-in multi-user cluster environments.
-
+The system introduced in this thesis employs a custom authentication service (\texttt{Minioth}). It aims to express simplicity and promises a expansive foundation for future
+extensions, while still being lightweight enough for academic and small-scale use cases.

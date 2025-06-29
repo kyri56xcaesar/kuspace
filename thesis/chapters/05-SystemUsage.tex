@@ -8,7 +8,7 @@ throughout the implementation, and the underlying infrastructure model.
 
 The system is built to run on Kubernetes, with support for local development and testing via Minikube and Docker Desktop. While it has not been extensively validated on production-grade Kubernetes clusters, all features and microservices operate successfully in local Kubernetes environments.
 
-Deployment is orchestrated using a dedicated Go-based tool named kuspacectl.go. This CLI tool simplifies building, deploying, and tearing down the entire stack. It handles:
+Deployment is orchestrated using a dedicated Go-based tool named kuspacectl. This CLI tool simplifies building, deploying, and tearing down the entire stack. It handles:
 
 \begin{itemize}
 \item Building Docker images for each microservice.

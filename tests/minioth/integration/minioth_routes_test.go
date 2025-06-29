@@ -706,6 +706,8 @@ func TestAdminUsermod_DebugMode(t *testing.T) {
 
 	fmt.Printf("user returned: %+v", result)
 
+	uid := int64(result["uid"].(float64))
+
 	// mod this user
 	jsonData, _ := json.Marshal(map[string]any{"user": utils.User{
 		Username: username,
@@ -714,7 +716,9 @@ func TestAdminUsermod_DebugMode(t *testing.T) {
 		Home:     "",
 		Shell:    "",
 		Password: utils.Password{Hashpass: "Testpass1"},
-		Groups:   []utils.Group{{Groupname: username}, {Groupname: "user"}},
+		Groups:   []utils.Group{{Groupname: username, GID: uid}, {Groupname: "user", GID: 1000}},
+		UID:      uid,
+		Pgroup:   uid,
 	}})
 
 	req, _ = http.NewRequest(http.MethodPut, "/v1/admin/usermod", bytes.NewBuffer(jsonData))
