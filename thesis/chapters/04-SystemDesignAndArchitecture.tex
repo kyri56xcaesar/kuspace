@@ -858,17 +858,17 @@ Interface icons, tool indicators, and status badges are rendered using the Font 
 Both technology stacks are served from Frontapp, bypassing any cdn.
 
 \subsection{Integration}
-Both the Frontapp and the Wss are integrated in the system as Kubernetes Deployments remaining stateless. There is also ephemeral logging, 
+Both the Frontapp and the Wss are integrated in the system as Kubernetes Deployments remain stateless. There is also ephemeral logging, 
 which can be used in the future.
 
 \section{Kubernetes Integration}
 
 Kubernetes functions as the orchestration backbone of the system. It is responsible for deploying, scheduling, and executing containerized jobs 
 submitted by users. Uspace leverages Kubernetes Jobs to launch sandboxed environments in which user-specified tools (e.g., DuckDB, Octave) are 
-executed. It also deployes each Microservice itself, tightening overall security and exposes only the desired service to the end user. In 
+executed. It also deploys each Microservice itself, tightening overall security and exposes only the desired service to the end user. In 
 this case everything should be used and accessed via Frontapp.
 
-Additionally, Kubernetes' Persistent Volume Claims (PVCs) or object storage access is used in allignment with StatefulSets to persist data. 
+Additionally, Kubernetes' Persistent Volume Claims (PVCs) or object storage access is used in alignment with StatefulSets to persist data. 
 Everything deployed on K8S is namespaced. 
 
 Each service is included with a Kubernetes Service and configured accordingly so that there is inter-service communication. There is also use 
