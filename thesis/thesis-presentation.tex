@@ -8,9 +8,9 @@
 \usepackage{subcaption}
 \usepackage{amsmath, amssymb}
 
-\title[Kuspace]{Interactive User environment on Kubernetes platform}
+\title[Kuspace]{Interactive User Environment Application on Kubernetes Platform}
 \author{Chalvatzis Kyriakos}
-\institute{\includegraphics[height=1cm]{Images/TUC_logo_circle.png} \\ Technical University of Crete}
+\institute{\includegraphics[height=1cm]{Images/TUC_logo_circle.png} \\ TUC}
 \date{\today}
 
 \begin{document}
@@ -29,52 +29,104 @@
 \section{Introduction}
 \begin{frame}{Background}
   \begin{itemize}
-    \item Your problem domain
-    \item Motivation for your work
-    \item Related systems or gaps
+    \item Data analytics has become essential across all fields — but entry-level users often struggle with the required infrastructure.
+    \item Motivation: Lower the barrier for non-experts to explore and process data using standard tools.
+    \item While systems like Apache Spark, Airflow, and Hadoop are powerful, they are built for experienced engineers.
+    \item No current open system provides isolated, user-scoped, web-accessible environments on Kubernetes — tailored for batch analytics.
   \end{itemize}
 \end{frame}
+
 
 % Section 2: Objectives
 \section{Objectives}
 \begin{frame}{Goals}
   \begin{itemize}
-    \item Main research question
-    \item What your thesis tries to answer
-    \item Specific aims
+    \item Although not a research thesis, this work aims to prototype a full-stack system that provides:
+    \begin{itemize}
+      \item Secure, multi-user access
+      \item Data upload and sharing capabilities
+      \item Batch job execution in a Kubernetes-native way
+      \item Integrated application like tools such as DuckDB, Python Pandas, Octave and more can be applied on datasets
+    \end{itemize}
+    \item Goal: Deliver an introductory platform for data analytics without overwhelming users.
   \end{itemize}
 \end{frame}
+
 
 % Section 3: Methodology
 \section{Methodology}
-\begin{frame}{Overview}
+\begin{frame}{System Architecture}
   \begin{itemize}
-    \item Architecture / Algorithm overview
-    \item Tools or technologies used
-    \item Diagram:
+    \item Microservice-based architecture deployed on Kubernetes
+    \item Core components:
+    \begin{itemize}
+      \item \textbf{Minioth}: Authentication and group-based access control
+      \item \textbf{Uspace API}: User-facing logic for datasets, jobs, resources
+      \item \textbf{FsLite}: Virtual filesystem abstraction with permissions
+      \item \textbf{MinIO}: Object storage backend
+      \item \textbf{FrontApp}: Web frontend (HTML templates, HTMX, WebSocket integration)
+    \end{itemize}
+    \item Technologies: Go, Gin, Kubernetes, Docker
   \end{itemize}
-  % \includegraphics[width=0.6\textwidth]{images/logo.png}
 \end{frame}
+
+%\begin{frame}{System Diagram}
+%  \centering
+%  \includegraphics[width=0.3\textwidth]{Images/kuspace-overview.png}
+%  \captionof{figure}{System architecture: User Interface → API → Operator + Kubernetes}
+%\end{frame}
+
 
 % Section 4: Results
 \section{Results}
-\begin{frame}{Key Findings}
+
+\begin{frame}{Demonstration \& Key Features}
   \begin{itemize}
-    \item Metric 1: result or chart
-    \item Metric 2: result or chart
-    \item Visual comparisons
+    \item Fully functioning web interface for:
+    \begin{itemize}
+      \item Uploading datasets
+      \item Launching batch jobs with SQL, Python, or predefined tools
+      \item Viewing logs in real time (WebSocket streaming)
+    \end{itemize}
+    \item Example: Executing DuckDB query on uploaded CSV → result saved and downloadable
+    \item Job isolation: Every job runs in its own Kubernetes Pod
   \end{itemize}
 \end{frame}
+
+\begin{frame}{Scalability \& Robustness}
+  \begin{itemize}
+    \item Jobs run independently across nodes — parallel execution
+    \item Fault isolation through Kubernetes Job controller
+    \item MinIO ensures reliable and persistent dataset storage
+    \item Performance scales with cluster size (pods scheduled dynamically)
+  \end{itemize}
+\end{frame}
+
+
 
 % Section 5: Conclusion
 \section{Conclusion}
 \begin{frame}{Summary and Future Work}
   \begin{itemize}
-    \item What was accomplished
-    \item Limitations
-    \item Possible future directions
+    \item \textbf{Accomplishments}:
+    \begin{itemize}
+      \item Designed and implemented a user-centric data platform on Kubernetes
+      \item Combined identity, authorization, storage, and batch compute layers
+      \item Delivered a fully working demo with real-world tools and users
+    \end{itemize}
+    \item \textbf{Limitations}:
+    \begin{itemize}
+    \end{itemize}
+    \item \textbf{Future Work}:
+    \begin{itemize}
+      \item Extend toolset: Jupyter, R, Julia, Tool For Tools
+      \item Add CI/CD for job templates and data pipelines
+      \item CLI tool, a road to the Shell 
+      \item Distributed orchestration...
+    \end{itemize}
   \end{itemize}
 \end{frame}
+
 
 % Final slide
 \begin{frame}{Questions?}
