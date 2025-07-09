@@ -1,5 +1,5 @@
 \beamer@sectionintoc {1}{Introduction}{3}{0}{1}
 \beamer@sectionintoc {2}{Objectives}{4}{0}{2}
 \beamer@sectionintoc {3}{Methodology}{5}{0}{3}
-\beamer@sectionintoc {4}{Results}{6}{0}{4}
-\beamer@sectionintoc {5}{Conclusion}{8}{0}{5}
+\beamer@sectionintoc {4}{Results}{9}{0}{4}
+\beamer@sectionintoc {5}{Conclusion}{11}{0}{5}

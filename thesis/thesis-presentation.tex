@@ -25,19 +25,17 @@
   \tableofcontents
 \end{frame}
 
-% Section 1: Introduction
 \section{Introduction}
 \begin{frame}{Background}
   \begin{itemize}
     \item Data analytics has become essential across all fields — but entry-level users often struggle with the required infrastructure.
-    \item Motivation: Lower the barrier for non-experts to explore and process data using standard tools.
+    \item Motivation: Lower the barrier for non-experts to explore and process data using standard tools. User-friendly analytical computing!
     \item While systems like Apache Spark, Airflow, and Hadoop are powerful, they are built for experienced engineers.
     \item No current open system provides isolated, user-scoped, web-accessible environments on Kubernetes — tailored for batch analytics.
   \end{itemize}
 \end{frame}
 
 
-% Section 2: Objectives
 \section{Objectives}
 \begin{frame}{Goals}
   \begin{itemize}
@@ -46,38 +44,50 @@
       \item Secure, multi-user access
       \item Data upload and sharing capabilities
       \item Batch job execution in a Kubernetes-native way
-      \item Integrated application like tools such as DuckDB, Python Pandas, Octave and more can be applied on datasets
+      \item Integrated application-like tools such as DuckDB, Python Pandas, Octave and more can be applied on datasets
     \end{itemize}
     \item Goal: Deliver an introductory platform for data analytics without overwhelming users.
+    \item Goal: Achieve a Cloud-native and modular design.
   \end{itemize}
 \end{frame}
 
 
-% Section 3: Methodology
+
 \section{Methodology}
 \begin{frame}{System Architecture}
   \begin{itemize}
     \item Microservice-based architecture deployed on Kubernetes
     \item Core components:
     \begin{itemize}
-      \item \textbf{Minioth}: Authentication and group-based access control
       \item \textbf{Uspace API}: User-facing logic for datasets, jobs, resources
       \item \textbf{FsLite}: Virtual filesystem abstraction with permissions
       \item \textbf{MinIO}: Object storage backend
+      \item \textbf{Minioth}: Authentication and group-based access control
       \item \textbf{FrontApp}: Web frontend (HTML templates, HTMX, WebSocket integration)
     \end{itemize}
     \item Technologies: Go, Gin, Kubernetes, Docker
   \end{itemize}
 \end{frame}
 
-%\begin{frame}{System Diagram}
-%  \centering
-%  \includegraphics[width=0.3\textwidth]{Images/kuspace-overview.png}
-%  \captionof{figure}{System architecture: User Interface → API → Operator + Kubernetes}
-%\end{frame}
+\begin{frame}{System Diagram}
+  \centering
+  \includegraphics[width=0.5\textwidth]{Images/kuspace-overview.png}
+\end{frame}
+
+\begin{frame}{Uspace Storage Control }
+  \centering
+  \includegraphics[width=0.6\textwidth]{Images/UspaceBlockDiagram.drawio.png}
+  \captionof{figure}{UspaceStorage}
+\end{frame}
+
+\begin{frame}{Uspace Job Lifecycle}
+  \centering
+  \includegraphics[width=0.7\textwidth]{Images/job-lifecycle.png}
+  \captionof{figure}{Uspace Jobs}
+\end{frame}
 
 
-% Section 4: Results
+
 \section{Results}
 
 \begin{frame}{Demonstration \& Key Features}
@@ -104,7 +114,6 @@
 
 
 
-% Section 5: Conclusion
 \section{Conclusion}
 \begin{frame}{Summary and Future Work}
   \begin{itemize}
@@ -115,8 +124,6 @@
       \item Delivered a fully working demo with real-world tools and users
     \end{itemize}
     \item \textbf{Limitations}:
-    \begin{itemize}
-    \end{itemize}
     \item \textbf{Future Work}:
     \begin{itemize}
       \item Extend toolset: Jupyter, R, Julia, Tool For Tools
