@@ -52,11 +52,13 @@
 \end{frame}
 
 
-
 \section{Methodology}
 \begin{frame}{System Architecture}
   \begin{itemize}
     \item Microservice-based architecture deployed on Kubernetes
+      \begin{itemize}
+        \item Why? "Seperation of Concerts", scalable, modular and adaptable
+      \end{itemize}
     \item Core components:
     \begin{itemize}
       \item \textbf{Uspace API}: User-facing logic for datasets, jobs, resources
@@ -68,6 +70,17 @@
     \item Technologies: Go, Gin, Kubernetes, Docker
   \end{itemize}
 \end{frame}
+
+\begin{frame}{Goals 2} 
+  What we want to achieve in this system:
+  \begin{itemize}
+    \item Identity - (Authentication) 
+    \item Secure Access - (Authorization) 
+    \item Physical Storage - (Data Storage)
+    \item Job execution mechanism - (Job Flow)
+  \end{itemize}
+\end{frame}
+
 
 \begin{frame}{System Diagram}
   \centering
@@ -86,6 +99,102 @@
   \captionof{figure}{Uspace Jobs}
 \end{frame}
 
+\begin{frame}{FsLite Structure}
+  \centering
+  \includegraphics[width=0.7\textwidth]{Images/fsl.png}
+\end{frame}
+
+\begin{frame}{Minioth Structure}
+  \centering
+  \includegraphics[width=0.7\textwidth]{Images/minioth-blockdiagram.png}
+\end{frame}
+
+\begin{frame}{Frontapp Structure}
+  \centering
+  \includegraphics[width=0.7\textwidth]{Images/frontapp-blockdiagram.png}
+\end{frame}
+
+\begin{frame}{Uspace API}
+  \begin{table}[H]
+  \centering
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{|l|l|p{9cm}|}
+    \hline
+    \textbf{Method} & \textbf{Path} & \textbf{Description} \\
+    \hline
+    GET/POST/PUT/DELETE/PATCH & \texttt{/api/v1/admin/volumes} & Full volume management API. \\
+    DELETE/PUT & \texttt{/api/v1/admin/job} & Administrative job control (e.g., delete jobs). \\
+    GET/POST/PATCH/DELETE & \texttt{/api/v1/admin/user/volume} & Manage user-volume mappings. \\
+    GET/POST/PUT/DELETE & \texttt{/api/v1/admin/app} & Manage available applications/tools. \\
+    GET & \texttt{/api/v1/admin/system-conf} & View current system configuration. \\
+    GET & \texttt{/api/v1/admin/system-metrics} & System metrics via Kubernetes API. \\
+    \hline
+    \end{tabular}
+  }
+  \caption{Uspace Admin API Endpoints}
+  \label{tab:uspace-admin-endpoints}
+  \end{table}
+\end{frame}
+
+\begin{frame}{FsLite API}
+  
+\begin{table}[H]
+  \centering
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{|l|l|p{9cm}|}
+  \hline
+  \textbf{Method} & \textbf{Path} & \textbf{Description}\\
+  \hline
+  \hline
+  POST              & \texttt{/login}                     & Authenticate and receive a token.\\
+  POST              & \texttt{/admin/register}            & Authenticate and receive JWT token.\\
+  POST              & \texttt{/admin/volume/new}          & Change password for the authenticated user.\\
+  DELETE            & \texttt{/admin/volume/delete}       & Delete a specified volume\\
+  GET               & \texttt{/admin/volume/get}          & Retrieve information about a logical volume\\
+  GET               & \texttt{/admin/resource/get}        & Retrieve metadata of multiple resources \\ 
+  GET               & \texttt{/admin/resource/stat}       & Retrieve more detailed metadata of a specific resource.\\
+  DELETE            & \texttt{/admin/resource/delete}     & Delete a specified resource.\\
+  POST              & \texttt{/admin/resource/upload}     & Upload resource content to volume.\\
+  GET               & \texttt{/admin/resource/download}   & Download a resource from storage.\\
+  GET/PATCH/DELETE  & \texttt{/admin/user/voumes}         & CRUD user volumes.\\
+  \hline
+  \hline
+  \end{tabular}%
+  }
+  \caption{FsLite public API endpoints}
+  \label{tab:fslite-public-endpoints}
+\end{table}
+\end{frame}
+
+\begin{frame}{Minioth API}
+  \begin{table}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|l|l|p{7cm}|c|}
+\hline
+\textbf{Method} & \textbf{Path} & \textbf{Description} & \textbf{Auth} \\
+\hline
+\hline
+POST  & \texttt{/v1/register}            & Register a new user.                           & No  \\
+POST  & \texttt{/v1/login}               & Authenticate and receive JWT token.            & No  \\
+POST  & \texttt{/v1/passwd}              & Change password for the authenticated user.    & Yes (user/admin) \\
+GET   & \texttt{/v1/user/me}             & Get information about the token's user.        & Token \\
+GET   & \texttt{/v1/user/token}          & View current token details.                    & No \\
+POST  & \texttt{/v1/user/refresh-token}  & Request a new access token using a refresh token. & No \\
+GET   & \texttt{/v1/swagger/*any}        & Swagger UI for live API documentation.         & No \\
+\hline
+\hline
+\end{tabular}%
+}
+\caption{Minioth public/user API endpoints}
+\label{tab:minioth-public-endpoints}
+\end{table}
+\end{frame}
+
+
+
+
+
 
 
 \section{Results}
@@ -103,15 +212,6 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Scalability \& Robustness}
-  \begin{itemize}
-    \item Jobs run independently across nodes — parallel execution
-    \item Fault isolation through Kubernetes Job controller
-    \item MinIO ensures reliable and persistent dataset storage
-    \item Performance scales with cluster size (pods scheduled dynamically)
-  \end{itemize}
-\end{frame}
-
 
 
 \section{Conclusion}
@@ -124,6 +224,9 @@
       \item Delivered a fully working demo with real-world tools and users
     \end{itemize}
     \item \textbf{Limitations}:
+      \begin{itemize}
+        \item Not expected to perform fast on really big data
+      \end{itemize} 
     \item \textbf{Future Work}:
     \begin{itemize}
       \item Extend toolset: Jupyter, R, Julia, Tool For Tools
