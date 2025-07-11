@@ -13,11 +13,24 @@
 \institute{\includegraphics[height=1cm]{Images/TUC_logo_circle.png} \\ TUC}
 \date{\today}
 
+\newcommand{\committee}{
+  \begin{tabular}{ll}
+    \textbf{Supervisor:} & Prof. Vasilis Samoladas \\
+    \textbf{Committee:} & Prof. Nikos Giatrakos \\
+                        & Prof. Euripides Petrakis \\
+  \end{tabular}
+}
+
+
 \begin{document}
 
 % Title Slide
 \begin{frame}
   \titlepage
+\end{frame}
+
+\begin{frame}{Thesis Committee}
+  \committee
 \end{frame}
 
 % Outline
@@ -114,7 +127,36 @@
   \includegraphics[width=0.7\textwidth]{Images/frontapp-blockdiagram.png}
 \end{frame}
 
-\begin{frame}{Uspace API}
+\begin{frame}{Uspace API 1}
+\begin{table}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|l|l|p{9cm}|c|}
+\hline
+\textbf{Method} & \textbf{Path} & \textbf{Description} & \textbf{Requires \texttt{Access-Target}} \\
+\hline
+GET & \texttt{/healthz} & Health check endpoint. & No \\
+GET/POST & \texttt{/api/v1/job} & Submit or list jobs. & No \\
+GET/POST & \texttt{/api/v1/app} & List available tools (applications). & No \\
+GET & \texttt{/api/v1/resources} & List resources (“ls” equivalent). & Yes \\
+POST & \texttt{/api/v1/resource/upload} & Upload a new resource file. & Yes \\
+GET & \texttt{/api/v1/resource/preview} & Preview a resource. & Yes (Read) \\
+GET & \texttt{/api/v1/resource/download} & Download a resource. & Yes (Read) \\
+DELETE & \texttt{/api/v1/resource/rm} & Delete a resource. & Yes (Write) \\
+POST & \texttt{/api/v1/resource/cp} & Copy a resource. & Yes (Read) \\
+PATCH & \texttt{/api/v1/resource/mv} & Move/rename a resource. & Yes (Write) \\
+PATCH & \texttt{/api/v1/resource/permissions} & Change resource permissions. & Yes (Owner) \\
+PATCH & \texttt{/api/v1/resource/ownership} & Change resource ownership. & Yes (Owner) \\
+PATCH & \texttt{/api/v1/resource/group} & Change associated group. & Yes (Owner) \\
+\hline
+\end{tabular}
+}
+\caption{Uspace User API Endpoints}
+\label{tab:uspace-user-endpoints}
+\end{table}
+
+\end{frame}
+\begin{frame}{Uspace API 2}
   \begin{table}[H]
   \centering
   \resizebox{\textwidth}{!}{%
@@ -132,8 +174,8 @@
     \end{tabular}
   }
   \caption{Uspace Admin API Endpoints}
-  \label{tab:uspace-admin-endpoints}
   \end{table}
+
 \end{frame}
 
 \begin{frame}{FsLite API}
@@ -166,7 +208,7 @@
 \end{table}
 \end{frame}
 
-\begin{frame}{Minioth API}
+\begin{frame}{Minioth API 1}
   \begin{table}[H]
 \centering
 \resizebox{\textwidth}{!}{%
@@ -191,6 +233,38 @@ GET   & \texttt{/v1/swagger/*any}        & Swagger UI for live API documentation
 \end{table}
 \end{frame}
 
+\begin{frame}{Minioth API 2}
+\begin{table}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|l|l|p{7cm}|c|}
+\hline
+\textbf{Method} & \textbf{Path} & \textbf{Description} \\
+\hline
+\hline
+GET    & \texttt{/v1/admin/audit/logs}      & Retrieve system audit logs. \\
+POST   & \texttt{/v1/admin/hasher}          & Generate bcrypt hashes from plaintext passwords. \\
+POST   & \texttt{/v1/admin/verify-password} & Compare a password against a stored hash. \\
+GET    & \texttt{/v1/admin/users}           & List all registered users. \\
+GET    & \texttt{/v1/admin/groups}          & List all groups and their members. \\
+POST   & \texttt{/v1/admin/useradd}         & Add a new user to the system. \\
+DELETE & \texttt{/v1/admin/userdel}         & Delete a user by UID or username. \\
+PATCH  & \texttt{/v1/admin/userpatch}       & Update selected fields of a user. \\
+PUT    & \texttt{/v1/admin/usermod}         & Fully replace a user record. \\
+POST   & \texttt{/v1/admin/groupadd}        & Create a new group. \\
+PATCH  & \texttt{/v1/admin/grouppatch}      & Update specific fields of a group. \\
+PUT    & \texttt{/v1/admin/groupmod}        & Fully update a group definition. \\
+DELETE & \texttt{/v1/admin/groupdel}        & Remove a group from the system. \\
+POST   & \texttt{/v1/admin/rotate}          & Rotate the JWT signing key in use. \\
+GET    & \texttt{/v1/admin/system-conf}     & View current server configuration. \\
+\hline
+\hline
+\end{tabular}%
+}
+\caption{Minioth public/admin API endpoints}
+\end{table}
+
+\end{frame}
 
 
 

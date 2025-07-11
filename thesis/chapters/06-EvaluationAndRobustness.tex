@@ -7,6 +7,23 @@ Scalability tests were performed using the \texttt{bombardier} load testing tool
 
 Tests focused on the main user-facing endpoints, including data retrieval, job submission, and authentication. Each endpoint was tested independently under varying levels of concurrency and request volumes. Resource utilization was monitored using Kubernetes-native tools (\texttt{kubectl top}) to correlate system load with CPU and memory consumption.
 
+\begin{table}[h!]
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tabular}{|l|c|c|l|}
+\hline
+\textbf{Endpoint} & \textbf{Concurrency (C)} & \textbf{No. Requests Sent} & \textbf{Notes} \\ \hline 
+\texttt{/api/v1}  & 100 & 1,000,000 & (Front) Main homepage or landing data.\\ \hline
+\texttt{/v1/login} & 100 & 1,000,000 & (Auth) Login token generation load. \\ \hline 
+\texttt{/v1/register} & 100 & 1,000,000 & (Auth) User registration endpoint. \\ \hline
+\texttt{/api/v1/resource/upload} & 50 & 500  & (Uspace) Upload files. \\ \hline
+\texttt{/api/v1/resources} & 100 & 1,000,000 & (Uspace) List resources. \\ \hline
+\texttt{/api/v1/job} & 50 & 500 & (Uspace) Job submission endpoint.\\ \hline
+\end{tabular}%
+}
+\caption{Scalability Test Configuration for API Endpoints}
+\label{tab:scalability-test-config}
+\end{table}
 
 \begin{table}[h!]
 \centering
@@ -25,36 +42,28 @@ Tests focused on the main user-facing endpoints, including data retrieval, job s
 \vspace{1em} 
 
 
-\centering
-\label{tab:upload-test}
-\resizebox{\textwidth}{!}{
-\begin{tabular}{|l|c|c|c|c|l|}
-\hline
-\textbf{Endpoint} & \textbf{Concurrency (C)} & \textbf{Throughput (files/sec)} & \textbf{Avg Latency (ms)} & \textbf{Max Latency (ms)} & \textbf{Notes} \\ \hline
-
-\texttt{/api/v1/resource/upload} & 50 & 111.22 & 322.29 & 3058.23 & 500 uploads, 100\% success, minor latency variance due to file I/O. \\ \hline
-
-\end{tabular}
-}
 
 
-\vspace{1em} 
 
-\resizebox{\textwidth}{!}{
-\begin{tabular}{|l|c|c|l|}
-\hline
-\textbf{Endpoint} & \textbf{Concurrency (C)} & \textbf{No. Requests Sent} & \textbf{Notes} \\ \hline 
-\texttt{/api/v1}  & 100 & 1,000,000 & (Front) Main homepage or landing data.\\ \hline
-\texttt{/v1/login} & 100 & 1,000,000 & (Auth) Login token generation load. \\ \hline 
-\texttt{/v1/register} & 100 & 1,000,000 & (Auth) User registration endpoint. \\ \hline
-\texttt{/api/v1/resource/upload} & 50 & 500  & (Uspace) Upload files. \\ \hline
-\texttt{/api/v1/resources} & 100 & 1,000,000 & (Uspace) List resources. \\ \hline
-\texttt{/api/v1/job} & 50 & 500 & (Uspace) Job submission endpoint.\\ \hline
-\end{tabular}%
-}
-
-\caption{Scalability Test Results for API Endpoints: Performance Metrics (top), Upload Test (middle) and Setup (bottom).}
+\caption{Scalability Test Results for API Endpoints: Performance Metrics}
 \label{tab:scalability-results}
+\end{table}
+
+\newpage 
+
+\begin{table}[h!]
+    \centering
+    \label{tab:upload-test}
+    \resizebox{\textwidth}{!}{
+    \begin{tabular}{|l|c|c|c|l|}
+    \hline
+    \textbf{Endpoint} & \textbf{Concurrency (C)} & \textbf{Throughput (files/sec)} & \textbf{Avg Latency (ms)} & \textbf{Max Latency (ms)} \\ \hline
+
+    \texttt{/api/v1/resource/upload} & 50 & 111.22 & 322.29 & 3058.23  \\ \hline
+
+    \end{tabular}
+    }
+    \caption{Resource Upload Endpoint Performance}
 \end{table}
 
 \subsection{API Endpoint Performance}

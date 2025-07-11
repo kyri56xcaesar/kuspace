@@ -39,6 +39,8 @@ cmd/frontendapp/frontendapp
 cmd/frontendapp/ws/ws_server
 cmd/uspace/uspace
 
+thesis/*
+^thesis/*.pdf
 
 
 
