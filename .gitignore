@@ -40,7 +40,7 @@ cmd/frontendapp/ws/ws_server
 cmd/uspace/uspace
 
 thesis/*
-^thesis/*.pdf
+#thesis/*.pdf
 
 
 
