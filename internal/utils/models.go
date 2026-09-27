@@ -129,6 +129,10 @@ func (r *Resource) PtrFieldsNoID() []any {
 *  -> authorization.
 * */
 
+// DefaultFilePerms is given to every new resource: read/write for the owner,
+// read for the owner's group, nothing for everyone else.
+const DefaultFilePerms = "rw-r-----"
+
 // HasAccess method checks whether the given AccessClaim applies Read authorization upon the Resource Object
 func (r Resource) HasAccess(userInfo AccessClaim) bool {
 	/* parse permissions
@@ -226,33 +230,17 @@ func (r Resource) HasExecutionAccess(_ AccessClaim) bool {
 // IsOwner method will check the given AccessClaim applies Ownership authorization upon the Resource object
 // this shall check if the resource owner is of the claim OR if the resource group ownership is included in the claim groups
 func (r Resource) IsOwner(ac AccessClaim) bool {
+	// Only the owning user owns a resource (root is handled by the callers).
+	// Group members used to count as owners too, so anyone in a shared group
+	// (every user is in "user") could chmod/chown a file shared with it.
 	intUID, err := strconv.ParseInt(ac.UID, 10, 64)
 	if err != nil {
 		log.Printf("[ownership-controller] failed to atoi access_claim")
 
 		return false
-	} else if r.UID == intUID {
-		log.Printf("[ownership-controller] user id %d matches item id %d", intUID, r.UID)
-
-		return true
 	}
 
-	intGids, err := SplitToInt64(ac.Gids, ",")
-	if err != nil {
-		log.Printf("[ownership-controller] failed to atoi group ids")
-
-		return false
-	}
-	for _, gid := range intGids {
-		if gid == r.GID {
-			log.Printf("[ownership-controller] user group id %d allows item group %d", gid, r.GID)
-
-			return true
-		}
-	}
-	// check for group ownership
-
-	return false
+	return r.UID == intUID
 }
 
 // Permissions struct describes a unix style file inode permission set

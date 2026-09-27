@@ -59,7 +59,6 @@ type EnvConfig struct {
 	// auth as in an authentication app // if an auth app uses this configuration, it should reference api port as itself
 
 	// service (main) authentication info
-	Jwks             string // used by (minioth)
 	JwtValidityHours float64
 	JwtSecretKey     []byte
 	ServiceSecretKey []byte
@@ -178,7 +177,6 @@ func LoadConfig(path string) EnvConfig {
 		JwtSecretKey:     getSecretKey("JWT_SECRET_KEY", true),
 		JwtValidityHours: getFloatEnv("JWT_VALIDITY_HOURS", 1),
 		ServiceSecretKey: getSecretKey("SERVICE_SECRET_KEY", true),
-		Jwks:             getEnv("JWKS", "data/jwks/jwks.json"),
 
 		StorageSystem:               getEnv("STORAGE_SYSTEM", "local"),
 		LocalVolumesDefaultCapacity: getFloatEnv("LOCAL_VOLUMES_DEFAULT_CAPACITY", 20),
@@ -345,7 +343,6 @@ func (cfg *EnvConfig) DeepCopy() EnvConfig {
 		FrontAddress:                cfg.FrontAddress,
 		AuthPort:                    cfg.AuthPort,
 		AuthAddress:                 cfg.AuthAddress,
-		Jwks:                        cfg.Jwks,
 		JwtValidityHours:            cfg.JwtValidityHours,
 		HashCost:                    cfg.HashCost,
 		AsOperator:                  cfg.AsOperator,
@@ -440,6 +437,9 @@ func (cfg *EnvConfig) ToString() string {
 		if byteSlice, ok := fieldValue.([]byte); ok {
 			fieldValue = string(byteSlice)
 		}
+		if isSecretName(fieldName) && fmt.Sprint(fieldValue) != "" {
+			fieldValue = "<redacted>"
+		}
 
 		strBuilder.WriteString("[CFG]")
 		if i < 9 {
@@ -492,6 +492,15 @@ func MakeConfig(path string, fields any) error {
 	return nil
 }
 
+// isSecretName reports whether a config key or EnvConfig field name holds a
+// secret, so it is never logged or served (e.g. by /system-conf).
+func isSecretName(name string) bool {
+	n := strings.ToLower(name)
+
+	return strings.Contains(n, "secret") || strings.Contains(n, "password") ||
+		strings.HasSuffix(n, "_key")
+}
+
 // ReadConfig reads fields from a file and creates a string to string map
 func ReadConfig(path string, secrets bool) (map[string]string, error) {
 	cfg, err := os.Open(path)
@@ -507,7 +516,7 @@ func ReadConfig(path string, secrets bool) (map[string]string, error) {
 		if len(line) == 0 || strings.HasPrefix(line, "#") {
 			continue
 		}
-		if !secrets && strings.Contains(strings.ToLower(line), "_key") {
+		if !secrets && isSecretName(strings.SplitN(line, "=", 2)[0]) {
 			continue
 		}
 

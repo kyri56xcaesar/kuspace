@@ -31,6 +31,7 @@ package utils
 */
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"os"
@@ -111,6 +112,13 @@ func (m *DBHandler) GetConn() (*sql.DB, error) {
 			}
 		} else {
 			dsn = m.dbPath + m.DBName
+			if m.dbDriver == "sqlite3" {
+				// wait on locks instead of failing with "database is locked", let
+				// readers run alongside the writer, and enforce the FOREIGN KEY ...
+				// ON DELETE CASCADE the schemas declare (SQLite ignores them unless
+				// enabled per connection).
+				dsn += "?_busy_timeout=5000&_journal_mode=WAL&_foreign_keys=on"
+			}
 		}
 
 		db, err := sql.Open(m.dbDriver, dsn)
@@ -168,7 +176,7 @@ func (m *DBHandler) Init(initSQLarg, maxOpenConns, maxIdleCons, connLifetime str
 	db.SetConnMaxLifetime(time.Duration(connLifetimeInt) * time.Minute)
 
 	// init tables
-	_, err = db.Exec(initSQLarg)
+	_, err = db.ExecContext(context.Background(), initSQLarg)
 	if err != nil {
 		m.Close()
 		log.Fatalf("failed to init db, destrcutive: %v", err)

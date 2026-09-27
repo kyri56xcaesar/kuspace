@@ -420,10 +420,20 @@ func IsNumeric(s string) bool {
 }
 
 // IsValidPath function checks if a given string is a valid "path" string
-func IsValidPath(s string) bool {
-	re := regexp.MustCompile(`^[a-zA-Z0-9._\-/]+$`)
+var validPathRe = regexp.MustCompile(`^[a-zA-Z0-9._\-/]+$`)
 
-	return re.MatchString(s)
+func IsValidPath(s string) bool {
+	if !validPathRe.MatchString(s) {
+		return false
+	}
+	// no parent-directory segments: the character class alone allows "../"
+	for _, seg := range strings.Split(s, "/") {
+		if seg == ".." {
+			return false
+		}
+	}
+
+	return true
 }
 
 // IsAlphanumeric function checks if the given string matches the regex of numericals and letter characters
