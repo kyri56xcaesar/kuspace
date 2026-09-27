@@ -51,6 +51,9 @@ type UService struct {
 	/* configuration file (.env) */
 	config ut.EnvConfig
 
+	// tokens verifies minioth access tokens (identity.go, tokens.go)
+	tokens *tokenVerifier
+
 	/* server engine */
 	Engine *gin.Engine
 
@@ -95,6 +98,7 @@ func NewUService(conf string) UService {
 	srv := UService{
 		Engine: gin.Default(),
 		config: cfg,
+		tokens: newTokenVerifier(cfg),
 		// dbh:     NewDBHandler(cfg.DB_RV, cfg.DB_RV_DRIVER),
 	}
 

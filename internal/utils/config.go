@@ -61,6 +61,7 @@ type EnvConfig struct {
 	// service (main) authentication info
 	JwtValidityHours float64
 	JwtSecretKey     []byte
+	JwtSigningAlg    string // HS256 (shared JwtSecretKey) or RS256 (minioth's JWKS)
 	ServiceSecretKey []byte
 	AllowedOrigins   []string
 	AllowedHeaders   []string
@@ -175,6 +176,7 @@ func LoadConfig(path string) EnvConfig {
 		AllowedMethods:   getEnvs("ALLOWED_METHODS", nil),
 		Issuer:           getEnv("ISSUER", "http://localhost:9090"),
 		JwtSecretKey:     getSecretKey("JWT_SECRET_KEY", true),
+		JwtSigningAlg:    getEnv("JWT_SIGNING_ALG", "HS256"),
 		JwtValidityHours: getFloatEnv("JWT_VALIDITY_HOURS", 1),
 		ServiceSecretKey: getSecretKey("SERVICE_SECRET_KEY", true),
 
@@ -343,6 +345,7 @@ func (cfg *EnvConfig) DeepCopy() EnvConfig {
 		FrontAddress:                cfg.FrontAddress,
 		AuthPort:                    cfg.AuthPort,
 		AuthAddress:                 cfg.AuthAddress,
+		JwtSigningAlg:               cfg.JwtSigningAlg,
 		JwtValidityHours:            cfg.JwtValidityHours,
 		HashCost:                    cfg.HashCost,
 		AsOperator:                  cfg.AsOperator,

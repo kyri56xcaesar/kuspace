@@ -39,24 +39,14 @@ type accessClaims struct {
 
 var errNoCredentials = errors.New("no credentials")
 
-// verifyAccessToken validates a minioth access token: HS256 with the shared
-// JWT key, issuer "minioth", not expired. Refresh and purpose tokens are
-// signed with a different key, so they fail here.
-func verifyAccessToken(raw string, key []byte) (*accessClaims, error) {
-	claims := &accessClaims{}
-	_, err := jwt.ParseWithClaims(raw, claims, func(*jwt.Token) (any, error) { return key, nil },
-		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
-		jwt.WithIssuer("minioth"),
-		jwt.WithExpirationRequired(),
-	)
-	if err != nil {
-		return nil, err
-	}
-	if claims.UserID == "" {
-		return nil, errors.New("token has no user_id")
+// tokenVerifier returns the service's verifier (tests build UService
+// without the constructor).
+func (srv *UService) tokenVerifier() *tokenVerifier {
+	if srv.tokens == nil {
+		srv.tokens = newTokenVerifier(srv.config)
 	}
 
-	return claims, nil
+	return srv.tokens
 }
 
 // who renders the token identity as Access-Target's "uid:gids", primary
@@ -101,7 +91,7 @@ func bearerToken(c *gin.Context) string {
 // its identity part is the token's; a service keeps the header as sent.
 func identify(srv *UService, c *gin.Context) (*accessClaims, bool, error) {
 	if raw := bearerToken(c); raw != "" {
-		claims, err := verifyAccessToken(raw, srv.config.JwtSecretKey)
+		claims, err := srv.tokenVerifier().verify(raw)
 		if err != nil {
 			return nil, false, fmt.Errorf("invalid token: %w", err)
 		}

@@ -38,8 +38,9 @@ func token(t *testing.T, key []byte, method jwt.SigningMethod, mutate func(*acce
 }
 
 func TestVerifyAccessToken(t *testing.T) {
+	hs := newTokenVerifier(ut.EnvConfig{JwtSecretKey: testJWTKey}) // HS256 is the default
 	good := token(t, testJWTKey, jwt.SigningMethodHS256, nil)
-	if c, err := verifyAccessToken(good, testJWTKey); err != nil || c.UserID != "1001" {
+	if c, err := hs.verify(good); err != nil || c.UserID != "1001" {
 		t.Fatalf("valid token rejected: %v", err)
 	}
 	none, _ := jwt.NewWithClaims(jwt.SigningMethodNone, &accessClaims{UserID: "0"}).SignedString(jwt.UnsafeAllowNoneSignatureType)
@@ -52,7 +53,7 @@ func TestVerifyAccessToken(t *testing.T) {
 		"no user":           token(t, testJWTKey, jwt.SigningMethodHS256, func(c *accessClaims) { c.UserID = "" }),
 		"garbage":           "not.a.jwt",
 	} {
-		if _, err := verifyAccessToken(raw, testJWTKey); err == nil {
+		if _, err := hs.verify(raw); err == nil {
 			t.Errorf("%s accepted", name)
 		}
 	}
