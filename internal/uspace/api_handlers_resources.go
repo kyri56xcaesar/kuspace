@@ -63,7 +63,7 @@ func (srv *UService) getResourcesHandler(c *gin.Context) {
 	}
 	ac := acH.(ut.AccessClaim)
 	// prefer to get from db // must be ensure its in sync
-	res, err := srv.fsl.SelectObjects(
+	res, err := srv.fsl.SelectObjects(c.Request.Context(),
 		map[string]any{
 			"vname":  ac.Vname,
 			"prefix": strings.TrimPrefix(ac.Target, "/"),
@@ -151,13 +151,13 @@ func (srv *UService) rmResourceHandler(c *gin.Context) {
 	ac := acH.(ut.AccessClaim)
 
 	// if this fails perhaps we need to delete the db entry...
-	target, found, err := srv.lookupResource(ac.Target, ac.Vname)
+	target, found, err := srv.lookupResource(c.Request.Context(), ac.Target, ac.Vname)
 	if err != nil || !found {
 		c.JSON(http.StatusNotFound, gin.H{"error": "resource not found"})
 
 		return
 	}
-	if err := srv.storage.Remove(ut.Resource{
+	if err := srv.storage.Remove(c.Request.Context(), ut.Resource{
 		Name:  ac.Target,
 		Vname: ac.Vname,
 	}); err != nil {
@@ -167,7 +167,7 @@ func (srv *UService) rmResourceHandler(c *gin.Context) {
 		return
 	}
 
-	if err := srv.fsl.Remove(ut.Resource{
+	if err := srv.fsl.Remove(c.Request.Context(), ut.Resource{
 		Name:  ac.Target,
 		Vname: ac.Vname,
 	}); err != nil {
@@ -188,8 +188,8 @@ func (srv *UService) rmResourceHandler(c *gin.Context) {
 // lookupResource finds the resource named `name` in `volume`; found is false
 // (with a nil error) when it doesn't exist. Names are compared in their
 // normalized form (fslite.NormalizeName).
-func (srv *UService) lookupResource(name, volume string) (ut.Resource, bool, error) {
-	r, err := srv.fsl.SelectObjects(map[string]any{"name": fslite.NormalizeName(name), "volume": volume})
+func (srv *UService) lookupResource(ctx context.Context, name, volume string) (ut.Resource, bool, error) {
+	r, err := srv.fsl.SelectObjects(ctx, map[string]any{"name": fslite.NormalizeName(name), "volume": volume})
 	if errors.Is(err, sql.ErrNoRows) {
 		return ut.Resource{}, false, nil
 	}
@@ -202,8 +202,8 @@ func (srv *UService) lookupResource(name, volume string) (ut.Resource, bool, err
 }
 
 // resourceTaken reports whether a resource named `name` exists in `volume`.
-func (srv *UService) resourceTaken(name, volume string) (bool, error) {
-	_, found, err := srv.lookupResource(name, volume)
+func (srv *UService) resourceTaken(ctx context.Context, name, volume string) (bool, error) {
+	_, found, err := srv.lookupResource(ctx, name, volume)
 
 	return found, err
 }
@@ -212,7 +212,7 @@ func (srv *UService) resourceTaken(name, volume string) (bool, error) {
 // destination is taken: storage.Copy overwrites silently, so this must run
 // before any storage call.
 func (srv *UService) refuseTakenDestination(c *gin.Context, name, volume string) bool {
-	taken, err := srv.resourceTaken(name, volume)
+	taken, err := srv.resourceTaken(c.Request.Context(), name, volume)
 	if err != nil {
 		log.Printf("failed to check destination: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to check destination"})
@@ -277,7 +277,7 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 	if crossVolume {
 		var found bool
 		var err error
-		moved, found, err = srv.lookupResource(ac.Target, ac.Vname)
+		moved, found, err = srv.lookupResource(c.Request.Context(), ac.Target, ac.Vname)
 		if err != nil || !found {
 			c.JSON(http.StatusNotFound, gin.H{"error": "resource not found"})
 
@@ -299,7 +299,7 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 		}()
 	}
 
-	if err := srv.storage.Copy(
+	if err := srv.storage.Copy(c.Request.Context(),
 		ut.Resource{
 			Name:  ac.Target,
 			Vname: ac.Vname,
@@ -315,7 +315,7 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 		return
 	}
 
-	if err := srv.storage.Remove(
+	if err := srv.storage.Remove(c.Request.Context(),
 		ut.Resource{
 			Name:  ac.Target,
 			Vname: ac.Vname,
@@ -328,7 +328,7 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 	}
 
 	// database
-	err := srv.fsl.Update(map[string]string{"newname": parts[1], "volume": parts[0], "name": ac.Target, "oldvolume": ac.Vname})
+	err := srv.fsl.Update(c.Request.Context(), map[string]string{"newname": parts[1], "volume": parts[0], "name": ac.Target, "oldvolume": ac.Vname})
 	if err != nil {
 		log.Printf("failed to update inner fsl: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update file in local db"})
@@ -383,7 +383,7 @@ func (srv *UService) cpResourceHandler(c *gin.Context) {
 		return
 	}
 
-	src, found, err := srv.lookupResource(ac.Target, ac.Vname)
+	src, found, err := srv.lookupResource(c.Request.Context(), ac.Target, ac.Vname)
 	if err != nil || !found {
 		c.JSON(http.StatusNotFound, gin.H{"error": "source not found"})
 
@@ -399,7 +399,7 @@ func (srv *UService) cpResourceHandler(c *gin.Context) {
 	// owner and no permissions, i.e. readable by nobody but root).
 	now := ut.CurrentTime()
 	dst := ut.Resource{
-		Name: parts[1], Vname: parts[0], VID: srv.volumeID(parts[0]),
+		Name: parts[1], Vname: parts[0], VID: srv.volumeID(c.Request.Context(), parts[0]),
 		Path: src.Path, Type: src.Type, Size: src.Size,
 		UID: caller, GID: primaryGID(ac, caller), Perms: ut.DefaultFilePerms,
 		CreatedAt: now, UpdatedAt: now, AccessedAt: now,
@@ -413,14 +413,14 @@ func (srv *UService) cpResourceHandler(c *gin.Context) {
 		}
 	}
 
-	if err := srv.storage.Copy(ut.Resource{Name: ac.Target, Vname: ac.Vname}, dst); err != nil {
+	if err := srv.storage.Copy(c.Request.Context(), ut.Resource{Name: ac.Target, Vname: ac.Vname}, dst); err != nil {
 		refund()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to copy object"})
 
 		return
 	}
 	// database
-	if err := srv.fsl.Copy(ut.Resource{Name: ac.Target, Vname: ac.Vname}, dst); err != nil {
+	if err := srv.fsl.Copy(c.Request.Context(), ut.Resource{Name: ac.Target, Vname: ac.Vname}, dst); err != nil {
 		refund()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to record the copy"})
 
@@ -483,7 +483,7 @@ func (srv *UService) handleDownload(c *gin.Context) {
 	}
 	var aR any = resource
 
-	cancelFn, err := srv.storage.Download(&aR)
+	cancelFn, err := srv.storage.Download(c.Request.Context(), &aR)
 	if err != nil {
 		log.Printf("failed to retrieve resource: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to retrieve resource"})
@@ -584,7 +584,7 @@ func (srv *UService) handleUpload(c *gin.Context) {
 		// volume at all): resolve the real one from the volume name so the
 		// resource row references an existing volume.
 		vid, err := strconv.ParseInt(ac.VID, 10, 64)
-		if v, verr := srv.fsl.SelectVolumes(map[string]any{"name": ac.Vname}); verr == nil {
+		if v, verr := srv.fsl.SelectVolumes(c.Request.Context(), map[string]any{"name": ac.Vname}); verr == nil {
 			if vol, ok := v.(ut.Volume); ok {
 				vid, err = vol.VID, nil
 			}
@@ -633,7 +633,7 @@ func (srv *UService) handleUpload(c *gin.Context) {
 		// Refuse a taken name before touching storage: writing the object first
 		// and letting the metadata insert reject the duplicate used to silently
 		// overwrite another user's file.
-		if _, err := srv.fsl.SelectObjects(map[string]any{"name": resource.Name, "volume": resource.Vname}); err == nil {
+		if _, err := srv.fsl.SelectObjects(c.Request.Context(), map[string]any{"name": resource.Name, "volume": resource.Vname}); err == nil {
 			c.JSON(http.StatusConflict, gin.H{"error": "a file named " + resource.Name + " already exists"})
 
 			return
@@ -653,7 +653,7 @@ func (srv *UService) handleUpload(c *gin.Context) {
 			}
 		}
 
-		_, err = srv.storage.Insert(resource)
+		err = srv.storage.Insert(c.Request.Context(), resource)
 		if err != nil {
 			refund()
 			log.Printf("failed to insert resources: %v", err)
@@ -662,7 +662,7 @@ func (srv *UService) handleUpload(c *gin.Context) {
 			return
 		}
 		// defer cancelFn()
-		_, err = srv.fsl.Insert(resource)
+		err = srv.fsl.Insert(c.Request.Context(), resource)
 		if err != nil {
 			refund()
 			log.Printf("failed to insert resources to db: %v", err)
@@ -712,7 +712,7 @@ func (srv *UService) handlePreview(c *gin.Context) {
 		Vname: ac.Vname,
 	}
 	var ar any = resource
-	cancel, err := srv.storage.Download(&ar)
+	cancel, err := srv.storage.Download(c.Request.Context(), &ar)
 	if err != nil {
 		log.Printf("error getting the download stream: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get download stream"})
@@ -830,7 +830,7 @@ func (srv *UService) chmodResourceHandler(c *gin.Context) {
 	}
 
 	// update resource name
-	err := srv.fsl.Update(map[string]string{"rid": rid, "perms": newPerms})
+	err := srv.fsl.Update(c.Request.Context(), map[string]string{"rid": rid, "perms": newPerms})
 	if err != nil {
 		log.Printf("error updating resource perms: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
@@ -878,7 +878,7 @@ func (srv *UService) chownResourceHandler(c *gin.Context) {
 	}
 
 	// update resource name
-	err := srv.fsl.Update(map[string]string{"rid": rid, "owner": newOwner})
+	err := srv.fsl.Update(c.Request.Context(), map[string]string{"rid": rid, "owner": newOwner})
 	if err != nil {
 		log.Printf("error updating resource uid: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
@@ -925,7 +925,7 @@ func (srv *UService) chgroupResourceHandler(c *gin.Context) {
 	}
 
 	// update resource name
-	err := srv.fsl.Update(map[string]string{"rid": rid, "group": newGroup})
+	err := srv.fsl.Update(c.Request.Context(), map[string]string{"rid": rid, "group": newGroup})
 	if err != nil {
 		log.Printf("error updating resource group: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update resource"})
@@ -969,8 +969,8 @@ func (srv *UService) claimSpace(c *gin.Context, uid int64, volume string, size i
 }
 
 // volumeID resolves a volume name to its id (0 if unknown).
-func (srv *UService) volumeID(name string) int64 {
-	v, err := srv.fsl.SelectVolumes(map[string]any{"name": name})
+func (srv *UService) volumeID(ctx context.Context, name string) int64 {
+	v, err := srv.fsl.SelectVolumes(ctx, map[string]any{"name": name})
 	if err != nil {
 		return 0
 	}

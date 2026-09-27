@@ -3,7 +3,10 @@ package fslite
 import (
 	"context"
 	"errors"
+	"io"
+	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 
@@ -32,10 +35,10 @@ func newTestFsl(t *testing.T) *FsLite {
 
 func mustVolume(t *testing.T, fsl *FsLite, name string, capacityGB float64) int64 {
 	t.Helper()
-	if err := fsl.CreateVolume(ut.Volume{Name: name, Capacity: capacityGB, CreatedAt: ut.CurrentTime()}); err != nil {
+	if err := fsl.CreateVolume(t.Context(), ut.Volume{Name: name, Capacity: capacityGB, CreatedAt: ut.CurrentTime()}); err != nil {
 		t.Fatalf("create volume %s: %v", name, err)
 	}
-	v, err := fsl.SelectVolumes(map[string]any{"name": name})
+	v, err := fsl.SelectVolumes(t.Context(), map[string]any{"name": name})
 	if err != nil {
 		t.Fatalf("select volume %s: %v", name, err)
 	}
@@ -50,14 +53,14 @@ func mustResource(t *testing.T, fsl *FsLite, r ut.Resource) {
 	if r.Perms == "" {
 		r.Perms = ut.DefaultFilePerms
 	}
-	if _, err := fsl.Insert(r); err != nil {
+	if err := fsl.Insert(t.Context(), r); err != nil {
 		t.Fatalf("insert %s: %v", r.Name, err)
 	}
 }
 
 func lookup(t *testing.T, fsl *FsLite, name, volume string) (ut.Resource, bool) {
 	t.Helper()
-	r, err := fsl.SelectObjects(map[string]any{"name": name, "volume": volume})
+	r, err := fsl.SelectObjects(t.Context(), map[string]any{"name": name, "volume": volume})
 	if err != nil {
 		return ut.Resource{}, false
 	}
@@ -137,7 +140,7 @@ func TestRenameStaysInItsVolume(t *testing.T) {
 	mustResource(t, fsl, ut.Resource{Name: "/x", Vname: "vol-b", VID: b, UID: 2, GID: 2, Type: "file"})
 
 	// move a:/x -> b:/y ; b:/x must be untouched (the WHERE used to ignore the volume)
-	if err := fsl.Update(map[string]string{"name": "/x", "newname": "y", "volume": "vol-b", "oldvolume": "vol-a"}); err != nil {
+	if err := fsl.Update(t.Context(), map[string]string{"name": "/x", "newname": "y", "volume": "vol-b", "oldvolume": "vol-a"}); err != nil {
 		t.Fatalf("move: %v", err)
 	}
 	moved, ok := lookup(t, fsl, "/y", "vol-b")
@@ -159,7 +162,7 @@ func TestSelectByIDs(t *testing.T) {
 	r, _ := lookup(t, fsl, "/a", "volume1")
 
 	// used to SELECT one column and scan fourteen: chmod/chown/chgrp all failed
-	res, err := fsl.SelectObjects(map[string]any{"rids": strconv.FormatInt(r.RID, 10)})
+	res, err := fsl.SelectObjects(t.Context(), map[string]any{"rids": strconv.FormatInt(r.RID, 10)})
 	if err != nil {
 		t.Fatalf("select by rid: %v", err)
 	}
@@ -174,12 +177,12 @@ func TestForeignKeys(t *testing.T) {
 	vid := mustVolume(t, fsl, "volume1", 0)
 
 	// a resource must reference an existing volume
-	if _, err := fsl.Insert(ut.Resource{Name: "/orphan", Vname: "volume1", VID: 999, UID: 1, Perms: ut.DefaultFilePerms}); err == nil {
+	if err := fsl.Insert(t.Context(), ut.Resource{Name: "/orphan", Vname: "volume1", VID: 999, UID: 1, Perms: ut.DefaultFilePerms}); err == nil {
 		t.Fatal("inserted a resource pointing at a missing volume")
 	}
 	// deleting a volume removes its resources (ON DELETE CASCADE)
 	mustResource(t, fsl, ut.Resource{Name: "/f", Vname: "volume1", VID: vid, UID: 1, GID: 1, Type: "file"})
-	if err := fsl.RemoveVolume(ut.Volume{Name: "volume1", VID: vid}); err != nil {
+	if err := fsl.RemoveVolume(t.Context(), ut.Volume{Name: "volume1", VID: vid}); err != nil {
 		t.Fatalf("remove volume: %v", err)
 	}
 	if _, ok := lookup(t, fsl, "/f", "volume1"); ok {
@@ -199,7 +202,7 @@ func TestConcurrentSameNameInserts(t *testing.T) {
 		go func() {
 			start.Wait()
 			now := ut.CurrentTime()
-			_, err := fsl.Insert(ut.Resource{Name: "race.txt", Vname: "volume1", VID: vid, UID: int64(1000 + i),
+			err := fsl.Insert(t.Context(), ut.Resource{Name: "race.txt", Vname: "volume1", VID: vid, UID: int64(1000 + i),
 				GID: 1, Perms: ut.DefaultFilePerms, Type: "file", CreatedAt: now, UpdatedAt: now, AccessedAt: now})
 			errs <- err
 		}()
@@ -217,5 +220,60 @@ func TestConcurrentSameNameInserts(t *testing.T) {
 	}
 	if ok != 1 {
 		t.Fatalf("%d concurrent inserts of one name succeeded, want exactly 1", ok)
+	}
+}
+
+// withLocality turns on file storage under a temp dir. fsliteDataPath is a
+// package variable, so these tests must not run in parallel.
+func withLocality(t *testing.T, fsl *FsLite, volumes ...string) {
+	t.Helper()
+	old := fsliteDataPath
+	fsliteDataPath = t.TempDir()
+	t.Cleanup(func() { fsliteDataPath = old })
+	fsl.config.FslLocality = true
+	for _, v := range volumes {
+		if err := os.MkdirAll(fsliteDataPath+"/"+v, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestLocalDownloadAndStat(t *testing.T) {
+	fsl := newTestFsl(t)
+	vid := mustVolume(t, fsl, "volume1", 0)
+
+	var r any = &ut.Resource{Name: "a.txt", Vname: "volume1"}
+	if _, err := fsl.Download(t.Context(), &r); err == nil {
+		t.Error("download without locality succeeded (fslite holds no data then)")
+	}
+
+	withLocality(t, fsl, "volume1")
+	mustResource(t, fsl, ut.Resource{Name: "a.txt", Vname: "volume1", VID: vid, UID: 1, GID: 1, Type: "file",
+		Reader: strings.NewReader("hello")})
+
+	// uspace passes a *ut.Resource and reads the reader off it
+	res := &ut.Resource{Name: "a.txt", Vname: "volume1"}
+	r = res
+	release, err := fsl.Download(t.Context(), &r)
+	if err != nil {
+		t.Fatalf("download: %v", err)
+	}
+	body, _ := io.ReadAll(res.Reader)
+	release()
+	if string(body) != "hello" || res.Size != 5 {
+		t.Errorf("downloaded %q (size %d)", body, res.Size)
+	}
+
+	info, err := fsl.Stat(t.Context(), ut.Resource{Name: "a.txt", Vname: "volume1"})
+	if err != nil || info.(os.FileInfo).Size() != 5 {
+		t.Errorf("stat = %v, %v", info, err)
+	}
+}
+
+func TestCreateVolumeExists(t *testing.T) {
+	fsl := newTestFsl(t)
+	mustVolume(t, fsl, "volume1", 0)
+	if err := fsl.CreateVolume(t.Context(), ut.Volume{Name: "volume1", CreatedAt: ut.CurrentTime()}); !errors.Is(err, ErrVolumeExists) {
+		t.Errorf("second create = %v, want ErrVolumeExists", err)
 	}
 }

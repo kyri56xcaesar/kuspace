@@ -56,7 +56,7 @@ func (srv *UService) authorizeJobIO(c *gin.Context, job ut.Job) error {
 	if !ok {
 		return fmt.Errorf("%w: input must be <volume>/<object>", errJobForbidden)
 	}
-	in, found, err := srv.lookupResource(name, vol)
+	in, found, err := srv.lookupResource(c.Request.Context(), name, vol)
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func (srv *UService) authorizeJobIO(c *gin.Context, job ut.Job) error {
 	if !ok {
 		return fmt.Errorf("%w: output must be <volume>/<object>", errJobForbidden)
 	}
-	out, found, err := srv.lookupResource(name, vol)
+	out, found, err := srv.lookupResource(c.Request.Context(), name, vol)
 	if err != nil {
 		return err
 	}

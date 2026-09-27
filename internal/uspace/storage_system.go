@@ -13,23 +13,25 @@ import (
 type StorageSystem interface {
 	DefaultVolume(local bool) string
 
-	CreateVolume(volume any) error
+	CreateVolume(ctx context.Context, volume any) error
 
-	SelectVolumes(how map[string]any) (any, error)
-	SelectObjects(how map[string]any) (any, error)
+	SelectVolumes(ctx context.Context, how map[string]any) (any, error)
+	SelectObjects(ctx context.Context, how map[string]any) (any, error)
 
-	Insert(t any) (context.CancelFunc, error)
-	Download(t *any) (context.CancelFunc, error)
+	Insert(ctx context.Context, t any) error
+	// Download fills the resource t points at with a Reader; the returned
+	// func releases it (call it once the reader is done).
+	Download(ctx context.Context, t *any) (context.CancelFunc, error)
 
-	Stat(t any) (any, error)
+	Stat(ctx context.Context, t any) (any, error)
 
-	Remove(t any) error
-	RemoveVolume(t any) error
+	Remove(ctx context.Context, t any) error
+	RemoveVolume(ctx context.Context, t any) error
 
-	Update(t map[string]string) error
-	Copy(s, d any) error
+	Update(ctx context.Context, t map[string]string) error
+	Copy(ctx context.Context, s, d any) error
 
-	Share(method string, t any) (any, error)
+	Share(ctx context.Context, method string, t any) (any, error)
 }
 
 // StorageShipment delivers the desired StorageSystem struct according to configuration

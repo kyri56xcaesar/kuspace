@@ -183,9 +183,9 @@ func NewFsLite(cfg ut.EnvConfig) FsLite {
 	}
 	defaultVolumeCap = cfg.LocalVolumesDefaultCapacity
 	defaultVolumeCap = min(defaultVolumeCap, maxVolumeCap)
-	err = fsl.CreateVolume(ut.Volume{Name: defaultVolumeName, Path: fsliteDataPath + "/" + defaultVolumeName, Capacity: defaultVolumeCap})
+	err = fsl.CreateVolume(context.Background(), ut.Volume{Name: defaultVolumeName, Path: fsliteDataPath + "/" + defaultVolumeName, Capacity: defaultVolumeCap})
 	if err != nil {
-		if !strings.Contains(err.Error(), "already exists") {
+		if !errors.Is(err, ErrVolumeExists) {
 			log.Fatalf("[FSL_init] failed to create default volume: %v", err)
 		}
 		log.Print(err)
@@ -207,7 +207,7 @@ func (fsl *FsLite) Close() {
 
 // CreateVolume creates a new storage volume based on the provided ut.Volume struct.
 // It validates the volume, ensures uniqueness, and creates the physical directory if locality is enabled.
-func (fsl *FsLite) CreateVolume(v any) error {
+func (fsl *FsLite) CreateVolume(ctx context.Context, v any) error {
 	volume, ok1 := v.(ut.Volume)
 	if !ok1 {
 		return errors.New("failed to cast to volume")
@@ -222,8 +222,8 @@ func (fsl *FsLite) CreateVolume(v any) error {
 	}
 
 	// should check if name exists.
-	if _, err = getVolumeByName(context.Background(), db, volume.Name); err == nil { // if err is nil, it exists
-		return ut.NewInfo("%s volume already exists", volume.Name)
+	if _, err = getVolumeByName(ctx, db, volume.Name); err == nil { // if err is nil, it exists
+		return fmt.Errorf("%w: %s", ErrVolumeExists, volume.Name)
 	} else if err.Error() != "empty" {
 		return err
 	}
@@ -236,7 +236,7 @@ func (fsl *FsLite) CreateVolume(v any) error {
 	}
 
 	volume.CreatedAt = ut.CurrentTime()
-	err = insertVolume(context.Background(), db, volume)
+	err = insertVolume(ctx, db, volume)
 	if err != nil {
 		err1 := os.RemoveAll(fsliteDataPath + "/" + volume.Name)
 		if err1 != nil {
@@ -257,7 +257,7 @@ func (fsl *FsLite) DefaultVolume(_ bool) string {
 
 // RemoveVolume removes a storage volume specified by the ut.Volume struct.
 // It deletes the volume from the database and removes the physical directory if locality is enabled.
-func (fsl *FsLite) RemoveVolume(t any) error {
+func (fsl *FsLite) RemoveVolume(ctx context.Context, t any) error {
 	volume, ok := t.(ut.Volume)
 	if !ok {
 		return errors.New("failed to cast to volume")
@@ -272,9 +272,9 @@ func (fsl *FsLite) RemoveVolume(t any) error {
 		return err
 	}
 	if volume.Name != "" {
-		err = deleteVolumeByName(context.Background(), db, volume.Name)
+		err = deleteVolumeByName(ctx, db, volume.Name)
 	} else {
-		err = deleteVolume(context.Background(), db, volume.VID)
+		err = deleteVolume(ctx, db, volume.VID)
 	}
 
 	if err == nil && fsl.config.FslLocality {
@@ -286,7 +286,7 @@ func (fsl *FsLite) RemoveVolume(t any) error {
 
 // SelectVolumes queries and returns volumes based on the provided filter map.
 // Supports filtering by name or vid (volume ID). Returns all volumes if no filter is provided.
-func (fsl *FsLite) SelectVolumes(how map[string]any) (any, error) {
+func (fsl *FsLite) SelectVolumes(ctx context.Context, how map[string]any) (any, error) {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
 		log.Printf("[FSL_select_volume(s)] failed to get the db conn: %v", err)
@@ -299,7 +299,7 @@ func (fsl *FsLite) SelectVolumes(how map[string]any) (any, error) {
 	if ok && vname != "" {
 		name, ok := vname.(string)
 		if ok {
-			return getVolumeByName(context.Background(), db, name)
+			return getVolumeByName(ctx, db, name)
 		}
 	}
 
@@ -307,18 +307,18 @@ func (fsl *FsLite) SelectVolumes(how map[string]any) (any, error) {
 	if ok && vid != "" {
 		vid, err := strconv.Atoi(vid.(string))
 		if err == nil {
-			return getVolumeByVid(context.Background(), db, vid)
+			return getVolumeByVid(ctx, db, vid)
 		}
 
 		return nil, err
 	}
 
-	return getAllVolumes(context.Background(), db)
+	return getAllVolumes(ctx, db)
 }
 
 // Insert inserts resources (files/objects), user-volume records, or batches thereof into the database.
 // If inserting a resource and locality is enabled, it also writes the file to disk.
-func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
+func (fsl *FsLite) Insert(ctx context.Context, t any) error {
 	resource, ok := t.(ut.Resource)
 	if ok {
 		if resource.Vname == "" {
@@ -329,18 +329,18 @@ func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 		if err != nil {
 			log.Printf("[FSL_insert] failed to get the db conn: %v", err)
 
-			return nil, ut.NewError("failed to get the db conn: %v", err)
+			return ut.NewError("failed to get the db conn: %v", err)
 		}
 
 		resource.Name = NormalizeName(resource.Name)
-		exists, err := exists(context.Background(), db, resource.Name, resource.Vname)
+		exists, err := exists(ctx, db, resource.Name, resource.Vname)
 		if err != nil { // if err is nil, it exists
 			log.Printf("[FSL_insert] failed to check if object exists")
 
-			return nil, ut.NewError("failed to check if obj exists: %v", err)
+			return ut.NewError("failed to check if obj exists: %v", err)
 		}
 		if exists {
-			return nil, fmt.Errorf("%w: %s in %s", ErrResourceExists, resource.Name, resource.Vname)
+			return fmt.Errorf("%w: %s in %s", ErrResourceExists, resource.Name, resource.Vname)
 		}
 
 		if fsl.config.FslLocality {
@@ -348,7 +348,7 @@ func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 			if err != nil {
 				log.Printf("[FSL_insert] failed to create a new output file (to save)")
 
-				return nil, err
+				return err
 			}
 			defer func() {
 				err := outFile.Close()
@@ -362,18 +362,18 @@ func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 			if err != nil {
 				log.Printf("[FSL_insert] failed to copy to output file")
 
-				return nil, err
+				return err
 			}
 		}
 		// db
-		err = insertResource(context.Background(), db, resource)
+		err = insertResource(ctx, db, resource)
 		if err != nil {
 			log.Printf("[FSL_insert] failed to insert resources in the db: %v", err)
 
-			return nil, err
+			return err
 		}
 
-		return nil, err
+		return err
 	}
 	resources, ok := t.([]ut.Resource)
 	if ok {
@@ -381,16 +381,16 @@ func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 		if err != nil {
 			log.Printf("[FSL_insert] failed to get the db conn: %v", err)
 
-			return nil, err
+			return err
 		}
-		err = insertResources(context.Background(), db, resources)
+		err = insertResources(ctx, db, resources)
 		if err != nil {
 			log.Printf("[FSL_insert] failed to insert resources in the db: %v", err)
 
-			return nil, err
+			return err
 		}
 
-		return nil, err
+		return err
 	}
 
 	uv, ok := t.(ut.UserVolume)
@@ -399,11 +399,11 @@ func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 		if err != nil {
 			log.Printf("[FSL_insert] failed to get the db conn: %v", err)
 
-			return nil, err
+			return err
 		}
-		err = insertUserVolume(context.Background(), db, uv)
+		err = insertUserVolume(ctx, db, uv)
 
-		return nil, err
+		return err
 	}
 	uvs, ok := t.([]ut.UserVolume)
 	if ok {
@@ -411,19 +411,19 @@ func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 		if err != nil {
 			log.Printf("[FSL_insert] failed to get the db conn: %v", err)
 
-			return nil, err
+			return err
 		}
-		err = insertUserVolumes(context.Background(), db, uvs)
+		err = insertUserVolumes(ctx, db, uvs)
 
-		return nil, err
+		return err
 	}
 
-	return nil, errors.New("failed to cast all types")
+	return errors.New("failed to cast all types")
 }
 
 // SelectObjects queries and returns resources (files/objects) based on the provided filter map.
 // Supports filtering by prefix or resource IDs. Returns all resources if no filter is provided.
-func (fsl *FsLite) SelectObjects(how map[string]any) (any, error) {
+func (fsl *FsLite) SelectObjects(ctx context.Context, how map[string]any) (any, error) {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
 		log.Printf("[FSL_select_objects] failed to get the db conn: %v", err)
@@ -435,7 +435,7 @@ func (fsl *FsLite) SelectObjects(how map[string]any) (any, error) {
 	if ok && name != "" {
 		name, ok := name.(string)
 		if ok {
-			return getResourcesByNameLike(context.Background(), db, name)
+			return getResourcesByNameLike(ctx, db, name)
 		}
 	}
 	rids, ok := how["rids"]
@@ -443,7 +443,7 @@ func (fsl *FsLite) SelectObjects(how map[string]any) (any, error) {
 		rids, err := ut.SplitToInt(rids.(string), ",")
 		if err == nil {
 
-			return getResourcesByIDs(context.Background(), db, rids)
+			return getResourcesByIDs(ctx, db, rids)
 		}
 		log.Printf("failed to split to int the given rids: %v", err)
 
@@ -453,16 +453,16 @@ func (fsl *FsLite) SelectObjects(how map[string]any) (any, error) {
 	name, ok = how["name"]
 	volume, ok2 := how["volume"]
 	if ok && ok2 {
-		return getResourceByNameAndVolume(context.Background(), db, name.(string), volume.(string))
+		return getResourceByNameAndVolume(ctx, db, name.(string), volume.(string))
 	}
 
-	return getAllResources(context.Background(), db)
+	return getAllResources(ctx, db)
 }
 
 // Stat returns file information for a resource if locality is enabled.
 // Returns an error if locality is disabled or if the resource cannot be found.
-func (fsl *FsLite) Stat(t any) (any, error) {
-	if fsl.config.FslLocality {
+func (fsl *FsLite) Stat(_ context.Context, t any) (any, error) {
+	if !fsl.config.FslLocality {
 		return nil, errors.New("cannot use stat if locality is turned off")
 	}
 	resource, ok := t.(ut.Resource)
@@ -476,7 +476,7 @@ func (fsl *FsLite) Stat(t any) (any, error) {
 }
 
 // Remove deletes a resource (file/object) from the database and, if locality is enabled, from disk.
-func (fsl *FsLite) Remove(t any) error {
+func (fsl *FsLite) Remove(ctx context.Context, t any) error {
 	resource, ok := t.(ut.Resource)
 	if !ok {
 		log.Printf("[FSL_remove] failed to cast to designated struct")
@@ -490,7 +490,7 @@ func (fsl *FsLite) Remove(t any) error {
 		return fmt.Errorf("failed to retrieve the database conn: %w", err)
 	}
 
-	err = deleteResourceByNameAndVolume(context.Background(), db, resource.Name, resource.Vname)
+	err = deleteResourceByNameAndVolume(ctx, db, resource.Name, resource.Vname)
 	if err != nil {
 		log.Printf("[FSL_remove] failed to remove the resource from the database")
 
@@ -511,7 +511,7 @@ func (fsl *FsLite) Remove(t any) error {
 
 // Update updates resource metadata such as permissions, owner, group, or renames a resource.
 // The update is based on the provided map of string keys and values.
-func (fsl *FsLite) Update(t map[string]string) error {
+func (fsl *FsLite) Update(ctx context.Context, t map[string]string) error {
 	if t == nil {
 		return errors.New("empty argument")
 	}
@@ -526,7 +526,7 @@ func (fsl *FsLite) Update(t map[string]string) error {
 		// either perms/owner/group
 		perms, ok := t["perms"]
 		if ok {
-			return updateResourcePermsByID(context.Background(), db, rid, perms)
+			return updateResourcePermsByID(ctx, db, rid, perms)
 		}
 
 		owner, ok := t["owner"]
@@ -541,7 +541,7 @@ func (fsl *FsLite) Update(t map[string]string) error {
 				return errors.New("failed to atoi uid")
 			}
 
-			return updateResourceOwnerByID(context.Background(), db, ridInt, ownerInt)
+			return updateResourceOwnerByID(ctx, db, ridInt, ownerInt)
 		}
 
 		group, ok := t["group"]
@@ -556,7 +556,7 @@ func (fsl *FsLite) Update(t map[string]string) error {
 				return errors.New("failed to atoi gid")
 			}
 
-			return updateResourceGroupByID(context.Background(), db, ridInt, groupInt)
+			return updateResourceGroupByID(ctx, db, ridInt, groupInt)
 		}
 	}
 
@@ -564,56 +564,60 @@ func (fsl *FsLite) Update(t map[string]string) error {
 	newname, ok2 := t["newname"]
 	volume, ok3 := t["volume"]
 	if ok1 && ok2 && ok3 {
-		return updateResourceNameAndVolByName(context.Background(), db, name, newname, volume, t["oldvolume"])
+		return updateResourceNameAndVolByName(ctx, db, name, newname, volume, t["oldvolume"])
 	}
 
 	return errors.New("must specify what to update")
 }
 
-// Download prepares a resource for download by opening the file and attaching a reader to the resource struct.
-// Returns an error if locality is disabled or if the file cannot be found.
-func (fsl *FsLite) Download(t *any) (context.CancelFunc, error) {
-	if fsl.config.FslLocality {
+// Download opens a resource's file and attaches it as the resource's Reader.
+// t points at a ut.Resource or a *ut.Resource (filled in place). The returned
+// func closes the file. Needs locality: without it fslite holds no data.
+func (fsl *FsLite) Download(ctx context.Context, t *any) (context.CancelFunc, error) {
+	if !fsl.config.FslLocality {
 		return nil, errors.New("cannot download if locality is off")
 	}
-	v := *t
-	resource, ok := v.(ut.Resource)
-	if !ok {
-		log.Printf("[FSL_download] failed to cast to ut.Resource")
-
+	var resource *ut.Resource
+	switch v := (*t).(type) {
+	case *ut.Resource:
+		resource = v
+	case ut.Resource:
+		resource = &v
+	default:
 		return nil, errors.New("failed to cast to ut.Resource")
 	}
-	resourcePtr := &resource
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
 		log.Printf("[FSL_download] failed to retrieve database connection: %v", err)
 
 		return nil, err
 	}
-
-	_, err = getResourceByNameAndVolume(context.Background(), db, resourcePtr.Name, resourcePtr.Vname)
-	if err != nil {
+	resource.Name = NormalizeName(resource.Name)
+	if _, err = getResourceByNameAndVolume(ctx, db, resource.Name, resource.Vname); err != nil {
 		return nil, err
 	}
 
-	file, err := os.Open(fsliteDataPath + "/" + resourcePtr.Vname + "/" + resourcePtr.Name)
+	file, err := os.Open(fsliteDataPath + "/" + resource.Vname + "/" + resource.Name)
 	if err != nil {
 		return nil, err
 	}
 	stat, err := file.Stat()
 	if err != nil {
+		_ = file.Close()
+
 		return nil, fmt.Errorf("failed to get file stats: %w", err)
 	}
-	resourcePtr.Size = stat.Size()
-	resourcePtr.Reader = file
+	resource.Size = stat.Size()
+	resource.Reader = file
+	if _, isValue := (*t).(ut.Resource); isValue {
+		*t = *resource
+	}
 
-	*t = *resourcePtr
-
-	return nil, nil
+	return func() { _ = file.Close() }, nil
 }
 
 // Copy duplicates a resource (file/object) from a source to a destination, both in the database and on disk if locality is enabled.
-func (fsl *FsLite) Copy(s, d any) error {
+func (fsl *FsLite) Copy(ctx context.Context, s, d any) error {
 	src, ok := s.(ut.Resource)
 	if !ok {
 		return ut.NewError("failed to cast")
@@ -669,7 +673,7 @@ func (fsl *FsLite) Copy(s, d any) error {
 	}
 
 	// update db
-	err = insertResource(context.Background(), db, dst)
+	err = insertResource(ctx, db, dst)
 	if err != nil {
 		log.Printf("[FSL_copy] failed to insert to the db0")
 	}
@@ -678,7 +682,7 @@ func (fsl *FsLite) Copy(s, d any) error {
 }
 
 // Share is a placeholder for sharing functionality. Currently unimplemented.
-func (fsl *FsLite) Share(_ string, _ any) (any, error) {
+func (fsl *FsLite) Share(_ context.Context, _ string, _ any) (any, error) {
 	return nil, nil
 }
 
@@ -733,7 +737,7 @@ func determinePhysicalStorage(target string, fileSize int64) (string, error) {
 	return target, nil
 }
 
-func (fsl *FsLite) selectUserVolumes(how map[string]any) (any, error) {
+func (fsl *FsLite) selectUserVolumes(ctx context.Context, how map[string]any) (any, error) {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get the db conn: %v", err)
@@ -747,17 +751,17 @@ func (fsl *FsLite) selectUserVolumes(how map[string]any) (any, error) {
 	if ok1 && vids != "" && ok2 && uids != "" {
 		// log.Printf("selecting all uvs by uids and vids")
 
-		return getUserVolumesByUidsAndVids(context.Background(), db, strings.Split(uids, ","), strings.Split(vids, ","))
+		return getUserVolumesByUidsAndVids(ctx, db, strings.Split(uids, ","), strings.Split(vids, ","))
 	} else if ok1 && vids != "" {
 		// log.Printf("selecting uvs by vids: %v", vids)
 
-		return getUserVolumesByVolumeIDs(context.Background(), db, strings.Split(vids, ","))
+		return getUserVolumesByVolumeIDs(ctx, db, strings.Split(vids, ","))
 	} else if ok2 && uids != "" {
 		// log.Printf("selecting uvs by uids")
 
-		return getUserVolumesByUserIDs(context.Background(), db, strings.Split(uids, ","))
+		return getUserVolumesByUserIDs(ctx, db, strings.Split(uids, ","))
 	}
 	// log.Printf("selecting all uvs")
 
-	return getAllUserVolumes(context.Background(), db)
+	return getAllUserVolumes(ctx, db)
 }

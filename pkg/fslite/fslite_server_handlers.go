@@ -122,7 +122,7 @@ func (fsl *FsLite) newVolumeHandler(c *gin.Context) {
 		volume.Capacity = maxVolumeCap
 	}
 
-	err = fsl.CreateVolume(volume)
+	err = fsl.CreateVolume(c.Request.Context(), volume)
 	if err != nil {
 		log.Printf("[FSL_API_newVolume] failed to create volume: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -160,7 +160,7 @@ func (fsl *FsLite) deleteVolumeHandler(c *gin.Context) {
 		volume.Name = vname
 	}
 
-	err = fsl.RemoveVolume(volume)
+	err = fsl.RemoveVolume(c.Request.Context(), volume)
 	if err != nil {
 		log.Printf("[FSL_API_delVolume] failed to delete volume: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -186,7 +186,7 @@ func (fsl *FsLite) getVolumeHandler(c *gin.Context) {
 	vid := c.Request.URL.Query().Get("vid")
 	// format := c.Request.URL.Query().Get("format")
 
-	volumes, err := fsl.SelectVolumes(map[string]any{"name": vname, "vid": vid})
+	volumes, err := fsl.SelectVolumes(c.Request.Context(), map[string]any{"name": vname, "vid": vid})
 	if err != nil {
 		log.Printf("[FSL_API_getVolume] failed to get volume: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -226,7 +226,7 @@ func (fsl *FsLite) statResourceHandler(c *gin.Context) {
 	resourceVname := parts[0]
 	resourceName := parts[1]
 
-	res, err := fsl.Stat(ut.Resource{Vname: resourceVname, Name: resourceName})
+	res, err := fsl.Stat(c.Request.Context(), ut.Resource{Vname: resourceVname, Name: resourceName})
 	if err != nil {
 		log.Printf("[FSL_API_statResource] failed to stat resource")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to stat"})
@@ -252,7 +252,7 @@ func (fsl *FsLite) getResourceHandler(c *gin.Context) {
 	rids := c.Request.URL.Query().Get("rids")
 	// format := c.Request.URL.Query().Get("format")
 
-	resources, err := fsl.SelectObjects(map[string]any{"prefix": name, "rids": rids})
+	resources, err := fsl.SelectObjects(c.Request.Context(), map[string]any{"prefix": name, "rids": rids})
 	if err != nil {
 		if strings.Contains(err.Error(), "empty") {
 			c.JSON(http.StatusNotFound, gin.H{"status": "empty"})
@@ -316,7 +316,7 @@ func (fsl *FsLite) deleteResourceHandler(c *gin.Context) {
 	}
 
 	if !unlocked {
-		res, err := fsl.SelectObjects(map[string]any{"name": resource.Name, "volume": resource.Vname})
+		res, err := fsl.SelectObjects(c.Request.Context(), map[string]any{"name": resource.Name, "volume": resource.Vname})
 		if err != nil {
 			log.Printf("failed to retrieve info for the specified object")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the object info"})
@@ -351,7 +351,7 @@ func (fsl *FsLite) deleteResourceHandler(c *gin.Context) {
 		}
 	}
 
-	err = fsl.Remove(resource)
+	err = fsl.Remove(c.Request.Context(), resource)
 	if err != nil {
 		log.Printf("failed to delete resource: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -444,7 +444,7 @@ func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
 			}
 		}
 
-		_, err = fsl.Insert(resource)
+		err = fsl.Insert(c.Request.Context(), resource)
 		if cErr := file.Close(); cErr != nil {
 			log.Printf("failed to close the file: %v", cErr)
 		}
@@ -500,12 +500,13 @@ func (fsl *FsLite) downloadResourceHandler(c *gin.Context) {
 	}
 
 	resource := any(ut.Resource{Name: resourceName, Vname: resourceVname})
-	_, err := fsl.Download(&resource)
+	closeFile, err := fsl.Download(c.Request.Context(), &resource)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to download"})
 
 		return
 	}
+	defer closeFile()
 	r, ok := resource.(ut.Resource)
 	if !ok {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to download"})
@@ -561,7 +562,7 @@ func (fsl *FsLite) copyResourceHandler(c *gin.Context) {
 	dstVname := parts[0]
 	dstName := parts[1]
 
-	err := fsl.Copy(ut.Resource{Name: srcName, Vname: srvVname}, ut.Resource{Name: dstName, Vname: dstVname})
+	err := fsl.Copy(c.Request.Context(), ut.Resource{Name: srcName, Vname: srvVname}, ut.Resource{Name: dstName, Vname: dstVname})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to copy the objs"})
 
@@ -593,7 +594,7 @@ func (fsl *FsLite) handleUserVolumes(c *gin.Context) {
 
 	switch c.Request.Method {
 	case http.MethodGet:
-		res, err := fsl.selectUserVolumes(map[string]any{"uids": uids, "vids": vids})
+		res, err := fsl.selectUserVolumes(c.Request.Context(), map[string]any{"uids": uids, "vids": vids})
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user volumes"})
 		} else {

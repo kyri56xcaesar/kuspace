@@ -17,7 +17,7 @@ func newTestService(t *testing.T) *UService {
 		LocalVolumesDefaultCapacity: 1, // GB: per-user quota in these tests
 	}
 	srv := &UService{config: cfg, fsl: fslite.NewFsLite(cfg)}
-	if err := srv.fsl.CreateVolume(ut.Volume{Name: "vol1", CreatedAt: ut.CurrentTime()}); err != nil {
+	if err := srv.fsl.CreateVolume(t.Context(), ut.Volume{Name: "vol1", CreatedAt: ut.CurrentTime()}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -28,7 +28,7 @@ func TestSaveJobOutputOverwrite(t *testing.T) {
 	srv := newTestService(t)
 	ctx := context.Background()
 	const mb = int64(1_000_000)
-	out := ut.Resource{Name: "result.csv", Vname: "vol1", VID: srv.volumeID("vol1"), UID: 1001, GID: 1002,
+	out := ut.Resource{Name: "result.csv", Vname: "vol1", VID: srv.volumeID(t.Context(), "vol1"), UID: 1001, GID: 1002,
 		Perms: ut.DefaultFilePerms, Type: "file", Size: 600 * mb, CreatedAt: ut.CurrentTime()}
 
 	if action, err := srv.saveJobOutput(ctx, out); err != nil || action != "created" {
@@ -40,7 +40,7 @@ func TestSaveJobOutputOverwrite(t *testing.T) {
 	if action, err := srv.saveJobOutput(ctx, out); err != nil || action == "created" {
 		t.Fatalf("second run: %q, %v", action, err)
 	}
-	r, found, err := srv.lookupResource("result.csv", "vol1")
+	r, found, err := srv.lookupResource(t.Context(), "result.csv", "vol1")
 	if err != nil || !found || r.Size != 200*mb || r.UID != 1001 {
 		t.Fatalf("record after overwrite = %+v, %v (want size 200 MB, owner kept)", r, err)
 	}

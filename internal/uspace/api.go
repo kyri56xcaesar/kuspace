@@ -140,7 +140,7 @@ func NewUService(conf string) UService {
 
 	// lets create a default bucket
 	defaultVolume := ut.Volume{Name: cfg.MinioDefaultBucket, CreatedAt: ut.CurrentTime()}
-	err = storage.CreateVolume(defaultVolume)
+	err = storage.CreateVolume(context.Background(), defaultVolume)
 	if err != nil {
 		if strings.Contains(err.Error(), "already exists") {
 			log.Printf("[USPACE_init] default volume already exists... continuing")
@@ -154,7 +154,7 @@ func NewUService(conf string) UService {
 	}
 
 	// store it in local db as well
-	err = srv.fsl.CreateVolume(defaultVolume)
+	err = srv.fsl.CreateVolume(context.Background(), defaultVolume)
 	if err != nil {
 		if strings.Contains(err.Error(), "already exists") {
 			log.Printf("[USPACE_init] default volume already exists in database... continuing")
@@ -345,7 +345,7 @@ func syncUsers(srv *UService) error {
 		return fmt.Errorf("failed to decode groups: %w", err)
 	}
 
-	v, err := srv.fsl.SelectVolumes(map[string]any{"name": srv.config.MinioDefaultBucket})
+	v, err := srv.fsl.SelectVolumes(ctx, map[string]any{"name": srv.config.MinioDefaultBucket})
 	if err != nil {
 		return fmt.Errorf("default volume: %w", err)
 	}
@@ -362,7 +362,7 @@ func syncUsers(srv *UService) error {
 			if user.Username != group.Groupname {
 				continue
 			}
-			_, err := srv.fsl.Insert(ut.UserVolume{VID: volume.VID, UID: user.UID, Quota: quota})
+			err := srv.fsl.Insert(ctx, ut.UserVolume{VID: volume.VID, UID: user.UID, Quota: quota})
 			switch {
 			case err == nil:
 				claimed++

@@ -101,9 +101,12 @@ func insertResource(ctx context.Context, db *sql.DB, resource ut.Resource) error
 	return nil
 }
 
-// ErrResourceExists: a resource with that name already exists in the volume
+// ErrResourceExists is returned when a resource with that name already exists in the volume
 // (enforced by the unique (vname, name) index).
 var ErrResourceExists = errors.New("resource already exists")
+
+// ErrVolumeExists is returned when a volume with that name already exists.
+var ErrVolumeExists = errors.New("volume already exists")
 
 func isUniqueViolation(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")

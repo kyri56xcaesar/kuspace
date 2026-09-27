@@ -183,7 +183,7 @@ func (je JDockerExecutor) ExecuteJob(job ut.Job) error {
 		log.Printf("[docker-executor] failed to mark job %d %s: %v", job.JID, status, err)
 	}
 	if status == "completed" {
-		srv.recordJobOutput(job, out)
+		srv.recordJobOutput(bg, job, out)
 	}
 
 	return nil

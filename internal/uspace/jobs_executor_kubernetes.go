@@ -459,7 +459,7 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	}
 
 	if status == "completed" {
-		je.jm.srv.recordJobOutput(job, out)
+		je.jm.srv.recordJobOutput(context.Background(), job, out)
 	}
 }
 
@@ -471,7 +471,8 @@ func (je *JKubernetesExecutor) markFailed(jid int64, d time.Duration) {
 
 // recordJobOutput stats a finished job's output object and records it
 // (saveJobOutput). Shared by the executors.
-func (srv *UService) recordJobOutput(job ut.Job, out *jobOutput) {
+// recordJobOutput runs after the job, so ctx is not a request context.
+func (srv *UService) recordJobOutput(ctx context.Context, job ut.Job, out *jobOutput) {
 	vname, name, ok := strings.Cut(job.Output, "/")
 	if !ok {
 		out.Send([]byte("[executor]: invalid output location\n"))
@@ -485,10 +486,10 @@ func (srv *UService) recordJobOutput(job ut.Job, out *jobOutput) {
 		Perms: ut.DefaultFilePerms,
 		UID:   job.UID,
 		Vname: vname,
-		VID:   srv.volumeID(vname),
+		VID:   srv.volumeID(ctx, vname),
 		GID:   jobGID(job),
 	}
-	info, err := srv.storage.Stat(outputResource)
+	info, err := srv.storage.Stat(ctx, outputResource)
 	if err != nil {
 		log.Printf("failed to stat output file from storage: %v", err)
 		out.Sendf("[executor]: error retrieving output file %v\n", err)
@@ -507,7 +508,7 @@ func (srv *UService) recordJobOutput(job ut.Job, out *jobOutput) {
 	outputResource.CreatedAt, outputResource.UpdatedAt, outputResource.AccessedAt = now, now, now
 
 	out.Sendf("[executor] saving output %s/%s ...\n", outputResource.Vname, outputResource.Name)
-	action, err := srv.saveJobOutput(context.Background(), outputResource)
+	action, err := srv.saveJobOutput(ctx, outputResource)
 	if err != nil {
 		log.Printf("failed to record output of job %d: %v", job.JID, err)
 		out.Sendf("[executor]: error saving output data in db... %v\n", err)
@@ -766,12 +767,12 @@ func formatJobCommand(job *ut.Job) ([]string, error) {
 // owner. It used to fail with "already exists" and keep the old size.
 func (srv *UService) saveJobOutput(ctx context.Context, output ut.Resource) (string, error) {
 	quota := min(srv.config.LocalVolumesDefaultCapacity, maxDefaultVolumeCapacity)
-	existing, found, err := srv.lookupResource(output.Name, output.Vname)
+	existing, found, err := srv.lookupResource(ctx, output.Name, output.Vname)
 	if err != nil {
 		return "", err
 	}
 	if !found {
-		if _, err := srv.fsl.Insert(output); err != nil {
+		if err := srv.fsl.Insert(ctx, output); err != nil {
 			return "", err
 		}
 		if err := srv.fsl.ClaimSpace(ctx, output.UID, output.Vname, output.Size, quota, false); err != nil {

@@ -1,6 +1,7 @@
 package uspace
 
 import (
+	"context"
 	"errors"
 	"log"
 	"net/http"
@@ -125,9 +126,9 @@ var errTargetNotFound = errors.New("resource not found")
 // that name in that volume. (It used to match `name LIKE %target%` across all
 // volumes, so a check could hit unrelated files - e.g. "o_x.txt" matched
 // "hello_x.txt" - and underscores acted as wildcards.)
-func accessTargets(srv *UService, ac ut.AccessClaim) ([]ut.Resource, error) {
+func accessTargets(ctx context.Context, srv *UService, ac ut.AccessClaim) ([]ut.Resource, error) {
 	if ac.HasKeyword {
-		res, err := srv.fsl.SelectObjects(map[string]any{"rids": strings.TrimPrefix(ac.Target, "/"), "vname": ac.Vname})
+		res, err := srv.fsl.SelectObjects(ctx, map[string]any{"rids": strings.TrimPrefix(ac.Target, "/"), "vname": ac.Vname})
 		if err != nil {
 			return nil, err
 		}
@@ -141,7 +142,7 @@ func accessTargets(srv *UService, ac ut.AccessClaim) ([]ut.Resource, error) {
 
 		return resources, nil
 	}
-	r, found, err := srv.lookupResource(ac.Target, ac.Vname)
+	r, found, err := srv.lookupResource(ctx, ac.Target, ac.Vname)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +190,7 @@ func isOwner(srv *UService) gin.HandlerFunc {
 
 			return
 		}
-		resources, err := accessTargets(srv, ac)
+		resources, err := accessTargets(c.Request.Context(), srv, ac)
 		if err != nil {
 			abortTargetError(c, "Middleware-Ownership", err)
 
@@ -241,7 +242,7 @@ func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
 			return
 		}
 
-		resources, err := accessTargets(srv, ac)
+		resources, err := accessTargets(c.Request.Context(), srv, ac)
 		if err != nil {
 			abortTargetError(c, "Middleware-Access", err)
 

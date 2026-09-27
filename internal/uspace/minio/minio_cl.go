@@ -95,7 +95,7 @@ func NewMinioClient(cfg ut.EnvConfig) Client {
 
 // CreateVolume creates a new bucket (volume) in Minio.
 // ✅
-func (mc *Client) CreateVolume(volume any) error {
+func (mc *Client) CreateVolume(ctx context.Context, volume any) error {
 	v, ok := volume.(ut.Volume)
 	if !ok {
 		return ut.NewError("failed to cast to a volume")
@@ -103,7 +103,7 @@ func (mc *Client) CreateVolume(volume any) error {
 
 	log.Printf("volume incoming: %+v", v)
 
-	err := mc.createBucket(v.Name)
+	err := mc.createBucket(ctx, v.Name)
 	if err != nil {
 		log.Printf("failed to create a bucket on minio: %v", err)
 
@@ -113,84 +113,44 @@ func (mc *Client) CreateVolume(volume any) error {
 	return nil
 }
 
-// Insert uploads an object to Minio, using presigned upload if necessary.
-// ✅
-func (mc *Client) Insert(t any) (context.CancelFunc, error) {
+// Insert uploads an object to Minio, through a presigned URL above
+// objectSizeThreshold (or always, with onlyPresignedUpload).
+func (mc *Client) Insert(ctx context.Context, t any) error {
 	object, ok := t.(ut.Resource)
 	if !ok {
-		return nil, ut.NewError("failed to cast")
+		return ut.NewError("failed to cast")
 	}
-	// maybe use a presigned link for upload for a certain size threshold?
-	if object.Size > objectSizeThreshold || onlyPresignedUpload {
-		r, err := mc.Share("put", t)
-		if err != nil {
-			log.Printf("failed to get a presigned link: %v", err)
-
-			return nil, err
-		}
-
-		url, ok := r.(*url.URL)
-		if !ok {
-			log.Printf("failed to cast to url pointer")
-
-			return nil, errors.New("failed to cast to url pointer")
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*3)
-		defer cancel()
-		req, err := http.NewRequestWithContext(ctx, http.MethodPut, url.String(), object.Reader)
-		if err != nil {
-			log.Printf("failed to create a new request: %v", err)
-
-			return nil, err
-		}
-		req.ContentLength = object.Size
-
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			log.Printf("failed to perform request: %v", err)
-
-			return nil, err
-		}
-		defer func() {
-			err := resp.Body.Close()
-			if err != nil {
-				log.Printf("failed to close resp body: %v", err)
-			}
-		}()
-
-		// respBody, err := io.ReadAll(resp.Body)
-		// if err != nil {
-		// 	log.Printf("failed to read response body: %v", err)
-		// return nil, err
-		// }
-		// defer resp.Body.Close()
-		// log.Printf("response: %v", string(respBody))
-
-		if resp.StatusCode >= 300 {
-			log.Printf("bad response")
-
-			return nil, errors.New("failed to upload to minio via link")
-		}
-
-		return nil, nil
+	if object.Size <= objectSizeThreshold && !onlyPresignedUpload {
+		return mc.putObject(ctx, object.Vname, object.Name, object.Reader, object.Size)
 	}
-	cancel, err := mc.putObject(
-		object.Vname,
-		object.Name,
-		object.Reader,
-		object.Size,
-	)
+
+	u, err := mc.putPresignedObject(ctx, object.Vname, object.Name, defaultSignDuration)
 	if err != nil {
-		log.Printf("failed to iniate stream upload to minio: %v", err)
+		return fmt.Errorf("presign upload: %w", err)
+	}
+	ctx, cancel := context.WithTimeout(ctx, time.Minute*3)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, u.String(), object.Reader)
+	if err != nil {
+		return err
+	}
+	req.ContentLength = object.Size
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("upload to minio via link: %s", resp.Status)
 	}
 
-	return cancel, err
+	return nil
 }
 
 // SelectVolumes lists and returns available volumes (buckets) matching the filter.
 // ✅ .. maybe can enhance with more which factors
-func (mc *Client) SelectVolumes(which map[string]any) (any, error) {
-	res, err := mc.listBuckets()
+func (mc *Client) SelectVolumes(ctx context.Context, which map[string]any) (any, error) {
+	res, err := mc.listBuckets(ctx)
 	if err != nil {
 		log.Printf("failed to retrieve buckets: %v", err)
 
@@ -217,7 +177,7 @@ func (mc *Client) SelectVolumes(which map[string]any) (any, error) {
 
 // SelectObjects lists and returns objects in a specified volume, optionally filtered by prefix.
 // ✅
-func (mc *Client) SelectObjects(which map[string]any) (any, error) {
+func (mc *Client) SelectObjects(ctx context.Context, which map[string]any) (any, error) {
 	vN, is := which["vname"]
 	if !is {
 		return nil, errors.New("must specify volume")
@@ -233,7 +193,7 @@ func (mc *Client) SelectObjects(which map[string]any) (any, error) {
 		prefix = p[len(p)-1]
 	}
 
-	objectCh, cancel := mc.listObjects(vName, prefix)
+	objectCh, cancel := mc.listObjects(ctx, vName, prefix)
 	defer cancel()
 
 	var objects []ut.Resource
@@ -259,14 +219,14 @@ func (mc *Client) SelectObjects(which map[string]any) (any, error) {
 
 // Stat retrieves metadata information for a given object, optionally fetching the object locally.
 // ✅
-func (mc *Client) Stat(t any) (any, error) {
+func (mc *Client) Stat(ctx context.Context, t any) (any, error) {
 	object, ok := t.(ut.Resource)
 	if !ok {
 		return nil, ut.NewError("failed to cast")
 	}
 
 	if fetchstat {
-		cancel, err := mc.fGetObject(object.Vname, object.Name, mc.defaultLocalSpacePath+object.Name)
+		cancel, err := mc.fGetObject(ctx, object.Vname, object.Name, mc.defaultLocalSpacePath+object.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -280,23 +240,23 @@ func (mc *Client) Stat(t any) (any, error) {
 		return info, nil
 	}
 
-	return mc.statObject(object.Vname, object.Name)
+	return mc.statObject(ctx, object.Vname, object.Name)
 }
 
 // Remove deletes an object from Minio.
 // ✅
-func (mc *Client) Remove(t any) error {
+func (mc *Client) Remove(ctx context.Context, t any) error {
 	resource, ok := t.(ut.Resource)
 	if !ok {
 		return ut.NewError("failed to cast")
 	}
 
-	return mc.removeObject(resource.Vname, resource.Name)
+	return mc.removeObject(ctx, resource.Vname, resource.Name)
 }
 
 // RemoveVolume deletes a volume (bucket) from Minio.
 // ✅
-func (mc *Client) RemoveVolume(t any) error {
+func (mc *Client) RemoveVolume(ctx context.Context, t any) error {
 	var bucketname string
 
 	// check if the argument passed is either an entire volume
@@ -312,19 +272,19 @@ func (mc *Client) RemoveVolume(t any) error {
 		bucketname = volume.Name
 	}
 
-	return mc.removeBucket(bucketname)
+	return mc.removeBucket(ctx, bucketname)
 }
 
 // Download retrieves an object from Minio and prepares it for reading.
 // ✅
-func (mc *Client) Download(t *any) (context.CancelFunc, error) {
+func (mc *Client) Download(ctx context.Context, t *any) (context.CancelFunc, error) {
 	value := *t
 	resourcePtr, ok := value.(*ut.Resource)
 	if !ok {
 		return nil, ut.NewError("failed to cast to *Resource")
 	}
 
-	minioObj, cancelFn, err := mc.getObject(resourcePtr.Vname, resourcePtr.Name)
+	minioObj, cancelFn, err := mc.getObject(ctx, resourcePtr.Vname, resourcePtr.Name)
 	if err != nil && minioObj == nil {
 		log.Printf("failed to get object from minio: %v", err)
 
@@ -345,7 +305,7 @@ func (mc *Client) Download(t *any) (context.CancelFunc, error) {
 }
 
 // Copy copies the given object to a new destination
-func (mc *Client) Copy(s, d any) error {
+func (mc *Client) Copy(ctx context.Context, s, d any) error {
 	src, ok := s.(ut.Resource)
 	if !ok {
 		return ut.NewError("failed to cast")
@@ -355,7 +315,7 @@ func (mc *Client) Copy(s, d any) error {
 		return ut.NewError("failed to cast")
 	}
 
-	uploadInfo, err := mc.copyObject(minio.CopySrcOptions{Bucket: src.Vname, Object: src.Name},
+	uploadInfo, err := mc.copyObject(ctx, minio.CopySrcOptions{Bucket: src.Vname, Object: src.Name},
 		minio.CopyDestOptions{Bucket: dst.Vname, Object: dst.Name})
 	if err != nil {
 		return err
@@ -367,7 +327,7 @@ func (mc *Client) Copy(s, d any) error {
 }
 
 // Update function is tbd
-func (mc *Client) Update(_ map[string]string) error {
+func (mc *Client) Update(_ context.Context, _ map[string]string) error {
 	return nil
 }
 
@@ -383,7 +343,7 @@ func (mc *Client) DefaultVolume(local bool) string {
 
 // Share generates a presigned URL for uploading or downloading an object.
 // ✅
-func (mc *Client) Share(method string, t any) (any, error) {
+func (mc *Client) Share(ctx context.Context, method string, t any) (any, error) {
 	resource, ok := t.(ut.Resource)
 	if !ok {
 		log.Printf("failed to cast to resource")
@@ -393,7 +353,7 @@ func (mc *Client) Share(method string, t any) (any, error) {
 
 	switch method {
 	case "get":
-		url, err := mc.getPresignedObject(resource.Vname, resource.Name, defaultSignDuration)
+		url, err := mc.getPresignedObject(ctx, resource.Vname, resource.Name, defaultSignDuration)
 		if err != nil {
 			log.Printf("failed to retrieve object sign")
 		}
@@ -401,7 +361,7 @@ func (mc *Client) Share(method string, t any) (any, error) {
 		return url, err
 
 	case "put":
-		url, err := mc.putPresignedObject(resource.Vname, resource.Name, defaultSignDuration)
+		url, err := mc.putPresignedObject(ctx, resource.Vname, resource.Name, defaultSignDuration)
 		if err != nil {
 			log.Printf("failed to retrieve object sign")
 		}

@@ -53,7 +53,7 @@ func (srv *UService) handleVolumes(c *gin.Context) {
 		names := []string{"vid", "limit", "sort"}
 		values := []any{vid, c.Request.URL.Query().Get("limit"), c.Request.URL.Query().Get("sort")}
 
-		volumes, err := srv.storage.SelectVolumes(ut.MakeMapFrom(names, values))
+		volumes, err := srv.storage.SelectVolumes(c.Request.Context(), ut.MakeMapFrom(names, values))
 		if err != nil {
 			log.Printf("[USPACE_API] failed to select volumes: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
@@ -68,7 +68,7 @@ func (srv *UService) handleVolumes(c *gin.Context) {
 
 			return
 		}
-		err := srv.storage.RemoveVolume(vid)
+		err := srv.storage.RemoveVolume(c.Request.Context(), vid)
 		if err != nil {
 			log.Printf("[USPACE_API] failed to delete the volume: %v", err)
 			if strings.Contains(err.Error(), "not empty") {
@@ -113,7 +113,7 @@ func (srv *UService) handleVolumes(c *gin.Context) {
 				return
 			}
 			// single volume
-			err = srv.storage.CreateVolume(any(volume))
+			err = srv.storage.CreateVolume(c.Request.Context(), any(volume))
 			if err != nil {
 				log.Printf("[USPACE_API] failed to insert volume: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "couldn't insert volume"})
@@ -131,7 +131,7 @@ func (srv *UService) handleVolumes(c *gin.Context) {
 
 				return
 			}
-			err = srv.storage.CreateVolume(any(volume))
+			err = srv.storage.CreateVolume(c.Request.Context(), any(volume))
 			if err != nil {
 				log.Printf("[USPACE_API] failed to insert volumes: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "couldn't insert volumes"})
@@ -199,8 +199,8 @@ func (srv *UService) handleUserVolumes(c *gin.Context) {
 
 			// callers don't know volume ids (frontapp sends 1): fall back to
 			// the default volume when the given one doesn't exist
-			if v, err := srv.fsl.SelectVolumes(map[string]any{"vid": strconv.FormatInt(userVolume.VID, 10)}); err != nil || v == nil {
-				userVolume.VID = srv.volumeID(srv.config.MinioDefaultBucket)
+			if v, err := srv.fsl.SelectVolumes(c.Request.Context(), map[string]any{"vid": strconv.FormatInt(userVolume.VID, 10)}); err != nil || v == nil {
+				userVolume.VID = srv.volumeID(c.Request.Context(), srv.config.MinioDefaultBucket)
 			}
 			if capacity := srv.config.LocalVolumesDefaultCapacity; int(userVolume.Quota) == 0 || userVolume.Quota > capacity {
 				userVolume.Quota = capacity
@@ -208,7 +208,7 @@ func (srv *UService) handleUserVolumes(c *gin.Context) {
 
 			// fslite's Insert switches on bare ut.UserVolume/[]ut.UserVolume
 			// (not []any) and returns a nil cancel func for them.
-			_, err := srv.fsl.Insert(userVolume)
+			err := srv.fsl.Insert(c.Request.Context(), userVolume)
 			if err != nil {
 				log.Printf("[USPACE_API] failed to insert user volume: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert uv"})
@@ -220,7 +220,7 @@ func (srv *UService) handleUserVolumes(c *gin.Context) {
 			return
 		}
 		// binded user
-		_, err = srv.fsl.Insert(userVolumes)
+		err = srv.fsl.Insert(c.Request.Context(), userVolumes)
 		if err != nil {
 			log.Printf("[USPACE_API] failed to insert user volumes: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert uv"})
@@ -269,9 +269,8 @@ func (srv *UService) handleGroupVolumes(c *gin.Context) {
 				groupVolume.Quota = float64(capacity)
 			}
 
-			cancelFn, err := srv.storage.Insert([]any{groupVolume})
-			defer cancelFn()
-			if err != nil {
+			// unfinished: not routed, and fslite has no groupVolume table yet (BACKLOG)
+			if err := srv.fsl.Insert(c.Request.Context(), groupVolume); err != nil {
 				log.Printf("[USPACE_API] failed to insert group volume: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert gv"})
 
@@ -283,9 +282,7 @@ func (srv *UService) handleGroupVolumes(c *gin.Context) {
 		}
 
 		// binded user
-		cancelFn, err := srv.storage.Insert([]any{groupVolumes})
-		defer cancelFn()
-		if err != nil {
+		if err := srv.fsl.Insert(c.Request.Context(), groupVolumes); err != nil {
 			log.Printf("[USPACE_API] failed to insert group volumes: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert gv"})
 
