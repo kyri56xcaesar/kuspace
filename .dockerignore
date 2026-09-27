@@ -1,1 +1,6 @@
 data/volumes/
+.git/
+thesis/
+third_party/
+data/db/
+data/logs/

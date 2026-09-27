@@ -5,44 +5,60 @@
 ### Development Instructions
 
 [DEV]
-Run locally:
+First-time setup (minioth submodule, fresh secrets, compose env):
 
-use the make file to debug @read Makefile
+    make setup
 
-    make all 
+Run the whole stack locally with docker-compose and check it end to end:
 
-use scripts/kuspacectl.go to deploy/destroy/build
+    make up
+    make smoke
+
+The web interface is then at <http://localhost:18080>.
+Everything else is listed by
+
+    make
+
+use scripts/kuspacectl.go to deploy/destroy/build on kubernetes (or `make k8s-*`)
 
     go run scripts/kuspacectl.go -h
 
 ### Description
 
+Users log in through a web interface, upload data, and run "jobs" on it:
+either one of the builtin applications (duckdb, pandas, octave, ffmpeg, bash, ...)
+or their own code. Jobs execute on kubernetes (or docker), and their output
+streams back live.
+
 ### Microservices
 
-- identity/storage provision  
-- central API for submitting "jobs"  
+- identity provision (minioth)  
+- central API for storage and for submitting "jobs" (uspace)  
   - user defined orchestration  
   - code as jobs execution  
   - builtin applications (modular)  
-- websocket streaming for logs/resuls/output  
-- frontend application for i/o + management  
+- websocket streaming for logs/results/output (wss)  
+- frontend application for i/o + management (frontapp)  
 
 ### More
 
 - storage provider (configurable)
   - minio  
-            (defaults creds for its builtin management gateway set in config file)  
+            (bundled in docker-compose; its root password comes from the secrets file)  
     or
   - fslite [custom implementation]
             (a pretty basic fs storing mechanism, with an api and a database holding file metadata)
 
-- minioth (identity provider) [custom implementation]
+- minioth (identity provider) [custom implementation, own repository]
 
-    default creds for admin: (miniothadmin, miniothadmin) - set in config file
+    developed at <https://github.com/kyri56xcaesar/minioth>, pinned here as the
+    git submodule `third_party/minioth` (currently v1.0.6)
+
+    admin account: `kuspaceadmin`, password = `MINIOTH_SECRET_KEY` from `configs/secrets.env`
 
     storage as
 
-             - 1. database as storage (sqlite3/duckdb)
+             - 1. database as storage (sqlite3)
              - 2. plain text as storage (passwd,group,shadow)
 
 - job scheduling mechanism (modular/configurable)
@@ -54,22 +70,33 @@ use scripts/kuspacectl.go to deploy/destroy/build
 
 - (central) uspace API for accessing + using everything
 
-- frontend application
+- frontend application (dashboard, job browser, file management, admin panel)
 
 - random data generation and secret generation tools
 
+### Configuration & secrets
+
+- `configs/*.conf` hold the non-secret settings of each service
+- every secret (JWT keys, service secret, passwords) lives only in
+  `configs/secrets.env`, which is gitignored; `make secrets` creates it with
+  random values from `configs/secrets.env.example`
+- docker-compose reads it through `deployments/docker-compose/.env`, and
+  kuspacectl turns it into the kubernetes Secrets
+
 ### Documentation
 
-documantation
+documentation tools
 > go install github.com/swaggo/swag/cmd/swag@latest
 >
 > go install github.com/go101/golds@latest
 
-generate documantation using:
+generate documentation using:
 
 - make code-docs
 
 - make api-docs
+
+changes, known issues and planned work are tracked in [BACKLOG.md](BACKLOG.md)
 
 ### Goals
 
