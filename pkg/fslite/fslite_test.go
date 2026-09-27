@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"sync"
 	"testing"
 
 	ut "kyri56xcaesar/kuspace/internal/utils"
@@ -183,5 +184,38 @@ func TestForeignKeys(t *testing.T) {
 	}
 	if _, ok := lookup(t, fsl, "/f", "volume1"); ok {
 		t.Error("resource survived its volume's deletion")
+	}
+}
+
+func TestConcurrentSameNameInserts(t *testing.T) {
+	fsl := newTestFsl(t)
+	vid := mustVolume(t, fsl, "volume1", 0)
+
+	const n = 20
+	errs := make(chan error, n)
+	var start sync.WaitGroup
+	start.Add(1)
+	for i := range n {
+		go func() {
+			start.Wait()
+			now := ut.CurrentTime()
+			_, err := fsl.Insert(ut.Resource{Name: "race.txt", Vname: "volume1", VID: vid, UID: int64(1000 + i),
+				GID: 1, Perms: ut.DefaultFilePerms, Type: "file", CreatedAt: now, UpdatedAt: now, AccessedAt: now})
+			errs <- err
+		}()
+	}
+	start.Done()
+	ok := 0
+	for range n {
+		err := <-errs
+		switch {
+		case err == nil:
+			ok++
+		case !errors.Is(err, ErrResourceExists):
+			t.Errorf("unexpected error: %v", err)
+		}
+	}
+	if ok != 1 {
+		t.Fatalf("%d concurrent inserts of one name succeeded, want exactly 1", ok)
 	}
 }

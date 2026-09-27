@@ -89,6 +89,9 @@ func insertResource(ctx context.Context, db *sql.DB, resource ut.Resource) error
 	resource.CreatedAt = currentTime
 	resource.UpdatedAt = currentTime
 	_, err := db.ExecContext(ctx, query, resource.FieldsNoID()...)
+	if isUniqueViolation(err) {
+		return fmt.Errorf("%w: %s in %s", ErrResourceExists, resource.Name, resource.Vname)
+	}
 	if err != nil {
 		log.Printf("[FSL_DB_insRes] failed to insert the resource: %v", err)
 
@@ -96,6 +99,28 @@ func insertResource(ctx context.Context, db *sql.DB, resource ut.Resource) error
 	}
 
 	return nil
+}
+
+// ErrResourceExists: a resource with that name already exists in the volume
+// (enforced by the unique (vname, name) index).
+var ErrResourceExists = errors.New("resource already exists")
+
+func isUniqueViolation(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
+}
+
+// ensureUniqueNames adds the unique (vname, name) index that makes duplicate
+// names impossible even for concurrent uploads (a check-then-insert can't).
+// On a database that already holds duplicates it reports them instead.
+func ensureUniqueNames(ctx context.Context, db *sql.DB) error {
+	_, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS idx_resources_vname_name ON resources(vname, name)`)
+	if err == nil {
+		return nil
+	}
+	var dups int
+	_ = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM (SELECT 1 FROM resources GROUP BY vname, name HAVING COUNT(*) > 1)`).Scan(&dups)
+
+	return fmt.Errorf("%d duplicated (volume, name) pair(s) prevent the unique index: %w", dups, err)
 }
 
 func insertResourceUniqueName(ctx context.Context, db *sql.DB, resource ut.Resource) error {

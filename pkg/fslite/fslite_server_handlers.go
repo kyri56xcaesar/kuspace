@@ -9,6 +9,7 @@
 package fslite
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
@@ -444,16 +445,12 @@ func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
 		}
 
 		_, err = fsl.Insert(resource)
-		if err != nil {
-			log.Printf("failed to insert the resource: %v", err)
-		}
-		err = file.Close()
-		if err != nil {
-			log.Printf("failed to close the file: %v", err)
+		if cErr := file.Close(); cErr != nil {
+			log.Printf("failed to close the file: %v", cErr)
 		}
 		if err != nil {
-			if strings.Contains(err.Error(), "already exists") {
-				c.JSON(400, gin.H{"error": err.Error()})
+			if errors.Is(err, ErrResourceExists) {
+				c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 
 				return
 			}

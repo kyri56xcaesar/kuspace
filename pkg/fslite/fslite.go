@@ -165,6 +165,10 @@ func NewFsLite(cfg ut.EnvConfig) FsLite {
 		} else if n > 0 {
 			log.Printf("[FSL_init] normalized %d resource name(s) to a leading \"/\"", n)
 		}
+		if err := ensureUniqueNames(context.Background(), db); err != nil {
+			log.Printf("[FSL_init] WARNING: %v", err)
+		}
+
 	}
 
 	if fsl.config.FslLocality {
@@ -187,6 +191,10 @@ func NewFsLite(cfg ut.EnvConfig) FsLite {
 		log.Print(err)
 	}
 	JwtValidityHours = cfg.JwtValidityHours
+	jwtSecretKey = deriveTokenKey(cfg.JwtSecretKey)
+	if cfg.FslServer && len(jwtSecretKey) == 0 {
+		log.Fatal("[FSL_init] the standalone server needs JWT_SECRET_KEY to sign admin tokens")
+	}
 	verbose = cfg.Verbose
 
 	return fsl
@@ -324,6 +332,7 @@ func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 			return nil, ut.NewError("failed to get the db conn: %v", err)
 		}
 
+		resource.Name = NormalizeName(resource.Name)
 		exists, err := exists(context.Background(), db, resource.Name, resource.Vname)
 		if err != nil { // if err is nil, it exists
 			log.Printf("[FSL_insert] failed to check if object exists")
@@ -331,7 +340,7 @@ func (fsl *FsLite) Insert(t any) (context.CancelFunc, error) {
 			return nil, ut.NewError("failed to check if obj exists: %v", err)
 		}
 		if exists {
-			return nil, ut.NewInfo("%s object already exists", resource.Name)
+			return nil, fmt.Errorf("%w: %s in %s", ErrResourceExists, resource.Name, resource.Vname)
 		}
 
 		if fsl.config.FslLocality {

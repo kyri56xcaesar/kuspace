@@ -4,6 +4,8 @@ package fslite
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"log"
@@ -17,20 +19,24 @@ import (
 
 const (
 	minimumUserLength = 3
-	minimumPassLength = 5
+	minimumPassLength = 8
+	maximumPassLength = 72 // bcrypt ignores anything longer
 )
 
 var (
 	// hashCost defines the bcrypt hashing cost for password hashing.
-	hashCost = 4
+	hashCost = bcrypt.DefaultCost
 	// JwtValidityHours specifies the number of hours a JWT token is valid.
 	JwtValidityHours float64 = 4
-	// jwtSecretKey is the secret key used for signing JWT tokens.
-	jwtSecretKey = "r4nd0m"
+	// jwtSecretKey signs the standalone server's admin tokens. Derived from
+	// the configured JWT secret by NewFsLite (it used to be the constant
+	// "r4nd0m", so anyone could forge admin tokens); empty until configured,
+	// and signing/verifying refuse an empty key.
+	jwtSecretKey []byte
 	// usernameRegex is the regular expression for validating usernames.
 	usernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
-	// passwordRegex is the regular expression for validating passwords.
-	passwordRegex = regexp.MustCompile(`^[a-zA-Z0-9!@#\$%\^&\*]+$`)
+	// passwordRegex allows any printable ASCII except spaces.
+	passwordRegex = regexp.MustCompile(`^[\x21-\x7e]+$`)
 )
 
 // Admin represents an admin login or registration object.
@@ -55,6 +61,9 @@ func (a *Admin) validate() error {
 
 	if len(a.Password) < minimumPassLength {
 		return errors.New("password length too small")
+	}
+	if len(a.Password) > maximumPassLength {
+		return errors.New("password too long")
 	}
 
 	if !usernameRegex.MatchString(a.Username) {
@@ -196,7 +205,10 @@ func generateAccessJWT(userID, username string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	// Sign the token using the secret key
-	tokenString, err := token.SignedString([]byte(jwtSecretKey))
+	if len(jwtSecretKey) == 0 {
+		return "", errors.New("no JWT secret configured")
+	}
+	tokenString, err := token.SignedString(jwtSecretKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign token: %w", err)
 	}
@@ -208,13 +220,12 @@ func generateAccessJWT(userID, username string) (string, error) {
 // Returns a boolean indicating validity, the claims, and any error encountered.
 func decodeJWT(tokenString string) (bool, *CustomClaims, error) {
 	// Parse and validate the token
-	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (any, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-
-		return []byte(jwtSecretKey), nil
-	})
+	if len(jwtSecretKey) == 0 {
+		return false, nil, errors.New("no JWT secret configured")
+	}
+	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(*jwt.Token) (any, error) {
+		return jwtSecretKey, nil
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}), jwt.WithIssuer("fslite"), jwt.WithExpirationRequired())
 	if err != nil {
 		log.Printf("[FSL_ADMIN_decjwt] %v token, exiting", token)
 
@@ -229,4 +240,16 @@ func decodeJWT(tokenString string) (bool, *CustomClaims, error) {
 	}
 
 	return true, claims, nil
+}
+
+// deriveTokenKey turns the configured JWT secret into fslite's own key, so
+// fslite admin tokens can never be confused with the identity provider's.
+func deriveTokenKey(secret []byte) []byte {
+	if len(secret) == 0 {
+		return nil
+	}
+	m := hmac.New(sha256.New, secret)
+	m.Write([]byte("fslite admin token v1"))
+
+	return m.Sum(nil)
 }
