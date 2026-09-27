@@ -79,7 +79,7 @@ security fix below has a regression check in it).
 - New `Makefile`: `setup`, `secrets`, `up`/`down`/`logs`, `smoke`, `check`,
   `lint`, `k8s-*`, `help`. The old one built and started the deleted
   in-repo minioth.
-- `scripts/smoke.sh`: end-to-end regression test (67 checks, all passing).
+- `scripts/smoke.sh`: end-to-end regression test (76 checks, all passing).
 - golangci-lint config migrated to v2 (the installed linter rejected v1).
 - `.dockerignore` keeps `.git`, `thesis/` and `data/` out of build contexts.
 
@@ -109,19 +109,23 @@ live stream is over; every SQLite call takes a context (uspace passes the
 request's; refunds use an uncancellable one); minioth-contract JSON tags are
 marked as such for the linter.
 
+### Round 4 (2026-09-28: jobs)
+
+| Sev | Where | Problem | Fix |
+|---|---|---|---|
+| CRIT | job pods | Pods ran user code with the MinIO root credentials (`ACCESS_KEY`/`SECRET_KEY`): any job could read, overwrite or delete every user's files. | Presigned `INPUT_URL` (GET) / `OUTPUT_URL` (PUT) for exactly the job's two objects, valid for its timeout + 15 min. Apps use a stdlib helper (`applications/common/kuspace_io.py`); images are `-v2`; start-up moves built-in `-v1` rows to `-v2`. Verified end to end: tampered or repurposed URLs get 403. |
+| HIGH | caengine app | Never parsed (every `return` at column 0) and had no defaults. | Fixed; a rejected image fails the job. |
+| HIGH | docker executor | Never worked (read the output before starting, mounted a file nothing created, no status/output recording, no built-in apps). | Rewritten on the kubernetes executor's contract; the dev compose runs jobs with it (see Dev-session state). |
+| MED | uspace tokens | Only HS256. | `JWT_SIGNING_ALG`: HS256 (shared key) or RS256 (minioth's JWKS, cached by kid, rate-limited refetch). The token's header alg is never trusted (algorithm confusion tested). |
+| MED | job cancellation | `CancelJob` was a no-op. | Queued jobs are skipped; running ones are stopped (kubernetes job deleted / container killed) with status `cancelled`. `POST /job/cancel` (owner or root), frontapp `POST /verified/job-cancel`. |
+| MED | job outputs | Overwriting an existing output failed to record ("already exists") and kept the old size. | The record is updated and only the size difference is charged/refunded to the file's owner. |
+| LOW | jobs | Nobody could tell where a job ran; jobs never showed "running". | `jobs.engine` (docker/kubernetes); status `running` once started. Job queries name their columns (no `SELECT *`). |
+
 ---
 
 ## Open
 
 ### Security
-- `CRIT` **job pods get the MinIO root credentials** (`ACCESS_KEY`/`SECRET_KEY`
-  env) and run user code: any job can read, overwrite or delete every user's
-  files, whatever uspace authorized. Fix: per-job scoped access - presigned GET
-  for the input and presigned PUT for the output (the application images read
-  URLs instead of bucket/object + keys), or a per-job MinIO service account
-  restricted to those two objects. Decided: presigned URLs (Next up #1).
-- `MED` uspace verifies HS256 tokens with the shared key. If minioth switches to
-  RS256, verify against its JWKS (`/v1/.well-known/jwks.json`) instead.
 - `MED` no CSRF tokens: `SameSite=Strict` covers modern browsers; add tokens for
   depth once the frontend is refactored.
 - `LOW` CSP still needs `'unsafe-inline'` scripts for the templates' `onclick=`
@@ -129,10 +133,10 @@ marked as such for the linter.
 - `LOW` fslite's admin password may not contain `-` (odd validation rule).
 
 ### Correctness and robustness
-- `MED` job outputs: an existing output object is overwritten by the job but its
-  record isn't updated (size/time); output files get group = uid (the job
-  doesn't carry the owner's primary group).
-- `LOW` `CancelJob` in the job manager is a no-op (no queued-job cancellation).
+- `LOW` job output files get group = uid (the job doesn't carry the owner's
+  primary group).
+- `LOW` the ad-hoc language modes (python -c, node -e, ...) quote the user's code
+  with single quotes; code containing `'` breaks the command.
 - `LOW` minioth's plain-file store and fslite have their own quirks (see their
   repos); gshell (`jack` role) needs a ticket nobody issues yet - dormant by design.
 
@@ -158,8 +162,9 @@ marked as such for the linter.
 ### Operations
 - `MED` no CI. `make check` + `make lint` on every push; `make smoke` on a
   compose stack nightly.
-- `MED` the kubernetes executor is unit-tested but not yet run end to end in a
-  cluster this round (kind/minikube are available locally).
+- `MED` the kubernetes executor is unit-tested (fake clientset) but not run
+  end to end in a cluster yet (kind/minikube are available locally); the
+  docker executor is verified end to end by `make smoke`.
 - `LOW` `go build ./...` breaks when containers leave root-owned dirs in `data/`
   (the Makefile builds `./cmd/... ./internal/... ./pkg/...`). Move runtime data
   out of the module tree.
@@ -171,27 +176,47 @@ marked as such for the linter.
   the current local repository (the copy prepared earlier predates these
   commits).
 
-### Next up (requested 2026-09-28)
-1. Job pods: presigned URLs for the input and output instead of MinIO root
-   credentials (executor + the six application images).
-2. uspace verifies tokens with the configured algorithm: HS256 (shared key)
-   or RS256 (minioth's JWKS) - never the algorithm the token names.
-3. A job writing an existing output updates that record (size, time) and
-   charges only the size difference.
-4. Operational job cancellation: queued jobs are skipped, running ones are
-   stopped and their kubernetes job deleted; owner or admin.
-5. README for `pkg/fslite`; notes on minioth's plain-file store and fslite's quirks.
-6. frontapp issues tickets for the gshell room (`jack` role).
-7. Per-service config structs embedding a shared `Common` struct.
-8. `StorageSystem` methods take a context; a UNIQUE (volume, name) index
+### Next up
+1. **Schema migrations** (see Design notes below): replace the ad-hoc start-up
+   fixes with numbered, embedded migrations per database.
+2. README for `pkg/fslite`; notes on minioth's plain-file store and fslite's quirks.
+3. frontapp issues tickets for the gshell room (`jack` role).
+4. Per-service config structs embedding a shared `Common` struct.
+5. `StorageSystem` methods take a context; a UNIQUE (volume, name) index
    instead of a mutex against duplicate-name races.
-9. CI (`make check`, `make lint` on push) so the Makefile and scripts can't
+6. CI (`make check`, `make lint` on push) so the Makefile and scripts can't
    rot unnoticed.
+7. Show a job's engine and a Cancel button in the job views (the API has both).
+
+### Design notes: schema migrations
+Today schema changes are applied by start-up code scattered across the
+services (`CREATE TABLE IF NOT EXISTS`, name normalization, volume-id
+repair, the `jobs.engine` column). Nothing records what has run, so every
+change needs its own "is it already applied?" check.
+
+Plan - a small runner in `internal/utils` (no new dependency):
+- each database (uspace's jobs.db, fslite's db) owns an ordered list of
+  migrations embedded with `go:embed` (`migrations/0001_init.sql`,
+  `0002_job_engine.sql`, ...), plus Go functions for data fixes SQL can't
+  express;
+- a `schema_migrations(version, name, applied_at)` table records what ran;
+  at start-up each pending migration runs in its own transaction, in order,
+  and the service refuses to start if one fails;
+- existing databases are baselined: `0001` is today's schema written with
+  `IF NOT EXISTS`, so running it on an existing database is a no-op, and the
+  current ad-hoc fixes become `0002...` (each already idempotent);
+- forward-only (SQLite can't drop columns cheaply); a bad migration is fixed
+  by a new one; a backup of the file is taken before the first pending one;
+- tests run every migration on an empty database and on a snapshot of the
+  previous schema.
+minioth needs the same (its BACKLOG already discusses it).
 
 ### Dev-session state (revert before release)
 - `deployments/docker-compose/docker-compose.yml` uses the external `rumie-minio`
   instead of the bundled MinIO (blocks marked `DEV SESSION`), and
   `MINIO_SECRET_KEY` in `configs/secrets.env` is rumie-minio's password.
+- The same file runs jobs on the host's docker engine (`J_EXECUTOR=docker`,
+  docker socket mounted into uspace = root on the host). Development only.
 
 ---
 
@@ -230,4 +255,4 @@ Decided 2026-09-27:
 - wss authentication: short-lived tickets from frontapp (implemented).
 - uspace verifies minioth tokens itself (implemented).
 
-- Job pod credentials: presigned URLs (see Next up).
+- Job pod credentials: presigned URLs (done 2026-09-28).
