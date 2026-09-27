@@ -87,3 +87,23 @@ func (fsl *FsLite) adjustSpace(ctx context.Context, uid int64, volume string, de
 
 	return tx.Commit()
 }
+
+// SetObjectSize records a new size (and modification time) for an existing
+// resource, e.g. when a job overwrote it.
+func (fsl *FsLite) SetObjectSize(ctx context.Context, name, volume string, size int64) error {
+	db, err := fsl.dbh.GetConn()
+	if err != nil {
+		return err
+	}
+	now := ut.CurrentTime()
+	res, err := db.ExecContext(ctx, `UPDATE resources SET size = ?, updatedAt = ?, accessedAt = ? WHERE name = ? AND vname = ?`,
+		size, now, now, NormalizeName(name), volume)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}

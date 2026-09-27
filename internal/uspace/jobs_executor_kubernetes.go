@@ -484,16 +484,14 @@ func (je *JKubernetesExecutor) recordOutput(job ut.Job, out *jobOutput) {
 	outputResource.CreatedAt, outputResource.UpdatedAt, outputResource.AccessedAt = now, now, now
 
 	out.Sendf("[executor] saving output %s/%s ...\n", outputResource.Vname, outputResource.Name)
-	if _, err := je.jm.srv.fsl.Insert(outputResource); err != nil {
-		log.Printf("failed to insert output object in database: %v", err)
+	action, err := je.jm.srv.saveJobOutput(context.Background(), outputResource)
+	if err != nil {
+		log.Printf("failed to record output of job %d: %v", job.JID, err)
 		out.Sendf("[executor]: error saving output data in db... %v\n", err)
 
 		return
 	}
-	quota := min(je.jm.srv.config.LocalVolumesDefaultCapacity, maxDefaultVolumeCapacity)
-	if err := je.jm.srv.fsl.ClaimSpace(context.Background(), job.UID, vname, outputResource.Size, quota, false); err != nil {
-		log.Printf("failed to account output of job %d: %v", job.JID, err)
-	}
+	out.Sendf("[executor] output %s\n", action)
 	out.Send([]byte("[executor] OK.\n"))
 }
 
@@ -820,4 +818,42 @@ func formatJobCommand(job *ut.Job) ([]string, error) {
 
 		return nil, fmt.Errorf("unsupported language: %s", lang)
 	}
+}
+
+// saveJobOutput records a job's output object: a new one is created and
+// charged to the job's owner; an existing one (a job may overwrite an output
+// its owner can write, checked at submission) gets its new size and time,
+// and only the size difference is charged to - or refunded to - the file's
+// owner. It used to fail with "already exists" and keep the old size.
+func (srv *UService) saveJobOutput(ctx context.Context, output ut.Resource) (string, error) {
+	quota := min(srv.config.LocalVolumesDefaultCapacity, maxDefaultVolumeCapacity)
+	existing, found, err := srv.lookupResource(output.Name, output.Vname)
+	if err != nil {
+		return "", err
+	}
+	if !found {
+		if _, err := srv.fsl.Insert(output); err != nil {
+			return "", err
+		}
+		if err := srv.fsl.ClaimSpace(ctx, output.UID, output.Vname, output.Size, quota, false); err != nil {
+			log.Printf("failed to account new output %s: %v", output.Name, err)
+		}
+
+		return "created", nil
+	}
+
+	if err := srv.fsl.SetObjectSize(ctx, output.Name, output.Vname, output.Size); err != nil {
+		return "", err
+	}
+	switch delta := output.Size - existing.Size; {
+	case delta > 0:
+		err = srv.fsl.ClaimSpace(ctx, existing.UID, output.Vname, delta, quota, false)
+	case delta < 0:
+		err = srv.fsl.ReleaseSpace(ctx, existing.UID, output.Vname, -delta)
+	}
+	if err != nil {
+		log.Printf("failed to account overwritten output %s: %v", output.Name, err)
+	}
+
+	return "updated (overwrote the existing file)", nil
 }
