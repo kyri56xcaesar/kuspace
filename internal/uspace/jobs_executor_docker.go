@@ -2,6 +2,7 @@ package uspace
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -212,7 +213,7 @@ func prepareExecution(job ut.Job, verbose bool) (*exec.Cmd, time.Duration, error
 		log.Printf("command: %s", command)
 	}
 	start := time.Now()
-	cmd := exec.Command("docker", command...)
+	cmd := exec.CommandContext(context.Background(), "docker", command...)
 
 	return cmd, time.Since(start), nil
 }
@@ -357,7 +358,7 @@ func formatJobCommandD(job ut.Job, fileSave bool) ([]string, error) {
 
 func updateJobStatus(je *JDockerExecutor, jid int64, status string, duration time.Duration) {
 	log.Printf("updating %v job status: %v", jid, status)
-	err := je.jm.srv.markJobStatus(jid, status, duration)
+	err := je.jm.srv.markJobStatus(context.Background(), jid, status, duration)
 	if err != nil {
 		log.Printf("failed to update job %d status (%s): %v", jid, status, err)
 	}
@@ -378,7 +379,7 @@ func syncOutputResource(je *JDockerExecutor, job ut.Job) {
 		CreatedAt:  currentTime,
 		UpdatedAt:  currentTime,
 		AccessedAt: currentTime,
-		Perms:      "rw-r--r--",
+		Perms:      ut.DefaultFilePerms,
 		RID:        0,
 		UID:        job.UID,
 		VID:        0,

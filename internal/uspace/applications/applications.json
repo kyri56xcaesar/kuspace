@@ -41,7 +41,7 @@
     },
     {
         "name":"bash",
-        "image":"kyri56xcaesar/kuspace/applications-bash-v1",
+        "image":"kyri56xcaesar/kuspace:applications-bash-v1",
         "description":"run bash commands on objects",
         "version":"v1",
         "author":"k",

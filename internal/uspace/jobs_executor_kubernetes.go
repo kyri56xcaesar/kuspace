@@ -10,6 +10,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	k "kyri56xcaesar/kuspace/internal/uspace/kubernetes"
@@ -53,6 +54,12 @@ func (jke JKubernetesExecutor) ExecuteJob(job ut.Job) error {
 	return nil
 }
 
+// k8sJobName is the one name a job has in kubernetes (create, watch, cancel
+// and log lookups all use it; they used to disagree).
+func k8sJobName(jid int64) string {
+	return fmt.Sprintf("job-%d", jid)
+}
+
 // CancelJob method responsible for canceling the job execution
 func (jke JKubernetesExecutor) CancelJob(job ut.Job) error {
 	client, err := k.GetKubeClient()
@@ -61,7 +68,7 @@ func (jke JKubernetesExecutor) CancelJob(job ut.Job) error {
 
 		return err
 	}
-	err = cancelJob(client, fmt.Sprintf("job-%d", job.JID), jke.jm.srv.config.Namespace)
+	err = cancelJob(client, k8sJobName(job.JID), jke.jm.srv.config.Namespace)
 	if err != nil {
 		log.Printf("[executor] failed to cancel the Job: %v", err)
 	}
@@ -69,12 +76,40 @@ func (jke JKubernetesExecutor) CancelJob(job ut.Job) error {
 	return err
 }
 
+// jobQuotas are the parsed resource requests/limits of a job.
+type jobQuotas struct {
+	reqMem, reqCPU, limMem, limCPU resource.Quantity
+}
+
+// parseJobQuotas validates the job's resource strings. resource.MustParse on
+// user input used to panic - and a panic in a worker goroutine kills uspace.
+func parseJobQuotas(job ut.Job) (jobQuotas, error) {
+	var q jobQuotas
+	for _, f := range []struct {
+		name, val string
+		dst       *resource.Quantity
+	}{
+		{"memory request", job.MemoryRequest, &q.reqMem},
+		{"cpu request", job.CPURequest, &q.reqCPU},
+		{"memory limit", job.MemoryLimit, &q.limMem},
+		{"cpu limit", job.CPULimit, &q.limCPU},
+	} {
+		v, err := resource.ParseQuantity(f.val)
+		if err != nil {
+			return q, fmt.Errorf("invalid %s %q: %w", f.name, f.val, err)
+		}
+		*f.dst = v
+	}
+
+	return q, nil
+}
+
 func buildK8sJob(
-	jobID string,
+	name string,
 	image string,
 	command []string,
 	env map[string]string,
-	quotas map[string]string,
+	quotas jobQuotas,
 	parallelism int32,
 	namespace string,
 	timeout int64,
@@ -91,8 +126,8 @@ func buildK8sJob(
 
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "job-" + jobID,
-			Labels:    map[string]string{"job-group": "uspace-job", "job-name": jobID},
+			Name:      name,
+			Labels:    map[string]string{"job-group": "uspace-job", "uspace-job": name},
 			Namespace: namespace,
 		},
 		Spec: batchv1.JobSpec{
@@ -111,12 +146,12 @@ func buildK8sJob(
 						Env:     envVars,
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								corev1.ResourceMemory: resource.MustParse(quotas["RMem"]),
-								corev1.ResourceCPU:    resource.MustParse(quotas["RCpu"]),
+								corev1.ResourceMemory: quotas.reqMem,
+								corev1.ResourceCPU:    quotas.reqCPU,
 							},
 							Limits: corev1.ResourceList{
-								corev1.ResourceMemory: resource.MustParse(quotas["LMem"]),
-								corev1.ResourceCPU:    resource.MustParse(quotas["LCpu"]),
+								corev1.ResourceMemory: quotas.limMem,
+								corev1.ResourceCPU:    quotas.limCPU,
 							},
 						},
 					}},
@@ -130,109 +165,101 @@ func pointerToInt32(i int32) *int32 {
 	return &i
 }
 
-func runJob(clientset *kubernetes.Clientset, job *batchv1.Job, namespace string) error {
-	_, err := clientset.BatchV1().Jobs(namespace).Create(context.TODO(), job, metav1.CreateOptions{})
+func runJob(ctx context.Context, clientset kubernetes.Interface, job *batchv1.Job, namespace string) error {
+	_, err := clientset.BatchV1().Jobs(namespace).Create(ctx, job, metav1.CreateOptions{})
 
 	return err
 }
 
-func cancelJob(clientset *kubernetes.Clientset, jobName, namespace string) error {
+func cancelJob(clientset kubernetes.Interface, jobName, namespace string) error {
 	foreground := metav1.DeletePropagationForeground
 
-	return clientset.BatchV1().Jobs(namespace).Delete(context.TODO(), jobName, metav1.DeleteOptions{
+	return clientset.BatchV1().Jobs(namespace).Delete(context.Background(), jobName, metav1.DeleteOptions{
 		PropagationPolicy: &foreground,
 	})
 }
 
-func monitorJob(clientset *kubernetes.Clientset, jobName, namespace string) (string, error) {
-	watcher, err := clientset.BatchV1().Jobs(namespace).Watch(context.TODO(), metav1.ListOptions{
-		FieldSelector: "metadata.name=" + jobName,
-	})
-	if err != nil {
-		return "", err
-	}
-
-	for event := range watcher.ResultChan() {
-		j := event.Object.(*batchv1.Job)
-		if j.Status.Succeeded > 0 {
-			return "completed", nil
-		}
-		if j.Status.Failed > 0 {
-			return "failed", nil
-		}
-	}
-
-	return "unknown", errors.New("watch ended unexpectedly")
-}
-
-func streamJobLogs(clientset *kubernetes.Clientset, jobName, namespace string, send func([]byte)) error {
-	labelSelector := "job-name=job-" + jobName
-
-	var podName string
-	timeout := time.After(60 * time.Second)
-	tick := time.NewTicker(2 * time.Second)
-	defer tick.Stop()
-
-	// Step 1: Wait for pod to appear
-WAIT_FOR_CREATION:
+// monitorJob waits until the job succeeds or fails. Watches get closed by the
+// API server from time to time, so it re-watches until ctx is done; non-Job
+// events (errors are *metav1.Status) are skipped - an unchecked type assertion
+// here used to panic and take all of uspace down.
+func monitorJob(ctx context.Context, clientset kubernetes.Interface, jobName, namespace string) (string, error) {
 	for {
-		select {
-		case <-timeout:
-
-			return fmt.Errorf("timeout waiting for pod creation for job: %s", jobName)
-		case <-tick.C:
-			pods, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
-				LabelSelector: labelSelector,
-			})
-			if err != nil {
-				return fmt.Errorf("error listing pods: %w", err)
-			}
-			if len(pods.Items) > 0 {
-				podName = pods.Items[0].Name
-				// log.Printf("found pod: %s for job: %s", podName, jobName)
-
-				break WAIT_FOR_CREATION
-			}
+		watcher, err := clientset.BatchV1().Jobs(namespace).Watch(ctx, metav1.ListOptions{
+			FieldSelector: "metadata.name=" + jobName,
+		})
+		if err != nil {
+			return "unknown", err
 		}
-	}
+	events:
+		for {
+			select {
+			case <-ctx.Done(): // a silent watch must not outlive the job's deadline
+				watcher.Stop()
 
-	// Step 2: Wait for pod readiness
-	timeout = time.After(60 * time.Second)
-WAIT_FOR_READY:
-	for {
-		select {
-		case <-timeout:
+				return "unknown", fmt.Errorf("stopped watching %s: %w", jobName, ctx.Err())
+			case event, open := <-watcher.ResultChan():
+				if !open {
+					break events
+				}
+				j, ok := event.Object.(*batchv1.Job)
+				if !ok {
+					continue
+				}
+				if j.Status.Succeeded > 0 {
+					watcher.Stop()
 
-			return fmt.Errorf("timeout waiting for pod %s to be ready", podName)
-		case <-tick.C:
-			pod, err := clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
-			if err != nil {
-				return fmt.Errorf("failed to get pod status: %w", err)
-			}
-			if pod.Status.Phase == corev1.PodRunning {
-				for _, cs := range pod.Status.ContainerStatuses {
-					if cs.Ready {
-						// log.Printf("pod %s is ready", podName)
+					return "completed", nil
+				}
+				if j.Status.Failed > 0 {
+					watcher.Stop()
 
-						break WAIT_FOR_READY
-					}
+					return "failed", nil
 				}
 			}
 		}
+		watcher.Stop()
+		select {
+		case <-ctx.Done():
+			return "unknown", fmt.Errorf("stopped watching %s: %w", jobName, ctx.Err())
+		case <-time.After(time.Second):
+		}
+	}
+}
+
+// streamJobLogs follows the logs of the job's first pod once it is running -
+// or already finished: short jobs used to complete before ever being "ready",
+// so their logs were never streamed.
+func streamJobLogs(ctx context.Context, clientset kubernetes.Interface, jobName, namespace string, send func([]byte)) error {
+	labelSelector := "job-name=" + jobName // set by kubernetes on the job's pods
+
+	tick := time.NewTicker(time.Second)
+	defer tick.Stop()
+	var podName string
+	for podName == "" {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("no pod started for job %s: %w", jobName, ctx.Err())
+		case <-tick.C:
+		}
+		pods, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
+		if err != nil {
+			return fmt.Errorf("error listing pods: %w", err)
+		}
+		for _, pod := range pods.Items {
+			switch pod.Status.Phase {
+			case corev1.PodRunning, corev1.PodSucceeded, corev1.PodFailed:
+				podName = pod.Name
+			}
+		}
 	}
 
-	// Step 3: Start streaming logs
-	req := clientset.CoreV1().Pods(namespace).GetLogs(podName, &corev1.PodLogOptions{
-		Follow: true,
-	})
-
-	stream, err := req.Stream(context.TODO())
+	stream, err := clientset.CoreV1().Pods(namespace).GetLogs(podName, &corev1.PodLogOptions{Follow: true}).Stream(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to open log stream for pod %s: %w", podName, err)
 	}
 	defer func() {
-		err := stream.Close()
-		if err != nil {
+		if err := stream.Close(); err != nil {
 			log.Printf("failed to close the stream: %v", err)
 		}
 	}()
@@ -240,159 +267,233 @@ WAIT_FOR_READY:
 	reader := bufio.NewReader(stream)
 	for {
 		line, err := reader.ReadBytes('\n')
+		if len(line) > 0 {
+			send(append([]byte("\t[POD]"), line...))
+		}
 		if err != nil {
-			if err == io.EOF {
-				break
+			if errors.Is(err, io.EOF) {
+				return nil
 			}
 
 			return fmt.Errorf("error reading log stream: %w", err)
 		}
-		send(append([]byte("\t[POD]"), line...))
+	}
+}
+
+// jobLogLimit caps the output kept per job (the tail is kept).
+const jobLogLimit = 64 << 10
+
+// jobOutput fans a job's messages out to the live websocket stream and keeps
+// the tail for the job's persisted log. Send after Close is a no-op, so a
+// straggling goroutine can't panic on a closed channel.
+type jobOutput struct {
+	mu     sync.Mutex
+	ch     chan []byte
+	buf    []byte
+	closed bool
+}
+
+func newJobOutput(jid int64) *jobOutput {
+	o := &jobOutput{ch: make(chan []byte, 100)}
+	go streamToSocketWS(jid, o.ch)
+
+	return o
+}
+
+func (o *jobOutput) Send(msg []byte) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	if o.closed {
+		return
+	}
+	o.buf = append(o.buf, msg...)
+	if len(msg) == 0 || msg[len(msg)-1] != '\n' {
+		o.buf = append(o.buf, '\n')
+	}
+	if len(o.buf) > jobLogLimit {
+		o.buf = o.buf[len(o.buf)-jobLogLimit:]
+	}
+	select {
+	case o.ch <- msg:
+	default: // the live stream is slow or gone; the persisted log still has it
+	}
+}
+
+func (o *jobOutput) Sendf(format string, args ...any) { o.Send([]byte(fmt.Sprintf(format, args...))) }
+
+// Close ends the live stream and returns the kept log.
+func (o *jobOutput) Close() string {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	if !o.closed {
+		o.closed = true
+		close(o.ch)
 	}
 
-	return nil
+	return string(o.buf)
 }
 
 func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
-	jobName := fmt.Sprintf("j-%d", job.JID)
+	jobName := k8sJobName(job.JID)
 	namespace := je.jm.srv.config.Namespace
-	// llets create a stream channel (for the websocket)
-	wsChan := make(chan []byte, 100)
-	// begin streaming channel, also set a deadline,  perhaps a context with a deadline could work
-	go streamToSocketWS(job.JID, wsChan)
-	go func() {
-		time.Sleep(time.Second * 500)
-		close(wsChan) // this propably lasts longer than the prev context
+	out := newJobOutput(job.JID)
+	defer func() {
+		// the log outlives the live stream: save it with the job
+		if err := je.jm.srv.saveJobLog(context.Background(), job.JID, out.Close()); err != nil {
+			log.Printf("[executor] failed to save the log of job %d: %v", job.JID, err)
+		}
 	}()
 
-	wsChan <- []byte("...")
-	wsChan <- []byte("=-----------------------------------------------------------------------=")
-	wsChan <- []byte("...")
-	wsChan <- []byte(fmt.Sprintf("[executor] formatting Job as job-name: job-%s\n", jobName))
+	out.Send([]byte("=-----------------------------------------------------------------------="))
+	out.Sendf("[executor] formatting job as %s\n", jobName)
 
 	command, err := formatJobData(je, &job)
 	if err != nil {
 		log.Printf("error formatting job data: %v", err)
-		wsChan <- []byte(fmt.Sprintf("[executor]: error formatting job data %v\n", err))
+		out.Sendf("[executor]: error formatting job data %v\n", err)
+		je.markFailed(job.JID, 0)
+
+		return
+	}
+	quotas, err := parseJobQuotas(job)
+	if err != nil {
+		out.Sendf("[executor]: %v\n", err)
+		je.markFailed(job.JID, 0)
 
 		return
 	}
 
-	wsChan <- []byte("[executor] constructing job...\n")
-
 	// safely convert job.Parallelism (int) to int32, checking for overflow
 	var parallelism int32
-
 	if job.Parallelism <= 0 || job.Parallelism > math.MaxInt32 {
 		parallelism = 1
 	} else {
 		parallelism = int32(job.Parallelism)
 	}
 
-	jobSpec := buildK8sJob(
-		jobName,
-		job.Logic,
-		command,
-		job.Env,
-		map[string]string{"RMem": job.MemoryRequest, "RCpu": job.CPURequest, "LMem": job.MemoryLimit, "LCpu": job.CPULimit},
-		parallelism, // parallelism // should default to 1
-		namespace,
-		int64(job.Timeout*60),
-		je.jm.srv.config.UspaceJobTTL,
-	)
+	jobSpec := buildK8sJob(jobName, job.Logic, command, job.Env, quotas, parallelism, namespace,
+		int64(job.Timeout*60), je.jm.srv.config.UspaceJobTTL)
 
-	wsChan <- []byte("[executor] launcing job...\n")
-	wsChan <- []byte(
-		fmt.Sprintf(`[executor] specs: {parallelism: %v, timeout: %v, cpu_limit: %v, cpu_request: %v,
-		 mem_limit: %v, mem_req: %v, storage_limit: %v, storage_request: %v}\n`,
-			job.Parallelism, job.Timeout, job.CPULimit, job.CPURequest, job.MemoryLimit,
-			job.MemoryRequest, job.EphemeralStorageLimit, job.EphemeralStorageRequest))
+	out.Send([]byte("[executor] launching job...\n"))
+	out.Sendf("[executor] specs: {parallelism: %v, timeout: %v, cpu_limit: %v, cpu_request: %v, mem_limit: %v, mem_req: %v}\n",
+		job.Parallelism, job.Timeout, job.CPULimit, job.CPURequest, job.MemoryLimit, job.MemoryRequest)
 
 	clientset, err := k.GetKubeClient() // from config
 	if err != nil {
 		log.Printf("[executor] could not retrieve kube client: %v", err)
-		wsChan <- []byte("could not retrieve k8s client, fatal...\nexiting...")
+		out.Send([]byte("could not retrieve k8s client, fatal...\nexiting..."))
+		je.markFailed(job.JID, 0)
 
 		return
 	}
-	err = runJob(clientset, jobSpec, namespace)
-	if err != nil {
+
+	// the whole run is bounded: the job's own timeout (or a day) plus slack
+	limit := 24 * time.Hour
+	if job.Timeout > 0 {
+		limit = time.Duration(job.Timeout)*time.Minute + 5*time.Minute
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), limit)
+	defer cancel()
+
+	if err := runJob(ctx, clientset, jobSpec, namespace); err != nil {
 		log.Printf("error starting job: %v", err)
-		wsChan <- []byte(fmt.Sprintf("[executor]: error launching job execution%v\n", err))
+		out.Sendf("[executor]: error launching job execution %v\n", err)
+		je.markFailed(job.JID, 0)
 
 		return
 	}
 	startTime := time.Now()
 
-	// monitor and stream the logs of that job
+	var logsDone sync.WaitGroup
+	logsDone.Add(1)
 	go func() {
-		err = streamJobLogs(clientset, jobName, namespace, func(data []byte) {
-			wsChan <- data
-		})
-		if err != nil {
-			log.Printf("failed to stream job logs.. :%v", err)
-			wsChan <- []byte(fmt.Sprintf("[executor]: error streaming pod logs: %v\n", err))
+		defer logsDone.Done()
+		if err := streamJobLogs(ctx, clientset, jobName, namespace, out.Send); err != nil {
+			log.Printf("failed to stream job logs: %v", err)
+			out.Sendf("[executor]: error streaming pod logs: %v\n", err)
 		}
 	}()
 
-	status, err := monitorJob(clientset, jobSpec.Name, namespace)
+	status, err := monitorJob(ctx, clientset, jobSpec.Name, namespace)
 	if err != nil {
 		log.Printf("error monitoring job: %v", err)
 	}
-	duration := time.Since(startTime)
-	// log.Printf("[executor] Job %v finished with status: %s, duration: %v", jobName, status, duration)
-	wsChan <- []byte(fmt.Sprintf("[executor] Job %v finished with status: %s, duration: %v\n", jobName, status, duration))
-
-	// Optional: cleanup or postprocess
-	err = je.jm.srv.markJobStatus(job.JID, status, duration)
-	if err != nil {
-		log.Printf("failed to annotate result to database")
-		wsChan <- []byte(fmt.Sprintf("[executor]: error marking job completion%v\n", err))
+	// give the log follower a moment to drain what the pod printed last
+	drained := make(chan struct{})
+	go func() { logsDone.Wait(); close(drained) }()
+	select {
+	case <-drained:
+	case <-time.After(10 * time.Second):
 	}
 
-	// save output to db
-	p := strings.SplitN(job.Output, "/", 2)
-	if len(p) != 2 {
-		log.Printf("job output was invalid format, should have escaped by now...")
+	duration := time.Since(startTime)
+	out.Sendf("[executor] job %v finished with status: %s, duration: %v\n", jobName, status, duration)
+
+	if err := je.jm.srv.markJobStatus(context.Background(), job.JID, status, duration); err != nil {
+		log.Printf("failed to annotate result to database")
+		out.Sendf("[executor]: error marking job completion %v\n", err)
 	}
 
 	if status == "completed" {
-		outputResource := ut.Resource{
-			Name:  p[1],
-			Path:  "/",
-			Type:  "file",
-			Perms: "rw-r--r--",
-			UID:   job.UID,
-			Vname: p[0],
-			GID:   job.UID,
-		}
-		info, err := je.jm.srv.storage.Stat(outputResource)
-		if err != nil {
-			log.Printf("failed to stat output file from storage: %v", err)
-			wsChan <- []byte(fmt.Sprintf("[executor]: error retrieving output file %v\n", err))
-
-			return
-		}
-		// this should be changed to be independent of minio... // will do "resourceInfo struct "
-		infoCasted, ok := info.(minio.ObjectInfo)
-		if !ok {
-			log.Printf("failed to cast to object info")
-			wsChan <- []byte(fmt.Sprintf("[executor]: error retrieving output file format %v\n", err))
-
-			return
-		}
-		outputResource.Size = infoCasted.Size
-
-		// log.Printf("[executor]...saving output in database...")
-		wsChan <- []byte(fmt.Sprintf("[executor] saving output %s/%s ...\n", outputResource.Vname, outputResource.Name))
-		_, err = je.jm.srv.fsl.Insert(outputResource)
-		if err != nil {
-			log.Printf("failed to insert output object in database: %v", err)
-			wsChan <- []byte(fmt.Sprintf("[executor]: error saving output data in db...%v\n", err))
-		}
-
-		wsChan <- []byte("[executor] OK.\n")
+		je.recordOutput(job, out)
 	}
+}
+
+func (je *JKubernetesExecutor) markFailed(jid int64, d time.Duration) {
+	if err := je.jm.srv.markJobStatus(context.Background(), jid, "failed", d); err != nil {
+		log.Printf("failed to mark job %d failed: %v", jid, err)
+	}
+}
+
+// recordOutput adds the job's output object to the metadata store and charges
+// it to the owner's quota (unenforced: the object already exists).
+func (je *JKubernetesExecutor) recordOutput(job ut.Job, out *jobOutput) {
+	vname, name, ok := strings.Cut(job.Output, "/")
+	if !ok {
+		out.Send([]byte("[executor]: invalid output location\n"))
+
+		return
+	}
+	outputResource := ut.Resource{
+		Name:  name,
+		Path:  "/",
+		Type:  "file",
+		Perms: ut.DefaultFilePerms,
+		UID:   job.UID,
+		Vname: vname,
+		VID:   je.jm.srv.volumeID(vname),
+		GID:   job.UID,
+	}
+	info, err := je.jm.srv.storage.Stat(outputResource)
+	if err != nil {
+		log.Printf("failed to stat output file from storage: %v", err)
+		out.Sendf("[executor]: error retrieving output file %v\n", err)
+
+		return
+	}
+	// this should be changed to be independent of minio... // will do "resourceInfo struct "
+	infoCasted, ok := info.(minio.ObjectInfo)
+	if !ok {
+		out.Send([]byte("[executor]: error retrieving output file format\n"))
+
+		return
+	}
+	outputResource.Size = infoCasted.Size
+	now := ut.CurrentTime()
+	outputResource.CreatedAt, outputResource.UpdatedAt, outputResource.AccessedAt = now, now, now
+
+	out.Sendf("[executor] saving output %s/%s ...\n", outputResource.Vname, outputResource.Name)
+	if _, err := je.jm.srv.fsl.Insert(outputResource); err != nil {
+		log.Printf("failed to insert output object in database: %v", err)
+		out.Sendf("[executor]: error saving output data in db... %v\n", err)
+
+		return
+	}
+	quota := min(je.jm.srv.config.LocalVolumesDefaultCapacity, maxDefaultVolumeCapacity)
+	if err := je.jm.srv.fsl.ClaimSpace(context.Background(), job.UID, vname, outputResource.Size, quota, false); err != nil {
+		log.Printf("failed to account output of job %d: %v", job.JID, err)
+	}
+	out.Send([]byte("[executor] OK.\n"))
 }
 
 func formatJobData(je *JKubernetesExecutor, job *ut.Job) ([]string, error) {

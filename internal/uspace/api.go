@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os/signal"
@@ -118,6 +119,9 @@ func NewUService(conf string) UService {
 	jdbh := ut.NewDBHandler(cfg.UspaceJobsDB, cfg.UspaceJobsDBPath, cfg.UspaceJobsDBDriver)
 	srv.jdbh = jdbh
 	srv.jdbh.Init(initSQLJobs, cfg.UspaceJobsDBMaxOpenConns, cfg.UspaceJobsDBMaxIdleConns, cfg.UspaceJobsDBMaxLifetime)
+	if err := srv.seedDefaultApps(context.Background()); err != nil {
+		log.Printf("[USPACE_init] failed to install default apps: %v", err)
+	}
 
 	// fsl for storing and enforcing files securly
 	copyCfg := cfg.DeepCopy()
@@ -151,6 +155,8 @@ func NewUService(conf string) UService {
 			log.Fatalf("[USPACE_init] failed to save to local fsl db: %v", err)
 		}
 	}
+
+	syncUsersInBackground(&srv)
 
 	return srv
 }
@@ -209,9 +215,10 @@ func (srv *UService) RegisterRoutes() {
 	* */
 	apiV1 := srv.Engine.Group("/api" + version)
 	apiV1.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.InstanceName("uspacedocs")))
-	if strings.ToLower(srv.config.APIGinMode) != "debug" {
-		apiV1.Use(serviceAuth(srv))
-	}
+	// every call is authenticated (see identity.go): a user's minioth access
+	// token, or the service secret. (Auth used to be skipped entirely in gin
+	// "debug" mode.)
+	apiV1.Use(authenticate(srv))
 	{
 		// jobs can be run from anyone
 		// job related
@@ -220,6 +227,7 @@ func (srv *UService) RegisterRoutes() {
 			"/job",
 			srv.handleJob,
 		)
+		apiV1.GET("/job/log", srv.handleJobLog)
 		apiV1.Match(
 			[]string{"GET", "POST"},
 			"/app",
@@ -244,9 +252,7 @@ func (srv *UService) RegisterRoutes() {
 
 	admin := srv.Engine.Group("/api" + version + "/admin")
 
-	if strings.ToLower(srv.config.APIGinMode) != "debug" {
-		admin.Use(serviceAuth(srv), bindHeadersMiddleware())
-	}
+	admin.Use(authenticateAdmin(srv), bindHeadersMiddleware())
 	{
 		admin.Match(
 			[]string{"GET", "POST", "PUT", "DELETE", "PATCH"},
@@ -299,82 +305,83 @@ func (srv *UService) handleSysConf(c *gin.Context) {
 	c.JSON(http.StatusOK, uspacecfg)
 }
 
-// this should propably sync users/data from minio or other storage providers.
+// syncUsers gives every existing minioth user a claim on the default volume.
+// Registration creates these claims, but users registered before that worked
+// (or while uspace was down) have none. Safe to run repeatedly: existing
+// claims are left alone.
 func syncUsers(srv *UService) error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*3)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+srv.config.AuthAddress+":"+srv.config.AuthPort+"/v1/admin/groups", nil)
 	if err != nil {
-		log.Printf("failed to create a request: %v", err)
-
-		return err
+		return fmt.Errorf("failed to create a request: %w", err)
 	}
-	req.Header.Add("X-Service-Secret", string(srv.config.ServiceSecretKey))
-	var reqR struct {
-		Content []ut.Group `json:"content"`
-	}
+	req.Header.Set("X-Service-Secret", string(srv.config.ServiceSecretKey))
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		log.Printf("failed to do request: %v", err)
-
-		return err
+		return fmt.Errorf("failed to reach minioth: %w", err)
 	}
 	defer func() {
-		err := resp.Body.Close()
-		if err != nil {
+		if err := resp.Body.Close(); err != nil {
 			log.Printf("failed to close response body: %v", err)
 		}
 	}()
-
-	if err := json.NewDecoder(resp.Body).Decode(&reqR); err != nil {
-		log.Printf("failed to decode response body: %v", err)
-
-		return err
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("minioth answered %s", resp.Status)
 	}
-	if len(reqR.Content) == 0 {
-		log.Printf("request returned empty slice of users, false condition")
-
-		return errors.New("failed to retrieve actual users")
+	var groups struct {
+		Content []ut.Group `json:"content"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&groups); err != nil {
+		return fmt.Errorf("failed to decode groups: %w", err)
 	}
 
-	capacity := min(srv.config.LocalVolumesDefaultCapacity, maxDefaultVolumeCapacity)
+	v, err := srv.fsl.SelectVolumes(map[string]any{"name": srv.config.MinioDefaultBucket})
+	if err != nil {
+		return fmt.Errorf("default volume: %w", err)
+	}
+	volume, ok := v.(ut.Volume)
+	if !ok {
+		return errors.New("default volume: unexpected type")
+	}
+	quota := min(srv.config.LocalVolumesDefaultCapacity, maxDefaultVolumeCapacity)
 
-	// we retrieved the users, lets add the users volume claims and the corresponding primary group claims
-	for _, group := range reqR.Content {
-		if group.Groupname == "admin" || group.Groupname == "user" || group.Groupname == "mod" {
-			continue
-		}
-
-		cancelFn, err := srv.storage.Insert([]any{ut.GroupVolume{
-			VID:   1,
-			GID:   group.GID,
-			Quota: capacity,
-		}})
-		defer cancelFn()
-		if err != nil {
-			log.Printf("failed to insert gv: %v", err)
-
-			return err
-		}
+	claimed := 0
+	// a user's primary group is the one named after them
+	for _, group := range groups.Content {
 		for _, user := range group.Users {
-			if user.Username == group.Groupname {
-				cancelFn, err := srv.storage.Insert([]any{ut.UserVolume{
-					VID:   1,
-					UID:   user.UID,
-					Quota: capacity,
-				}})
-				defer cancelFn()
-				if err != nil {
-					log.Printf("failed to insert uv: %v", err)
-
-					return err
-				}
+			if user.Username != group.Groupname {
+				continue
+			}
+			_, err := srv.fsl.Insert(ut.UserVolume{VID: volume.VID, UID: user.UID, Quota: quota})
+			switch {
+			case err == nil:
+				claimed++
+			case strings.Contains(err.Error(), "already exists"):
+			default:
+				log.Printf("[USPACE_sync] failed to claim volume for uid %d: %v", user.UID, err)
 			}
 		}
 	}
+	log.Printf("[USPACE_sync] volume claims created for %d existing user(s)", claimed)
 
 	return nil
+}
+
+// syncUsersInBackground retries syncUsers until minioth is reachable, without
+// holding up start-up.
+func syncUsersInBackground(srv *UService) {
+	go func() {
+		for attempt, wait := 1, 2*time.Second; attempt <= 6; attempt, wait = attempt+1, wait*2 {
+			err := syncUsers(srv)
+			if err == nil {
+				return
+			}
+			log.Printf("[USPACE_sync] attempt %d failed: %v", attempt, err)
+			time.Sleep(wait)
+		}
+	}()
 }
 
 func setGinMode(mode string) {

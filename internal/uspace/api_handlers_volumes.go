@@ -197,26 +197,30 @@ func (srv *UService) handleUserVolumes(c *gin.Context) {
 				return
 			}
 
-			if capacity, _ := strconv.ParseFloat(srv.config.LocalVolumesDefaultPath, 64); int(userVolume.Quota) == 0 || userVolume.Quota > float64(capacity) {
-				log.Printf("[USPACE_API] inserted")
-				userVolume.Quota = float64(capacity)
+			// callers don't know volume ids (frontapp sends 1): fall back to
+			// the default volume when the given one doesn't exist
+			if v, err := srv.fsl.SelectVolumes(map[string]any{"vid": strconv.FormatInt(userVolume.VID, 10)}); err != nil || v == nil {
+				userVolume.VID = srv.volumeID(srv.config.MinioDefaultBucket)
+			}
+			if capacity := srv.config.LocalVolumesDefaultCapacity; int(userVolume.Quota) == 0 || userVolume.Quota > capacity {
+				userVolume.Quota = capacity
 			}
 
-			cancelFn, err := srv.fsl.Insert([]any{userVolume})
+			// fslite's Insert switches on bare ut.UserVolume/[]ut.UserVolume
+			// (not []any) and returns a nil cancel func for them.
+			_, err := srv.fsl.Insert(userVolume)
 			if err != nil {
 				log.Printf("[USPACE_API] failed to insert user volume: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert uv"})
 
 				return
 			}
-			defer cancelFn()
 			c.JSON(http.StatusCreated, gin.H{"status": "inserted user volume"})
 
 			return
 		}
 		// binded user
-		cancelFn, err := srv.fsl.Insert([]any{userVolumes})
-		defer cancelFn()
+		_, err = srv.fsl.Insert(userVolumes)
 		if err != nil {
 			log.Printf("[USPACE_API] failed to insert user volumes: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert uv"})

@@ -56,7 +56,7 @@ func (srv *UService) handleApps(c *gin.Context) {
 
 				return
 			}
-			apps, err := srv.getAppsByIDs(idsInt)
+			apps, err := srv.getAppsByIDs(c.Request.Context(), idsInt)
 			if err != nil {
 				log.Printf("failed to retrieve apps by id: %v, %v", idsInt, err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve apps by id"})
@@ -72,7 +72,7 @@ func (srv *UService) handleApps(c *gin.Context) {
 		version, _ := c.GetQuery("version")
 		if name == "" || version == "" {
 			// return all jobs from database
-			apps, err := srv.getAllApps(limit, offset)
+			apps, err := srv.getAllApps(c.Request.Context(), limit, offset)
 			if err != nil {
 				log.Printf("failed to retrieve the apps: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the apps"})
@@ -85,7 +85,7 @@ func (srv *UService) handleApps(c *gin.Context) {
 			return
 		}
 
-		app, err := srv.getAppByNameAndVersion(name, version)
+		app, err := srv.getAppByNameAndVersion(c.Request.Context(), name, version)
 		if err != nil {
 			log.Printf("failed to retrieve the app: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the app"})
@@ -110,7 +110,7 @@ func (srv *UService) handleApps(c *gin.Context) {
 
 				return
 			}
-			err := srv.insertApps(apps)
+			err := srv.insertApps(c.Request.Context(), apps)
 			if err != nil {
 				log.Printf("failed to save apps in the db: %+v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert into db"})
@@ -125,7 +125,7 @@ func (srv *UService) handleApps(c *gin.Context) {
 
 			return
 		}
-		id, err := srv.insertApp(app)
+		id, err := srv.insertApp(c.Request.Context(), app)
 		if err != nil {
 			log.Printf("failed to insert the app in the db: %+v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert into db"})
@@ -194,7 +194,7 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 
 				return
 			}
-			apps, err := srv.getAppsByIDs(idsInt)
+			apps, err := srv.getAppsByIDs(c.Request.Context(), idsInt)
 			if err != nil {
 				log.Printf("failed to retrieve apps by id: %v, %v", idsInt, err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve apps by id"})
@@ -210,7 +210,7 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 		version, _ := c.GetQuery("version")
 		if name == "" || version == "" {
 			// return all jobs from database
-			apps, err := srv.getAllApps(limit, offset)
+			apps, err := srv.getAllApps(c.Request.Context(), limit, offset)
 			if err != nil {
 				log.Printf("failed to retrieve the apps: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the apps"})
@@ -223,7 +223,7 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 			return
 		}
 
-		app, err := srv.getAppByNameAndVersion(name, version)
+		app, err := srv.getAppByNameAndVersion(c.Request.Context(), name, version)
 		if err != nil {
 			log.Printf("failed to retrieve the app: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the app"})
@@ -248,7 +248,7 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 				return
 			}
 
-			err := srv.insertApps(apps)
+			err := srv.insertApps(c.Request.Context(), apps)
 			if err != nil {
 				log.Printf("failed to save apps in the db: %+v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert into db"})
@@ -264,7 +264,7 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 			return
 		}
 		// save job (insert in DB)
-		id, err := srv.insertApp(app)
+		id, err := srv.insertApp(c.Request.Context(), app)
 		if err != nil {
 			log.Printf("failed to insert the app in the db: %+v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert into db"})
@@ -293,7 +293,7 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 			return
 		}
 
-		err = srv.updateApp(app)
+		err = srv.updateApp(c.Request.Context(), app)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update app"})
 
@@ -311,7 +311,7 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 
 				return
 			}
-			err = srv.removeApp(idInt)
+			err = srv.removeApp(c.Request.Context(), idInt)
 			if err != nil {
 				log.Printf("failed to remove app")
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to remove app"})
@@ -330,7 +330,7 @@ func (srv *UService) handleAppsAdmin(c *gin.Context) {
 
 				return
 			}
-			err = srv.removeApps(idsInt)
+			err = srv.removeApps(c.Request.Context(), idsInt)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to remove apps"})
 

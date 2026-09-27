@@ -7,6 +7,8 @@ package uspace
 
 import (
 	"bytes"
+	"context"
+	"database/sql"
 	"errors"
 	"io"
 	"log"
@@ -15,6 +17,7 @@ import (
 	"strings"
 
 	ut "kyri56xcaesar/kuspace/internal/utils"
+	"kyri56xcaesar/kuspace/pkg/fslite"
 
 	"github.com/gin-gonic/gin"
 )
@@ -84,7 +87,18 @@ func (srv *UService) getResourcesHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "bad format"})
 
 		return
-	} else if resources == nil {
+	}
+	// only list what the caller may read (root sees everything)
+	if ac.UID != "0" {
+		visible := resources[:0]
+		for _, r := range resources {
+			if r.HasAccess(ac) {
+				visible = append(visible, r)
+			}
+		}
+		resources = visible
+	}
+	if len(resources) == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"status": "no objects found"})
 
 		return
@@ -137,6 +151,12 @@ func (srv *UService) rmResourceHandler(c *gin.Context) {
 	ac := acH.(ut.AccessClaim)
 
 	// if this fails perhaps we need to delete the db entry...
+	target, found, err := srv.lookupResource(ac.Target, ac.Vname)
+	if err != nil || !found {
+		c.JSON(http.StatusNotFound, gin.H{"error": "resource not found"})
+
+		return
+	}
 	if err := srv.storage.Remove(ut.Resource{
 		Name:  ac.Target,
 		Vname: ac.Vname,
@@ -157,9 +177,55 @@ func (srv *UService) rmResourceHandler(c *gin.Context) {
 		return
 	}
 
+	if err := srv.fsl.ReleaseSpace(context.WithoutCancel(c.Request.Context()), target.UID, ac.Vname, target.Size); err != nil {
+		log.Printf("failed to refund quota after delete: %v", err)
+	}
 	c.JSON(200, gin.H{
 		"message": "resource deleted successfully.",
 	})
+}
+
+// lookupResource finds the resource named `name` in `volume`; found is false
+// (with a nil error) when it doesn't exist. Names are compared in their
+// normalized form (fslite.NormalizeName).
+func (srv *UService) lookupResource(name, volume string) (ut.Resource, bool, error) {
+	r, err := srv.fsl.SelectObjects(map[string]any{"name": fslite.NormalizeName(name), "volume": volume})
+	if errors.Is(err, sql.ErrNoRows) {
+		return ut.Resource{}, false, nil
+	}
+	if err != nil {
+		return ut.Resource{}, false, err
+	}
+	res, ok := r.(ut.Resource)
+
+	return res, ok, nil
+}
+
+// resourceTaken reports whether a resource named `name` exists in `volume`.
+func (srv *UService) resourceTaken(name, volume string) (bool, error) {
+	_, found, err := srv.lookupResource(name, volume)
+
+	return found, err
+}
+
+// refuseTakenDestination writes a 409/500 and returns true when the move/copy
+// destination is taken: storage.Copy overwrites silently, so this must run
+// before any storage call.
+func (srv *UService) refuseTakenDestination(c *gin.Context, name, volume string) bool {
+	taken, err := srv.resourceTaken(name, volume)
+	if err != nil {
+		log.Printf("failed to check destination: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to check destination"})
+
+		return true
+	}
+	if taken {
+		c.JSON(http.StatusConflict, gin.H{"error": "destination " + volume + "/" + name + " already exists"})
+
+		return true
+	}
+
+	return false
 }
 
 // @Summary     Move a resource
@@ -202,6 +268,36 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 
 		return
 	}
+	if srv.refuseTakenDestination(c, parts[1], parts[0]) {
+		return
+	}
+	// a move to another volume moves the owner's usage with it
+	var moved ut.Resource
+	crossVolume := parts[0] != ac.Vname
+	if crossVolume {
+		var found bool
+		var err error
+		moved, found, err = srv.lookupResource(ac.Target, ac.Vname)
+		if err != nil || !found {
+			c.JSON(http.StatusNotFound, gin.H{"error": "resource not found"})
+
+			return
+		}
+		if !srv.claimSpace(c, moved.UID, parts[0], moved.Size) {
+			return
+		}
+		defer func() {
+			// charged on the destination either way; refund whichever side
+			// no longer holds the file
+			side := ac.Vname
+			if c.Writer.Status() != http.StatusOK {
+				side = parts[0]
+			}
+			if err := srv.fsl.ReleaseSpace(context.WithoutCancel(c.Request.Context()), moved.UID, side, moved.Size); err != nil {
+				log.Printf("failed to settle quota after move: %v", err)
+			}
+		}()
+	}
 
 	if err := srv.storage.Copy(
 		ut.Resource{
@@ -232,7 +328,7 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 	}
 
 	// database
-	err := srv.fsl.Update(map[string]string{"newname": parts[1], "volume": parts[0], "name": ac.Target})
+	err := srv.fsl.Update(map[string]string{"newname": parts[1], "volume": parts[0], "name": ac.Target, "oldvolume": ac.Vname})
 	if err != nil {
 		log.Printf("failed to update inner fsl: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update file in local db"})
@@ -282,35 +378,51 @@ func (srv *UService) cpResourceHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad destination format 'bucket/object'"})
 
 		return
-	} // destV := parts[0] //destN := parts[1]
+	}
+	if srv.refuseTakenDestination(c, parts[1], parts[0]) {
+		return
+	}
 
-	// database
-	if err := srv.fsl.Copy(
-		ut.Resource{
-			Name:  ac.Target,
-			Vname: ac.Vname,
-		},
-		ut.Resource{
-			Name:  parts[1],
-			Vname: parts[0],
-		},
-	); err != nil {
+	src, found, err := srv.lookupResource(ac.Target, ac.Vname)
+	if err != nil || !found {
+		c.JSON(http.StatusNotFound, gin.H{"error": "source not found"})
+
+		return
+	}
+	caller, err := strconv.ParseInt(ac.UID, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad uid"})
+
+		return
+	}
+	// The copy belongs to whoever made it (it used to be recorded with no
+	// owner and no permissions, i.e. readable by nobody but root).
+	now := ut.CurrentTime()
+	dst := ut.Resource{
+		Name: parts[1], Vname: parts[0], VID: srv.volumeID(parts[0]),
+		Path: src.Path, Type: src.Type, Size: src.Size,
+		UID: caller, GID: primaryGID(ac, caller), Perms: ut.DefaultFilePerms,
+		CreatedAt: now, UpdatedAt: now, AccessedAt: now,
+	}
+	if !srv.claimSpace(c, caller, dst.Vname, dst.Size) {
+		return
+	}
+	refund := func() {
+		if err := srv.fsl.ReleaseSpace(context.WithoutCancel(c.Request.Context()), caller, dst.Vname, dst.Size); err != nil {
+			log.Printf("failed to refund quota: %v", err)
+		}
+	}
+
+	if err := srv.storage.Copy(ut.Resource{Name: ac.Target, Vname: ac.Vname}, dst); err != nil {
+		refund()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to copy object"})
 
 		return
 	}
-
-	if err := srv.storage.Copy(
-		ut.Resource{
-			Name:  ac.Target,
-			Vname: ac.Vname,
-		},
-		ut.Resource{
-			Name:  parts[1],
-			Vname: parts[0],
-		},
-	); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to copy object"})
+	// database
+	if err := srv.fsl.Copy(ut.Resource{Name: ac.Target, Vname: ac.Vname}, dst); err != nil {
+		refund()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to record the copy"})
 
 		return
 	}
@@ -448,6 +560,11 @@ func (srv *UService) handleUpload(c *gin.Context) {
 	 * This function will also perform some checks
 	 */
 	// lets calc the total size as well, prematurely.
+	if len(c.Request.MultipartForm.File["files"]) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no files in the 'files' form field"})
+
+		return
+	}
 	totalUploadSize := int64(0)
 	for _, fileHeader := range c.Request.MultipartForm.File["files"] {
 		totalUploadSize += fileHeader.Size
@@ -463,7 +580,15 @@ func (srv *UService) handleUpload(c *gin.Context) {
 
 			return
 		}
+		// The caller's vid is not trusted (frontapp always sends 0, which is no
+		// volume at all): resolve the real one from the volume name so the
+		// resource row references an existing volume.
 		vid, err := strconv.ParseInt(ac.VID, 10, 64)
+		if v, verr := srv.fsl.SelectVolumes(map[string]any{"name": ac.Vname}); verr == nil {
+			if vol, ok := v.(ut.Volume); ok {
+				vid, err = vol.VID, nil
+			}
+		}
 		if err != nil {
 			log.Printf("failed to atoi vid: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "bad vid"})
@@ -499,14 +624,38 @@ func (srv *UService) handleUpload(c *gin.Context) {
 			CreatedAt:  currentTime,
 			UpdatedAt:  currentTime,
 			AccessedAt: currentTime,
-			Perms:      "rw-r--r--",
+			Perms:      ut.DefaultFilePerms,
 			UID:        uid,
-			GID:        uid,
+			GID:        primaryGID(ac, uid),
 			Size:       fileHeader.Size,
+		}
+
+		// Refuse a taken name before touching storage: writing the object first
+		// and letting the metadata insert reject the duplicate used to silently
+		// overwrite another user's file.
+		if _, err := srv.fsl.SelectObjects(map[string]any{"name": resource.Name, "volume": resource.Vname}); err == nil {
+			c.JSON(http.StatusConflict, gin.H{"error": "a file named " + resource.Name + " already exists"})
+
+			return
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			log.Printf("failed to check for an existing resource: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to check existing resources"})
+
+			return
+		}
+
+		if !srv.claimSpace(c, uid, resource.Vname, resource.Size) {
+			return
+		}
+		refund := func() {
+			if err := srv.fsl.ReleaseSpace(context.WithoutCancel(c.Request.Context()), uid, resource.Vname, resource.Size); err != nil {
+				log.Printf("failed to refund quota: %v", err)
+			}
 		}
 
 		_, err = srv.storage.Insert(resource)
 		if err != nil {
+			refund()
 			log.Printf("failed to insert resources: %v", err)
 			c.JSON(422, gin.H{"error": "failed to insert resources"})
 
@@ -515,6 +664,7 @@ func (srv *UService) handleUpload(c *gin.Context) {
 		// defer cancelFn()
 		_, err = srv.fsl.Insert(resource)
 		if err != nil {
+			refund()
 			log.Printf("failed to insert resources to db: %v", err)
 			c.JSON(422, gin.H{"error": "failed to insert resources"})
 
@@ -786,4 +936,45 @@ func (srv *UService) chgroupResourceHandler(c *gin.Context) {
 	c.JSON(200, gin.H{
 		"message": "resource updated successfully",
 	})
+}
+
+// primaryGID is the caller's primary group: the first gid of the claim
+// (frontapp lists the primary group first; a token's pgroup claim is used when
+// the caller authenticates with one). Falls back to fallback (the uid).
+func primaryGID(ac ut.AccessClaim, fallback int64) int64 {
+	first, _, _ := strings.Cut(ac.Gids, ",")
+	if gid, err := strconv.ParseInt(strings.TrimSpace(first), 10, 64); err == nil {
+		return gid
+	}
+
+	return fallback
+}
+
+// claimSpace charges size bytes to uid on volume, answering 507 (and
+// returning false) when that would exceed the user's quota or the volume.
+func (srv *UService) claimSpace(c *gin.Context, uid int64, volume string, size int64) bool {
+	quota := min(srv.config.LocalVolumesDefaultCapacity, maxDefaultVolumeCapacity)
+	err := srv.fsl.ClaimSpace(c.Request.Context(), uid, volume, size, quota, true)
+	switch {
+	case err == nil:
+		return true
+	case errors.Is(err, fslite.ErrQuotaExceeded), errors.Is(err, fslite.ErrVolumeFull):
+		c.JSON(http.StatusInsufficientStorage, gin.H{"error": err.Error()})
+	default:
+		log.Printf("failed to claim storage: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to check storage quota"})
+	}
+
+	return false
+}
+
+// volumeID resolves a volume name to its id (0 if unknown).
+func (srv *UService) volumeID(name string) int64 {
+	v, err := srv.fsl.SelectVolumes(map[string]any{"name": name})
+	if err != nil {
+		return 0
+	}
+	vol, _ := v.(ut.Volume)
+
+	return vol.VID
 }

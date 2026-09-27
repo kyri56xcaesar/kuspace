@@ -1,6 +1,7 @@
 package uspace
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -10,7 +11,7 @@ import (
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
-func (srv *UService) insertApp(app ut.Application) (int64, error) {
+func (srv *UService) insertApp(ctx context.Context, app ut.Application) (int64, error) {
 	// log.Printf("inserting job in db: %+v", jb)
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
@@ -37,7 +38,7 @@ func (srv *UService) insertApp(app ut.Application) (int64, error) {
 	`
 
 	var id int64
-	err = db.QueryRow(query, app.FieldsNoID()...).Scan(&id)
+	err = db.QueryRowContext(ctx, query, app.FieldsNoID()...).Scan(&id)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
 
@@ -51,7 +52,7 @@ func (srv *UService) insertApp(app ut.Application) (int64, error) {
 }
 
 // should user an appender
-func (srv *UService) insertApps(apps []ut.Application) error {
+func (srv *UService) insertApps(ctx context.Context, apps []ut.Application) error {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
@@ -66,14 +67,14 @@ func (srv *UService) insertApps(apps []ut.Application) error {
 			(?, ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING (id);`
 
-	tx, err := db.Begin()
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Printf("failed to begin transaction: %v", err)
 
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	stmt, err := tx.Prepare(query)
+	stmt, err := tx.PrepareContext(ctx, query)
 	if err != nil {
 		log.Printf("failed to prepare statement: %v", err)
 
@@ -96,7 +97,7 @@ func (srv *UService) insertApps(apps []ut.Application) error {
 			app.CreatedAt = currentTime
 		}
 		var id int64
-		err = db.QueryRow(query, app.FieldsNoID()...).Scan(&id)
+		err = db.QueryRowContext(ctx, query, app.FieldsNoID()...).Scan(&id)
 		if err != nil {
 			err = tx.Rollback()
 			if err != nil {
@@ -119,7 +120,7 @@ func (srv *UService) insertApps(apps []ut.Application) error {
 	return nil
 }
 
-func (srv *UService) removeApp(id int) error {
+func (srv *UService) removeApp(ctx context.Context, id int) error {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to retrieve db connection: %v", err)
@@ -131,7 +132,7 @@ func (srv *UService) removeApp(id int) error {
 			apps
 		WHERE
 			id = ?`
-	_, err = db.Exec(query, id)
+	_, err = db.ExecContext(ctx, query, id)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
 
@@ -141,7 +142,7 @@ func (srv *UService) removeApp(id int) error {
 	return nil
 }
 
-func (srv *UService) removeApps(ids []int) error {
+func (srv *UService) removeApps(ctx context.Context, ids []int) error {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
@@ -153,13 +154,13 @@ func (srv *UService) removeApps(ids []int) error {
 			apps
 		WHERE
 			id = ?`
-	tx, err := db.Begin()
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Printf("failed to begin transaction: %v", err)
 
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	stmt, err := tx.Prepare(query)
+	stmt, err := tx.PrepareContext(ctx, query)
 	if err != nil {
 		log.Printf("failed to prepare statement: %v", err)
 
@@ -172,7 +173,7 @@ func (srv *UService) removeApps(ids []int) error {
 		}
 	}()
 	for _, id := range ids {
-		_, err := stmt.Exec(id)
+		_, err := stmt.ExecContext(ctx, id)
 		if err != nil {
 			err = tx.Rollback()
 			if err != nil {
@@ -193,7 +194,7 @@ func (srv *UService) removeApps(ids []int) error {
 	return nil
 }
 
-func (srv *UService) getAppByID(id int) (ut.Application, error) {
+func (srv *UService) getAppByID(ctx context.Context, id int) (ut.Application, error) {
 	var app ut.Application
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
@@ -210,7 +211,7 @@ func (srv *UService) getAppByID(id int) (ut.Application, error) {
 			id = ?`
 
 	var insertedAt, createdAt sql.NullString
-	err = db.QueryRow(query, id).Scan(&app.ID, &app.Name, &app.Image, &app.Description,
+	err = db.QueryRowContext(ctx, query, id).Scan(&app.ID, &app.Name, &app.Image, &app.Description,
 		&app.Version, &app.Author, &app.AuthorID, &app.Status, &insertedAt, &createdAt)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
@@ -232,7 +233,7 @@ func (srv *UService) getAppByID(id int) (ut.Application, error) {
 	return app, nil
 }
 
-func (srv *UService) getAppByNameAndVersion(name, version string) (ut.Application, error) {
+func (srv *UService) getAppByNameAndVersion(ctx context.Context, name, version string) (ut.Application, error) {
 	var app ut.Application
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
@@ -249,7 +250,7 @@ func (srv *UService) getAppByNameAndVersion(name, version string) (ut.Applicatio
 			name = ? AND version = ?
 	`
 	var insertedAt, createdAt sql.NullString
-	err = db.QueryRow(query, name, version).Scan(&app.ID, &app.Name, &app.Image, &app.Description,
+	err = db.QueryRowContext(ctx, query, name, version).Scan(&app.ID, &app.Name, &app.Image, &app.Description,
 		&app.Version, &app.Author, &app.AuthorID, &app.Status, &insertedAt, &createdAt)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
@@ -271,7 +272,7 @@ func (srv *UService) getAppByNameAndVersion(name, version string) (ut.Applicatio
 	return app, nil
 }
 
-func (srv *UService) getAppsByIDs(ids []int) ([]ut.Application, error) {
+func (srv *UService) getAppsByIDs(ctx context.Context, ids []int) ([]ut.Application, error) {
 	var apps []ut.Application
 
 	if len(ids) == 0 {
@@ -302,7 +303,7 @@ func (srv *UService) getAppsByIDs(ids []int) ([]ut.Application, error) {
 			id IN (%s)
 	`, placeholderStr)
 
-	rows, err := db.Query(query, args...)
+	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
 
@@ -345,7 +346,7 @@ func (srv *UService) getAppsByIDs(ids []int) ([]ut.Application, error) {
 	return apps, nil
 }
 
-func (srv *UService) getAllApps(limit, offset string) ([]ut.Application, error) {
+func (srv *UService) getAllApps(ctx context.Context, limit, offset string) ([]ut.Application, error) {
 	var apps []ut.Application
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
@@ -377,7 +378,7 @@ func (srv *UService) getAllApps(limit, offset string) ([]ut.Application, error) 
 		LIMIT ? OFFSET ?;`
 	}
 
-	rows, err := db.Query(query, limit, offset)
+	rows, err := db.QueryContext(ctx, query, limit, offset)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
 
@@ -412,7 +413,7 @@ func (srv *UService) getAllApps(limit, offset string) ([]ut.Application, error) 
 	return apps, nil
 }
 
-func (srv *UService) updateApp(a ut.Application) error {
+func (srv *UService) updateApp(ctx context.Context, a ut.Application) error {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
@@ -428,7 +429,7 @@ func (srv *UService) updateApp(a ut.Application) error {
 		WHERE
 			id = ?
 	`
-	_, err = db.Exec(query, a.Name, a.Image, a.Description,
+	_, err = db.ExecContext(ctx, query, a.Name, a.Image, a.Description,
 		a.Version, a.Author, a.AuthorID, a.Status, a.InsertedAt, a.CreatedAt, a.ID)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)

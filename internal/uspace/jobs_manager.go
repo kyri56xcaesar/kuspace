@@ -32,6 +32,12 @@ import (
 // default value
 var jobsSocketAddress = "localhost:8082"
 
+// jobsServiceSecret authenticates the executor to wss as a producer
+var jobsServiceSecret []byte
+
+// ErrJobQueueFull is returned when a job can't be queued right now.
+var ErrJobQueueFull = errors.New("job queue full")
+
 // JobDispatcherImpl struct, just a paradeigm implementation of the JobManager interface
 type JobDispatcherImpl struct {
 	Manager JobManager
@@ -122,6 +128,7 @@ func NewJobManager(srv *UService) JobManager {
 	}
 
 	jobsSocketAddress = srv.config.WssAddress
+	jobsServiceSecret = srv.config.ServiceSecretKey
 
 	jm := JobManager{
 		mu:  &sync.Mutex{},
@@ -177,7 +184,7 @@ func (jm *JobManager) ScheduleJob(jb ut.Job) error {
 	default:
 		log.Printf("⚠️ [Scheduler] Job queue full! Job ID=%d rejected", jb.JID)
 
-		return errors.New("job queue full")
+		return ErrJobQueueFull
 	}
 }
 
@@ -201,7 +208,8 @@ func streamToSocketWS(jobID int64, ch <-chan []byte) {
 	jobIDStr := strconv.FormatInt(jobID, 10)
 	wsURL := fmt.Sprintf("ws://"+jobsSocketAddress+"/get-session?jid=%s&role=Producer", jobIDStr)
 
-	conn, resp, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	// wss only accepts producers that authenticate as a service
+	conn, resp, err := websocket.DefaultDialer.Dial(wsURL, http.Header{"X-Service-Secret": {string(jobsServiceSecret)}})
 	if err != nil {
 		log.Printf("failed to connect to WS server: %v", err)
 
@@ -251,9 +259,10 @@ func streamToSocket(jobID int, pipe io.Reader) {
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			log.Printf("failed to perform the request: %v", err)
+
+			continue
 		}
-		err = resp.Body.Close()
-		if err != nil {
+		if err := resp.Body.Close(); err != nil {
 			log.Printf("failed to close response body: %v", err)
 		}
 	}

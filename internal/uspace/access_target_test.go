@@ -1,4 +1,4 @@
-package coding_test
+package uspace_test
 
 import (
 	"testing"

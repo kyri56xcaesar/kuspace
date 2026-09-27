@@ -12,7 +12,9 @@ package uspace
 */
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 	"log"
@@ -49,6 +51,13 @@ const (
 		    ephemeralStorageLimit TEXT
 		);
 
+		-- the kept tail of each job's output (outlives the live stream)
+		CREATE TABLE IF NOT EXISTS job_logs (
+		    jid INTEGER PRIMARY KEY,
+		    log TEXT,
+		    updatedAt DATETIME
+		);
+
 		CREATE TABLE IF NOT EXISTS apps (
 		    id INTEGER PRIMARY KEY AUTOINCREMENT,   
 		    name TEXT UNIQUE,
@@ -64,7 +73,7 @@ const (
 `
 )
 
-func (srv *UService) insertJob(jb ut.Job) (int64, error) {
+func (srv *UService) insertJob(ctx context.Context, jb ut.Job) (int64, error) {
 	// log.Printf("inserting job in db: %+v", jb)
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
@@ -83,7 +92,7 @@ func (srv *UService) insertJob(jb ut.Job) (int64, error) {
 		RETURNING (jid);`
 
 	var jid int64
-	err = db.QueryRow(query, jb.UID, jb.Description, jb.Duration, jb.Input,
+	err = db.QueryRowContext(ctx, query, jb.UID, jb.Description, jb.Duration, jb.Input,
 		jb.InputFormat, jb.Output, jb.OutputFormat, jb.Logic, jb.LogicBody,
 		jb.LogicHeaders, strings.Join(jb.Params, ","), "pending", jb.Completed,
 		ut.CurrentTime(), jb.Parallelism, jb.Priority, jb.MemoryRequest, jb.CPURequest,
@@ -102,7 +111,7 @@ func (srv *UService) insertJob(jb ut.Job) (int64, error) {
 }
 
 // should user an appender
-func (srv *UService) insertJobs(jobs []ut.Job) error {
+func (srv *UService) insertJobs(ctx context.Context, jobs []ut.Job) error {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
@@ -118,14 +127,14 @@ func (srv *UService) insertJobs(jobs []ut.Job) error {
 			(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING (jid);`
 
-	tx, err := db.Begin()
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Printf("failed to begin transaction: %v", err)
 
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	stmt, err := tx.Prepare(query)
+	stmt, err := tx.PrepareContext(ctx, query)
 	if err != nil {
 		log.Printf("failed to prepare statement: %v", err)
 
@@ -143,7 +152,7 @@ func (srv *UService) insertJobs(jobs []ut.Job) error {
 		jb := &(jobs)[i]
 
 		var jid int64
-		err = db.QueryRow(query, jb.UID, jb.Description, jb.Duration, jb.Input, jb.InputFormat, jb.Output,
+		err = db.QueryRowContext(ctx, query, jb.UID, jb.Description, jb.Duration, jb.Input, jb.InputFormat, jb.Output,
 			jb.OutputFormat, jb.Logic, jb.LogicBody, jb.LogicHeaders, strings.Join(jb.Params, ","), "pending",
 			jb.Completed, currentTime).Scan(&jid)
 		if err != nil {
@@ -168,7 +177,7 @@ func (srv *UService) insertJobs(jobs []ut.Job) error {
 	return nil
 }
 
-func (srv *UService) removeJob(jid int) error {
+func (srv *UService) removeJob(ctx context.Context, jid int) error {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to retrieve db connection: %v", err)
@@ -180,7 +189,7 @@ func (srv *UService) removeJob(jid int) error {
 			jobs
 		WHERE
 			jid = ?`
-	_, err = db.Exec(query, jid)
+	_, err = db.ExecContext(ctx, query, jid)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
 
@@ -190,7 +199,7 @@ func (srv *UService) removeJob(jid int) error {
 	return nil
 }
 
-func (srv *UService) removeJobs(jids []int) error {
+func (srv *UService) removeJobs(ctx context.Context, jids []int) error {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
@@ -202,13 +211,13 @@ func (srv *UService) removeJobs(jids []int) error {
 			jobs
 		WHERE
 			jid = ?`
-	tx, err := db.Begin()
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Printf("failed to begin transaction: %v", err)
 
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	stmt, err := tx.Prepare(query)
+	stmt, err := tx.PrepareContext(ctx, query)
 	if err != nil {
 		log.Printf("failed to prepare statement: %v", err)
 
@@ -221,7 +230,7 @@ func (srv *UService) removeJobs(jids []int) error {
 		}
 	}()
 	for _, jid := range jids {
-		_, err := stmt.Exec(jid)
+		_, err := stmt.ExecContext(ctx, jid)
 		if err != nil {
 			err = tx.Rollback()
 			if err != nil {
@@ -242,7 +251,7 @@ func (srv *UService) removeJobs(jids []int) error {
 	return nil
 }
 
-func (srv *UService) getJobByID(jid int) (ut.Job, error) {
+func (srv *UService) getJobByID(ctx context.Context, jid int) (ut.Job, error) {
 	var job ut.Job
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
@@ -260,7 +269,7 @@ func (srv *UService) getJobByID(jid int) (ut.Job, error) {
 	var params string
 	var completedAt, createdAt sql.NullString
 
-	err = db.QueryRow(query, jid).Scan(&job.JID, &job.UID, &job.Description, &job.Duration, &job.Input,
+	err = db.QueryRowContext(ctx, query, jid).Scan(&job.JID, &job.UID, &job.Description, &job.Duration, &job.Input,
 		&job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders,
 		&params, &job.Status, &job.Completed, &completedAt, &createdAt, &job.Parallelism, &job.Priority,
 		&job.MemoryRequest, &job.CPURequest, &job.MemoryLimit, &job.CPULimit, &job.EphemeralStorageRequest,
@@ -287,7 +296,7 @@ func (srv *UService) getJobByID(jid int) (ut.Job, error) {
 	return job, nil
 }
 
-func (srv *UService) getJobsByUID(uid int) ([]ut.Job, error) {
+func (srv *UService) getJobsByUID(ctx context.Context, uid int) ([]ut.Job, error) {
 	var jobs []ut.Job
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
@@ -302,7 +311,7 @@ func (srv *UService) getJobsByUID(uid int) ([]ut.Job, error) {
 			jobs
 		WHERE
 			uid = ?`
-	rows, err := db.Query(query, uid)
+	rows, err := db.QueryContext(ctx, query, uid)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
 
@@ -344,7 +353,7 @@ func (srv *UService) getJobsByUID(uid int) ([]ut.Job, error) {
 	return jobs, nil
 }
 
-func (srv *UService) getJobsByUIDs(uids []int) ([]ut.Job, error) {
+func (srv *UService) getJobsByUIDs(ctx context.Context, uids []int) ([]ut.Job, error) {
 	var jobs []ut.Job
 
 	if len(uids) == 0 {
@@ -376,7 +385,7 @@ func (srv *UService) getJobsByUIDs(uids []int) ([]ut.Job, error) {
 			uid IN (%s)`,
 		placeholderStr)
 
-	rows, err := db.Query(query, args...)
+	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
 
@@ -424,7 +433,7 @@ func (srv *UService) getJobsByUIDs(uids []int) ([]ut.Job, error) {
 	return jobs, nil
 }
 
-func (srv *UService) getAllJobs(limit, offset string) ([]ut.Job, error) {
+func (srv *UService) getAllJobs(ctx context.Context, limit, offset string) ([]ut.Job, error) {
 	var jobs []ut.Job
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
@@ -456,7 +465,7 @@ func (srv *UService) getAllJobs(limit, offset string) ([]ut.Job, error) {
 		LIMIT ? OFFSET ?;`
 	}
 
-	rows, err := db.Query(query, limit, offset)
+	rows, err := db.QueryContext(ctx, query, limit, offset)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
 
@@ -496,7 +505,7 @@ func (srv *UService) getAllJobs(limit, offset string) ([]ut.Job, error) {
 	return jobs, nil
 }
 
-func (srv *UService) updateJob(jb ut.Job) error {
+func (srv *UService) updateJob(ctx context.Context, jb ut.Job) error {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
@@ -511,7 +520,7 @@ func (srv *UService) updateJob(jb ut.Job) error {
 		WHERE
 			jid = ?
 	`
-	_, err = db.Exec(query, jb.Description, jb.UID, jb.Status, jb.Completed, jb.JID)
+	_, err = db.ExecContext(ctx, query, jb.Description, jb.UID, jb.Status, jb.Completed, jb.JID)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
 
@@ -521,7 +530,7 @@ func (srv *UService) updateJob(jb ut.Job) error {
 	return nil
 }
 
-func (srv *UService) markJobStatus(jid int64, status string, duration time.Duration) error {
+func (srv *UService) markJobStatus(ctx context.Context, jid int64, status string, duration time.Duration) error {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
@@ -542,7 +551,7 @@ func (srv *UService) markJobStatus(jid int64, status string, duration time.Durat
 		WHERE
 			jid = ?
 	`
-		_, err = db.Exec(query, status, completed, ut.CurrentTime(), duration, jid)
+		_, err = db.ExecContext(ctx, query, status, completed, ut.CurrentTime(), duration, jid)
 		if err != nil {
 			log.Printf("failed to execute query: %v", err)
 
@@ -556,7 +565,7 @@ func (srv *UService) markJobStatus(jid int64, status string, duration time.Durat
 		WHERE
 			jid = ?
 	`
-		_, err = db.Exec(query, status, completed, duration, jid)
+		_, err = db.ExecContext(ctx, query, status, completed, duration, jid)
 		if err != nil {
 			log.Printf("failed to execute query: %v", err)
 
@@ -565,4 +574,32 @@ func (srv *UService) markJobStatus(jid int64, status string, duration time.Durat
 	}
 
 	return nil
+}
+
+// saveJobLog stores (replaces) the kept output of a job.
+func (srv *UService) saveJobLog(ctx context.Context, jid int64, text string) error {
+	db, err := srv.jdbh.GetConn()
+	if err != nil {
+		return err
+	}
+	_, err = db.ExecContext(ctx, `INSERT INTO job_logs (jid, log, updatedAt) VALUES (?, ?, ?)
+		ON CONFLICT(jid) DO UPDATE SET log = excluded.log, updatedAt = excluded.updatedAt`,
+		jid, text, ut.CurrentTime())
+
+	return err
+}
+
+// getJobLog returns the kept output of a job ("" if none was saved).
+func (srv *UService) getJobLog(ctx context.Context, jid int64) (string, error) {
+	db, err := srv.jdbh.GetConn()
+	if err != nil {
+		return "", err
+	}
+	var text string
+	err = db.QueryRowContext(ctx, `SELECT log FROM job_logs WHERE jid = ?`, jid).Scan(&text)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+
+	return text, err
 }
