@@ -1,0 +1,3 @@
+[submodule "third_party/minioth"]
+	path = third_party/minioth
+	url = git@github.com:kyri56xcaesar/minioth.git
