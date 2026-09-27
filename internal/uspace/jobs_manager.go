@@ -112,6 +112,9 @@ type JobManager struct {
 	jobQueue   chan ut.Job   // actual queue of the jobs
 	workerPool chan struct{} //
 
+	cancelled map[int64]bool                    // queued jobs to skip (guarded by mu)
+	running   map[int64]context.CancelCauseFunc // running jobs' cancel funcs (guarded by mu)
+
 	executor JobExecutor // logic defined for exetuing a Job
 }
 
@@ -137,6 +140,8 @@ func NewJobManager(srv *UService) JobManager {
 		// jobs:       make(map[int]*Job),
 		jobQueue:   make(chan ut.Job, qs),
 		workerPool: make(chan struct{}, mw),
+		cancelled:  map[int64]bool{},
+		running:    map[int64]context.CancelCauseFunc{},
 	}
 
 	executor, err := JobExecutorShipment(srv.config.UspaceJobExecutor, &jm)
@@ -153,6 +158,11 @@ func (jm *JobManager) StartDispatcher() {
 	log.Printf("[Scheduler] Starting worker")
 	go func() {
 		for job := range jm.jobQueue {
+			if jm.takeCancelled(job.JID) {
+				log.Printf("[Scheduler] Job ID=%d was cancelled while queued; skipping", job.JID)
+
+				continue
+			}
 			log.Printf("[Scheduler] Job received: ID=%d. Waiting for available worker slot...", job.JID)
 			jm.workerPool <- struct{}{} // Acquire worker slot
 			log.Printf("[Scheduler] Assigned job ID=%ds to a worker. Active workers: %d/%d",
@@ -188,20 +198,53 @@ func (jm *JobManager) ScheduleJob(jb ut.Job) error {
 	}
 }
 
-// CancelJob method removes a job from the execution channel queue
-// Not fully functional yet
+// ErrJobCancelled is the cause a running job's context is cancelled with
+// when a user cancels it (as opposed to hitting its deadline).
+var ErrJobCancelled = errors.New("cancelled by user")
+
+// CancelJob stops a job: a running one has its context cancelled (the
+// executor then deletes it from the cluster); a queued one is skipped when
+// its turn comes.
 func (jm *JobManager) CancelJob(jid int) error {
-	log.Printf("canceling job: %v", jid)
 	jm.mu.Lock()
 	defer jm.mu.Unlock()
+	if cancel, ok := jm.running[int64(jid)]; ok {
+		log.Printf("[Scheduler] cancelling running job %d", jid)
+		cancel(ErrJobCancelled)
 
-	// if _, exists := js.jobs[jid]; !exists {
-	// return fmt.Errorf("job %d not found", jid)
-	// }
+		return nil
+	}
+	log.Printf("[Scheduler] job %d will be skipped when dequeued", jid)
+	jm.cancelled[int64(jid)] = true
 
-	// delete(js.jobs, jid)
-	// log.Printf("Job %d cancelled\n", jid)
 	return nil
+}
+
+// takeCancelled reports (and forgets) whether jid was cancelled while queued.
+func (jm *JobManager) takeCancelled(jid int64) bool {
+	jm.mu.Lock()
+	defer jm.mu.Unlock()
+	if jm.cancelled[jid] {
+		delete(jm.cancelled, jid)
+
+		return true
+	}
+
+	return false
+}
+
+// trackRunning registers a running job's cancel func until the returned
+// func is called.
+func (jm *JobManager) trackRunning(jid int64, cancel context.CancelCauseFunc) func() {
+	jm.mu.Lock()
+	jm.running[jid] = cancel
+	jm.mu.Unlock()
+
+	return func() {
+		jm.mu.Lock()
+		delete(jm.running, jid)
+		jm.mu.Unlock()
+	}
 }
 
 func streamToSocketWS(jobID int64, ch <-chan []byte) {

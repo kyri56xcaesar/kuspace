@@ -232,6 +232,7 @@ func (srv *UService) RegisterRoutes() {
 			srv.handleJob,
 		)
 		apiV1.GET("/job/log", srv.handleJobLog)
+		apiV1.POST("/job/cancel", srv.handleJobCancel)
 		apiV1.Match(
 			[]string{"GET", "POST"},
 			"/app",

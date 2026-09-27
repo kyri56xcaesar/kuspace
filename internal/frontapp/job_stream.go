@@ -78,8 +78,9 @@ func (srv *HTTPService) handleWSTicket(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ticket": ticket, "expiresIn": int(ut.WSTicketTTL.Seconds())})
 }
 
-// handleJobLog returns the saved output of one of the user's jobs.
-func (srv *HTTPService) handleJobLog(c *gin.Context) {
+// relayJobCall calls a uspace job endpoint as the logged-in user (root for
+// admins; uspace checks ownership) and relays the answer.
+func (srv *HTTPService) relayJobCall(c *gin.Context, method, path string) {
 	jid, err := strconv.Atoi(c.Query("jid"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "jid must be a number"})
@@ -88,13 +89,12 @@ func (srv *HTTPService) handleJobLog(c *gin.Context) {
 	}
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiServiceURL+"/api/v1/job/log?jid="+url.QueryEscape(strconv.Itoa(jid)), nil)
+	req, err := http.NewRequestWithContext(ctx, method, apiServiceURL+path+"?jid="+url.QueryEscape(strconv.Itoa(jid)), nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create request"})
 
 		return
 	}
-	// uspace checks ownership against this identity (root for admins)
 	who := fmt.Sprintf("%v:%v", c.MustGet("userID"), c.MustGet("groupIDs"))
 	if strings.Contains(c.GetString("groups"), "admin") {
 		who = "0:0"
@@ -111,6 +111,16 @@ func (srv *HTTPService) handleJobLog(c *gin.Context) {
 	c.Status(resp.StatusCode)
 	c.Header("Content-Type", resp.Header.Get("Content-Type"))
 	if _, err := io.Copy(c.Writer, resp.Body); err != nil {
-		log.Printf("failed to relay job log: %v", err)
+		log.Printf("failed to relay %s: %v", path, err)
 	}
+}
+
+// handleJobLog returns the saved output of one of the user's jobs.
+func (srv *HTTPService) handleJobLog(c *gin.Context) {
+	srv.relayJobCall(c, http.MethodGet, "/api/v1/job/log")
+}
+
+// handleJobCancel cancels one of the user's queued or running jobs.
+func (srv *HTTPService) handleJobCancel(c *gin.Context) {
+	srv.relayJobCall(c, http.MethodPost, "/api/v1/job/cancel")
 }

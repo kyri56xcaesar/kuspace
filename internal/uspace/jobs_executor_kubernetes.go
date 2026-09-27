@@ -393,8 +393,16 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	if job.Timeout > 0 {
 		limit = time.Duration(job.Timeout)*time.Minute + 5*time.Minute
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), limit)
-	defer cancel()
+	deadline, cancelDeadline := context.WithTimeout(context.Background(), limit)
+	defer cancelDeadline()
+	// a user's cancel (JobManager.CancelJob) cancels this with ErrJobCancelled
+	ctx, cancel := context.WithCancelCause(deadline)
+	defer cancel(nil)
+	untrack := je.jm.trackRunning(job.JID, cancel)
+	defer untrack()
+	if je.jm.takeCancelled(job.JID) { // cancelled between dequeue and here
+		cancel(ErrJobCancelled)
+	}
 
 	if err := runJob(ctx, clientset, jobSpec, namespace); err != nil {
 		log.Printf("error starting job: %v", err)
@@ -404,6 +412,9 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 		return
 	}
 	startTime := time.Now()
+	if err := je.jm.srv.markJobStatus(context.Background(), job.JID, "running", 0); err != nil {
+		log.Printf("failed to mark job %d running: %v", job.JID, err)
+	}
 
 	var logsDone sync.WaitGroup
 	logsDone.Add(1)
@@ -418,6 +429,14 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	status, err := monitorJob(ctx, clientset, jobSpec.Name, namespace)
 	if err != nil {
 		log.Printf("error monitoring job: %v", err)
+	}
+	if errors.Is(context.Cause(ctx), ErrJobCancelled) {
+		// stop the pod: deleting the kubernetes job (foreground) removes it
+		if err := cancelJob(clientset, jobSpec.Name, namespace); err != nil {
+			log.Printf("failed to delete cancelled job %s: %v", jobSpec.Name, err)
+		}
+		status = "cancelled"
+		out.Send([]byte("[executor] job cancelled by its owner\n"))
 	}
 	// give the log follower a moment to drain what the pod printed last
 	drained := make(chan struct{})

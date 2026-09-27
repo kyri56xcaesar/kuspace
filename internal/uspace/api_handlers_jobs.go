@@ -421,3 +421,52 @@ func (srv *UService) handleJobLog(c *gin.Context) {
 	}
 	c.String(http.StatusOK, text)
 }
+
+// handleJobCancel stops a queued or running job (owner or root).
+//
+// @Summary     Cancel a job
+// @Tags        jobs
+// @Param       jid query int true "Job ID"
+// @Success     200 {object} map[string]string
+// @Failure     403 {object} map[string]string
+// @Failure     404 {object} map[string]string
+// @Failure     409 {object} map[string]string "the job already finished"
+// @Router      /job/cancel [post]
+func (srv *UService) handleJobCancel(c *gin.Context) {
+	jid, err := strconv.Atoi(c.Query("jid"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "jid must be a number"})
+
+		return
+	}
+	job, err := srv.getJobByID(c.Request.Context(), jid)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "job not found"})
+
+		return
+	}
+	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
+	if err != nil || (ac.UID != "0" && ac.UID != strconv.FormatInt(job.UID, 10)) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "not your job"})
+
+		return
+	}
+	switch job.Status {
+	case "completed", "failed", "cancelled", "unknown":
+		c.JSON(http.StatusConflict, gin.H{"error": "the job already finished (" + job.Status + ")"})
+
+		return
+	}
+	if err := srv.jdp.RemoveJob(jid); err != nil {
+		log.Printf("failed to cancel job %d: %v", jid, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to cancel the job"})
+
+		return
+	}
+	if job.Status != "running" { // a running job is marked by its executor once stopped
+		if err := srv.markJobStatus(c.Request.Context(), int64(jid), "cancelled", 0); err != nil {
+			log.Printf("failed to mark job %d cancelled: %v", jid, err)
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "cancelling", "jid": jid})
+}
