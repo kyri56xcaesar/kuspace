@@ -307,6 +307,13 @@ func (srv *UService) submitJobs(c *gin.Context, checkIO bool) {
 
 	jids := make([]int64, 0, len(jobs))
 	for _, job := range jobs {
+		// the job's outputs get the submitter's primary group (first in the
+		// verified identity); never taken from the request body for users
+		if ac, err := BindAccessTarget(c.GetHeader("Access-Target")); checkIO && err == nil {
+			job.GID = primaryGID(ac, job.UID)
+		} else if job.GID == 0 {
+			job.GID = job.UID
+		}
 		jid, err := srv.insertJob(c.Request.Context(), job)
 		if err != nil {
 			log.Printf("failed to insert the job in the db: %v", err)

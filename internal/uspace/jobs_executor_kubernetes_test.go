@@ -185,3 +185,39 @@ func TestJobURLValidity(t *testing.T) {
 		t.Errorf("no timeout: %v", got)
 	}
 }
+
+func TestFormatJobCommandCodeModes(t *testing.T) {
+	code := `print('it''s "quoted" $HOME')`
+	job := ut.Job{Logic: "py:3.12", LogicBody: code}
+	cmd, err := formatJobCommand(&job)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if job.Logic != "python:3.12" {
+		t.Errorf("image = %q, want python:3.12 (alias + version)", job.Logic)
+	}
+	if strings.Contains(strings.Join(cmd, " "), "quoted") {
+		t.Errorf("code pasted into the command (quoting breaks): %v", cmd)
+	}
+	if cmd[len(cmd)-1] != `python3 -c "$LOGIC"` {
+		t.Errorf("command = %v", cmd)
+	}
+
+	for lang, image := range map[string]string{"js": "node:latest", "c": "gcc:latest", "java": "eclipse-temurin:latest", "golang": "golang:latest"} {
+		j := ut.Job{Logic: lang}
+		if _, err := formatJobCommand(&j); err != nil || j.Logic != image {
+			t.Errorf("%s -> %q, %v; want %s", lang, j.Logic, err, image)
+		}
+	}
+	for _, bad := range []string{"rust", "solidity", "visual-basic"} {
+		j := ut.Job{Logic: bad}
+		if _, err := formatJobCommand(&j); err == nil || !strings.Contains(err.Error(), "python") {
+			t.Errorf("%s: %v (want an error listing the supported languages)", bad, err)
+		}
+	}
+	// built-in applications are untouched
+	j := ut.Job{Logic: "duckdb"}
+	if cmd, err := formatJobCommand(&j); err != nil || j.Logic != duckImage || cmd[1] != "duckdb_app.py" {
+		t.Errorf("duckdb app: %v %v %v", j.Logic, cmd, err)
+	}
+}

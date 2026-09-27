@@ -9,6 +9,7 @@ import (
 	"log"
 	"math"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -485,7 +486,7 @@ func (srv *UService) recordJobOutput(job ut.Job, out *jobOutput) {
 		UID:   job.UID,
 		Vname: vname,
 		VID:   srv.volumeID(vname),
-		GID:   job.UID,
+		GID:   jobGID(job),
 	}
 	info, err := srv.storage.Stat(outputResource)
 	if err != nil {
@@ -665,6 +666,42 @@ func presignJobIO(storage any, in, out ut.Resource, valid time.Duration) (string
 	return get.String(), put.String(), nil
 }
 
+// codeMode runs a job's code (in $LOGIC) with a language's public image.
+// The code gets INPUT_URL/OUTPUT_URL like the applications but does its own
+// input and output.
+type codeMode struct {
+	image string // docker image repository; the job's version is the tag
+	run   string // sh command; the code is in $LOGIC
+}
+
+var (
+	codeModes = map[string]codeMode{
+		"python": {"python", `python3 -c "$LOGIC"`},
+		"node":   {"node", `node -e "$LOGIC"`},
+		"ruby":   {"ruby", `ruby -e "$LOGIC"`},
+		"php":    {"php", `php -r "$LOGIC"`},
+		"perl":   {"perl", `perl -e "$LOGIC"`},
+		"r":      {"r-base", `Rscript -e "$LOGIC"`},
+		"go":     {"golang", `printf '%s' "$LOGIC" > /tmp/main.go && go run /tmp/main.go`},
+		"java":   {"eclipse-temurin", `printf '%s' "$LOGIC" > /tmp/Main.java && java /tmp/Main.java`},
+		"c":      {"gcc", `printf '%s' "$LOGIC" > /tmp/main.c && gcc -o /tmp/main /tmp/main.c && /tmp/main`},
+	}
+	codeAliases = map[string]string{
+		"py": "python", "javascript": "node", "js": "node", "golang": "go",
+		"javac": "java", "openjdk": "java", "gcc": "c",
+	}
+)
+
+func supportedLanguages() string {
+	names := make([]string, 0, len(codeModes))
+	for n := range codeModes {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+
+	return strings.Join(names, ", ")
+}
+
 func formatJobCommand(job *ut.Job) ([]string, error) {
 	var name, version string
 	// deduct name and version and format it
@@ -680,7 +717,6 @@ func formatJobCommand(job *ut.Job) ([]string, error) {
 		return nil, errors.New("invalid job data")
 	}
 	job.Logic = fmt.Sprintf("%s:%s", name, version)
-	body := job.LogicBody
 
 	lang := job.Logic[:strings.Index(job.Logic+":", ":")]
 	switch lang {
@@ -708,139 +744,18 @@ func formatJobCommand(job *ut.Job) ([]string, error) {
 		job.Logic = bashImage
 
 		return []string{"python3", "bash_app.py"}, nil
-	case "python", "py":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("python3 -c '%s'", body)}, nil
-	case "go", "golang":
-
-		return []string{"/bin/sh", "-c",
-			fmt.Sprintf("echo '%s' > /tmp/tmp.go && go run /tmp/tmp.go && rm /tmp/tmp.go", body)}, nil
-	case "java", "javac", "openjdk":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf(`cat <<EOF > /tmp/Tmp.java
-		%s
-		EOF
-		javac /tmp/Tmp.java && java -cp /tmp Tmp && rm /tmp/Tmp.java /tmp/Tmp.class`, body)}, nil
-	case "node", "javascript", "js":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("node -e '%s'", body)}, nil
-
-	case "ruby":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("ruby -e '%s'", body)}, nil
-	case "php":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("php -r '%s'", body)}, nil
-	case "perl":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("perl -e '%s'", body)}, nil
-	case "rust":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("rustc -e '%s'", body)}, nil
-	case "swift":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("swift -e '%s'", body)}, nil
-	case "typescript":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("ts-node -e '%s'", body)}, nil
-	case "scala":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("scala -e '%s'", body)}, nil
-	case "haskell":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("runhaskell -e '%s'", body)}, nil
-	case "kotlin":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("kotlin -e '%s'", body)}, nil
-	case "elixir":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("elixir -e '%s'", body)}, nil
-	case "lua":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("lua -e '%s'", body)}, nil
-	case "r":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("Rscript -e '%s'", body)}, nil
-	case "dart":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("dart -e '%s'", body)}, nil
-	case "powershell":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("pwsh -c '%s'", body)}, nil
-	case "sql":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("sqlcmd -Q '%s'", body)}, nil
-	case "groovy":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("groovy -e '%s'", body)}, nil
-	case "clojure":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("clojure -e '%s'", body)}, nil
-	case "objective-c":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("clang -x objective-c -e '%s'", body)}, nil
-	case "visual-basic":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("vbc -e '%s'", body)}, nil
-	case "assembly":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("nasm -e '%s'", body)}, nil
-	case "fortran":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("gfortran -e '%s'", body)}, nil
-	case "pascal":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("fpc -e '%s'", body)}, nil
-	case "prolog":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("swipl -e '%s'", body)}, nil
-	case "scheme":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("guile -c '%s'", body)}, nil
-	case "tcl":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("tclsh -e '%s'", body)}, nil
-	case "smalltalk":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("gst -e '%s'", body)}, nil
-	case "nim":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("nim c -d:nodebug -e '%s'", body)}, nil
-	case "ocaml":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("ocaml -e '%s'", body)}, nil
-	case "f#":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("fsharpi -e '%s'", body)}, nil
-	case "crystal":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("crystal eval '%s'", body)}, nil
-	case "reason":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("reason-cli -e '%s'", body)}, nil
-	case "d":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("dmd -run '%s'", body)}, nil
-	case "solidity":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("solc --bin '%s'", body)}, nil
-	case "v":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("v run '%s'", body)}, nil
-	case "zig":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("zig run '%s'", body)}, nil
-	case "vala":
-
-		return []string{"/bin/sh", "-c", fmt.Sprintf("valac --pkg gtk+-3.0 '%s'", body)}, nil
-	case "c", "gcc":
-
-		return []string{"/bin/sh", "-c",
-			fmt.Sprintf("cat <<EOF > /tmp/tmp.c \n%s\nEOF && gcc /tmp/tmp.c -o /tmp/tmp.out && /tmp/tmp.out && rm /tmp/tmp.*",
-				body)}, nil
 	default:
-
-		return nil, fmt.Errorf("unsupported language: %s", lang)
+		mode, ok := codeModes[codeAliases[lang]]
+		if !ok {
+			mode, ok = codeModes[lang]
+		}
+		if !ok {
+			return nil, fmt.Errorf("unsupported application or language %q (languages: %s)", lang, supportedLanguages())
+		}
+		job.Logic = mode.image + ":" + version
+		// the code reaches the interpreter through $LOGIC (job env), never
+		// pasted into the command: quotes in the code used to break it
+		return []string{"/bin/sh", "-c", mode.run}, nil
 	}
 }
 
@@ -880,4 +795,14 @@ func (srv *UService) saveJobOutput(ctx context.Context, output ut.Resource) (str
 	}
 
 	return "updated (overwrote the existing file)", nil
+}
+
+// jobGID is the group a job's outputs belong to: the owner's primary group
+// recorded at submission (older jobs: the owner's uid).
+func jobGID(job ut.Job) int64 {
+	if job.GID > 0 {
+		return job.GID
+	}
+
+	return job.UID
 }

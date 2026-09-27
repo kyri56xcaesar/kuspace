@@ -49,7 +49,8 @@ const (
 		    cpuLimit TEXT,
 		    ephemeralStorageRequest TEXT,           
 		    ephemeralStorageLimit TEXT,
-		    engine TEXT
+		    engine TEXT,
+		    gid INTEGER
 		);
 
 		-- the kept tail of each job's output (outlives the live stream)
@@ -87,9 +88,9 @@ func (srv *UService) insertJob(ctx context.Context, jb ut.Job) (int64, error) {
 		INSERT INTO 
 			jobs (uid, description, duration, input, inputFormat, output, outputFormat, logic, logicBody,
 			 logicHeaders, parameters, status, completed, createdAt, parallelism, priority, memoryRequest, cpuRequest,
-			  memoryLimit, cpuLimit, ephemeralStorageRequest, ephemeralStorageLimit)
+			  memoryLimit, cpuLimit, ephemeralStorageRequest, ephemeralStorageLimit, gid)
 		VALUES
-			(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING (jid);`
 
 	var jid int64
@@ -97,7 +98,7 @@ func (srv *UService) insertJob(ctx context.Context, jb ut.Job) (int64, error) {
 		jb.InputFormat, jb.Output, jb.OutputFormat, jb.Logic, jb.LogicBody,
 		jb.LogicHeaders, strings.Join(jb.Params, ","), "pending", jb.Completed,
 		ut.CurrentTime(), jb.Parallelism, jb.Priority, jb.MemoryRequest, jb.CPURequest,
-		jb.MemoryLimit, jb.CPULimit, jb.EphemeralStorageRequest, jb.EphemeralStorageLimit).Scan(&jid)
+		jb.MemoryLimit, jb.CPULimit, jb.EphemeralStorageRequest, jb.EphemeralStorageLimit, jb.GID).Scan(&jid)
 	if err != nil {
 		log.Printf("failed to execute query: %v", err)
 
@@ -271,7 +272,7 @@ func (srv *UService) getJobByID(ctx context.Context, jid int) (ut.Job, error) {
 		&job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders,
 		&params, &job.Status, &job.Completed, &completedAt, &createdAt, &job.Parallelism, &job.Priority,
 		&job.MemoryRequest, &job.CPURequest, &job.MemoryLimit, &job.CPULimit, &job.EphemeralStorageRequest,
-		&job.EphemeralStorageLimit, &job.Engine)
+		&job.EphemeralStorageLimit, &job.Engine, &job.GID)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
 
@@ -324,7 +325,7 @@ func (srv *UService) getJobsByUID(ctx context.Context, uid int) ([]ut.Job, error
 			&job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody,
 			&job.LogicHeaders, &params, &job.Status, &job.Completed, &completedAt, &createdAt,
 			&job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest, &job.MemoryLimit,
-			&job.CPULimit, &job.EphemeralStorageRequest, &job.EphemeralStorageLimit, &job.Engine)
+			&job.CPULimit, &job.EphemeralStorageRequest, &job.EphemeralStorageLimit, &job.Engine, &job.GID)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
 
@@ -401,7 +402,7 @@ func (srv *UService) getJobsByUIDs(ctx context.Context, uids []int) ([]ut.Job, e
 			&job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody,
 			&job.LogicHeaders, &params, &job.Status, &job.Completed, &completedAt, &createdAt,
 			&job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest, &job.MemoryLimit,
-			&job.CPULimit, &job.EphemeralStorageRequest, &job.EphemeralStorageLimit, &job.Engine)
+			&job.CPULimit, &job.EphemeralStorageRequest, &job.EphemeralStorageLimit, &job.Engine, &job.GID)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
 
@@ -464,7 +465,7 @@ func (srv *UService) getAllJobs(ctx context.Context, limit, offset string) ([]ut
 		err = rows.Scan(&job.JID, &job.UID, &job.Description, &job.Duration, &job.Input, &job.InputFormat,
 			&job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status,
 			&job.Completed, &completedAt, &createdAt, &job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest,
-			&job.MemoryLimit, &job.CPULimit, &job.EphemeralStorageRequest, &job.EphemeralStorageLimit, &job.Engine)
+			&job.MemoryLimit, &job.CPULimit, &job.EphemeralStorageRequest, &job.EphemeralStorageLimit, &job.Engine, &job.GID)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
 
@@ -592,10 +593,11 @@ func (srv *UService) getJobLog(ctx context.Context, jid int64) (string, error) {
 const jobColumns = `jid, uid, description, duration, input, inputFormat, output, outputFormat,
 	logic, logicBody, logicHeaders, parameters, status, completed, completedAt, createdAt,
 	parallelism, priority, memoryRequest, cpuRequest, memoryLimit, cpuLimit,
-	ephemeralStorageRequest, ephemeralStorageLimit, COALESCE(engine, '')`
+	ephemeralStorageRequest, ephemeralStorageLimit, COALESCE(engine, ''), COALESCE(gid, 0)`
 
-// ensureJobEngineColumn adds jobs.engine to databases created before it existed.
-func (srv *UService) ensureJobEngineColumn(ctx context.Context) error {
+// ensureJobColumns adds columns introduced after a database was created
+// (engine, gid). TODO(BACKLOG): replace with numbered migrations.
+func (srv *UService) ensureJobColumns(ctx context.Context) error {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		return err
@@ -604,19 +606,27 @@ func (srv *UService) ensureJobEngineColumn(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = rows.Close() }()
+	have := map[string]bool{}
 	for rows.Next() {
 		var name string
 		if err := rows.Scan(&name); err != nil {
+			_ = rows.Close()
+
 			return err
 		}
-		if name == "engine" {
-			return nil
+		have[name] = true
+	}
+	_ = rows.Close()
+	for _, col := range []struct{ name, typ string }{{"engine", "TEXT"}, {"gid", "INTEGER"}} {
+		if have[col.name] {
+			continue
+		}
+		if _, err := db.ExecContext(ctx, `ALTER TABLE jobs ADD COLUMN `+col.name+` `+col.typ); err != nil {
+			return err
 		}
 	}
-	_, err = db.ExecContext(ctx, `ALTER TABLE jobs ADD COLUMN engine TEXT`)
 
-	return err
+	return nil
 }
 
 // markJobEngine records where a job runs.

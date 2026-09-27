@@ -704,6 +704,10 @@ type Job struct {
 	// Engine is where the job ran ("kubernetes" or "docker"); set by uspace,
 	// never by the submitter.
 	Engine string `json:"engine,omitempty" form:"-"`
+
+	// GID is the owner's primary group at submission: the job's output files
+	// get it. Set by uspace, never by the submitter.
+	GID int64 `json:"gid,omitempty" form:"-"`
 }
 
 // ValidateForm method sanitizes and checks if the given Job object is within limits
