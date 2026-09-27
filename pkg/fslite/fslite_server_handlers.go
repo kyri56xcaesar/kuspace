@@ -283,16 +283,12 @@ func (fsl *FsLite) getResourceHandler(c *gin.Context) {
 // @Router /admin/resource/delete [delete]
 func (fsl *FsLite) deleteResourceHandler(c *gin.Context) {
 	id, ok := c.Get("uid")
-	uid, ok2 := id.(string)
+	_, ok2 := id.(string)
 	if !ok || !ok2 {
-		if strings.ToLower(fsl.config.APIGinMode) == "debug" {
-			log.Printf("[FSL_API_delResource] mode = [debug], entering default uid")
-			uid = "0"
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "middleware failed to authenticate"})
+		// the auth middleware always sets uid; getting here is a wiring bug
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "middleware failed to authenticate"})
 
-			return
-		}
+		return
 	}
 	resource := ut.Resource{}
 	err := c.BindJSON(&resource)
@@ -335,7 +331,7 @@ func (fsl *FsLite) deleteResourceHandler(c *gin.Context) {
 
 				return
 			}
-			err = fsl.releaseVolumeSpace(r.Size, r.Vname, uid)
+			err = fsl.ReleaseSpace(c.Request.Context(), r.UID, r.Vname, r.Size)
 			if err != nil {
 				log.Printf("failed to release the volume claim due to deletion: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to release volume claim"})
@@ -344,7 +340,7 @@ func (fsl *FsLite) deleteResourceHandler(c *gin.Context) {
 			}
 
 		} else {
-			err = fsl.releaseVolumeSpace(resources[0].Size, resource.Vname, uid)
+			err = fsl.ReleaseSpace(c.Request.Context(), resources[0].UID, resource.Vname, resources[0].Size)
 			if err != nil {
 				log.Printf("failed to release the volume claim due to deletion: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to release volume claim"})
@@ -384,17 +380,13 @@ func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
 	uidStr, ok2 := id.(string)
 	uid, err := strconv.ParseInt(uidStr, 10, 64)
 	if !ok || !ok2 || err != nil {
+		// the auth middleware always sets uid; getting here is a wiring bug
 		log.Printf("[FSL_API_uploadResource] uid wasn't set properly.")
-		if strings.ToLower(fsl.config.APIGinMode) == "debug" {
-			log.Printf("mode = [debug], entering default uid")
-			uid = 0
-			uidStr = "0"
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "middleware failed to authenticate"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "middleware failed to authenticate"})
 
-			return
-		}
+		return
 	}
+
 	vname := c.Request.URL.Query().Get("volume")
 	if vname == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "must specify volume"})
@@ -431,14 +423,14 @@ func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
 			Name:   fileHeader.Filename,
 			Type:   "file",
 			Reader: file,
-			Perms:  "rw-r--r--",
+			Perms:  ut.DefaultFilePerms,
 			UID:    uid,
 			GID:    uid,
 			Size:   fileHeader.Size,
 		}
 
 		if !unlocked {
-			err = fsl.claimVolumeSpace(resource.Size, resource.Vname, uidStr)
+			err = fsl.ClaimSpace(c.Request.Context(), uid, resource.Vname, resource.Size, fsl.config.LocalVolumesDefaultCapacity, true)
 			if err != nil {
 				err = file.Close()
 				if err != nil {

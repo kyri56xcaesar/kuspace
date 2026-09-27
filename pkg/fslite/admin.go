@@ -3,6 +3,7 @@
 package fslite
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -109,7 +110,7 @@ func (fsl *FsLite) insertAdmin(username, password string) (Admin, error) {
 		log.Printf("[FSL_ADMIN_insert] inserting default user: %+v", admin)
 	}
 
-	_, err = db.Exec(query, id, username, hashpass)
+	_, err = db.ExecContext(context.Background(), query, id, username, hashpass)
 	if err != nil {
 		log.Printf("[FSL_ADMIN_insert] failed to execute query: %v", err)
 	}
@@ -129,7 +130,7 @@ func (fsl *FsLite) authenticateAdmin(username, password string) (string, error) 
 	query := `SELECT * FROM user_admin WHERE username = ?`
 
 	admin := Admin{}
-	err = db.QueryRow(query, username).Scan(admin.ptrFields()...)
+	err = db.QueryRowContext(context.Background(), query, username).Scan(admin.ptrFields()...)
 	if err != nil {
 		log.Printf("[FSL_ADMIN_auth] failed to query and scan correctly: %v", err)
 

@@ -41,10 +41,8 @@ func (fsl *FsLite) ListenAndServe() {
 	}
 
 	admin := api.Group("/admin")
-	// have authentication only on release
-	if strings.ToLower(fsl.config.APIGinMode) != "debug" {
-		admin.Use(authmiddleware(fsl.config))
-	}
+	// authentication is unconditional (it used to be skipped in gin "debug" mode)
+	admin.Use(authmiddleware(fsl.config))
 	{
 		admin.POST("/register", fsl.registerHandler)
 

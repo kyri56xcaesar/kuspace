@@ -36,6 +36,7 @@ package fslite
 */
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -46,7 +47,38 @@ import (
 )
 
 /* database call handlers regarding the Resource table */
-func insertResource(db *sql.DB, resource ut.Resource) error {
+// NormalizeName returns a resource name in its one stored form: a single
+// leading "/" (object storage treats "/x" and "x" as the same object, so the
+// metadata must not keep both).
+func NormalizeName(name string) string {
+	return "/" + strings.TrimLeft(name, "/")
+}
+
+// repairVolumeIDs points rows whose vid names no existing volume (uploads
+// used to record vid 0) at the volume their vname refers to.
+func repairVolumeIDs(ctx context.Context, db *sql.DB) (int64, error) {
+	res, err := db.ExecContext(ctx, `UPDATE resources SET vid = (SELECT v.vid FROM volumes v WHERE v.name = resources.vname)
+		WHERE vid NOT IN (SELECT vid FROM volumes) AND vname IN (SELECT name FROM volumes)`)
+	if err != nil {
+		return 0, err
+	}
+
+	return res.RowsAffected()
+}
+
+// normalizeStoredNames rewrites names stored without the leading "/" (older
+// rows) and returns how many changed.
+func normalizeStoredNames(ctx context.Context, db *sql.DB) (int64, error) {
+	res, err := db.ExecContext(ctx, `UPDATE resources SET name = '/' || name WHERE name NOT LIKE '/%'`)
+	if err != nil {
+		return 0, err
+	}
+
+	return res.RowsAffected()
+}
+
+func insertResource(ctx context.Context, db *sql.DB, resource ut.Resource) error {
+	resource.Name = NormalizeName(resource.Name)
 	query := `
     INSERT INTO 
       resources (uid, gid, vid, vname, size, links, perms, name, path, type, createdAt, updatedAt, accessedAt)
@@ -56,7 +88,7 @@ func insertResource(db *sql.DB, resource ut.Resource) error {
 	resource.AccessedAt = currentTime
 	resource.CreatedAt = currentTime
 	resource.UpdatedAt = currentTime
-	_, err := db.Exec(query, resource.FieldsNoID()...)
+	_, err := db.ExecContext(ctx, query, resource.FieldsNoID()...)
 	if err != nil {
 		log.Printf("[FSL_DB_insRes] failed to insert the resource: %v", err)
 
@@ -66,11 +98,11 @@ func insertResource(db *sql.DB, resource ut.Resource) error {
 	return nil
 }
 
-func insertResourceUniqueName(db *sql.DB, resource ut.Resource) error {
+func insertResourceUniqueName(ctx context.Context, db *sql.DB, resource ut.Resource) error {
 	// Check if a resource with the same name and UID already exists
 	queryCheck := `SELECT 1 FROM resources WHERE name = ? LIMIT 1;`
 	var exists int
-	err := db.QueryRow(queryCheck, resource.Name).Scan(&exists)
+	err := db.QueryRowContext(ctx, queryCheck, resource.Name).Scan(&exists)
 
 	if err == nil {
 		log.Printf("[FSL_DB_insResUnique] resource with name '%s' already exists", resource.Name)
@@ -93,7 +125,7 @@ func insertResourceUniqueName(db *sql.DB, resource ut.Resource) error {
 	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,?, ?, ?);
   `
 
-	_, err = db.Exec(queryInsert, resource.FieldsNoID()...)
+	_, err = db.ExecContext(ctx, queryInsert, resource.FieldsNoID()...)
 	if err != nil {
 		log.Printf("[FSL_DB_insResUnique] failed to insert the resource: %v", err)
 
@@ -103,8 +135,11 @@ func insertResourceUniqueName(db *sql.DB, resource ut.Resource) error {
 	return nil
 }
 
-func insertResources(db *sql.DB, resources []ut.Resource) error {
-	tx, err := db.Begin()
+func insertResources(ctx context.Context, db *sql.DB, resources []ut.Resource) error {
+	for i := range resources {
+		resources[i].Name = NormalizeName(resources[i].Name)
+	}
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Printf("[FSL_DB_insRess] failed to begin transacation: %v", err)
 
@@ -117,7 +152,7 @@ func insertResources(db *sql.DB, resources []ut.Resource) error {
 	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,?, ?, ?);
 	`
 
-	stmt, err := tx.Prepare(query)
+	stmt, err := tx.PrepareContext(ctx, query)
 	if err != nil {
 		log.Printf("[FSL_DB_insRess] error preparing transaction: %v", err)
 
@@ -135,7 +170,7 @@ func insertResources(db *sql.DB, resources []ut.Resource) error {
 		r.AccessedAt = currentTime
 		r.CreatedAt = currentTime
 		r.UpdatedAt = currentTime
-		_, err = stmt.Exec(r.FieldsNoID()...)
+		_, err = stmt.ExecContext(ctx, r.FieldsNoID()...)
 		if err != nil {
 			log.Printf("[FSL_DB_insRess] error executing transaction: %v", err)
 
@@ -153,8 +188,8 @@ func insertResources(db *sql.DB, resources []ut.Resource) error {
 	return nil
 }
 
-func insertResourcesUniqueName(db *sql.DB, resources []ut.Resource) error {
-	tx, err := db.Begin()
+func insertResourcesUniqueName(ctx context.Context, db *sql.DB, resources []ut.Resource) error {
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Printf("failed to begin transaction: %v", err)
 
@@ -163,7 +198,7 @@ func insertResourcesUniqueName(db *sql.DB, resources []ut.Resource) error {
 
 	// Prepare the SELECT query to check if the resource exists
 	queryCheck := `SELECT 1 FROM resources WHERE name = ? LIMIT 1;`
-	stmtCheck, err := tx.Prepare(queryCheck)
+	stmtCheck, err := tx.PrepareContext(ctx, queryCheck)
 	if err != nil {
 		log.Printf("error preparing uniqueness check statement: %v", err)
 
@@ -181,7 +216,7 @@ func insertResourcesUniqueName(db *sql.DB, resources []ut.Resource) error {
       resources (uid, gid, vid, vname, size, links, perms, name, path, type, createdAt, updatedAt, accessedAt)
 	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,?, ?, ?);
 	`
-	stmtInsert, err := tx.Prepare(queryInsert)
+	stmtInsert, err := tx.PrepareContext(ctx, queryInsert)
 	if err != nil {
 		log.Printf("error preparing insert statement: %v", err)
 
@@ -199,7 +234,7 @@ func insertResourcesUniqueName(db *sql.DB, resources []ut.Resource) error {
 
 		log.Printf("resource: %+v", r)
 		// Check if the resource already exists
-		err = stmtCheck.QueryRow(r.Name).Scan(&exists)
+		err = stmtCheck.QueryRowContext(ctx, r.Name).Scan(&exists)
 		if err == nil {
 			log.Printf("resource with name '%s' already exists", r.Name)
 
@@ -216,7 +251,7 @@ func insertResourcesUniqueName(db *sql.DB, resources []ut.Resource) error {
 		r.AccessedAt = currentTime
 		r.CreatedAt = currentTime
 		r.UpdatedAt = currentTime
-		_, err = stmtInsert.Exec(r.FieldsNoID()...)
+		_, err = stmtInsert.ExecContext(ctx, r.FieldsNoID()...)
 		if err != nil {
 			log.Printf("error executing insert: %v", err)
 
@@ -235,8 +270,8 @@ func insertResourcesUniqueName(db *sql.DB, resources []ut.Resource) error {
 	return nil
 }
 
-func getAllResourcesAt(db *sql.DB, path string) ([]ut.Resource, error) {
-	rows, err := db.Query(`
+func getAllResourcesAt(ctx context.Context, db *sql.DB, path string) ([]ut.Resource, error) {
+	rows, err := db.QueryContext(ctx, `
     SELECT 
       * 
     FROM 
@@ -278,8 +313,8 @@ func getAllResourcesAt(db *sql.DB, path string) ([]ut.Resource, error) {
 	return resources, nil
 }
 
-func getAllResources(db *sql.DB) ([]ut.Resource, error) {
-	rows, err := db.Query(`
+func getAllResources(ctx context.Context, db *sql.DB) ([]ut.Resource, error) {
+	rows, err := db.QueryContext(ctx, `
     SELECT
       *
     FROM 
@@ -322,15 +357,15 @@ func getAllResources(db *sql.DB) ([]ut.Resource, error) {
 	return resources, nil
 }
 
-func getResourcesByIDs(db *sql.DB, rids []int) ([]ut.Resource, error) {
+func getResourcesByIDs(ctx context.Context, db *sql.DB, rids []int) ([]ut.Resource, error) {
 	args := make([]any, len(rids))
 	for i, uid := range rids {
 		args[i] = uid
 	}
 
-	query := fmt.Sprintf("SELECT size FROM resources WHERE rid IN (%s)", strings.TrimRight(strings.Repeat("?,", len(rids)), ","))
+	query := fmt.Sprintf("SELECT * FROM resources WHERE rid IN (%s)", strings.TrimRight(strings.Repeat("?,", len(rids)), ","))
 
-	rows, err := db.Query(query, args...)
+	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		log.Printf("[FSL_DB_getResByIds] error querying db: %v", err)
 
@@ -369,10 +404,10 @@ func getResourcesByIDs(db *sql.DB, rids []int) ([]ut.Resource, error) {
 	return resources, nil
 }
 
-func getResourcesByName(db *sql.DB, name string) ([]ut.Resource, error) {
+func getResourcesByName(ctx context.Context, db *sql.DB, name string) ([]ut.Resource, error) {
 	var resources []ut.Resource
 
-	rows, err := db.Query("SELECT * FROM resources WHERE name = ?", name)
+	rows, err := db.QueryContext(ctx, "SELECT * FROM resources WHERE name = ?", name)
 	if err != nil {
 		log.Printf("[FSL_DB_getResByName] error performing query: %v", err)
 
@@ -410,10 +445,10 @@ func getResourcesByName(db *sql.DB, name string) ([]ut.Resource, error) {
 	return resources, nil
 }
 
-func getResourceByNameAndVolume(db *sql.DB, name, volume string) (ut.Resource, error) {
+func getResourceByNameAndVolume(ctx context.Context, db *sql.DB, name, volume string) (ut.Resource, error) {
 	var resource ut.Resource
 
-	err := db.QueryRow("SELECT * FROM resources WHERE name = ? AND vname = ? LIMIT 1", name, volume).
+	err := db.QueryRowContext(ctx, "SELECT * FROM resources WHERE name = ? AND vname = ? LIMIT 1", name, volume).
 		Scan(resource.PtrFields()...)
 	if err != nil {
 		log.Printf("[FSL_DB_getResByNameVol] error scanning resource: %v", err)
@@ -424,9 +459,9 @@ func getResourceByNameAndVolume(db *sql.DB, name, volume string) (ut.Resource, e
 	return resource, nil
 }
 
-func exists(db *sql.DB, name, volume string) (bool, error) {
+func exists(ctx context.Context, db *sql.DB, name, volume string) (bool, error) {
 	var dummy int
-	err := db.QueryRow(`
+	err := db.QueryRowContext(ctx, `
         SELECT 1 FROM resources 
         WHERE name = ? AND vname = ? 
         LIMIT 1
@@ -442,8 +477,8 @@ func exists(db *sql.DB, name, volume string) (bool, error) {
 	return true, nil // exists
 }
 
-func getResourcesByNameLike(db *sql.DB, name string) ([]ut.Resource, error) {
-	rows, err := db.Query(`
+func getResourcesByNameLike(ctx context.Context, db *sql.DB, name string) ([]ut.Resource, error) {
+	rows, err := db.QueryContext(ctx, `
     SELECT
       	*
     FROM 
@@ -487,7 +522,7 @@ func getResourcesByNameLike(db *sql.DB, name string) ([]ut.Resource, error) {
 	return resources, nil
 }
 
-func deleteResourcesByIDs(db *sql.DB, rids []string) (int64, error) {
+func deleteResourcesByIDs(ctx context.Context, db *sql.DB, rids []string) (int64, error) {
 	// can't have empty arg (might be destructive)
 	if len(rids) == 0 {
 		log.Printf("[FSL_DB_delResByIds] empty argument, returning...")
@@ -495,7 +530,7 @@ func deleteResourcesByIDs(db *sql.DB, rids []string) (int64, error) {
 		return 0, errors.New("must provide input ids")
 	}
 
-	tx, err := db.Begin()
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Printf("[FSL_DB_delResByIds] error starting transaction: %v", err)
 
@@ -515,7 +550,7 @@ func deleteResourcesByIDs(db *sql.DB, rids []string) (int64, error) {
 	squery := fmt.Sprintf("SELECT size FROM resources WHERE rid IN (%s)", strings.Join(placeholders, ","))
 	query := fmt.Sprintf("DELETE FROM resources WHERE rid IN (%s)", strings.Join(placeholders, ","))
 
-	sres, err := tx.Query(squery, args...)
+	sres, err := tx.QueryContext(ctx, squery, args...)
 	if err != nil {
 		log.Printf("[FSL_DB_delResByIds] failed to execute query: %v", err)
 
@@ -529,7 +564,7 @@ func deleteResourcesByIDs(db *sql.DB, rids []string) (int64, error) {
 		}
 	}()
 
-	res, err := tx.Exec(query, args...)
+	res, err := tx.ExecContext(ctx, query, args...)
 	if err != nil {
 		log.Printf("[FSL_DB_delResByIds] failed to execute query: %v", err)
 
@@ -573,15 +608,15 @@ func deleteResourcesByIDs(db *sql.DB, rids []string) (int64, error) {
 	return size, nil
 }
 
-func deleteResourceByName(db *sql.DB, name string) error {
-	tx, err := db.Begin()
+func deleteResourceByName(ctx context.Context, db *sql.DB, name string) error {
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Printf("[FSL_DB_delResByName] error starting transaction: %v", err)
 
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	res, err := tx.Exec("DELETE FROM resources WHERE name = ?", name)
+	res, err := tx.ExecContext(ctx, "DELETE FROM resources WHERE name = ?", name)
 	if err != nil {
 		log.Printf("[FSL_DB_delResByName] failed to execute query: %v", err)
 
@@ -606,15 +641,15 @@ func deleteResourceByName(db *sql.DB, name string) error {
 	return nil
 }
 
-func deleteResourceByNameAndVolume(db *sql.DB, name, volume string) error {
-	tx, err := db.Begin()
+func deleteResourceByNameAndVolume(ctx context.Context, db *sql.DB, name, volume string) error {
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Printf("[FSL_DB_delResByNameVolume] error starting transaction: %v", err)
 
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	res, err := tx.Exec("DELETE FROM resources WHERE name = ? AND vname = ?", name, volume)
+	res, err := tx.ExecContext(ctx, "DELETE FROM resources WHERE name = ? AND vname = ?", name, volume)
 	if err != nil {
 		log.Printf("[FSL_DB_delResByNameVolume] failed to execute query: %v", err)
 
@@ -639,8 +674,8 @@ func deleteResourceByNameAndVolume(db *sql.DB, name, volume string) error {
 	return nil
 }
 
-func updateResourceNameByID(db *sql.DB, rid, name string) error {
-	tx, err := db.Begin()
+func updateResourceNameByID(ctx context.Context, db *sql.DB, rid, name string) error {
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Printf("[FSL_DB_updateResNameById] error starting transaction: %v", err)
 
@@ -654,7 +689,7 @@ func updateResourceNameByID(db *sql.DB, rid, name string) error {
     WHERE 
       rid = ?;
   `
-	res, err := tx.Exec(query, name, ut.CurrentTime(), ut.CurrentTime(), rid)
+	res, err := tx.ExecContext(ctx, query, name, ut.CurrentTime(), ut.CurrentTime(), rid)
 	if err != nil {
 		log.Printf("[FSL_DB_updateResNameById] error executing query: %v", err)
 
@@ -679,8 +714,12 @@ func updateResourceNameByID(db *sql.DB, rid, name string) error {
 	return nil
 }
 
-func updateResourceNameAndVolByName(db *sql.DB, name, newname, vol string) error {
-	tx, err := db.Begin()
+// updateResourceNameAndVolByName renames/moves the resource `name` in
+// fromVol to `newname` in vol (vid follows the volume). An empty fromVol
+// matches any volume (legacy callers).
+func updateResourceNameAndVolByName(ctx context.Context, db *sql.DB, name, newname, vol, fromVol string) error {
+	name, newname = NormalizeName(name), NormalizeName(newname)
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Printf("[FSL_DB_updateResNameVolumeById] error starting transaction: %v", err)
 
@@ -691,12 +730,13 @@ func updateResourceNameAndVolByName(db *sql.DB, name, newname, vol string) error
     UPDATE 
       resources 
     SET 
-      name = ?, vname = ?, updatedAt = ?, accessedAt = ?
+      name = ?, vname = ?, vid = COALESCE((SELECT vid FROM volumes WHERE name = ?), vid),
+      updatedAt = ?, accessedAt = ?
     WHERE 
-      name = ?;
+      name = ? AND (? = '' OR vname = ?);
   `
 
-	res, err := tx.Exec(query, newname, vol, ut.CurrentTime(), ut.CurrentTime(), name)
+	res, err := tx.ExecContext(ctx, query, newname, vol, vol, ut.CurrentTime(), ut.CurrentTime(), name, fromVol, fromVol)
 	if err != nil {
 		log.Printf("[FSL_DB_updateResNameVolumeById] error executing query: %v", err)
 
@@ -723,8 +763,8 @@ func updateResourceNameAndVolByName(db *sql.DB, name, newname, vol string) error
 	return nil
 }
 
-func updateResourcePermsByID(db *sql.DB, rid, perms string) error {
-	tx, err := db.Begin()
+func updateResourcePermsByID(ctx context.Context, db *sql.DB, rid, perms string) error {
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Printf("[FSL_DB_updateResPermsById] error starting transaction: %v", err)
 
@@ -740,7 +780,7 @@ func updateResourcePermsByID(db *sql.DB, rid, perms string) error {
       rid = ?;
   `
 
-	res, err := tx.Exec(query, perms, ut.CurrentTime(), ut.CurrentTime(), rid)
+	res, err := tx.ExecContext(ctx, query, perms, ut.CurrentTime(), ut.CurrentTime(), rid)
 	if err != nil {
 		log.Printf("[FSL_DB_updateResPermsById] error executing query: %v", err)
 
@@ -767,8 +807,8 @@ func updateResourcePermsByID(db *sql.DB, rid, perms string) error {
 	return nil
 }
 
-func updateResourceOwnerByID(db *sql.DB, rid, uid int) error {
-	tx, err := db.Begin()
+func updateResourceOwnerByID(ctx context.Context, db *sql.DB, rid, uid int) error {
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Printf("[FSL_DB_updateResOwnerById] error starting transaction: %v", err)
 
@@ -783,7 +823,7 @@ func updateResourceOwnerByID(db *sql.DB, rid, uid int) error {
       rid = ?;
   `
 
-	res, err := tx.Exec(query, uid, ut.CurrentTime(), ut.CurrentTime(), rid)
+	res, err := tx.ExecContext(ctx, query, uid, ut.CurrentTime(), ut.CurrentTime(), rid)
 	if err != nil {
 		log.Printf("[FSL_DB_updateResOwnerById] error executing query: %v", err)
 
@@ -810,8 +850,8 @@ func updateResourceOwnerByID(db *sql.DB, rid, uid int) error {
 	return nil
 }
 
-func updateResourceGroupByID(db *sql.DB, rid, gid int) error {
-	tx, err := db.Begin()
+func updateResourceGroupByID(ctx context.Context, db *sql.DB, rid, gid int) error {
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Printf("[FSL_DB_updateResGroupById] error starting transaction: %v", err)
 
@@ -827,7 +867,7 @@ func updateResourceGroupByID(db *sql.DB, rid, gid int) error {
       rid = ?;
   `
 
-	res, err := tx.Exec(query, gid, ut.CurrentTime(), ut.CurrentTime(), rid)
+	res, err := tx.ExecContext(ctx, query, gid, ut.CurrentTime(), ut.CurrentTime(), rid)
 	if err != nil {
 		log.Printf("[FSL_DB_updateResGroupById] error executing query: %v", err)
 
