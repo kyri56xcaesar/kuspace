@@ -83,27 +83,27 @@ func main() {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
-		if err := run("docker", "buildx", "build", "-f", "internal/uspace/applications/duckdb/Dockerfile.duck", "-t", "kyri56xcaesar/kuspace:applications-duckdb-v1", "internal/uspace/applications/duckdb"); err != nil {
+		if err := run("docker", "buildx", "build", "-f", "internal/uspace/applications/duckdb/Dockerfile.duck", "-t", "kyri56xcaesar/kuspace:applications-duckdb-v2", "internal/uspace/applications"); err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
-		if err := run("docker", "buildx", "build", "-f", "internal/uspace/applications/pypandas/Dockerfile.pypandas", "-t", "kyri56xcaesar/kuspace:applications-pypandas-v1", "internal/uspace/applications/pypandas"); err != nil {
+		if err := run("docker", "buildx", "build", "-f", "internal/uspace/applications/pypandas/Dockerfile.pypandas", "-t", "kyri56xcaesar/kuspace:applications-pypandas-v2", "internal/uspace/applications"); err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
-		if err := run("docker", "buildx", "build", "-f", "internal/uspace/applications/octave/Dockerfile.octave", "-t", "kyri56xcaesar/kuspace:applications-octave-v1", "internal/uspace/applications/octave"); err != nil {
+		if err := run("docker", "buildx", "build", "-f", "internal/uspace/applications/octave/Dockerfile.octave", "-t", "kyri56xcaesar/kuspace:applications-octave-v2", "internal/uspace/applications"); err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
-		if err := run("docker", "buildx", "build", "-f", "internal/uspace/applications/ffmpeg/Dockerfile.ffmpeg", "-t", "kyri56xcaesar/kuspace:applications-ffmpeg-v1", "internal/uspace/applications/ffmpeg"); err != nil {
+		if err := run("docker", "buildx", "build", "-f", "internal/uspace/applications/ffmpeg/Dockerfile.ffmpeg", "-t", "kyri56xcaesar/kuspace:applications-ffmpeg-v2", "internal/uspace/applications"); err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
-		if err := run("docker", "buildx", "build", "-f", "internal/uspace/applications/caengine/Dockerfile.caengine", "-t", "kyri56xcaesar/kuspace:applications-caengine-v1", "internal/uspace/applications/caengine"); err != nil {
+		if err := run("docker", "buildx", "build", "-f", "internal/uspace/applications/caengine/Dockerfile.caengine", "-t", "kyri56xcaesar/kuspace:applications-caengine-v2", "internal/uspace/applications"); err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
-		if err := run("docker", "buildx", "build", "-f", "internal/uspace/applications/bash/Dockerfile.bash", "-t", "kyri56xcaesar/kuspace:applications-bash-v1", "internal/uspace/applications/bash"); err != nil {
+		if err := run("docker", "buildx", "build", "-f", "internal/uspace/applications/bash/Dockerfile.bash", "-t", "kyri56xcaesar/kuspace:applications-bash-v2", "internal/uspace/applications"); err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
@@ -128,27 +128,27 @@ func main() {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
-		if err := run("docker", "push", "kyri56xcaesar/kuspace:applications-duckdb-v1"); err != nil {
+		if err := run("docker", "push", "kyri56xcaesar/kuspace:applications-duckdb-v2"); err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
-		if err := run("docker", "push", "kyri56xcaesar/kuspace:applications-pypandas-v1"); err != nil {
+		if err := run("docker", "push", "kyri56xcaesar/kuspace:applications-pypandas-v2"); err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
-		if err := run("docker", "push", "kyri56xcaesar/kuspace:applications-octave-v1"); err != nil {
+		if err := run("docker", "push", "kyri56xcaesar/kuspace:applications-octave-v2"); err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
-		if err := run("docker", "push", "kyri56xcaesar/kuspace:applications-ffmpeg-v1"); err != nil {
+		if err := run("docker", "push", "kyri56xcaesar/kuspace:applications-ffmpeg-v2"); err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
-		if err := run("docker", "push", "kyri56xcaesar/kuspace:applications-caengine-v1"); err != nil {
+		if err := run("docker", "push", "kyri56xcaesar/kuspace:applications-caengine-v2"); err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
-		if err := run("docker", "push", "kyri56xcaesar/kuspace:applications-bash-v1"); err != nil {
+		if err := run("docker", "push", "kyri56xcaesar/kuspace:applications-bash-v2"); err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}

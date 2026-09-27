@@ -1,5 +1,5 @@
+from kuspace_io import fetch_input, put_output
 import os
-import boto3
 import pandas as pd
 import numpy as np
 import sys
@@ -15,26 +15,15 @@ output_bucket = os.getenv("OUTPUT_BUCKET", "uspace-default")
 output_object = os.getenv("OUTPUT_OBJECT", "output.csv")
 output_format = os.getenv("OUTPUT_FORMAT", "csv")
 
-minio_endpoint = os.getenv("ENDPOINT", "http://minio:9000")
-minio_access_key = os.getenv("ACCESS_KEY", "minioadmin")
-minio_secret_key = os.getenv("SECRET_KEY", "minioadmin")
 
 print(f"[INFO] Input: s3://{input_bucket}/{input_object}")
 print(f"[INFO] Output: s3://{output_bucket}/{output_object}")
 print(f"[INFO] Executing logic:\n{logic_code}")
 
-# Setup boto3 MinIO client
-s3 = boto3.client(
-    's3',
-    endpoint_url="http://" + minio_endpoint.replace("http://", ""),
-    aws_access_key_id=minio_access_key,
-    aws_secret_access_key=minio_secret_key,
-    region_name="eu-central-1"
-)
 
-# Download file from MinIO
+# Download the input
 input_tmp_path = "/tmp/input"
-s3.download_file(input_bucket, input_object, input_tmp_path)
+fetch_input(input_tmp_path)
 
 # Load into DataFrame
 if input_format == "csv":
@@ -65,6 +54,6 @@ elif output_format == "parquet":
 else:
     raise ValueError(f"Unsupported output format: {output_format}")
 
-# Upload back to MinIO
-s3.upload_file(output_tmp_path, output_bucket, output_object)
+# Upload the result
+put_output(output_tmp_path)
 print(f"[INFO] Result written to s3://{output_bucket}/{output_object}")

@@ -1,6 +1,7 @@
+# build context: internal/uspace/applications (shares common/kuspace_io.py)
 FROM python:3.12-slim
 
-RUN apt update && apt install -y ffmpeg && pip install boto3
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 
-COPY ffmpeg_app.py /ffmpeg_app.py
+COPY common/kuspace_io.py ffmpeg/ffmpeg_app.py /
 ENTRYPOINT ["python", "/ffmpeg_app.py"]

@@ -1,5 +1,5 @@
+from kuspace_io import fetch_input, put_output
 import os
-import boto3
 import ast
 import subprocess
 import sys
@@ -12,18 +12,19 @@ output_object = os.getenv("OUTPUT_OBJECT", "output")
 output_format = os.getenv("OUTPUT_FORMAT", "txt")
 logic = os.getenv("LOGIC", "cat {input} > {output}")
 
-minio_endpoint = os.getenv("ENDPOINT", "http://minio:9000")
-minio_access_key = os.getenv("ACCESS_KEY", "minioadmin")
-minio_secret_key = os.getenv("SECRET_KEY", "minioadmin")
 
 input_path = "/tmp/input"
 output_path = f"/tmp/output.{output_format}"
 
+# defaults, overridden by "key: value" lines in LOGIC
+STATES = 2
+GENERATIONS = 1
+NEIGHBORHOOD = [[1, 1, 1], [1, 0, 1], [1, 1, 1]]
+
 for line in logic.split("\n"):
     parts = line.strip().lower().split(":")
-    if len(parts) != 2:
-        
-break
+    if len(parts) != 2:  # blank or malformed line
+        continue
     key = parts[0]
     value = parts[1]
     if key == "states":
@@ -57,16 +58,9 @@ if  len(NEIGHBORHOOD) != len(NEIGHBORHOOD[0]):
 
 #######################
 
-# --- Download Input File from MinIO ---
+# --- Download the input ---
 print(f"[INFO] Downloading s3://{input_bucket}/{input_object} to {input_path}")
-s3 = boto3.client(
-    's3',
-    endpoint_url="http://" + minio_endpoint.replace("http://", ""),
-    aws_access_key_id=minio_access_key,
-    aws_secret_access_key=minio_secret_key,
-)
-s3.download_file(input_bucket, input_object, input_path)
-
+fetch_input(input_path)
 
 
 #############################################
@@ -88,17 +82,14 @@ class CAImageProcessor:
         total_colors = len(np.unique(img_arr))
         if total_colors > states:
             print("Error: More states in the image than allowed by the rule.")
-            
-return None
+            return None
 
         if np.max(img_arr) > states - 1:
             print("Error: State values out of range. Must be within [0, states-1].")
-            
-return None
+            return None
 
         img.close()
-        
-return img_arr
+        return img_arr
     
     def array2img(self, grid_arr_1D, path_out, vertical_offset, total_states):
         """Converts a numpy array back into an image while preserving the original palette."""
@@ -140,8 +131,7 @@ def apply_transition_rule(grid, neighborhood_size=29, neighborhood=[]):
            else:
                    new_grid[i, j] = 0
 
-    
-return new_grid
+    return new_grid
 
 # Initialize the processor
 processor = CAImageProcessor()
@@ -158,36 +148,17 @@ if img_array is not None:
         img_array = apply_transition_rule(img_array, neighborhood_size=len(NEIGHBORHOOD), neighborhood=NEIGHBORHOOD)
 
     processor.array2img(img_array.flatten(), output_path, vertical_offset=0, total_states=STATES)
+else:
+    print("[ERROR] the input image was rejected (see above); no output", file=sys.stderr)
+    sys.exit(1)
     
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 ####################################################################
 
 
-
 print(f"[INFO] Uploading result to s3://{output_bucket}/{output_object}")
-s3.upload_file(output_path, output_bucket, output_object)
+put_output(output_path)
 print(f"[INFO] Done. File uploaded to s3://{output_bucket}/{output_object}")
-
 
 

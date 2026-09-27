@@ -2,6 +2,7 @@ package uspace
 
 import (
 	"context"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -145,5 +146,42 @@ func TestJobOutput(t *testing.T) {
 	big.Send([]byte("the end\n"))
 	if got := big.Close(); len(got) > jobLogLimit || !strings.HasSuffix(got, "the end\n") {
 		t.Errorf("kept %d bytes (limit %d), tail kept: %v", len(got), jobLogLimit, strings.HasSuffix(got, "the end\n"))
+	}
+}
+
+type fakePresigner struct{ calls []string }
+
+func (f *fakePresigner) PresignFor(_ context.Context, method string, r ut.Resource, d time.Duration) (*url.URL, error) {
+	f.calls = append(f.calls, method+" "+r.Vname+"/"+r.Name+" "+d.String())
+
+	return url.Parse("http://minio:9000/" + r.Vname + "/" + r.Name + "?X-Amz-Signature=sig")
+}
+
+func TestPresignJobIO(t *testing.T) {
+	p := &fakePresigner{}
+	in := ut.Resource{Vname: "vol", Name: "in.csv"}
+	out := ut.Resource{Vname: "vol", Name: "out.csv"}
+	get, put, err := presignJobIO(p, in, out, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(get, "/vol/in.csv") || !strings.Contains(put, "/vol/out.csv") {
+		t.Errorf("urls = %s | %s", get, put)
+	}
+	if len(p.calls) != 2 || p.calls[0] != "get vol/in.csv 1h0m0s" || p.calls[1] != "put vol/out.csv 1h0m0s" {
+		t.Errorf("presign calls = %v (want a GET for the input and a PUT for the output only)", p.calls)
+	}
+	// a backend that can't presign is an error, never a fallback to credentials
+	if _, _, err := presignJobIO(struct{}{}, in, out, time.Hour); err == nil {
+		t.Error("non-presigning storage accepted")
+	}
+}
+
+func TestJobURLValidity(t *testing.T) {
+	if got := jobURLValidity(30); got != 45*time.Minute {
+		t.Errorf("30 min job: %v", got)
+	}
+	if got := jobURLValidity(0); got != 6*time.Hour {
+		t.Errorf("no timeout: %v", got)
 	}
 }

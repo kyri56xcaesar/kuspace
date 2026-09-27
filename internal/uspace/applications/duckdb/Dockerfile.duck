@@ -1,3 +1,4 @@
+# build context: internal/uspace/applications (shares common/kuspace_io.py)
 FROM python:3.12-slim
 
 WORKDIR /app
@@ -9,13 +10,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install latest DuckDB and your dependencies
-COPY requirements.txt .
+COPY duckdb/requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt \
     && pip install --no-cache-dir --upgrade duckdb
 
 # Copy application
-COPY duckdb_app.py /app/
+COPY common/kuspace_io.py duckdb/duckdb_app.py /app/
 
 # Run app
 ENTRYPOINT ["python", "duckdb_app.py"]

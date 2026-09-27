@@ -1,5 +1,5 @@
+from kuspace_io import fetch_input, put_output
 import os
-import boto3
 import subprocess
 import sys
 
@@ -11,23 +11,14 @@ output_bucket = os.getenv("OUTPUT_BUCKET", "uspace-default")
 output_object = os.getenv("OUTPUT_OBJECT", "output.csv")
 output_format = os.getenv("OUTPUT_FORMAT", "csv")
 
-minio_endpoint = os.getenv("ENDPOINT", "http://minio:9000")
-minio_access_key = os.getenv("ACCESS_KEY", "minioadmin")
-minio_secret_key = os.getenv("SECRET_KEY", "minioadmin")
 
 logic_code = os.getenv("LOGIC", "output = input .* 2;")
 
 print(f"[INFO] Running Octave job: {logic_code}")
 
-# Download input from MinIO
-s3 = boto3.client(
-    's3',
-    endpoint_url="http://" + minio_endpoint.replace("http://", ""),
-    aws_access_key_id=minio_access_key,
-    aws_secret_access_key=minio_secret_key,
-)
+# Download the input
 
-s3.download_file(input_bucket, input_object, "/tmp/input.csv")
+fetch_input("/tmp/input.csv")
 
 # Write Octave script to disk
 octave_script = f"""
@@ -48,5 +39,5 @@ if result.returncode != 0:
     raise RuntimeError("Octave execution failed")
 
 # Upload result
-s3.upload_file("/tmp/output.csv", output_bucket, output_object)
+put_output("/tmp/output.csv")
 print(f"[INFO] Result written to MinIO: s3://{output_bucket}/{output_object}")

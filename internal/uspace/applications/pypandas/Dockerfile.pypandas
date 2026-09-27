@@ -1,6 +1,7 @@
+# build context: internal/uspace/applications (shares common/kuspace_io.py)
 FROM python:3.12-slim
 WORKDIR /app
-COPY requirements.txt .
+COPY pypandas/requirements.txt .
 RUN pip install -r requirements.txt
-COPY pypandas_app.py pypandas_app.py
+COPY common/kuspace_io.py pypandas/pypandas_app.py /app/
 ENTRYPOINT [ "python", "/app/pypandas_app.py"]

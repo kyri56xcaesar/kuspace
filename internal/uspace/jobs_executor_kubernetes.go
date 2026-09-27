@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"math"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -25,12 +26,12 @@ import (
 )
 
 var (
-	duckImage     = "kyri56xcaesar/kuspace:applications-duckdb-v1"
-	pandasImage   = "kyri56xcaesar/kuspace:applications-pypandas-v1"
-	octaveImage   = "kyri56xcaesar/kuspace:applications-octave-v1"
-	ffmpegImage   = "kyri56xcaesar/kuspace:applications-ffmpeg-v1"
-	caengineImage = "kyri56xcaesar/kuspace:applications-caengine-v1"
-	bashImage     = "kyri56xcaesar/kuspace:applications-bash-v1"
+	duckImage     = "kyri56xcaesar/kuspace:applications-duckdb-v2"
+	pandasImage   = "kyri56xcaesar/kuspace:applications-pypandas-v2"
+	octaveImage   = "kyri56xcaesar/kuspace:applications-octave-v2"
+	ffmpegImage   = "kyri56xcaesar/kuspace:applications-ffmpeg-v2"
+	caengineImage = "kyri56xcaesar/kuspace:applications-caengine-v2"
+	bashImage     = "kyri56xcaesar/kuspace:applications-bash-v2"
 )
 
 // JKubernetesExecutor struct the core data structure impelemnting the JobExecutor interface
@@ -584,9 +585,16 @@ func formatJobData(je *JKubernetesExecutor, job *ut.Job) ([]string, error) {
 		job.CPURequest = "500m"
 	}
 
-	envMap["ENDPOINT"] = je.jm.srv.config.MinioEndpoint
-	envMap["ACCESS_KEY"] = je.jm.srv.config.MinioAccessKey
-	envMap["SECRET_KEY"] = je.jm.srv.config.MinioSecretKey
+	// The pod runs user code, so it gets no storage credentials: only
+	// presigned URLs for exactly its input (GET) and output (PUT), valid
+	// while the job may run. (It used to get the MinIO root keys - any job
+	// could read or overwrite every user's files.)
+	inputURL, outputURL, err := presignJobIO(je.jm.srv.storage, InpAsResource, OutAsResource, jobURLValidity(job.Timeout))
+	if err != nil {
+		return nil, err
+	}
+	envMap["INPUT_URL"] = inputURL
+	envMap["OUTPUT_URL"] = outputURL
 	envMap["LOGIC"] = job.LogicBody
 	envMap["INPUT_BUCKET"] = InpAsResource.Vname
 	envMap["INPUT_OBJECT"] = InpAsResource.Name
@@ -598,6 +606,41 @@ func formatJobData(je *JKubernetesExecutor, job *ut.Job) ([]string, error) {
 	job.Env = envMap
 
 	return command, nil
+}
+
+// presigner is implemented by storage backends that can hand out
+// per-object URLs (MinIO).
+type presigner interface {
+	PresignFor(ctx context.Context, method string, r ut.Resource, d time.Duration) (*url.URL, error)
+}
+
+// jobURLValidity is how long a job's input/output URLs stay valid: its
+// timeout plus slack for scheduling, or 6 hours for jobs without one.
+func jobURLValidity(timeoutMinutes int) time.Duration {
+	if timeoutMinutes > 0 {
+		return time.Duration(timeoutMinutes)*time.Minute + 15*time.Minute
+	}
+
+	return 6 * time.Hour
+}
+
+func presignJobIO(storage any, in, out ut.Resource, valid time.Duration) (string, string, error) {
+	p, ok := storage.(presigner)
+	if !ok {
+		return "", "", errors.New("the storage backend can't issue per-object URLs; jobs need MinIO")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	get, err := p.PresignFor(ctx, "get", in, valid)
+	if err != nil {
+		return "", "", fmt.Errorf("presign input: %w", err)
+	}
+	put, err := p.PresignFor(ctx, "put", out, valid)
+	if err != nil {
+		return "", "", fmt.Errorf("presign output: %w", err)
+	}
+
+	return get.String(), put.String(), nil
 }
 
 func formatJobCommand(job *ut.Job) ([]string, error) {

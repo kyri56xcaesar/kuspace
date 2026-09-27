@@ -414,3 +414,17 @@ func (mc *Client) Share(method string, t any) (any, error) {
 		return nil, ut.NewError("bad method")
 	}
 }
+
+// PresignFor returns a presigned URL granting method ("get" or "put") on
+// exactly one object for d. Jobs get these instead of storage credentials.
+func (mc *Client) PresignFor(ctx context.Context, method string, r ut.Resource, d time.Duration) (*url.URL, error) {
+	object := strings.TrimPrefix(r.Name, "/")
+	switch method {
+	case "get":
+		return mc.client.PresignedGetObject(ctx, r.Vname, object, d, nil)
+	case "put":
+		return mc.client.PresignedPutObject(ctx, r.Vname, object, d)
+	default:
+		return nil, fmt.Errorf("presign: unsupported method %q", method)
+	}
+}

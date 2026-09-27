@@ -1,9 +1,9 @@
+# build context: internal/uspace/applications (shares common/kuspace_io.py)
 FROM gnuoctave/octave:latest
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y python3 python3-pip
-RUN python3 -m pip install --break-system-packages boto3
+RUN apt-get update && apt-get install -y --no-install-recommends python3 && rm -rf /var/lib/apt/lists/*
 
-COPY octave_app.py /app/
+COPY common/kuspace_io.py octave/octave_app.py /app/
 ENTRYPOINT [ "python3", "octave_app.py" ]

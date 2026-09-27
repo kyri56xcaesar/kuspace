@@ -1,5 +1,5 @@
+from kuspace_io import fetch_input, put_output
 import os
-import boto3
 import subprocess
 import sys
 
@@ -11,22 +11,13 @@ output_object = os.getenv("OUTPUT_OBJECT", "output")
 output_format = os.getenv("OUTPUT_FORMAT", "txt")
 logic = os.getenv("LOGIC", "cat {input} > {output}")
 
-minio_endpoint = os.getenv("ENDPOINT", "http://minio:9000")
-minio_access_key = os.getenv("ACCESS_KEY", "minioadmin")
-minio_secret_key = os.getenv("SECRET_KEY", "minioadmin")
 
 input_path = "/tmp/input"
 output_path = f"/tmp/output.{output_format}"
 
-# --- Download Input File from MinIO ---
+# --- Download the input ---
 print(f"[INFO] Downloading s3://{input_bucket}/{input_object} to {input_path}")
-s3 = boto3.client(
-    's3',
-    endpoint_url="http://" + minio_endpoint.replace("http://", ""),
-    aws_access_key_id=minio_access_key,
-    aws_secret_access_key=minio_secret_key,
-)
-s3.download_file(input_bucket, input_object, input_path)
+fetch_input(input_path)
 
 # --- Replace placeholders in logic ---
 shell_command = logic.replace("{input}", input_path).replace("{output}", output_path)
@@ -41,5 +32,5 @@ if result.returncode != 0:
 
 # --- Upload Output ---
 print(f"[INFO] Uploading result to s3://{output_bucket}/{output_object}")
-s3.upload_file(output_path, output_bucket, output_object)
+put_output(output_path)
 print(f"[INFO] Done. File uploaded to s3://{output_bucket}/{output_object}")

@@ -1,49 +1,49 @@
 [
     {
         "name":"duckdb",
-        "image":"kyri56xcaesar/kuspace:applications-duckdb-v1",
+        "image":"kyri56xcaesar/kuspace:applications-duckdb-v2",
         "description":"duckdb sql on minio object i/o",
-        "version":"v1",
+        "version":"v2",
         "author":"k",
         "status":"available"
     },
     {
         "name":"pypandas",
-        "image":"kyri56xcaesar/kuspace:applications-pypandas-v1",
+        "image":"kyri56xcaesar/kuspace:applications-pypandas-v2",
         "description":"python pandas on minio object i/o",
-        "version":"v1",
+        "version":"v2",
         "author":"k",
         "status":"available"
     },
     {
         "name":"octave",
-        "image":"kyri56xcaesar/kuspace:applications-octave-v1",
+        "image":"kyri56xcaesar/kuspace:applications-octave-v2",
         "description":"octave code with minio object i/o",
-        "version":"v1",
+        "version":"v2",
         "author":"k",
         "status":"pending"
     },
     {
         "name":"ffmpeg",
-        "image":"kyri56xcaesar/kuspace:applications-ffmpeg-v1",
+        "image":"kyri56xcaesar/kuspace:applications-ffmpeg-v2",
         "description":"ffmpeg commands on minio object i/o",
-        "version":"v1",
+        "version":"v2",
         "author":"k",
         "status":"available"
     },
     {
         "name":"caengine",
-        "image":"kyri56xcaesar/kuspace:applications-caengine-v1",
+        "image":"kyri56xcaesar/kuspace:applications-caengine-v2",
         "description":"caengine with minio object i/o",
-        "version":"v1",
+        "version":"v2",
         "author":"k",
         "status":"available"
     },
     {
         "name":"bash",
-        "image":"kyri56xcaesar/kuspace:applications-bash-v1",
+        "image":"kyri56xcaesar/kuspace:applications-bash-v2",
         "description":"run bash commands on objects",
-        "version":"v1",
+        "version":"v2",
         "author":"k",
         "status":"available"
     }
