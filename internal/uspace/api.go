@@ -123,6 +123,9 @@ func NewUService(conf string) UService {
 	jdbh := ut.NewDBHandler(cfg.UspaceJobsDB, cfg.UspaceJobsDBPath, cfg.UspaceJobsDBDriver)
 	srv.jdbh = jdbh
 	srv.jdbh.Init(initSQLJobs, cfg.UspaceJobsDBMaxOpenConns, cfg.UspaceJobsDBMaxIdleConns, cfg.UspaceJobsDBMaxLifetime)
+	if err := srv.ensureJobEngineColumn(context.Background()); err != nil {
+		log.Printf("[USPACE_init] failed to add the jobs.engine column: %v", err)
+	}
 	if err := srv.seedDefaultApps(context.Background()); err != nil {
 		log.Printf("[USPACE_init] failed to install default apps: %v", err)
 	}

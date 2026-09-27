@@ -114,6 +114,7 @@ type EnvConfig struct {
 	UspaceJobQueueSize      string
 	UspaceJobMaxWorkers     string
 	UspaceJobExecutor       string
+	UspaceJobDockerNetwork  string // docker executor: network job containers join (to reach MinIO)
 	UspaceJobMaxCPU         int64
 	UspaceJobMaxMemory      int64
 	UspaceJobMaxStorage     int64
@@ -211,6 +212,7 @@ func LoadConfig(path string) EnvConfig {
 
 		UspaceDispatcher:         getEnv("J_DISPATCHER", "default"),
 		UspaceJobExecutor:        getEnv("J_EXECUTOR", "docker"),
+		UspaceJobDockerNetwork:   getEnv("J_DOCKER_NETWORK", ""),
 		UspaceJobQueueSize:       getEnv("J_QUEUE_SIZE", "100"),
 		UspaceJobMaxWorkers:      getEnv("J_MAX_WORKERS", "10"),
 		UspaceJobMaxCPU:          getInt64Env("J_MAX_CPU", 16),
@@ -379,6 +381,7 @@ func (cfg *EnvConfig) DeepCopy() EnvConfig {
 		UspaceJobQueueSize:          cfg.UspaceJobQueueSize,
 		UspaceJobMaxWorkers:         cfg.UspaceJobMaxWorkers,
 		UspaceJobExecutor:           cfg.UspaceJobExecutor,
+		UspaceJobDockerNetwork:      cfg.UspaceJobDockerNetwork,
 		WssAddress:                  cfg.WssAddress,
 		WssAddressInternal:          cfg.WssAddressInternal,
 		WssLogsPath:                 cfg.WssLogsPath,

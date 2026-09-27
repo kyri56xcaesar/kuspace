@@ -96,9 +96,16 @@ services:
       SERVICE_SECRET_KEY: ${SERVICE_SECRET_KEY:?see configs/secrets.env.example}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?see configs/secrets.env.example}
       MINIO_ENDPOINT: rumie-minio:9000   # DEV SESSION: overrides uspace.conf
+      # DEV SESSION: run jobs as containers on the host's docker engine, on the
+      # network where MinIO is (jobs reach it by the name URLs are signed for)
+      J_EXECUTOR: docker
+      J_DOCKER_NETWORK: rumie_default
     volumes:
       - ../../configs/uspace.conf:/root/configs/uspace.conf:ro
       - ../../data:/root/data
+      # DEV SESSION: the docker job executor drives the host engine through its
+      # socket - equivalent to root on this host, never do this in production
+      - /var/run/docker.sock:/var/run/docker.sock
 
   frontapp:
     build:

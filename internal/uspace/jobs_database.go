@@ -48,7 +48,8 @@ const (
 		    memoryLimit TEXT,
 		    cpuLimit TEXT,
 		    ephemeralStorageRequest TEXT,           
-		    ephemeralStorageLimit TEXT
+		    ephemeralStorageLimit TEXT,
+		    engine TEXT
 		);
 
 		-- the kept tail of each job's output (outlives the live stream)
@@ -260,10 +261,7 @@ func (srv *UService) getJobByID(ctx context.Context, jid int) (ut.Job, error) {
 		return job, fmt.Errorf("failed to retrieve db conn: %w", err)
 	}
 	query := `
-		SELECT
-			*
-		FROM
-			jobs
+		SELECT ` + jobColumns + ` FROM jobs
 		WHERE
 			jid = ?`
 	var params string
@@ -273,7 +271,7 @@ func (srv *UService) getJobByID(ctx context.Context, jid int) (ut.Job, error) {
 		&job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders,
 		&params, &job.Status, &job.Completed, &completedAt, &createdAt, &job.Parallelism, &job.Priority,
 		&job.MemoryRequest, &job.CPURequest, &job.MemoryLimit, &job.CPULimit, &job.EphemeralStorageRequest,
-		&job.EphemeralStorageLimit)
+		&job.EphemeralStorageLimit, &job.Engine)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
 
@@ -305,10 +303,7 @@ func (srv *UService) getJobsByUID(ctx context.Context, uid int) ([]ut.Job, error
 		return nil, fmt.Errorf("failed to retrieve db conn: %w", err)
 	}
 	query := `
-		SELECT
-			*
-		FROM
-			jobs
+		SELECT ` + jobColumns + ` FROM jobs
 		WHERE
 			uid = ?`
 	rows, err := db.QueryContext(ctx, query, uid)
@@ -329,7 +324,7 @@ func (srv *UService) getJobsByUID(ctx context.Context, uid int) ([]ut.Job, error
 			&job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody,
 			&job.LogicHeaders, &params, &job.Status, &job.Completed, &completedAt, &createdAt,
 			&job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest, &job.MemoryLimit,
-			&job.CPULimit, &job.EphemeralStorageRequest, &job.EphemeralStorageLimit)
+			&job.CPULimit, &job.EphemeralStorageRequest, &job.EphemeralStorageLimit, &job.Engine)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
 
@@ -377,10 +372,7 @@ func (srv *UService) getJobsByUIDs(ctx context.Context, uids []int) ([]ut.Job, e
 	placeholderStr := strings.Join(placeholders, ",")
 
 	query := fmt.Sprintf(`
-		SELECT
-			*
-		FROM
-			jobs
+		SELECT `+jobColumns+` FROM jobs
 		WHERE
 			uid IN (%s)`,
 		placeholderStr)
@@ -409,7 +401,7 @@ func (srv *UService) getJobsByUIDs(ctx context.Context, uids []int) ([]ut.Job, e
 			&job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody,
 			&job.LogicHeaders, &params, &job.Status, &job.Completed, &completedAt, &createdAt,
 			&job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest, &job.MemoryLimit,
-			&job.CPULimit, &job.EphemeralStorageRequest, &job.EphemeralStorageLimit)
+			&job.CPULimit, &job.EphemeralStorageRequest, &job.EphemeralStorageLimit, &job.Engine)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
 
@@ -445,23 +437,14 @@ func (srv *UService) getAllJobs(ctx context.Context, limit, offset string) ([]ut
 
 	if limit == "" {
 		query = `
-		SELECT
-			*
-		FROM
-			jobs`
+		SELECT ` + jobColumns + ` FROM jobs`
 	} else if offset == "" {
 		query = `
-		SELECT
-			*
-		FROM
-			jobs
+		SELECT ` + jobColumns + ` FROM jobs
 		LIMIT ?;`
 	} else {
 		query = `
-		SELECT
-			*
-		FROM
-			jobs
+		SELECT ` + jobColumns + ` FROM jobs
 		LIMIT ? OFFSET ?;`
 	}
 
@@ -481,7 +464,7 @@ func (srv *UService) getAllJobs(ctx context.Context, limit, offset string) ([]ut
 		err = rows.Scan(&job.JID, &job.UID, &job.Description, &job.Duration, &job.Input, &job.InputFormat,
 			&job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status,
 			&job.Completed, &completedAt, &createdAt, &job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest,
-			&job.MemoryLimit, &job.CPULimit, &job.EphemeralStorageRequest, &job.EphemeralStorageLimit)
+			&job.MemoryLimit, &job.CPULimit, &job.EphemeralStorageRequest, &job.EphemeralStorageLimit, &job.Engine)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
 
@@ -602,4 +585,47 @@ func (srv *UService) getJobLog(ctx context.Context, jid int64) (string, error) {
 	}
 
 	return text, err
+}
+
+// jobColumns lists the jobs columns in the order the job scans expect
+// (explicit instead of SELECT *, so adding a column can't shift them).
+const jobColumns = `jid, uid, description, duration, input, inputFormat, output, outputFormat,
+	logic, logicBody, logicHeaders, parameters, status, completed, completedAt, createdAt,
+	parallelism, priority, memoryRequest, cpuRequest, memoryLimit, cpuLimit,
+	ephemeralStorageRequest, ephemeralStorageLimit, COALESCE(engine, '')`
+
+// ensureJobEngineColumn adds jobs.engine to databases created before it existed.
+func (srv *UService) ensureJobEngineColumn(ctx context.Context) error {
+	db, err := srv.jdbh.GetConn()
+	if err != nil {
+		return err
+	}
+	rows, err := db.QueryContext(ctx, `SELECT name FROM pragma_table_info('jobs')`)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return err
+		}
+		if name == "engine" {
+			return nil
+		}
+	}
+	_, err = db.ExecContext(ctx, `ALTER TABLE jobs ADD COLUMN engine TEXT`)
+
+	return err
+}
+
+// markJobEngine records where a job runs.
+func (srv *UService) markJobEngine(ctx context.Context, jid int64, engine string) error {
+	db, err := srv.jdbh.GetConn()
+	if err != nil {
+		return err
+	}
+	_, err = db.ExecContext(ctx, `UPDATE jobs SET engine = ? WHERE jid = ?`, engine, jid)
+
+	return err
 }

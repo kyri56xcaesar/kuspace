@@ -348,7 +348,7 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	out.Send([]byte("=-----------------------------------------------------------------------="))
 	out.Sendf("[executor] formatting job as %s\n", jobName)
 
-	command, err := formatJobData(je, &job)
+	command, err := je.jm.srv.prepareJobRun(&job)
 	if err != nil {
 		log.Printf("error formatting job data: %v", err)
 		out.Sendf("[executor]: error formatting job data %v\n", err)
@@ -415,6 +415,9 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	if err := je.jm.srv.markJobStatus(context.Background(), job.JID, "running", 0); err != nil {
 		log.Printf("failed to mark job %d running: %v", job.JID, err)
 	}
+	if err := je.jm.srv.markJobEngine(context.Background(), job.JID, "kubernetes"); err != nil {
+		log.Printf("failed to record job %d engine: %v", job.JID, err)
+	}
 
 	var logsDone sync.WaitGroup
 	logsDone.Add(1)
@@ -455,7 +458,7 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	}
 
 	if status == "completed" {
-		je.recordOutput(job, out)
+		je.jm.srv.recordJobOutput(job, out)
 	}
 }
 
@@ -465,9 +468,9 @@ func (je *JKubernetesExecutor) markFailed(jid int64, d time.Duration) {
 	}
 }
 
-// recordOutput adds the job's output object to the metadata store and charges
-// it to the owner's quota (unenforced: the object already exists).
-func (je *JKubernetesExecutor) recordOutput(job ut.Job, out *jobOutput) {
+// recordJobOutput stats a finished job's output object and records it
+// (saveJobOutput). Shared by the executors.
+func (srv *UService) recordJobOutput(job ut.Job, out *jobOutput) {
 	vname, name, ok := strings.Cut(job.Output, "/")
 	if !ok {
 		out.Send([]byte("[executor]: invalid output location\n"))
@@ -481,10 +484,10 @@ func (je *JKubernetesExecutor) recordOutput(job ut.Job, out *jobOutput) {
 		Perms: ut.DefaultFilePerms,
 		UID:   job.UID,
 		Vname: vname,
-		VID:   je.jm.srv.volumeID(vname),
+		VID:   srv.volumeID(vname),
 		GID:   job.UID,
 	}
-	info, err := je.jm.srv.storage.Stat(outputResource)
+	info, err := srv.storage.Stat(outputResource)
 	if err != nil {
 		log.Printf("failed to stat output file from storage: %v", err)
 		out.Sendf("[executor]: error retrieving output file %v\n", err)
@@ -503,7 +506,7 @@ func (je *JKubernetesExecutor) recordOutput(job ut.Job, out *jobOutput) {
 	outputResource.CreatedAt, outputResource.UpdatedAt, outputResource.AccessedAt = now, now, now
 
 	out.Sendf("[executor] saving output %s/%s ...\n", outputResource.Vname, outputResource.Name)
-	action, err := je.jm.srv.saveJobOutput(context.Background(), outputResource)
+	action, err := srv.saveJobOutput(context.Background(), outputResource)
 	if err != nil {
 		log.Printf("failed to record output of job %d: %v", job.JID, err)
 		out.Sendf("[executor]: error saving output data in db... %v\n", err)
@@ -514,7 +517,9 @@ func (je *JKubernetesExecutor) recordOutput(job ut.Job, out *jobOutput) {
 	out.Send([]byte("[executor] OK.\n"))
 }
 
-func formatJobData(je *JKubernetesExecutor, job *ut.Job) ([]string, error) {
+// prepareJobRun fills in a job's defaults, image, command and environment
+// (including its presigned input/output URLs). Shared by the executors.
+func (srv *UService) prepareJobRun(job *ut.Job) ([]string, error) {
 	// handle some generic checks as guard statement
 	if !ut.AssertStructNotEmptyUpon(job, map[any]bool{
 		"Input":     true,
@@ -549,7 +554,7 @@ func formatJobData(je *JKubernetesExecutor, job *ut.Job) ([]string, error) {
 		InpAsResource.Vname = parts[0]
 		InpAsResource.Name = strings.Join(parts[1:], "/")
 	} else {
-		InpAsResource.Vname = je.jm.srv.storage.DefaultVolume(false)
+		InpAsResource.Vname = srv.storage.DefaultVolume(false)
 		InpAsResource.Name = job.Input
 	}
 
@@ -558,7 +563,7 @@ func formatJobData(je *JKubernetesExecutor, job *ut.Job) ([]string, error) {
 		OutAsResource.Vname = parts[0]
 		OutAsResource.Name = strings.Join(parts[1:], "/")
 	} else {
-		OutAsResource.Vname = je.jm.srv.storage.DefaultVolume(false)
+		OutAsResource.Vname = srv.storage.DefaultVolume(false)
 		OutAsResource.Name = job.Output
 	}
 
@@ -606,7 +611,7 @@ func formatJobData(je *JKubernetesExecutor, job *ut.Job) ([]string, error) {
 	// presigned URLs for exactly its input (GET) and output (PUT), valid
 	// while the job may run. (It used to get the MinIO root keys - any job
 	// could read or overwrite every user's files.)
-	inputURL, outputURL, err := presignJobIO(je.jm.srv.storage, InpAsResource, OutAsResource, jobURLValidity(job.Timeout))
+	inputURL, outputURL, err := presignJobIO(srv.storage, InpAsResource, OutAsResource, jobURLValidity(job.Timeout))
 	if err != nil {
 		return nil, err
 	}

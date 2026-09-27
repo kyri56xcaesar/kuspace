@@ -9,6 +9,7 @@
 # usage: scripts/smoke.sh            (stack from deployments/docker-compose)
 #   FRONT=http://host:port  AUTH=http://host:port  WSS=http://host:port
 #   SECRETS=path/to/secrets.env  COMPOSE_DIR=path   override the defaults
+#   SMOKE_JOBS=0   skip running real jobs (needs a job executor, e.g. docker)
 # exit status: number of failed checks (0 = all passed)
 
 set -u
@@ -138,10 +139,32 @@ check "token can't reach admin API" 403 "$(code -H "Authorization: Bearer $TOKEN
 echo "--- apps, dashboard, system"
 curl -s -b "$J/user.jar" "$F/verified/fetch-apps?format=json" > "$J/apps"
 check "default apps installed"      6 "$(json 'd=d.get("content",d) if isinstance(d,dict) else d; print(len(d))' < "$J/apps")"
-check "bash image name valid"       "*:applications-bash-v1" "$(json 'd=d.get("content",d) if isinstance(d,dict) else d; print(next(a["image"] for a in d if a["name"]=="bash"))' < "$J/apps")"
+check "bash image name valid"       "*:applications-bash-v2" "$(json 'd=d.get("content",d) if isinstance(d,dict) else d; print(next(a["image"] for a in d if a["name"]=="bash"))' < "$J/apps")"
 check "all services up"             "4/4" "$(curl -s -b "$J/admin.jar" "$F/verified/admin/system-status?format=json" | json 'print(str(sum(s["up"] for s in d))+"/"+str(len(d)))')"
 check "dashboard served"            yes "$(curl -s -b "$J/user.jar" "$F/verified/admin-panel" | yes_if grep -q 'id="dash"')"
 check "user blocked from system page" "40?" "$(code -b "$J/user.jar" "$F/verified/admin/system-status")"
+
+if [ "${SMOKE_JOBS:-1}" != "0" ]; then
+  echo "--- jobs actually run (executor)"
+  printf 'name,score\nann,3\nbob,7\ncid,5\n' > "$J/in_$U.csv"
+  curl -s -o /dev/null -b "$J/user.jar" -F "files=@$J/in_$U.csv" "$F/verified/upload"
+  run_job() { curl -s -b "$J/user.jar" -X POST "$F/verified/jobs" --data-urlencode "input=uspace-default/in_$U.csv" \
+    --data-urlencode "output=uspace-default/$1" --data-urlencode "logic=bash" --data-urlencode "logicBody=$2" \
+    --data-urlencode "parallelism=1" --data-urlencode "timeout=5" | json 'print(d.get("jid",""))'; }
+  job_field() { curl -s -b "$J/user.jar" "$F/verified/fetch-jobs?format=json" | json "j=[x for x in d['content'] if x['jid']==$1]; print(j[0].get('$2','') if j else '')"; }
+  wait_job() { local s; for _ in $(seq 1 90); do s=$(job_field "$1" status); [[ " $2 " == *" $s "* ]] && { echo "$s"; return; }; sleep 1; done; echo "timeout($s)"; }
+  RJ=$(run_job "sorted_$U.csv" 'sort -t, -k2 -nr {input} > {output}')
+  check "job completed"               completed "$(wait_job "$RJ" 'completed failed cancelled')"
+  check "engine recorded"             "?*" "$(job_field "$RJ" engine)"
+  check "job output content"          "bob,7" "$(curl -s -b "$J/user.jar" "$F/verified/download?target=/sorted_$U.csv&volume=uspace-default" | head -1)"
+  check "job log saved"               yes "$(curl -s -b "$J/user.jar" "$F/verified/job-log?jid=$RJ" | yes_if grep -q 'finished with status: completed')"
+  SJ=$(run_job "slow_$U.csv" 'sleep 60; cp {input} {output}')
+  check "slow job running"            running "$(wait_job "$SJ" 'running completed failed')"
+  check "cancel accepted"             200 "$(code -b "$J/user.jar" -X POST "$F/verified/job-cancel?jid=$SJ")"
+  check "job cancelled"               cancelled "$(wait_job "$SJ" 'cancelled completed failed')"
+  check "others can't cancel my jobs" 403 "$(code -b "$J/$O.jar" -X POST "$F/verified/job-cancel?jid=$RJ")"
+  check "finished job not cancellable" 409 "$(code -b "$J/user.jar" -X POST "$F/verified/job-cancel?jid=$RJ")"
+fi
 
 if [ -d "$COMPOSE_DIR" ] && command -v docker >/dev/null; then
   echo "--- secret hygiene"

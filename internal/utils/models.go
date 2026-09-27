@@ -700,6 +700,10 @@ type Job struct {
 	Completed   bool   `json:"completed,omitempty" form:"completed"`
 	CompletedAt string `json:"completedAt,omitempty" form:"completedAt"`
 	CreatedAt   string `json:"createdAt,omitempty" form:"createdAt"`
+
+	// Engine is where the job ran ("kubernetes" or "docker"); set by uspace,
+	// never by the submitter.
+	Engine string `json:"engine,omitempty" form:"-"`
 }
 
 // ValidateForm method sanitizes and checks if the given Job object is within limits
