@@ -277,7 +277,7 @@
     {{ range .Content }}
     <div class="app-card darkened">
       <div class="app-header">
-        <div class="app-name">{{ .Name }} <span class="app-version">v{{ .Version }}</span></div>
+        <div class="app-name">{{ .Name }} <span class="app-version">{{ .Version }}</span></div>
         <div class="app-status {{ .Status | lower }} {{ if eq .Status "available" }}green{{ else }}red{{ end }}">{{ .Status }}</div>
       </div>
       <div class="app-meta">
@@ -580,28 +580,53 @@
 {{ end }}
 
 {{ define "sys_conf_display.html" }}
-<h1>System Configuration Overview</h1>
 {{ range $service, $config := . }}
-<div class="service darkened">
-    <h2>Service: <code>{{ $service }}</code></h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Key</th>
-                <th>Value</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{ range $key, $value := $config }}
-            <tr>
-                <td>{{ $key }}</td>
-                <td><code>{{ $value }}</code></td>
-            </tr>
-            {{ end }}
-        </tbody>
-    </table>
-</div>
+<dl class="sys-config" aria-label="{{ $service }} settings">
+  {{ range $key, $value := $config }}
+  <div class="sys-config-row">
+    <dt>{{ $key }}</dt>
+    <dd>{{ if $value }}<code>{{ $value }}</code>{{ else }}<span class="sys-config-empty">not set</span>{{ end }}</dd>
+  </div>
+  {{ else }}
+  <p class="sys-config-empty">No settings reported.</p>
+  {{ end }}
+</dl>
 {{ end }}
+{{ end }}
+
+{{ define "system_status.html" }}
+<div class="sys-grid">
+  {{ range . }}
+  <article class="sys-card {{ if .Up }}is-up{{ else }}is-down{{ end }}">
+    <header class="sys-card-head">
+      <h3 class="sys-name">{{ .Name }}</h3>
+      {{ if .Up }}
+      <span class="sys-state state-good"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Running</span>
+      {{ else }}
+      <span class="sys-state state-critical"><i class="fa-solid fa-circle-xmark" aria-hidden="true"></i> Unreachable</span>
+      {{ end }}
+    </header>
+    <p class="sys-role">{{ .Role }}</p>
+    <dl class="sys-facts">
+      <div><dt>Response</dt><dd>{{ if .Up }}{{ if eq .Address "self" }}this page{{ else if lt .LatencyMs 1 }}&lt;1 ms{{ else }}{{ .LatencyMs }} ms{{ end }}{{ else if .Status }}HTTP {{ .Status }}{{ else }}{{ .Error }}{{ end }}</dd></div>
+      <div><dt>Address</dt><dd><code>{{ if eq .Address "self" }}serving you{{ else }}{{ .Address }}{{ end }}</code></dd></div>
+    </dl>
+    {{ if .HasConfig }}
+    <details class="sys-details">
+      <summary>Settings</summary>
+      <div
+        hx-get="/api/v1/verified/admin/system-conf?services={{ .Name }}"
+        hx-trigger="toggle from:closest details once"
+        hx-target="this"
+        hx-swap="innerHTML"
+      ><p class="sys-config-empty">Loading settings…</p></div>
+    </details>
+    {{ else }}
+    <p class="sys-details-none">Settings are not exposed by this service.</p>
+    {{ end }}
+  </article>
+  {{ end }}
+</div>
 {{ end }}
 
 {{ define "metrics_display.html"}}

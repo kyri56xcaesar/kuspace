@@ -7,12 +7,18 @@
   <link rel="icon" href="../assets/logos/cropped.png">
   <link href="../css/styles.css" rel="stylesheet">
   <link href="../css/admin-panel.css" rel="stylesheet">
+  <link href="../css/kuspace-ui.css" rel="stylesheet">
+  <script>
+    // apply the saved theme before first paint (no light flash in dark mode)
+    try { if (localStorage.getItem("darkMode") === "true") document.documentElement.classList.add("theme-dark"); } catch (e) {}
+  </script>
   <!-- general use js -->
   <script src="../js/index.js"></script>
   <script src="../js/gshell.js"></script>
   <script src="../js/fileUploadModule.js"></script>
   <script src="../js/jobCodeInput.js"></script>
   <script src="../js/admin-panel.js"></script>
+  <script src="../js/dashboard.js" defer></script>
 
 
   <!-- font awesome icons (free)-->
@@ -143,7 +149,7 @@
                     <i class="fa-solid fa-gears"></i> Configuration
                   </div>
                   <ul class="subsubmenu">
-                    <li><a href="#" onclick="showSection('settings')">Settings</a></li>
+                    <li><a href="#" onclick="showSection('settings')">System</a></li>
                     <li><a href="https://github.com/kyri56xcaesar/kuspace" tabindex="" target="_blank" rel="noopener">Contact</a></li>
                   </ul>
                 </div>
@@ -520,20 +526,27 @@
         </div>
       </section>
       <section id="settings" class="content-section hidden">
-        <h2>Settings</h2>
-        <p class="fading">Manage settings.</p>
-        <hr>
-        <div>
-          <div
-            id="sys-conf-loader"
-            class=""
-            hx-get="/api/v1/verified/admin/system-conf"
-            hx-trigger="load"
-            hx-target="this"
-            hx-swap="innerHTML"
-          >
+        <div class="sys-head">
+          <div>
+            <h2>System</h2>
+            <p class="fading">Whether each kuspace service is answering, and how fast.</p>
           </div>
+          <button
+            type="button"
+            class="sys-refresh"
+            hx-get="/api/v1/verified/admin/system-status"
+            hx-target="#sys-status-loader"
+            hx-swap="innerHTML"
+          ><i class="fas fa-redo" aria-hidden="true"></i> Check again</button>
         </div>
+        <hr>
+        <div
+          id="sys-status-loader"
+          hx-get="/api/v1/verified/admin/system-status"
+          hx-trigger="load"
+          hx-target="this"
+          hx-swap="innerHTML"
+        ><p class="sys-config-empty">Checking services…</p></div>
       </section>
       <section id="volumes" class="content-section hidden">
         <h2>Manage Volumes</h2>
@@ -626,24 +639,65 @@
       {{ end }}
 
       <!-- general authorization -->
-      <section id="dashboard" class="content-section hidden">
-        {{ if .elevated }}
+      <section id="dashboard" class="content-section">
         <div
-          id="dashboard-metrics-loader"
-          hx-get="/api/v1/verified/admin/system-metrics"
-          hx-target="this"
-          hx-swap="innerHTML"
-          hx-trigger="load"
+          class="dash"
+          id="dash"
+          data-uid="{{ .uid }}"
+          data-quota-gb="{{ .quotaGB }}"
+          data-elevated="{{ .elevated }}"
         >
+          <header class="dash-head">
+            <h2>Dashboard</h2>
+            <p class="dash-summary" id="dash-summary" aria-live="polite">Loading your workspace…</p>
+          </header>
+
+          <div class="dash-grid">
+            <article class="dash-card dash-helm-card" aria-labelledby="dash-apps-title">
+              <h3 id="dash-apps-title">Applications</h3>
+              <div id="dash-helm" class="helm-wrap"></div>
+            </article>
+
+            <article class="dash-card dash-jobs-card" aria-labelledby="dash-jobs-title">
+              <h3 id="dash-jobs-title">{{ if .elevated }}All jobs{{ else }}Your jobs{{ end }}</h3>
+              <div id="dash-job-tiles" class="dash-tiles"></div>
+              <div id="dash-job-status"></div>
+              <h4 class="dash-sub">Submitted per day, last 14 days</h4>
+              <div id="dash-job-days"></div>
+            </article>
+
+            <article class="dash-card dash-storage-card" aria-labelledby="dash-storage-title">
+              <h3 id="dash-storage-title">Your storage</h3>
+              <div id="dash-storage"></div>
+            </article>
+
+            <article class="dash-card dash-recent-card" aria-labelledby="dash-recent-title">
+              <h3 id="dash-recent-title">Recent jobs</h3>
+              <ol id="dash-recent" class="dash-recent"></ol>
+            </article>
+
+            <article class="dash-card dash-actions-card" aria-labelledby="dash-actions-title">
+              <h3 id="dash-actions-title">Quick actions</h3>
+              <div class="dash-actions">
+                <button type="button" class="dash-action primary" data-action="new-job"><i class="fa-solid fa-play" aria-hidden="true"></i> New job</button>
+                <button type="button" class="dash-action" data-action="upload"><i class="fa-solid fa-arrow-up-from-bracket" aria-hidden="true"></i> Upload files</button>
+                <button type="button" class="dash-action" data-action="apps"><i class="fa-solid fa-cubes" aria-hidden="true"></i> Browse apps</button>
+              </div>
+            </article>
+
+            {{ if .elevated }}
+            <article class="dash-card dash-platform-card" aria-labelledby="dash-platform-title">
+              <h3 id="dash-platform-title">Platform</h3>
+              <div id="dash-platform-tiles" class="dash-tiles"></div>
+              <h4 class="dash-sub">Volumes</h4>
+              <div id="dash-volumes"></div>
+              <div id="dash-cluster"></div>
+            </article>
+            {{ end }}
+          </div>
         </div>
-        {{ else }}
-        <div id="user-metrics">
-          <h3>User specific metrics should be here...</h3>
-        </div>
-        {{ end }}
-        
       </section>
-      <section id="job-browser" class="content-section">
+      <section id="job-browser" class="content-section hidden">
         <div class="job-browser-content">
           <h2>Job Browser</h2>
           <div class="row-flex-sb">

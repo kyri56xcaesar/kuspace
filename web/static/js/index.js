@@ -10,6 +10,13 @@ let domReady = (cb) => {
 domReady(() => {
   document.body.style.visibility = 'visible';
 
+  // dark mode memory: applied right away so the page never flashes light
+  const tglBtn = document.getElementById("dark-mode-toggle");
+  if (tglBtn) {
+    tglBtn.checked = isDarkMode();
+  }
+  applyTheme();
+
   // TIPS/INFO BUTTONS
   const toggleButton = document.querySelectorAll(".toggle-button-collapse");
   toggleButton.forEach(toggleButton => {
@@ -37,23 +44,6 @@ domReady(() => {
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   sleep(1000).then(() => {
-    // dark mode memory
-    const tglBtn = document.getElementById("dark-mode-toggle");
-    if (tglBtn) {
-      const elementsToToggle = document.querySelectorAll(".darkened");
-
-      if (localStorage.getItem("darkMode") === "true") {
-        elementsToToggle.forEach((el) => {
-          el.classList.add("dark-mode");
-        });
-        tglBtn.checked = true;
-      } else {
-        elementsToToggle.forEach((el) => {
-          el.classList.remove("dark-mode");
-        });
-        tglBtn.checked = false;
-      }
-    }
     // tips memory
     const tipsBtn = document.getElementById("tips-mode-toggle");
     if (tipsBtn) {
@@ -85,15 +75,39 @@ domReady(() => {
 
 });
 
+// Dark mode has one source of truth: the "darkMode" key in localStorage.
+// applyTheme() stamps it on <html> (theme-dark) for scoped CSS, and on every
+// .darkened element (plus the few fragments styled via .dark-mode) - including
+// content HTMX swaps in later, see the htmx:afterSettle handler.
+const THEMED = ".darkened, #all-users-table, #all-groups-table, .job-display-entry, .app-card";
+
+function isDarkMode() {
+  try {
+    return localStorage.getItem("darkMode") === "true";
+  } catch (e) {
+    return false;
+  }
+}
+
+function applyTheme(root = document) {
+  const dark = isDarkMode();
+  document.documentElement.classList.toggle("theme-dark", dark);
+  if (root !== document && root.matches && root.matches(THEMED)) {
+    root.classList.toggle("dark-mode", dark);
+  }
+  root.querySelectorAll(THEMED).forEach((el) => el.classList.toggle("dark-mode", dark));
+}
+
 function toggleDarkMode() {
-  const elementsToToggle = document.querySelectorAll(".darkened");
-
-  elementsToToggle.forEach((el) => {
-    el.classList.toggle("dark-mode");
-  });
-
-  const darkMode = document.body.classList.contains("dark-mode");
-  localStorage.setItem("darkMode", darkMode);
+  const tglBtn = document.getElementById("dark-mode-toggle");
+  const dark = tglBtn ? tglBtn.checked : !isDarkMode();
+  try {
+    localStorage.setItem("darkMode", String(dark));
+  } catch (e) {
+    // storage blocked: theme still switches for this page view
+    document.documentElement.classList.toggle("theme-dark", dark);
+  }
+  applyTheme();
 }
 
 function toggleCollapses() {
@@ -272,58 +286,21 @@ document.addEventListener('htmx:afterSettle', function(event) {
   const triggeringElement = event.detail.elt;
   const triggeringElementId = triggeringElement.id;
 
-  // console.log('triggered by:', triggeringElementId);
+  // whatever was swapped in follows the current theme
+  applyTheme(event.detail.target);
 
-  if (triggeringElementId === 'fetch-users-results')  {
-    // the dark mode part for all reload/partial html fethc
-    if (localStorage.getItem("darkMode") === "true") {
-      const table = event.detail.target.querySelector('#all-users-table');
-      if (table) {
-        table.classList.add('dark-mode');
-      }
-    }
-  } else if (triggeringElementId === 'fetch-groups-results') {
-    // the dark mode part for all reload/partial html fethc
-    if (localStorage.getItem("darkMode") === "true") {
-      const table = event.detail.target.querySelector('#all-groups-table');
-      if (table) {
-        table.classList.add('dark-mode');
-      }
-    }
-  } else if (triggeringElementId === 'fetch-jobs-div' || triggeringElementId === 'fetch-jobs-div-2') {
-    // the dark mode part for all reload/partial html fethc
-    if (localStorage.getItem("darkMode") === "true") {
-      const list = event.detail.target.querySelectorAll('.job-display-entry');
-      if (list) {
-        setTimeout(() => {
-          list.forEach((item) => {
-            item.classList.add('dark-mode');
-          });
-        }, 1000);
-      }
-    }
-  } else if (triggeringElementId === 'fetch-applications-display') {
+  if (triggeringElementId === 'fetch-applications-display') {
     const appSelector = document.getElementById('language-selector');
+    const current = appSelector.value || "duckdb";
     appSelector.innerHTML = '';
-    const list = event.detail.target.querySelectorAll('.app-card');
-    list.forEach((item) => {
+    event.detail.target.querySelectorAll('.app-card').forEach((item) => {
       const option = document.createElement('option');
-      const appName = item.querySelector('.app-name').innerHTML.split(" ")[0];
-      option.value=appName;
-      option.innerHTML=appName
-      if (appName === "duckdb") {
-        option.selected = true;
-      }
+      const appName = item.querySelector('.app-name').textContent.trim().split(" ")[0];
+      option.value = appName;
+      option.textContent = appName;
+      option.selected = appName === current;
       appSelector.appendChild(option);
     });
-
-    if (localStorage.getItem("darkMode") === "true") {
-      setTimeout(() => {
-        list.forEach((item) => {
-          item.classList.add('dark-mode');
-        });
-      }, 1000);
-    }
   }
 })
 

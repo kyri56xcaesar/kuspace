@@ -126,48 +126,79 @@ function setupJobSubmitter(element) {
 }
  
  
-function createFeedbackPanel(jid, div) {
+function appendJobLine(div, jid, text) {
+  const message = document.createElement("p");
+  const prefixSpan = document.createElement("span");
+  prefixSpan.textContent = "job-" + jid + ":\t";
+  prefixSpan.classList.add("blue");
+  const messageSpan = document.createElement("span");
+  messageSpan.textContent = text;
+  message.appendChild(prefixSpan);
+  message.appendChild(messageSpan);
+  div.appendChild(message);
+  div.scrollTop = div.scrollHeight;
+}
+
+// showSavedJobLog prints a job's saved output (for jobs whose live stream is
+// over or unreachable).
+async function showSavedJobLog(jid, div) {
+  try {
+    const r = await fetch("/api/v1/verified/job-log?jid=" + encodeURIComponent(jid), { credentials: "same-origin" });
+    if (!r.ok) {
+      return false;
+    }
+    const text = await r.text();
+    if (!text) {
+      return false;
+    }
+    text.split("\n").filter(Boolean).forEach((line) => appendJobLine(div, jid, line));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+// createFeedbackPanel streams a job's live output. wss only accepts
+// connections carrying a short-lived ticket, which frontapp issues after
+// checking the job is ours.
+async function createFeedbackPanel(jid, div) {
   if (!div) {
     return;
   }
-  // console.log("id :", jid);
-  // create the display element, what should it be?
-  const socket = new WebSocket('ws://'+WS_ADDRESS+'/get-session?jid='+jid+'&role=Consumer');
-  const prefix = "job-"+jid+":\t";
-  socket.onmessage = (event) => {
-    const message = document.createElement("p");
-    const prefixSpan = document.createElement("span");
-
-    prefixSpan.textContent = prefix;
-    prefixSpan.classList.add("blue");
-
-    const messageSpan = document.createElement("span");
-    messageSpan.textContent = event.data;
-    message.appendChild(prefixSpan);
-    message.appendChild(messageSpan);
-    div.appendChild(message);
-    div.scrollTop = div.scrollHeight;
-  };
-  socket.onopen = function () {
-      console.log("Connected to Jobs Websocket server");
-  };
-  socket.onclose = (event) => {
-      console.log("Disconnected from Jobs Websocket server");
-      resp = fetch({
-        method: 'DELETE',
-        url: '/delete-session?jid='+jid,
-      }).then(response => {
-        if (response.ok) {
-          console.log("Session deleted successfully");
-        } else {
-          console.error("Failed to delete session");
-        }
-      }).catch(error => {
-        console.error("Error deleting session:", error);
-      });
+  let ticket;
+  try {
+    const r = await fetch("/api/v1/verified/ws-ticket?jid=" + encodeURIComponent(jid), { credentials: "same-origin" });
+    if (!r.ok) {
+      throw new Error("ticket refused: " + r.status);
+    }
+    ticket = (await r.json()).ticket;
+  } catch (e) {
+    console.error("cannot watch job", jid, e);
+    if (!(await showSavedJobLog(jid, div))) {
+      appendJobLine(div, jid, "live output is not available for this job");
+    }
+    return;
   }
- }
-  
+
+  const scheme = location.protocol === "https:" ? "wss://" : "ws://";
+  const socket = new WebSocket(scheme + WS_ADDRESS + "/get-session?jid=" + encodeURIComponent(jid) +
+    "&role=consumer&ticket=" + encodeURIComponent(ticket));
+  let received = false;
+  socket.onmessage = (event) => {
+    received = true;
+    appendJobLine(div, jid, event.data);
+  };
+  socket.onopen = () => console.log("Connected to Jobs Websocket server");
+  socket.onclose = async () => {
+    console.log("Disconnected from Jobs Websocket server");
+    // nothing came through live (e.g. the job had already finished): show
+    // what was saved instead
+    if (!received) {
+      await showSavedJobLog(jid, div);
+    }
+  };
+}
+
 function normalizeIndentation(code) {
     return code
         .split("\n")
