@@ -5,7 +5,7 @@
 
 This thesis presented the design and development of a modular, microservice-oriented job execution system tailored for Kubernetes-based infrastructures. Through a combination of lightweight services, clearly defined APIs, and a user-focused frontend, the platform enables authenticated users to upload data, submit analytical jobs, and retrieve results in a secure and controlled environment.
 
-The system was implemented entirely in Go, using technologies such as Gin for HTTP routing, MinIO for object storage, and Kubernetes for orchestrated execution. A pluggable job architecture and storage abstraction layer allow for flexibility and future adaptability. Even though a formal evaluation was not conducted, the system demonstrates real-world viability through functional integration and local deployments on Minikube and Docker Desktop.
+The system was implemented entirely in Go, using technologies such as Gin for HTTP routing, MinIO for object storage, and Kubernetes for orchestrated execution. A pluggable job architecture and storage abstraction layer allow for flexibility and future adaptability. The system demonstrates real-world viability through functional integration and local deployments on Minikube and Docker Desktop, and Chapter~\ref{Chapter-Evaluation-Robustness} shows it sustains high-concurrency load on its stateless API endpoints in a single-node setting. This evaluation was informal and single-node in scope, however: it did not include multi-trial statistical rigor, multi-node cluster testing, or adversarial security testing, all of which remain open work (see the Future Work section below).
 
 \section{Future Work}
 
@@ -22,7 +22,7 @@ Despite its completeness as a prototype, several areas of the system lend themse
     
     \item \textbf{CLI Client Tool:} To complement the web-based frontend, a command-line interface (CLI) tool could be developed, enabling power users and automation scripts to interact with the system more efficiently.
     
-    \item \textbf{Evaluation and Benchmarking:} A structured performance and scalability analysis remains an open task. Real-cluster deployments and load testing would help validate assumptions about the system’s robustness and identify further bottlenecks.
+    \item \textbf{Rigorous, Multi-Node Evaluation:} The load testing performed (Chapter~\ref{Chapter-Evaluation-Robustness}) was single-node and single-trial. Repeated-trial benchmarking with reported variance, real multi-node cluster deployments, and adversarial security testing (JWT tampering, privilege escalation, path traversal, container escape attempts) would help validate the platform's robustness claims under realistic, production-scale and hostile conditions.
 \end{itemize}
 
 In conclusion, the system serves as a strong foundation for scalable, secure, and user-friendly batch processing on Kubernetes. The outlined future work suggests a wide potential for transforming it into a general-purpose analytical platform adaptable across domains.

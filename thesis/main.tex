@@ -65,7 +65,6 @@
 %	BIBLIOGRAPHY FILES
 %----------------------------------------------------------------------------------------
 
-% Todo: comment out example.bib file when done reading the template instructions
 % \addbibresource{example.bib} % The filename of the bibliography
 \addbibresource{references.bib} % The filename of the bibliography
 
@@ -87,7 +86,6 @@
 %	THESIS INFORMATION
 %----------------------------------------------------------------------------------------
 
-% Todo: fill info below
 \thesistitle{Interactive User Environment Application on Kubernetes Platform} % Your thesis title, this is used in the title and abstract, print it elsewhere with \ttitle
 \author{Kyriakos \textsc{Chalvatzis}} % Your name, this is used in the title page and abstract, print it elsewhere with \authorname
 \supervisor{Prof.Vasilis \textsc{Samoladas}} % Your supervisor's name, this is used in the title page, print it elsewhere with \supname
@@ -129,18 +127,14 @@
 		\begin{minipage}[t]{0.4\textwidth}
 			\begin{flushleft} \large
 				\emph{Author:}\\
-				% Todo: fill correct link
 				{\authorname} % Author name - remove the \href bracket to remove the link
 			\end{flushleft}
 		\end{minipage}
 		\begin{minipage}[t]{0.5\textwidth}
 			\begin{flushright} \large
 				\emph{Thesis Committee:} \\
-				% Todo: fill correct link
 				\href{https://www.ece.tuc.gr/el/index.php?id=4109&tx_tuclabspersonnel_list%5Bperson%5D=361&tx_tuclabspersonnel_list%5Baction%5D=person&tx_tuclabspersonnel_list%5Bcontroller%5D=List}{\supname}\\ % chktex 15 % Supervisor name - remove the \href bracket to remove the link
-				% Todo: fill correct link, full name
 				\href{https://www.ece.tuc.gr/el/i-scholi/prosopiko/single-display-person?tx_tuclabspersonnel_pi3%5Bpersonid%5D=771&cHash=7632eaf07b3963f9d990de818bdbcda9}{Prof. Nikolaos \textsc{Giatrakos}}\\
-				% Todo: fill correct link, full name
 				\href{https://www.ece.tuc.gr/el/index.php?id=4109&tx_tuclabspersonnel_list%5Bperson%5D=353&tx_tuclabspersonnel_list%5Baction%5D=person&tx_tuclabspersonnel_list%5Bcontroller%5D=List}{Prof. Euripides \textsc{Petrakis}}
 			\end{flushright}
 		\end{minipage}\\[0.2cm]
@@ -168,7 +162,6 @@
 
 \begin{abstract}
 	\addchaptertocentry{\abstractname} % Add the abstract to the table of contents
-	% Todo: Add English Abstract
 	The following thesis presents the design and implementation of a 
 	user-oriented analytical computing system deployed on the Kubernetes 
 	platform. The system draws inspiration from core Unix design principles, 
@@ -186,11 +179,12 @@
 	for analytical workflows. Each job lives and dies in a sandboxed containerized 
 	environment, ensuring reproducibility and isolation.
 
-	The solution demonstrates the feasibility of delivering a lightweight, flexible platform 
-	that leverages Kubernetes’ native scalability to manage user resources, data, and jobs 
-	efficiently. It offers a pathway for democratizing access to powerful analytics tooling, 
-	especially in research and educational contexts where ease of deployment and extensibility 
-	are vital.
+	The solution demonstrates the feasibility of a lightweight, flexible platform built on
+	Kubernetes primitives to manage user resources, data, and jobs. Load testing on a single-node
+	deployment shows the stateless API components handle high concurrency reliably, while
+	multi-node, cluster-scale evaluation remains future work. The platform offers a promising
+	pathway toward more accessible analytics tooling, especially in research and educational
+	contexts where ease of deployment and extensibility are vital.
 \end{abstract}
 
 %----------------------------------------------------------------------------------------
@@ -199,12 +193,11 @@
 
 \begin{abstract}
 	\addchaptertocentry{\abstractname} % Add the abstract to the table of contents
-	% Todo: Add Greek Abstract
     \selectlanguage{greek}
 	Η παρούσα διπλωματική εργασία παρουσιάζει τον σχεδιασμό και την υλοποίηση 
 	ενός υπολογιστικού συστήματος ανάλυσης δεδομένων προσανατολισμένου στον 
 	χρήστη, το οποίο αναπτύσσεται στην πλατφόρμα \textlatin{Kubernetes}. 
-	Το σύστημα αντλέι έμπνευση από τις θεμελιώδεις αρχές σχεδιασμού του 
+	Το σύστημα αντλεί έμπνευση από τις θεμελιώδεις αρχές σχεδιασμού του
 	\textlatin{Unix}, ιδιαίτερα ως προς τα δικαιώματα αρχείων, την ιεραρχία 
 	χρηστών και τη διαχείριση εξουσιοδοτήσεων. Κεντρική φιλοδοξία αποτελεί η 
 	βελτίωση της καθημερινής εμπειρίας των αναλυτών δεδομένων που εργάζονται 
@@ -218,14 +211,16 @@
 	στην απόκρυψη της πολυπλοκότητας της ενορχήστρωσης, της διαχείρισης πόρων 
 	και του χρονοπρογραμματισμού εργασιών, προσφέροντας στους χρήστες ένα 
 	ενιαίο και εύχρηστο περιβάλλον για ροές εργασίας ανάλυσης δεδομένων. 
-	Κάθε εργασία εκτελείται και τερματίζεται μέσα σε απομονωμένο περιβάλλον, 
-	διασφαλίζοντας της αναπαραγωγιμότητα και την απομόνωση. Η λύση καταδεικνύει 
-	τη δυνατότητα δημιουργίας μιας ελαφριάς και ευέλικτης πλατφόρμας που αξιοποιεί 
-	την εγγενή επεκτασιμότητα του \textlatin{Kubernetes} για την αποδοτική διαχείριση 
-	των χρηστών, των δεδομένων και των εργασιών. Αποτελεί μια προσέγγιση που διευρύνει
-	την πρόσβαση σε ισχυρά εργαλεία ανάλυσης, ιδιαίτερα σε ερευνητικά και εκπαιδευτικά 
-	περιβάλλοντα όπου η ευκολία ανάπτυξης και η δυνατότητα επέκτασης είναι καθοριστικής 
-	σημασίας.
+	Κάθε εργασία εκτελείται και τερματίζεται μέσα σε απομονωμένο περιβάλλον,
+	διασφαλίζοντας την αναπαραγωγιμότητα και την απομόνωση. Η λύση καταδεικνύει
+	τη δυνατότητα δημιουργίας μιας ελαφριάς και ευέλικτης πλατφόρμας που βασίζεται
+	στα δομικά στοιχεία του \textlatin{Kubernetes} για τη διαχείριση
+	των χρηστών, των δεδομένων και των εργασιών. Δοκιμές φόρτου σε ανάπτυξη ενός κόμβου
+	δείχνουν ότι τα υπηρεσιακά στοιχεία \textlatin{API} διαχειρίζονται υψηλή ταυτοχρονικότητα
+	αξιόπιστα, ενώ η αξιολόγηση σε κλίμακα πολλαπλών κόμβων παραμένει μελλοντική εργασία.
+	Αποτελεί μια προσέγγιση που διευρύνει την πρόσβαση σε εργαλεία ανάλυσης, ιδιαίτερα σε
+	ερευνητικά και εκπαιδευτικά περιβάλλοντα όπου η ευκολία ανάπτυξης και η δυνατότητα
+	επέκτασης είναι καθοριστικής σημασίας.
 \end{abstract}
 
 %----------------------------------------------------------------------------------------
@@ -234,7 +229,6 @@
 
 \begin{acknowledgements}
 	\addchaptertocentry{\acknowledgementname} % Add the acknowledgements to the table of contents
-	% Todo: Add Acknowledgements
 	First and foremost, I would like to  express my deep respect and appreciation 
 	towards my advisor, Professor Vasilis Samoladas. His precise guidance served 
 	as a beacon of clarity and stability throughout the often chaotic process of 
@@ -245,7 +239,7 @@
 	during this demanding journey.
 
 	Last but not least, I would like to extend my heartfelt thanks to the esteemed members 
-	of the Thesis Committee, Professor Euripides. Petrakis and Professor Nikos. Giatrakos, as well as 
+	of the Thesis Committee, Professor Euripides Petrakis and Professor Nikos Giatrakos, as well as
 	to my fellow colleagues and students on campus who shared this experience.
 
 	% I would like to acknowledge the use of OpenAI's ChatGPT, which assisted me throughout 
@@ -269,7 +263,6 @@
 %	ABBREVIATIONS
 %----------------------------------------------------------------------------------------
 
-% Todo: edit to your requirements
 % spell-checker: disable
 \begin{abbreviations}{ll} % Include a list of abbreviations (a table of two columns)]
 	\textbf{API}	& \textbf{A}pplication \textbf{P}rogramming \textbf{I}nterface\\
@@ -277,12 +270,12 @@
 	\textbf{CS}		& \textbf{C}omputer \textbf{S}cience\\
 	\textbf{CRUD}	& \textbf{C}reate \textbf{R}ead \textbf{U}pdate \textbf{D}elete\\
 	\textbf{CSS}	& \textbf{C}ascade \textbf{S}tyle \textbf{S}heets\\
-	\textbf{CSV}	& \textbf{C}omma \textbf{S}eperated \textbf{V}alues\\
+	\textbf{CSV}	& \textbf{C}omma \textbf{S}eparated \textbf{V}alues\\
 	\textbf{DAG}	& \textbf{D}irected \textbf{A}cyclic \textbf{G}raph\\
 	\textbf{DSL}	& \textbf{D}omain \textbf{S}pecific \textbf{L}anguage\\
 	\textbf{ETL}	& \textbf{E}xtract \textbf{T}ransform \textbf{L}oad\\
 	\textbf{HTTP}	& \textbf{H}yper\textbf{T}ext \textbf{T}ransfer \textbf{P}rotocol\\
-	\textbf{HTML}	& \textbf{H}yper\textbf{T}ext \textbf{M}arkup \textbf{L}anguange\\
+	\textbf{HTML}	& \textbf{H}yper\textbf{T}ext \textbf{M}arkup \textbf{L}anguage\\
 	\textbf{I/O}	& \textbf{I}nput / \textbf{O}utput\\
 	\textbf{JWKS}	& \textbf{J}SON \textbf{W}eb \textbf{K}ey \textbf{S}et\\
 	\textbf{JWT}	& \textbf{J}son \textbf{W}eb \textbf{T}oken\\
@@ -318,13 +311,13 @@
 \pagestyle{thesis} % Return the page headers back to the "thesis" style
 \mainmatter% Begin numeric (1,2,3...) page numbering
 
-\include{Chapters/01-Introduction}
-\include{Chapters/02-TheoreticalBackground}
-\include{Chapters/03-RelatedWork}
-\include{Chapters/04-SystemDesignAndArchitecture}
-\include{Chapters/05-SystemUsage}
-\include{Chapters/06-EvaluationAndRobustness}
-\include{Chapters/07-ConclusionsFutureWork}
+\include{chapters/01-Introduction}
+\include{chapters/02-TheoreticalBackground}
+\include{chapters/03-RelatedWork}
+\include{chapters/04-SystemDesignAndArchitecture}
+\include{chapters/05-SystemUsage}
+\include{chapters/06-EvaluationAndRobustness}
+\include{chapters/07-ConclusionsFutureWork}
 
 %----------------------------------------------------------------------------------------
 %	THESIS CONTENT - APPENDICES
@@ -332,10 +325,6 @@
 
 \appendix % Cue to tell LaTeX that the following "chapters" are Appendices
 
-% Include the appendices of the thesis as separate files from the Appendices folder
-% Uncomment the lines as you write the Appendices
-
-% Todo: comment out if not needed
 % \include{Appendices/AppendixA}
 \include{Appendices/AppendixB}
 % \include{Appendices/AppendixC}

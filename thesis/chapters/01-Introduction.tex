@@ -13,9 +13,10 @@ that combines the robustness of cloud-native
 technologies with the ease of use of desktop analytical environments—bridging the gap between DevOps infrastructure and 
 end-user data workflows.
 
-Ultimately, amongst some services, the bar was set to implement already existing enterprise level technology stacks to 
-more basic and developer friendly as in ease of access and deployment versions. It had been a personal aspiration and 
-challenge to create some utilities that are scoped for development with a laconic tone while maintaining inspiration by others.
+Ultimately, the goal for several of these services was to reimplement patterns found in existing enterprise-level
+technology stacks, but as simpler, more developer-friendly versions that are easier to deploy and reason about.
+Building these utilities from the ground up, while staying informed by established systems, was also a personal
+aspiration and a deliberate learning exercise.
 
 \newpage
 
@@ -57,12 +58,17 @@ but by making its power more accessible and flexible for real-world analysis tas
     \item Support for batch job execution using containerized analytical tools.
 \end{itemize}
 
-The project intentionally excludes advanced scheduling algorithms, dynamic autoscaling, and third-party authentication (e.g., OAuth~\cite{oauth2-rfc6749}). The implementation is primarily in Go~\cite{golang} using the Gin web framework~\cite{gingonic}.
+The project intentionally excludes advanced scheduling algorithms and dynamic autoscaling. Primary authentication is
+handled by the custom \texttt{Minioth} service rather than third-party identity providers; an experimental OAuth~\cite{oauth2-rfc6749}
+integration (Google, GitHub) exists in the codebase but is not part of the core, evaluated scope of this thesis.
+The implementation is primarily in Go~\cite{golang} using the Gin web framework~\cite{gingonic}.
 
 \section{Thesis Contributions}
 \hspace{2mm}The main contributions of this thesis are:
 \begin{itemize}
-    \item A novel, user-centric platform architecture that abstracts Kubernetes orchestration for end users.
+    \item A user-centric platform architecture that abstracts Kubernetes orchestration for end users, combining
+    existing cloud-native building blocks (Kubernetes Jobs, object storage, JWT auth) into a single accessible,
+    self-contained system.
     \item Implementation of a custom authentication service (\texttt{Minioth}) with secure, user/group-based access control.
     \item The design of the \texttt{Uspace} service for managing isolated user environments and secure job submission.
     \item Introduction of the \texttt{Fslite} virtual filesystem abstraction for hierarchical user data management.

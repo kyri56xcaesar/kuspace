@@ -194,7 +194,20 @@ provide multi-user notebooks for teaching and research purposes.
 
 Most PaaS platforms abstract away Kubernetes primitives, limiting extensibility and custom control. They are typically focused on application deployment rather than providing flexible, user-controlled batch job execution or modular tool integration.
 
-This project, by contrast, builds directly atop Kubernetes, giving fine-grained control over jobs, volumes, and user environments, and supporting arbitrary containerized tools within secure, user-defined workflows.
+Of these, \textbf{JupyterHub} is the closest relative to the system presented in this thesis: both provide
+authenticated, per-user isolated environments on top of Kubernetes for interactive/analytical work, and both
+provision per-user storage. The two systems diverge in execution model and scope, however. JupyterHub spawns a
+long-lived, interactive notebook server (a \textit{Pod} per user session) and leaves data organization, sharing,
+and permissions largely to the notebook environment or an external storage layer; it is fundamentally a multi-user
+access layer for a single application (Jupyter). The system in this thesis instead centers on short-lived,
+stateless \textit{batch} jobs — each execution is a fresh, disposable container rather than a persistent session
+— and treats data sharing as a first-class concern via a Unix-style permission model (ownership, groups, mode bits)
+enforced by \texttt{FsLite} independently of any single application. This makes multi-tool support (DuckDB, Pandas,
+Octave, Bash, FFmpeg) and cross-user dataset sharing native to the platform rather than something layered on top
+of a notebook server. In effect, JupyterHub optimizes for interactive, per-user compute; this project optimizes
+for reproducible, shareable batch analysis with explicit access control over the underlying data.
+
+This project, by contrast to the PaaS platforms above, builds directly atop Kubernetes, giving fine-grained control over jobs, volumes, and user environments, and supporting arbitrary containerized tools within secure, user-defined workflows.
 
 \section{Cloud-Native Auth Frameworks}
 
@@ -229,8 +242,15 @@ integrated into Kubernetes clusters using service meshes or ingress controllers.
 These systems are powerful and mature enough to handle complex authentication and authorization needs, including multi-tenancy, single sign-on, and social logins. 
 They can safely scale to multiple replicas and provide secure user management across distributed applications.
 
-However, these systems can be complex to integrate, especially in lightweight or standalone academic settings. Moreover, their 
+However, these systems can be complex to integrate, especially in lightweight or standalone academic settings. Moreover, their
 abstraction level may not offer tight coupling with Kubernetes-native resource policies such as volumes or job ownership.
 
-The system introduced in this thesis employs a custom authentication service (\texttt{Minioth}). It aims to express simplicity and promises a expansive foundation for future
-extensions, while still being lightweight enough for academic and small-scale use cases.
+The system introduced in this thesis employs a custom authentication service (\texttt{Minioth}) instead of adopting one of
+these established providers. This choice should be read primarily as a deliberate educational one rather than a claim of
+engineering superiority: implementing token issuance, password hashing, and a pluggable identity backend from first
+principles was undertaken specifically to gain hands-on understanding of how such systems work internally, at the cost
+of the maturity, independent security auditing, and battle-testing that a solution like Keycloak or Auth0 would bring
+out of the box. For a production deployment handling sensitive data, adopting an established identity provider would be
+the more defensible engineering decision; \texttt{Minioth} remains, by design, a lightweight, self-contained implementation
+suited to academic and small-scale use cases, tightly coupled to the platform's Kubernetes-native resource policies
+(volumes, job ownership) in a way a general-purpose provider is not.
