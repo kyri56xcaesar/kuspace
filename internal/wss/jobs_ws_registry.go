@@ -3,10 +3,13 @@ package wss
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -22,6 +25,9 @@ import (
 var (
 	address    = "0.0.0.0:8082"
 	jobLogPath = "data/logs/jobs/"
+	// serviceSecret authenticates producers (uspace) and admin calls, and
+	// keys the consumer tickets frontapp hands out (see utils.SignWSTicket)
+	serviceSecret []byte
 
 	// Registry maps jobIDs to their socket servers
 	registry = struct {
@@ -31,12 +37,27 @@ var (
 		servers: make(map[string]*SocketServer),
 	}
 
-	upgrader = websocket.Upgrader{
-		CheckOrigin: func(_ *http.Request) bool {
-			return true
-		},
-	}
+	upgrader = websocket.Upgrader{CheckOrigin: sameHostOrigin}
 )
+
+// sameHostOrigin allows non-browser clients (no Origin) and browser pages
+// served from the same host name (frontapp and wss differ only in port).
+func sameHostOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	u, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	host, _, err := net.SplitHostPort(r.Host)
+	if err != nil {
+		host = r.Host
+	}
+
+	return strings.EqualFold(u.Hostname(), host)
+}
 
 // Role as in a string describing type of user
 type Role string
@@ -52,10 +73,18 @@ const (
 
 // Client represents a WebSocket connection
 type Client struct {
-	Jid  string
-	Conn *websocket.Conn
-	Role Role
-	Send chan []byte
+	Jid       string
+	Conn      *websocket.Conn
+	Role      Role
+	Send      chan []byte
+	closeOnce sync.Once
+}
+
+// closeSend closes the client's outgoing queue exactly once: several paths
+// (slow consumer, unregister, session delete) used to close it and the
+// second close panicked, taking wss down.
+func (c *Client) closeSend() {
+	c.closeOnce.Do(func() { close(c.Send) })
 }
 
 // SocketServer manages clients for a specific job
@@ -65,86 +94,136 @@ type SocketServer struct {
 	Broadcast  chan []byte
 	Register   chan *Client
 	Unregister chan *Client
+	done       chan struct{}
 	sync.Mutex
 
-	Jid    string
-	Logger *log.Logger
+	Jid     string
+	Logger  *log.Logger
+	logFile *os.File
 }
 
 // NewSocketServer the constructor for a SocketServer
-func NewSocketServer(jid string) *SocketServer {
-	// Create a new logger for the job socket server
-	err := os.MkdirAll(jobLogPath, 0o644)
-	if err != nil {
-		log.Fatalf("failed to create path to logs: %v", err)
+func NewSocketServer(jid string) (*SocketServer, error) {
+	if err := os.MkdirAll(jobLogPath, 0o755); err != nil {
+		return nil, fmt.Errorf("failed to create path to logs: %w", err)
 	}
-
-	logFile, err := os.OpenFile(jobLogPath+"ws-server-"+jid+".log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o666)
+	logFile, err := os.OpenFile(jobLogPath+"ws-server-"+jid+".log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o640)
 	if err != nil {
-		log.Fatalf("failed to open log file: %v", err)
+		return nil, fmt.Errorf("failed to open log file: %w", err)
 	}
-	logger := log.New(logFile, "[WS-"+jid+" WS-server] ", log.LstdFlags)
 
 	return &SocketServer{
 		Jid:        jid,
-		Logger:     logger,
+		Logger:     log.New(logFile, "[WS-"+jid+" WS-server] ", log.LstdFlags),
+		logFile:    logFile,
 		Producers:  make(map[*Client]bool),
 		Consumers:  make(map[*Client]bool),
 		Broadcast:  make(chan []byte),
 		Register:   make(chan *Client),
 		Unregister: make(chan *Client),
-	}
+		done:       make(chan struct{}),
+	}, nil
 }
 
-func getOrCreateServer(jobID string) *SocketServer {
+func getOrCreateServer(jobID string) (*SocketServer, error) {
 	registry.Lock()
 	defer registry.Unlock()
 	server, exists := registry.servers[jobID]
 	if !exists {
-		server = NewSocketServer(jobID)
+		var err error
+		if server, err = NewSocketServer(jobID); err != nil {
+			return nil, err
+		}
 		registry.servers[jobID] = server
 		go server.Start()
 	}
 
-	return server
+	return server, nil
+}
+
+// shutdown stops the server, disconnects everyone and releases its log file.
+// Every job used to keep its goroutine and open log file forever.
+func (s *SocketServer) shutdown() {
+	registry.Lock()
+	if registry.servers[s.Jid] == s {
+		delete(registry.servers, s.Jid)
+	}
+	registry.Unlock()
+
+	s.Lock()
+	defer s.Unlock()
+	select {
+	case <-s.done:
+		return // already shut down
+	default:
+		close(s.done)
+	}
+	for c := range s.Producers {
+		_ = c.Conn.Close()
+		c.closeSend()
+	}
+	for c := range s.Consumers {
+		_ = c.Conn.Close()
+		c.closeSend()
+	}
+	s.Producers, s.Consumers = map[*Client]bool{}, map[*Client]bool{}
+	_ = s.logFile.Close()
+}
+
+// join registers a client, retrying on a fresh server if the one found was
+// shutting down.
+func join(jid string, client *Client) (*SocketServer, error) {
+	for range 3 {
+		server, err := getOrCreateServer(jid)
+		if err != nil {
+			return nil, err
+		}
+		select {
+		case server.Register <- client:
+			return server, nil
+		case <-server.done:
+		}
+	}
+
+	return nil, errors.New("session is shutting down")
 }
 
 // Start as in begin listening
 func (s *SocketServer) Start() {
 	for {
 		select {
+		case <-s.done:
+			return
 		case client := <-s.Register:
 			s.Lock()
-			if client.Role == Producer {
+			switch client.Role {
+			case Producer:
 				s.Producers[client] = true
-			} else if client.Role == Consumer {
+			case Consumer:
 				s.Consumers[client] = true
-			} else {
+			default:
 				s.Producers[client] = true
 				s.Consumers[client] = true
 			}
 			s.Unlock()
 		case client := <-s.Unregister:
 			s.Lock()
-			if client.Role == Producer {
-				delete(s.Producers, client)
-			} else if client.Role == Consumer {
-				delete(s.Consumers, client)
-			} else {
-				delete(s.Producers, client)
-				delete(s.Consumers, client)
-			}
-			close(client.Send)
+			delete(s.Producers, client)
+			delete(s.Consumers, client)
+			client.closeSend()
+			empty := len(s.Producers) == 0 && len(s.Consumers) == 0
 			s.Unlock()
+			if empty {
+				go s.shutdown() // not from inside Start's select
+			}
 		case msg := <-s.Broadcast:
 			s.Lock()
-			for Consumer := range s.Consumers {
+			for consumer := range s.Consumers {
 				select {
-				case Consumer.Send <- msg:
-					// log.Printf("message incoming: %s\n", msg)
-				default:
-					close(Consumer.Send)
-					delete(s.Consumers, Consumer)
+				case consumer.Send <- msg:
+				default: // too slow: drop it
+					consumer.closeSend()
+					delete(s.Consumers, consumer)
 				}
 			}
 			s.Unlock()
@@ -152,7 +231,16 @@ func (s *SocketServer) Start() {
 	}
 }
 
+func hasServiceSecret(c *gin.Context) bool {
+	got := c.GetHeader("X-Service-Secret")
+
+	return got != "" && len(serviceSecret) > 0 && subtle.ConstantTimeCompare([]byte(got), serviceSecret) == 1
+}
+
 // HandleWSsession a handler for the endpoint
+//
+// Consumers need a ticket from frontapp (?ticket=...) for this job; producers
+// (uspace) authenticate with the service secret.
 func HandleWSsession(c *gin.Context) {
 	id := c.Query("jid")
 	roleStr := strings.ToLower(c.Query("role"))
@@ -162,7 +250,20 @@ func HandleWSsession(c *gin.Context) {
 		return
 	}
 	role := Role(roleStr)
-	if role != Producer && role != Consumer && role != JackOfAllTrades {
+	switch role {
+	case Producer:
+		if !hasServiceSecret(c) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "producers must authenticate as a service"})
+
+			return
+		}
+	case Consumer, JackOfAllTrades:
+		if _, err := ut.VerifyWSTicket(serviceSecret, c.Query("ticket"), id, roleStr, time.Now()); err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "a valid ticket for this job is required"})
+
+			return
+		}
+	default:
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid role"})
 
 		return
@@ -177,17 +278,26 @@ func HandleWSsession(c *gin.Context) {
 		Role: role,
 		Send: make(chan []byte, 256),
 	}
-	server := getOrCreateServer(id)
-	server.Register <- client
+	server, err := join(id, client)
+	if err != nil {
+		log.Printf("failed to join session %s: %v", id, err)
+		_ = conn.Close()
 
+		return
+	}
 	server.Logger.Printf("client registered: %v\n", client.Role)
 
 	go writeMessages(client)
 	go broadcastMessages(client, server)
 }
 
-// HandleWSsessionClose a handler for the endpoint
+// HandleWSsessionClose ends a job's session (services only).
 func HandleWSsessionClose(c *gin.Context) {
+	if !hasServiceSecret(c) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "service secret required"})
+
+		return
+	}
 	jobID := c.Query("jid")
 	if jobID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing jid"})
@@ -195,51 +305,41 @@ func HandleWSsessionClose(c *gin.Context) {
 		return
 	}
 	registry.Lock()
-	defer registry.Unlock()
-	if server, exists := registry.servers[jobID]; exists {
-		for client := range server.Producers {
-			err := client.Conn.Close()
-			if err != nil {
-				log.Printf("failed to close connection: %v", err)
-			}
-			close(client.Send)
-			delete(server.Producers, client)
-		}
-		for client := range server.Consumers {
-			err := client.Conn.Close()
-			if err != nil {
-				log.Printf("failed to close connection: %v", err)
-			}
-			close(client.Send)
-			delete(server.Consumers, client)
-		}
-		delete(registry.servers, jobID)
+	server, exists := registry.servers[jobID]
+	registry.Unlock()
+	if exists {
+		server.shutdown()
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "successfully deleted socket server"})
 }
 
 func broadcastMessages(client *Client, server *SocketServer) {
 	defer func() {
-		server.Unregister <- client
-		err := client.Conn.Close()
-		if err != nil {
+		select {
+		case server.Unregister <- client:
+		case <-server.done:
+		}
+		if err := client.Conn.Close(); err != nil {
 			log.Printf("failed to close connection: %v", err)
 		}
 	}()
 
 	for {
 		_, msg, err := client.Conn.ReadMessage()
-		server.Logger.Printf("message read: %s", msg)
 		if err != nil {
 			break
 		}
+		server.Logger.Printf("message read: %s", msg)
 		if client.Role == JackOfAllTrades {
 			msg = []byte(fmt.Sprintf("[%s]: %s", client.Conn.RemoteAddr().String(), string(msg)))
 		}
 
 		if client.Role == Producer || client.Role == JackOfAllTrades {
-			server.Logger.Printf("producer broadcasting: %s", msg)
-			server.Broadcast <- msg
+			select {
+			case server.Broadcast <- msg:
+			case <-server.done:
+				return
+			}
 		}
 	}
 }
@@ -262,6 +362,7 @@ func writeMessages(client *Client) {
 func Serve(cfg ut.EnvConfig) {
 	address = cfg.WssAddress
 	jobLogPath = cfg.WssLogsPath
+	serviceSecret = cfg.ServiceSecretKey
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -271,9 +372,14 @@ func Serve(cfg ut.EnvConfig) {
 		c.JSON(http.StatusOK, gin.H{"status": "alive"})
 	})
 	engine.GET("/system-conf", func(c *gin.Context) {
+		if !hasServiceSecret(c) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "service secret required"})
+
+			return
+		}
 		wss, err := ut.ReadConfig("configs/"+cfg.ConfigPath, false)
 		if err != nil {
-			log.Printf("[API_sysConf] failed to read frontapp config: %v", err)
+			log.Printf("[API_sysConf] failed to read wss config: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 
 			return
