@@ -12,21 +12,37 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// isHTTPS reports whether the client reached us over TLS, directly or via a
+// proxy that terminates it.
+func isHTTPS(c *gin.Context) bool {
+	return c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https")
+}
+
 func securityMiddleWare(c *gin.Context) {
-	// if c.Request.Host != srv.Config.Addr() {
-	//	c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Invalid host header"})
-	//	return
-	//}
 	c.Header("X-Frame-Options", "DENY")
+	// 'unsafe-inline' scripts are still required by the inline onclick handlers
+	// in the templates; drop it once the frontend no longer uses them.
 	c.Header("Content-Security-Policy",
-		"default-src 'self'; connect-src *; font-src *; script-src-elem * 'unsafe-inline'; img-src * data:; style-src * 'unsafe-inline';")
-	c.Header("X-XSS-Protection", "1; mode=block")
-	c.Header("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
-	c.Header("Referrer-Policy", "strict-origin")
+		"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "+
+			"img-src 'self' data:; font-src 'self'; connect-src 'self' ws: wss:; "+
+			"object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'")
+	// HSTS only means something over HTTPS; sent on plain-HTTP localhost it
+	// pins every localhost site in the browser to HTTPS.
+	if isHTTPS(c) {
+		c.Header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+	}
+	c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Header("Permissions-Policy",
 		"geolocation=(),midi=(),sync-xhr=(),microphone=(),camera=(),magnetometer=(),gyroscope=(),fullscreen=(self),payment=()")
 	c.Next()
+}
+
+// setSessionCookie sets an httpOnly, SameSite=Strict cookie scoped to the API,
+// Secure whenever the request came over HTTPS.
+func setSessionCookie(c *gin.Context, name, value string, maxAge int) {
+	c.SetSameSite(http.SameSiteStrictMode)
+	c.SetCookie(name, value, maxAge, "/api/v1/", "", isHTTPS(c), true)
 }
 
 func autoLogin() gin.HandlerFunc {
@@ -72,11 +88,18 @@ func autoLogin() gin.HandlerFunc {
 			}
 		}()
 
+		if response.StatusCode != http.StatusOK {
+			log.Printf("token introspection failed: status %v", response.Status)
+			c.Next()
+
+			return
+		}
+
 		type Info struct {
-			ExpiresAt string `json:"expiresAt"`
+			ExpiresAt string `json:"expires_at"` //nolint:tagliatelle // minioth wire format (snake_case)
 			Groups    string `json:"groups"`
-			IssuesAt  string `json:"issuedAt"`
-			User      string `json:"user"`
+			IssuesAt  string `json:"issued_at"` //nolint:tagliatelle // minioth wire format (snake_case)
+			User      string `json:"username"`
 			Valid     string `json:"valid"`
 		}
 		var info struct {
@@ -100,6 +123,12 @@ func autoLogin() gin.HandlerFunc {
 				"error": "failed to parse response",
 			})
 			c.Abort()
+
+			return
+		}
+
+		if info.Info.Valid != "true" {
+			c.Next()
 
 			return
 		}
@@ -146,13 +175,29 @@ func authMiddleware(group string) gin.HandlerFunc {
 				log.Printf("failed to close response body: %v", err)
 			}
 		}()
+
+		// minioth v1.0.0 (third_party/minioth) returns 400 with {"error": ...}
+		// for an invalid/expired token instead of 200 with {"info":{"valid":
+		// "false"}}. This check must come before decoding: without it, decoding
+		// an error body into the zero-valued Info struct below yields an empty
+		// Groups string, and strings.Contains(group, "") is always true -
+		// silently granting access with a blank identity.
+		if response.StatusCode != http.StatusOK {
+			log.Printf("token introspection failed: status %v", response.Status)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized, invalid token"})
+			c.Abort()
+
+			return
+		}
+
 		type Info struct {
-			ExpiresAt string `json:"expiresAt"`
+			ExpiresAt string `json:"expires_at"` //nolint:tagliatelle // minioth wire format (snake_case)
 			Groups    string `json:"groups"`
-			GroupIDs  string `json:"groupIDs"`
-			IssuesAt  string `json:"issuedAt"`
+			GroupIDs  string `json:"group_ids"` //nolint:tagliatelle // minioth wire format (snake_case)
+			IssuesAt  string `json:"issued_at"` //nolint:tagliatelle // minioth wire format (snake_case)
 			Username  string `json:"username"`
-			UserID    string `json:"userId"`
+			UserID    string `json:"user_id"` //nolint:tagliatelle // minioth wire format (snake_case)
+			PGroup    string `json:"pgroup"`
 			Valid     string `json:"valid"`
 		}
 		var info struct {
@@ -182,7 +227,7 @@ func authMiddleware(group string) gin.HandlerFunc {
 
 		// log.Printf("%+v", info)
 
-		if info.Info.Valid == "false" {
+		if info.Info.Valid != "true" {
 			log.Printf("token not valid anymore...")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized, invalid token"})
 			c.Abort()
@@ -196,7 +241,8 @@ func authMiddleware(group string) gin.HandlerFunc {
 				c.Set("username", info.Info.Username)
 				c.Set("userID", info.Info.UserID)
 				c.Set("groups", info.Info.Groups)
-				c.Set("groupIDs", info.Info.GroupIDs)
+				// primary group first: uspace gives new files the first group
+				c.Set("groupIDs", primaryFirst(info.Info.GroupIDs, info.Info.PGroup))
 				c.Set("accessToken", accessToken)
 
 				return
@@ -207,4 +253,20 @@ func authMiddleware(group string) gin.HandlerFunc {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		c.Abort()
 	}
+}
+
+// primaryFirst reorders a comma-separated gid list so pgroup comes first
+// (added if missing). An empty pgroup leaves the list unchanged.
+func primaryFirst(gids, pgroup string) string {
+	if pgroup == "" || pgroup == "0" {
+		return gids
+	}
+	out := []string{pgroup}
+	for _, g := range strings.Split(gids, ",") {
+		if g = strings.TrimSpace(g); g != "" && g != pgroup {
+			out = append(out, g)
+		}
+	}
+
+	return strings.Join(out, ",")
 }

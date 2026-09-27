@@ -147,10 +147,7 @@ func (srv *HTTPService) ServeHTTP() {
 	srv.Engine.Use(static.Serve("/api/"+apiVersion, static.LocalFile(staticsPath, true)))
 	srv.Engine.Use(cors.New(corsconfig))
 
-	if srv.Config.APIGinMode == "release" {
-		log.Printf("security middleware currently deactivated...")
-		// srv.Engine.Use(securityMiddleWare)
-	}
+	srv.Engine.Use(securityMiddleWare)
 
 	root := srv.Engine.Group("/")
 	{
@@ -197,7 +194,7 @@ func (srv *HTTPService) ServeHTTP() {
 
 			for key := range params {
 				// essentially overwrites and eventually gets the cookie deleted.
-				c.SetCookie(key, "", 1, "/api/v1/", "", false, true) // Set the username cookie
+				setSessionCookie(c, key, "", -1) // expire it
 			}
 			log.Print("cookies deleted")
 			c.Redirect(http.StatusMultipleChoices, "/api/v1/login")
@@ -244,6 +241,8 @@ func (srv *HTTPService) ServeHTTP() {
 		verified.GET("/fetch-volumes", srv.handleFetchVolumes)
 		verified.GET("/fetch-jobs", srv.jobsHandler)
 		verified.GET("/fetch-apps", srv.appsHandler)
+		verified.GET("/ws-ticket", srv.handleWSTicket) // ticket to watch a job's live output on wss
+		verified.GET("/job-log", srv.handleJobLog)     // saved output of a job
 
 		admin := verified.Group("/admin")
 		admin.PATCH("/chmod", authMiddleware("user,admin"), srv.handleResourcePerms)
@@ -256,6 +255,7 @@ func (srv *HTTPService) ServeHTTP() {
 				srv.handleSysConf,
 			)
 
+			admin.GET("/system-status", srv.handleSysStatus)
 			admin.GET("/system-metrics", srv.handleSysMetrics)
 
 			admin.Match(

@@ -103,6 +103,10 @@ func (srv *HTTPService) handleFetchUsers(c *gin.Context) {
 
 		return
 	}
+	// minioth includes the bcrypt hash in /admin/users; never forward it to the browser
+	for i := range resp.Content {
+		resp.Content[i].Password.Hashpass = ""
+	}
 	// sort users on uid
 	sort.Slice(resp.Content, func(i, j int) bool {
 		return resp.Content[i].UID < resp.Content[j].UID
@@ -578,7 +582,10 @@ func (srv *HTTPService) handleFetchResources(c *gin.Context) {
 
 		return
 	}
-	req.Header.Set("Access-Target", fmt.Sprintf(":%s:/ 0:0", volume))
+	// list as the caller, not as root: uspace filters by read permission
+	uid, _ := c.Get("userID")
+	groupIDs, _ := c.Get("groupIDs")
+	req.Header.Set("Access-Target", fmt.Sprintf(":%s:/ %v:%v", volume, uid, groupIDs))
 	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecretKey))
 	// req.Header.Set("Authorization", "Bearer "+acc)
 
@@ -679,12 +686,7 @@ func (srv *HTTPService) handleResourceUpload(c *gin.Context) {
 		return
 	}
 
-	// forward headers
-	for key, values := range c.Request.Header {
-		for _, value := range values {
-			req.Header.Add(key, value)
-		}
-	}
+	copyForwardableHeaders(req.Header, c.Request.Header)
 
 	req.Header.Set("Access-Target", fmt.Sprintf("0:%s:/ %v:%v", volume, uid, groupIDs))
 	req.Header.Set("Authorization", c.Request.Header.Get("Authorization"))
@@ -738,17 +740,13 @@ func (srv *HTTPService) handleResourceDownload(c *gin.Context) {
 		return
 	}
 
-	for key, values := range c.Request.Header {
-		for _, value := range values {
-			req.Header.Add(key, value)
-		}
-	}
+	copyForwardableHeaders(req.Header, c.Request.Header)
 	volume := c.Query("volume")
 	if volume == "" {
 		volume = srv.Config.MinioDefaultBucket
 	}
 
-	req.Header.Add("Access-Target", fmt.Sprintf(":%s:%v %v:%v", volume, fpath, uid, groupIDs))
+	req.Header.Set("Access-Target", fmt.Sprintf(":%s:%v %v:%v", volume, fpath, uid, groupIDs))
 	req.Header.Add("Authorization", c.Request.Header.Get("Authorization"))
 	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecretKey))
 
@@ -807,18 +805,14 @@ func (srv *HTTPService) handleResourcePreview(c *gin.Context) {
 
 		return
 	}
-	for key, values := range c.Request.Header {
-		for _, value := range values {
-			req.Header.Add(key, value)
-		}
-	}
+	copyForwardableHeaders(req.Header, c.Request.Header)
 
 	volume := c.Query("volume")
 	if volume == "" {
 		volume = srv.Config.MinioDefaultBucket
 	}
 
-	req.Header.Add("Access-Target", fmt.Sprintf(":%s:%v %v:%v", volume, rName, whoami, groups))
+	req.Header.Set("Access-Target", fmt.Sprintf(":%s:%v %v:%v", volume, rName, whoami, groups))
 	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecretKey))
 
 	response, err := http.DefaultClient.Do(req)
@@ -945,17 +939,13 @@ func (srv *HTTPService) handleResourceDelete(c *gin.Context) {
 		return
 	}
 
-	for key, values := range c.Request.Header {
-		for _, value := range values {
-			req.Header.Add(key, value)
-		}
-	}
+	copyForwardableHeaders(req.Header, c.Request.Header)
 	volume := c.Query("volume")
 	if volume == "" {
 		volume = srv.Config.MinioDefaultBucket
 	}
 
-	req.Header.Add("Access-Target", fmt.Sprintf(":%s:%s %v:%v", volume, resourceTarget, uid, groupIDs))
+	req.Header.Set("Access-Target", fmt.Sprintf(":%s:%s %v:%v", volume, resourceTarget, uid, groupIDs))
 	req.Header.Add("Authorization", c.Request.Header.Get("Authorization"))
 	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecretKey))
 
@@ -996,12 +986,10 @@ func (srv *HTTPService) handleResourceCopy(c *gin.Context) {
 		return
 	}
 
-	rid := c.Request.URL.Query().Get("rid")
-
 	rName := c.Request.URL.Query().Get("resource")
-	if rName == "" || rid == "" {
-		log.Printf("must provide resource name")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide resource name"})
+	dest := c.Request.URL.Query().Get("dest")
+	if rName == "" || dest == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must provide 'resource' and 'dest' (<volume>/<object>)"})
 
 		return
 	}
@@ -1014,7 +1002,7 @@ func (srv *HTTPService) handleResourceCopy(c *gin.Context) {
 	//}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*3)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, apiServiceURL+"/api/v1/resource/cp?rid="+rid, c.Request.Body)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiServiceURL+"/api/v1/resource/cp?dest="+url.QueryEscape(dest), nil)
 	if err != nil {
 		log.Printf("error creating a new request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failure"})
@@ -1036,7 +1024,7 @@ func (srv *HTTPService) handleResourceCopy(c *gin.Context) {
 	}
 
 	req.Header.Add("Authorization", "Bearer "+accessToken)
-	req.Header.Add("Access-Target", fmt.Sprintf(":%s:%v %v:%v", volume, rName, userID, gids))
+	req.Header.Set("Access-Target", fmt.Sprintf(":%s:%v %v:%v", volume, rName, userID, gids))
 	req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecretKey))
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -1359,7 +1347,13 @@ func (srv *HTTPService) jobsHandler(c *gin.Context) {
 	defer cancel()
 	switch c.Request.Method {
 	case http.MethodGet:
-		jobReq, err := http.NewRequestWithContext(ctx, http.MethodGet, apiServiceURL+"/api/v1/job", nil)
+		// admins see every job; everyone else only their own (jobs carry code,
+		// inputs and outputs, so they must not leak across users)
+		jobsURL := apiServiceURL + "/api/v1/job"
+		if !strings.Contains(c.GetString("groups"), "admin") {
+			jobsURL += "?uid=" + url.QueryEscape(fmt.Sprint(c.MustGet("userID")))
+		}
+		jobReq, err := http.NewRequestWithContext(ctx, http.MethodGet, jobsURL, nil)
 		if err != nil {
 			log.Printf("failed to create request: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
@@ -1515,6 +1509,9 @@ func (srv *HTTPService) jobsHandler(c *gin.Context) {
 			return
 		}
 		jobReq.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecretKey))
+		// uspace checks the submitter may read the input / write the output
+		groupIDs, _ := c.Get("groupIDs")
+		jobReq.Header.Set("Access-Target", fmt.Sprintf("0::/ %v:%v", uid, groupIDs))
 
 		client := &http.Client{Timeout: 10 * time.Second}
 		response, err := client.Do(jobReq)
@@ -1543,6 +1540,19 @@ func (srv *HTTPService) jobsHandler(c *gin.Context) {
 				log.Printf("failed to close response body: %v", err)
 			}
 		}()
+		// pass refusals through (e.g. 403 when the input isn't readable by the
+		// submitter) instead of reporting a job that was never accepted
+		if response.StatusCode != http.StatusOK {
+			var upstream struct {
+				Error string `json:"error"`
+			}
+			if json.Unmarshal(body, &upstream) != nil || upstream.Error == "" {
+				upstream.Error = "job was not accepted"
+			}
+			c.JSON(response.StatusCode, gin.H{"error": upstream.Error})
+
+			return
+		}
 		err = json.Unmarshal(body, &resp)
 		if err != nil {
 			log.Printf("failed to unmarshal response body: %v", err)
@@ -1738,6 +1748,19 @@ func (srv *HTTPService) jobAdminHandler(c *gin.Context) {
 				log.Printf("failed to close response body: %v", err)
 			}
 		}()
+		// pass refusals through (e.g. 403 when the input isn't readable by the
+		// submitter) instead of reporting a job that was never accepted
+		if response.StatusCode != http.StatusOK {
+			var upstream struct {
+				Error string `json:"error"`
+			}
+			if json.Unmarshal(body, &upstream) != nil || upstream.Error == "" {
+				upstream.Error = "job was not accepted"
+			}
+			c.JSON(response.StatusCode, gin.H{"error": upstream.Error})
+
+			return
+		}
 		err = json.Unmarshal(body, &resp)
 		if err != nil {
 			log.Printf("failed to unmarshal response body: %v", err)
@@ -2285,20 +2308,22 @@ func (srv *HTTPService) handleLogin(c *gin.Context) {
 	}
 
 	// Parse the response from the auth service
+	// minioth v1.0.0 (third_party/minioth) returns a flat, snake_case shape
+	// rather than the previous {accessToken, user} envelope; only the token
+	// is needed here, identity is re-read via /user/token and /user/me.
 	var authResponse struct {
-		AccessToken string  `json:"accessToken"`
-		User        ut.User `json:"user"`
+		AccessToken string `json:"access_token"` //nolint:tagliatelle // minioth wire format (snake_case)
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&authResponse); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&authResponse); err != nil || authResponse.AccessToken == "" {
 		log.Printf("Error decoding auth service response: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "serious"})
 
 		return
 	}
 
-	c.SetCookie("accessToken", authResponse.AccessToken, 3600, "/api/v1/", "", false, true)
+	setSessionCookie(c, "accessToken", authResponse.AccessToken, 3600)
 
-	c.Redirect(http.StatusSeeOther, "/api/v1/verified/admin-panel?info="+authResponse.User.Info)
+	c.Redirect(http.StatusSeeOther, "/api/v1/verified/admin-panel")
 }
 
 func (srv *HTTPService) handleRegister(c *gin.Context) {
@@ -2374,68 +2399,48 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*3)
+	// Claim the default volume for the user. This runs
+	// synchronously: fired from a goroutine, it was bound to this handler's
+	// ctx and got canceled by the deferred cancel() as soon as it redirected,
+	// leaving new users without any storage.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	/* give user's primary group some of the pie..*/
-	go func() {
-		jsonData, err := json.Marshal(ut.GroupVolume{VID: 1, GID: authResponse.Pgroup})
+	claimVolume := func(path string, payload any) error {
+		jsonData, err := json.Marshal(payload)
 		if err != nil {
-			log.Printf("failed to marshal to json: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
-
-			return
+			return err
 		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiServiceURL+"/api/v1/admin/group/volume", bytes.NewBuffer(jsonData))
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiServiceURL+path, bytes.NewBuffer(jsonData))
 		if err != nil {
-			log.Printf("failed to create a new request: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set gv"})
-			req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecretKey))
-
-			return
+			return err
 		}
-		req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecretKey))
-
+		req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecretKey))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Access-Target", "0::/ 0:0")
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			log.Printf("failed to send user group volume claim request: %v", err)
+			return err
+		}
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				log.Printf("failed to close response body: %v", err)
+			}
+		}()
+		if resp.StatusCode < 200 || resp.StatusCode > 299 {
+			return fmt.Errorf("%s: status %s", path, resp.Status)
+		}
 
-			return
-		}
-		err = resp.Body.Close()
-		if err != nil {
-			log.Printf("failed to close the response body: %v", err)
-		}
-	}()
+		return nil
+	}
+	// uspace dropped its /admin/group/volume route; primary-group volumes are
+	// only created by uspace's startup sync (syncUsers).
 	/* let user some of the volume pie*/
-	go func() {
-		jsonData, err := json.Marshal(ut.UserVolume{VID: 1, UID: authResponse.UID})
-		if err != nil {
-			log.Printf("failed to marshal to json: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
+	if err := claimVolume("/api/v1/admin/user/volume", ut.UserVolume{VID: 1, UID: authResponse.UID}); err != nil {
+		log.Printf("failed to claim user volume: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "registered, but failed to set up user storage"})
 
-			return
-		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiServiceURL+"/api/v1/admin/user/volume", bytes.NewBuffer(jsonData))
-		if err != nil {
-			log.Printf("failed to create a new request: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set uv"})
-			req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecretKey))
-
-			return
-		}
-		req.Header.Add("X-Service-Secret", string(srv.Config.ServiceSecretKey))
-
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			log.Printf("failed to send user volume claim request: %v", err)
-
-			return
-		}
-		err = resp.Body.Close()
-		if err != nil {
-			log.Printf("failed to close response body: %v", err)
-		}
-	}()
+		return
+	}
 	// at this point registration should be successful, we can directly login the user
 	// .. somehow
 
@@ -2856,6 +2861,15 @@ func (srv *HTTPService) updateUser(c *gin.Context) {
 		}
 	}()
 
+	// minioth answers 400/404 with an error body; decoding that would yield a
+	// zero-valued User (UID 0) and the patch below would target the wrong user.
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("failed to retrieve current user: status %v", resp.Status)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+
+		return
+	}
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Printf("failed to read the response body: %v", err)
@@ -2864,9 +2878,9 @@ func (srv *HTTPService) updateUser(c *gin.Context) {
 		return
 	}
 
-	var users []ut.User
-	err = json.Unmarshal(body, &users)
-	if err != nil && len(users) != 1 {
+	var user ut.User
+	err = json.Unmarshal(body, &user)
+	if err != nil {
 		log.Printf("error, failed to unmarshal the body: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 
@@ -2880,7 +2894,7 @@ func (srv *HTTPService) updateUser(c *gin.Context) {
 		UID  int64  `json:"uid"`
 		Info string `json:"info"`
 	}
-	userFormat.UID = users[0].UID
+	userFormat.UID = user.UID
 	userFormat.Info = email
 
 	userData, err := json.Marshal(userFormat)
@@ -2972,6 +2986,13 @@ func (srv *HTTPService) handleAdminPanel(c *gin.Context) {
 			log.Printf("failed to close response body: %v", err)
 		}
 	}()
+	if response.StatusCode != http.StatusOK {
+		log.Printf("failed to retrieve user information: status %v", response.Status)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to retrieve user info"})
+		c.Abort()
+
+		return
+	}
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		log.Printf("failed to read response body: %v", err)
@@ -2982,7 +3003,7 @@ func (srv *HTTPService) handleAdminPanel(c *gin.Context) {
 
 		return
 	}
-	var resp []ut.User
+	var resp ut.User
 	err = json.Unmarshal(body, &resp)
 	if err != nil {
 		log.Printf("failed to unmarshal response: %v", err)
@@ -2993,20 +3014,17 @@ func (srv *HTTPService) handleAdminPanel(c *gin.Context) {
 
 		return
 	}
-	if resp == nil || len(resp) != 1 {
-		log.Printf("failed to retrieve user information")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user info, bad state"})
-
-		return
-	}
 
 	c.HTML(http.StatusOK, "admin-panel.html", gin.H{
 		"username": username,
 		"message":  "Welcome to the Admin Panel ",
-		"info":     resp[0].Info,
-		"home":     resp[0].Home,
+		"info":     resp.Info,
+		"home":     resp.Home,
 		"elevated": elevated,
 		"groups":   groups,
+		"uid":      resp.UID,
+		// per-user default quota (GB) that registration claims for every user
+		"quotaGB": srv.Config.LocalVolumesDefaultCapacity,
 	})
 }
 
@@ -3015,7 +3033,9 @@ func (srv *HTTPService) handleSysConf(c *gin.Context) {
 	defer cancel()
 	services := c.Query("services")
 	if services == "" || services == "*" {
-		services = "uspace,wss,frontapp,minioth"
+		// minioth (third_party/minioth v1.0.0) dropped its /admin/system-conf
+		// endpoint, so it's no longer part of the default set here.
+		services = "uspace,wss,frontapp"
 	}
 	parts := strings.Split(strings.TrimSpace(services), ",")
 	serv := map[string]map[string]string{}
@@ -3110,52 +3130,9 @@ func (srv *HTTPService) handleSysConf(c *gin.Context) {
 			}
 			serv["wss"] = wsscfg
 		case "minioth":
-			// get minioth conf
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, authServiceURL+authVersion+"/admin/system-conf", nil)
-			if err != nil {
-				log.Printf("[API] failed to create a new request: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create a request"})
-
-				return
-			}
-			accessToken := c.GetString("accessToken")
-			if accessToken == "" {
-				log.Printf("[API] could not retrieve access token from context, bad state, should not be here")
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "bad state"})
-
-				return
-			}
-			req.Header.Set("Authorization", "Bearer "+accessToken)
-			req.Header.Set("X-Service-Secret", string(srv.Config.ServiceSecretKey))
-			resp, err := http.DefaultClient.Do(req)
-			if err != nil {
-				log.Printf("failed to perform the request: %v", err)
-				c.JSON(http.StatusBadGateway, gin.H{"error": "internal server error"})
-
-				return
-			}
-			defer func() {
-				err := resp.Body.Close()
-				if err != nil {
-					log.Printf("failed to close response body: %v", err)
-				}
-			}()
-			var miniothcfg map[string]string
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				log.Printf("[API] failed to read response body: %v", err)
-				c.JSON(http.StatusBadGateway, gin.H{"error": "failed to read response body"})
-
-				return
-			}
-			err = json.Unmarshal(body, &miniothcfg)
-			if err != nil {
-				log.Printf("[API] failed to unmarshal response body: %v", err)
-				c.JSON(http.StatusBadGateway, gin.H{"error": "failed to unmarshal response body"})
-
-				return
-			}
-			serv["minioth"] = miniothcfg
+			// minioth (third_party/minioth v1.0.0) no longer exposes
+			// /admin/system-conf, so there is nothing to show here.
+			continue
 		}
 	}
 	format := c.Query("format")
@@ -3280,6 +3257,19 @@ func isFileNode(data map[string]any) bool {
 	return hasName && hasType
 }
 
+// forwardableHeaders are the only client headers passed through to uspace.
+// Everything else is dropped: uspace trusts Access-Target / X-Service-Secret
+// as set by this service, so a client must never be able to supply them.
+var forwardableHeaders = []string{"Content-Type", "Accept", "Range"}
+
+func copyForwardableHeaders(dst, src http.Header) {
+	for _, k := range forwardableHeaders {
+		for _, v := range src.Values(k) {
+			dst.Add(k, v)
+		}
+	}
+}
+
 func respondInFormat(c *gin.Context, format string, data any, templateName string) {
 	switch format {
 	case "json":
@@ -3350,7 +3340,7 @@ type UseraddClaim struct {
 // RegResponse struct gets binded by the request to AuthService
 type RegResponse struct {
 	Message  string `json:"message"`
-	LoginURL string `json:"loginUrl"`
+	LoginURL string `json:"login_url"` //nolint:tagliatelle // minioth wire format (snake_case)
 	UID      int64  `json:"uid"`
 	Pgroup   int64  `json:"pgroup"`
 }
