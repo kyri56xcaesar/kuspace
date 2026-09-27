@@ -59,3 +59,6 @@ cmd/*/frontapp
 cmd/*/uspace
 cmd/*/wss
 cmd/*/fslite
+
+# the thesis lives on the thesis branch
+thesis/
