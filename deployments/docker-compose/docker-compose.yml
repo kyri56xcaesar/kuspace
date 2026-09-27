@@ -1,35 +1,121 @@
+# Secrets are interpolated from ./.env, a gitignored symlink to the single
+# secrets source (see configs/secrets.env.example):
+#   ln -s ../../configs/secrets.env deployments/docker-compose/.env
+# Each service gets only the secrets it needs; a missing one aborts `up`.
+
 networks:
   app_network:
     driver: bridge
+  # DEV SESSION: external MinIO's network
+  rumie_default:
+    external: true
+
+volumes:
+  # minio-data:   # DEV SESSION: bundled MinIO disabled
+  minioth-data:
 
 services:
+  # DEV SESSION (BACKLOG.md): the bundled MinIO is disabled and uspace uses the
+  # external rumie-minio instance on the rumie_default network instead.
+  # Restore this block (and the uspace depends_on/networks below) for release.
+  # minio:
+  #   image: quay.io/minio/minio:latest
+  #   container_name: kuspace-minio
+  #   command: server /data --console-address ":9001"
+  #   environment:
+  #     MINIO_ROOT_USER: minioadmin
+  #     MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?see configs/secrets.env.example}
+  #   networks:
+  #     - app_network
+  #   ports:
+  #     - "19000:9000"
+  #     - "19001:9001"
+  #   volumes:
+  #     - minio-data:/data
+  #   # uspace needs MinIO accepting requests at startup, not just started
+  #   healthcheck:
+  #     test: ["CMD", "mc", "ready", "local"]
+  #     interval: 3s
+  #     timeout: 3s
+  #     retries: 20
+
   minioth:
     build:
-      context: .. 
-      dockerfile: build/Dockerfile.minioth
+      context: ../../third_party/minioth
     container_name: minioth
     networks:
       - app_network
+    ports:
+      - "9090:9090"
+    environment:
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?see configs/secrets.env.example}
+      JWT_REFRESH_KEY: ${JWT_REFRESH_SECRET_KEY:?see configs/secrets.env.example}
+      SERVICE_SECRETS: ${MINIOTH_SERVICE_SECRETS:?see configs/secrets.env.example}
+      ROOT_PASSWORD: ${MINIOTH_SECRET_KEY:?see configs/secrets.env.example}
     volumes:
-      - ../data:/root/data
-    
-  uspace:
+      - ../../configs/minioth.conf:/app/minioth.env:ro
+      - minioth-data:/data
+
+  wss:
     build:
-      context: ..
-      dockerfile: build/Dockerfile.uspace 
-    container_name: uspace 
+      context: ../..
+      dockerfile: build/Dockerfile.wss
+    container_name: wss
     networks:
       - app_network
+    ports:
+      - "18082:8082"
+    environment:
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?see configs/secrets.env.example}
+      SERVICE_SECRET_KEY: ${SERVICE_SECRET_KEY:?see configs/secrets.env.example}
     volumes:
-      - ../data:/root/data 
+      - ../../configs/wss.conf:/root/configs/wss.conf:ro
+      - ../../data:/root/data
+
+  uspace:
+    build:
+      context: ../..
+      dockerfile: build/Dockerfile.uspace
+    container_name: uspace
+    depends_on:
+      # minio:              # DEV SESSION: bundled MinIO disabled
+      #   condition: service_healthy
+      minioth:
+        condition: service_started
+      wss:
+        condition: service_started
+    networks:
+      - app_network
+      - rumie_default       # DEV SESSION: reach rumie-minio
+    ports:
+      - "18079:8079"
+    # retries if MinIO is briefly unreachable at startup
+    restart: on-failure
+    environment:
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?see configs/secrets.env.example}
+      SERVICE_SECRET_KEY: ${SERVICE_SECRET_KEY:?see configs/secrets.env.example}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?see configs/secrets.env.example}
+      MINIO_ENDPOINT: rumie-minio:9000   # DEV SESSION: overrides uspace.conf
+    volumes:
+      - ../../configs/uspace.conf:/root/configs/uspace.conf:ro
+      - ../../data:/root/data
 
   frontapp:
     build:
-      context: ..
+      context: ../..
       dockerfile: build/Dockerfile.frontapp
-    container_name: frontapp 
+    container_name: frontapp
+    depends_on:
+      - uspace
+      - minioth
+      - wss
     networks:
       - app_network
-    ports: 
-      - "8080:8080"
-
+    ports:
+      - "18080:8080"
+    environment:
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?see configs/secrets.env.example}
+      SERVICE_SECRET_KEY: ${SERVICE_SECRET_KEY:?see configs/secrets.env.example}
+    volumes:
+      - ../../configs/frontapp.conf:/root/configs/frontapp.conf:ro
+      - ../../data:/root/data

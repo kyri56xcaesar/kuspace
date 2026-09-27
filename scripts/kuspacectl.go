@@ -24,6 +24,8 @@ const (
 	frontappConfPath = "configs/frontapp.conf"
 	miniothConfPath  = "configs/minioth.conf"
 	wssConfPath      = "configs/wss.conf"
+	// gitignored single source of secrets, see configs/secrets.env.example
+	secretsPath = "configs/secrets.env"
 )
 
 var (
@@ -65,7 +67,7 @@ func main() {
 	// BUILD images option
 	if b {
 		fmt.Println("🔧 Building all images")
-		if err := run("docker", "buildx", "build", "-f", "build/Dockerfile.minioth", "-t", "kyri56xcaesar/kuspace:minioth-latest", "."); err != nil {
+		if err := run("docker", "buildx", "build", "-f", "third_party/minioth/Dockerfile", "-t", "kyri56xcaesar/kuspace:minioth-latest", "third_party/minioth"); err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
@@ -250,11 +252,17 @@ func main() {
 		// CREATE SECRETS & deploy
 		{
 			fmt.Println("🔑 Creating Secrets for JWT and inner service circle...")
-			// parse 1 conf, each conf should have the same secret
-			secrets, err := parseConfFileSecrets(uspaceConfPath)
+			// secrets never live in the tracked *.conf files, only in secretsPath
+			secrets, err := parseConfFileSecrets(secretsPath)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "❌ failed to parse configuration: %v", err)
+				fmt.Fprintf(os.Stderr, "❌ failed to read %s (copy configs/secrets.env.example): %v", secretsPath, err)
 				os.Exit(1)
+			}
+			for k, v := range secrets {
+				if v == "" {
+					fmt.Fprintf(os.Stderr, "❌ secret %s is empty in %s", k, secretsPath)
+					os.Exit(1)
+				}
 			}
 			secretYaml := buildSecretsYAML(ns, secrets)
 			err = os.WriteFile(deploymentsRoot+"/secrets/secrets.yaml", []byte(secretYaml), 0o600)

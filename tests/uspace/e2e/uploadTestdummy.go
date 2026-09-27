@@ -20,7 +20,6 @@ const (
 	uploadURL   = "http://localhost:30079/api/v1/resource/upload"
 	tempDir     = "./tmp/upload_temp"
 	concurrency = 50
-	secret      = "1f4a96feb2603733a9e0fc6e9e79a7c6a94ae983b771212767f5793c418f2e30"
 )
 
 type result struct {
@@ -28,7 +27,13 @@ type result struct {
 	err     error
 }
 
+// secret is the X-Service-Secret, read from the env (see configs/secrets.env)
+var secret = os.Getenv("SERVICE_SECRET_KEY")
+
 func main() {
+	if secret == "" {
+		panic("SERVICE_SECRET_KEY must be set (see configs/secrets.env)")
+	}
 	start := time.Now()
 
 	// Step 1: Create temp directory
