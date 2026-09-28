@@ -198,6 +198,25 @@ checks and logs only its sections (Tokens and Storage split out).
 | - | UI | No way to manage personal quotas or group volumes. | Admin > Storage > Quotas & sharing (uspace `/admin/user/volume` GET/PATCH/DELETE, frontapp routes). |
 | - | languages | Code languages had no UI and defaulted to `:latest` images. | Catalogue apps with pinned small images and working starters (all nine run against presigned URLs). |
 
+### Round 9 (2026-09-28: code health)
+
+| Sev | Where | Problem | Fix |
+|---|---|---|---|
+| MED | fslite listings | Fuzzing found prefix listings case-insensitive (SQLite LIKE: "AB" listed "/ab"). | Exact `substr` comparison. |
+| MED | uspace moves | The old object was removed before the record update: a failed update left a record pointing at nothing. | Copy, update the record, then remove the old object. |
+| LOW | lint | 42 findings; CI only failed on new ones; `unused` disabled. | Zero findings, CI fails on any, `unused` on: 18 dead functions removed (one would `log.Fatal` uspace). |
+| LOW | errors | `[ERROR]`-prefixed messages without a kind (500 for bad input). | Kinds (`ErrInvalid`, ...), helpers deleted. |
+
+Tests added: 9 fuzz targets (`make fuzz`, CI 10s each; Access-Target
+identity, names/paths, tokens, tickets, config values, prefix listings);
+property tests - quota accounting against a model (8 seeds x 300 steps)
+and "no record without its object" through the handlers over storage that
+fails 30% of calls before or after taking effect (6 x 250); both fail on
+the bugs they guard (checked by planting them). Browser JS suites in
+`web/tests` (csrf.js, gShell commands, every language starter against
+fake presigned URLs; `make test-js`, in CI with ruby/php/java installed).
+tests/uspace (thesis scaffolding) retired to playground.
+
 ---
 
 ## Open
@@ -218,13 +237,11 @@ checks and logs only its sections (Tokens and Storage split out).
   submodule to it.
 
 ### Code health
-- `MED` tests: unit suites for utils (incl. config), uspace (identity, executor,
-  access targets, job I/O authorization), fslite (quotas, names, races, server
-  API via httptest), wss (sessions over real WebSockets), frontapp (gid order),
-  minioth; `scripts/smoke.sh` end to end. Next: uspace upload/quota handlers
-  and frontapp handlers through `httptest` (frontapp after its refactor).
-- `LOW` golangci-lint: 39 style findings left (revive, staticcheck quick-fixes,
-  testpackage, ...).
+- `LOW` a frontend (JS) linter and DOM-level tests for the console pages
+  (quotas.js, admin-panel.js) - the JS tests cover csrf.js, gShell and the
+  starters only.
+- `LOW` the Swagger docs (api/) predate this year's API changes; regenerate
+  with `make api-docs` after the next API change settles.
 
 ### Operations
 - `MED` CI runs unit tests and lint (`.github/workflows/ci.yml`) but has not run
@@ -244,8 +261,8 @@ checks and logs only its sections (Tokens and Storage split out).
   commits).
 
 ### Next up
-1. Fuzz and property tests (parsers, quota accounting, write ordering under
-   injected failures), then `fsck` (consistency steps 3-4).
+1. `fsck` (consistency step 3): the fault-injecting storage fake and the
+   property tests are in place.
 3. Jobs across restarts.
 4. Schema migrations (see Design notes below).
 5. minioth plain store: harden or drop (decision pending).
