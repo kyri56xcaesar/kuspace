@@ -315,7 +315,7 @@ func (fsl *FsLite) deleteResourceHandler(c *gin.Context) {
 		resource.Vname = vname
 	}
 
-	if !unlocked {
+	if !fsl.config.FslUnlocked {
 		res, err := fsl.SelectObjects(c.Request.Context(), map[string]any{"name": resource.Name, "volume": resource.Vname})
 		if err != nil {
 			log.Printf("failed to retrieve info for the specified object")
@@ -395,6 +395,21 @@ func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
 		return
 	}
 
+	db, err := fsl.dbh.GetConn()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "database unavailable"})
+
+		return
+	}
+	// resources reference their volume by id (a foreign key): uploads used
+	// to carry vid 0 and were all rejected
+	volume, err := getVolumeByName(c.Request.Context(), db, vname)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no such volume"})
+
+		return
+	}
+
 	err = c.Request.ParseMultipartForm(10 << 10)
 	if err != nil {
 		log.Printf("[FSL_API_uploadResource] failed to parse multipart form: %v", err)
@@ -421,6 +436,7 @@ func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
 		/* Insert the appropriate metadata as a resource */
 		resource := ut.Resource{
 			Vname:  vname,
+			VID:    volume.VID,
 			Name:   fileHeader.Filename,
 			Type:   "file",
 			Reader: file,
@@ -430,15 +446,18 @@ func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
 			Size:   fileHeader.Size,
 		}
 
-		if !unlocked {
+		if !fsl.config.FslUnlocked {
 			err = fsl.ClaimSpace(c.Request.Context(), uid, resource.Vname, resource.Size, fsl.config.LocalVolumesDefaultCapacity, true)
 			if err != nil {
-				err = file.Close()
-				if err != nil {
-					log.Printf("failed to close the file: %v", err)
+				if cErr := file.Close(); cErr != nil {
+					log.Printf("failed to close the file: %v", cErr)
 				}
-				log.Printf("failed to claim volume space.: %v", err)
-				c.JSON(http.StatusBadRequest, gin.H{"error": "volume claim denied"})
+				log.Printf("failed to claim volume space: %v", err)
+				status := http.StatusBadRequest
+				if errors.Is(err, ErrQuotaExceeded) || errors.Is(err, ErrVolumeFull) {
+					status = http.StatusInsufficientStorage
+				}
+				c.JSON(status, gin.H{"error": "volume claim denied: " + err.Error()})
 
 				return
 			}
@@ -449,6 +468,11 @@ func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
 			log.Printf("failed to close the file: %v", cErr)
 		}
 		if err != nil {
+			if !fsl.config.FslUnlocked { // give back what was claimed for it
+				if rErr := fsl.ReleaseSpace(c.Request.Context(), uid, resource.Vname, resource.Size); rErr != nil {
+					log.Printf("failed to release claimed space: %v", rErr)
+				}
+			}
 			if errors.Is(err, ErrResourceExists) {
 				c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 

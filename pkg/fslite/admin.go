@@ -188,6 +188,17 @@ type CustomClaims struct {
 
 // generateAccessJWT creates and signs a JWT token for the given user ID and username.
 // Returns the signed token string or an error.
+// tokenValidity is JwtValidityHours as a duration (4h when unset). It used
+// to be time.Duration(JwtValidityHours) hours, truncating 0.5 to 0: tokens
+// that were expired when issued.
+func tokenValidity() time.Duration {
+	if JwtValidityHours <= 0 {
+		return 4 * time.Hour
+	}
+
+	return time.Duration(JwtValidityHours * float64(time.Hour))
+}
+
 func generateAccessJWT(userID, username string) (string, error) {
 	// Set the claims for the token
 	claims := CustomClaims{
@@ -195,7 +206,7 @@ func generateAccessJWT(userID, username string) (string, error) {
 		Username: username,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "fslite",
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * time.Duration(JwtValidityHours))),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(tokenValidity())),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Subject:   userID,
 		},

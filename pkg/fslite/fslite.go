@@ -62,7 +62,6 @@ var (
 	fsliteDataPath            = "data/volumes/fslite"
 	defaultVolumeName         = "default_ku_space_volume"
 	verbose                   = false
-	unlocked                  = false
 	defaultVolumeCap  float64 = 20
 	maxVolumeCap      float64 = 100
 )

@@ -98,7 +98,7 @@ type FsliteConfig struct {
 	FslDBMaxIdleConns string `env:"FSL_DB_MAX_IDLE_CONNS" default:"10"`
 	FslDBMaxLifetime  string `env:"FSL_DB_MAX_LIFETIME" default:"10"`                // minutes
 	FslAccessKey      string `env:"FSL_ACCESS_KEY" default:"fsladmin"`               // admin username
-	FslSecretKey      string `env:"FSL_SECRET_KEY" default:"fsladmin" secret:"true"` // admin password, signs admin tokens
+	FslSecretKey      string `env:"FSL_SECRET_KEY" default:"fsladmin" secret:"true"` // admin password
 	FslServer         bool   `env:"FSL_SERVER" default:"true"`
 	FslLocality       bool   `env:"FSL_LOCALITY" default:"true"`  // keep file contents on local disk
 	FslUnlocked       bool   `env:"FSL_UNLOCKED" default:"false"` // don't limit or check usage/capacity

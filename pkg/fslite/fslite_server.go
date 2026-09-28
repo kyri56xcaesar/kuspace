@@ -2,6 +2,7 @@ package fslite
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"log"
 	"net/http"
@@ -28,6 +29,11 @@ const (
 // The server listens for system interrupt signals to gracefully shut down, closing
 // database connections and waiting for in-flight requests to complete before exiting.
 func (fsl *FsLite) ListenAndServe() {
+	fsl.serve(fsl.routes())
+}
+
+// routes registers the API on fsl.Engine and returns it.
+func (fsl *FsLite) routes() *gin.Engine {
 	srv := fsl.Engine
 
 	srv.GET("/health", func(c *gin.Context) {
@@ -64,6 +70,11 @@ func (fsl *FsLite) ListenAndServe() {
 		admin.Match([]string{"GET"}, "/system-conf", fsl.handleSysConf)
 	}
 
+	return srv
+}
+
+// serve runs the server until SIGINT/SIGTERM, then shuts down gracefully.
+func (fsl *FsLite) serve(srv *gin.Engine) {
 	server := &http.Server{
 		Addr:              fsl.config.Addr(fsl.config.APIPort),
 		Handler:           srv,
@@ -95,44 +106,34 @@ func (fsl *FsLite) ListenAndServe() {
 	log.Println("[FSL_SERVER] Server exiting")
 }
 
+// authmiddleware admits services (X-Service-Secret) and admins with a valid
+// fslite token, both acting as uid 0; everyone else gets 401.
 func authmiddleware(cfg ut.EnvConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if sSecretClaim := c.GetHeader("X-Service-Secret"); sSecretClaim != "" {
-			if sSecretClaim == string(cfg.ServiceSecretKey) {
-				log.Printf("[FSL_SERVER_middleware] service secret accepted. access granted.")
+		if claim := c.GetHeader("X-Service-Secret"); claim != "" {
+			if len(cfg.ServiceSecretKey) > 0 && subtle.ConstantTimeCompare([]byte(claim), cfg.ServiceSecretKey) == 1 {
+				c.Set("uid", "0")
 				c.Next()
 
 				return
 			}
-			log.Printf("[FSL_SERVER_middleware] service secret invalid. access not granted")
-			c.Abort()
+			// used to Abort without a status: an empty 200
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid service secret"})
 
 			return
 		}
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			log.Printf("[FSL_SERVER_middleware] authorization header not found")
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is required"})
-			c.Abort()
-
-			return
-		}
-
-		// Extract the token from the Authorization header
-		tokenString := authHeader[len("Bearer "):]
-		if tokenString == "" {
-			log.Printf("[FSL_SERVER_middleware] bearer token not found")
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Bearer token is required"})
-			c.Abort()
+		// used to slice the header blindly, panicking on short values
+		tokenString, found := strings.CutPrefix(c.GetHeader("Authorization"), "Bearer ")
+		if !found || tokenString == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "a bearer token is required"})
 
 			return
 		}
 
 		ok, claims, err := decodeJWT(tokenString)
 		if err != nil {
-			log.Printf("[FSL_SERVER_middleware] token bad format")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to decode token"})
-			c.Abort()
+			log.Printf("[FSL_SERVER_middleware] rejected token: %v", err)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 
 			return
 		}
@@ -140,7 +141,11 @@ func authmiddleware(cfg ut.EnvConfig) gin.HandlerFunc {
 		// Set claims in the context for further use
 		if ok {
 			c.Set("username", claims.Username)
-			c.Set("uid", claims.ID)
+			c.Set("admin_id", claims.ID)
+			// admins are the store's superusers: they act as root (uid 0).
+			// uid used to be the admin's UUID, which the upload and delete
+			// handlers can't parse: every admin upload failed with 500.
+			c.Set("uid", "0")
 		} else {
 			log.Printf("[FSL_SERVER_middleware] invalid token claims")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})

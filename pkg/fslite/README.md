@@ -47,10 +47,17 @@ duplicate names, and quota changes run in one transaction each.
 
 ## Standalone server
 
-`POST /api/v1/login` returns an admin token (HS256, issuer `fslite`, signed with a
-key derived from `FSL_SECRET_KEY`; the server refuses to start without one). The
-`/api/v1/admin/...` routes (volumes, resources: get/stat/upload/download/copy/delete,
-register) require it. Admin passwords: 8–72 printable characters, bcrypt default cost.
+`POST /login` (JSON `{"username", "password"}`) returns an admin token: HS256,
+issuer `fslite`, signed with a key derived from `JWT_SECRET_KEY`. The server refuses
+to start without that key. The `/admin/...` routes require the token or the service
+secret (`X-Service-Secret`):
+
+- volumes: `new`, `get`, `delete`
+- resources: `get`, `stat`, `upload`, `download`, `copy`, `delete`
+- `register`, `user/volumes`, `system-conf`
+
+Both kinds of caller act as uid 0 (root). Admin passwords: 8–72 printable characters,
+bcrypt default cost. `pkg/fslite/server_test.go` exercises the API through `httptest`.
 
 ## Configuration
 
@@ -59,7 +66,8 @@ register) require it. Admin passwords: 8–72 printable characters, bcrypt defau
 | `FSL_DB`, `FSL_DB_PATH` | `database.db`, `data/db/fslite` | uspace overrides the file name to `fsl_local.db` |
 | `FSL_SERVER` | `true` | serve the HTTP API |
 | `FSL_LOCALITY` | `true` | keep file contents under `LOCAL_VOLUMES_DEFAULT_PATH` |
-| `FSL_ACCESS_KEY`, `FSL_SECRET_KEY` | `fsladmin` | admin account; the secret also signs admin tokens: **set it** |
+| `FSL_ACCESS_KEY`, `FSL_SECRET_KEY` | `fsladmin` | the first admin account: **set the password** |
+| `FSL_UNLOCKED` | `false` | skip quota and capacity checks on uploads |
 | `LOCAL_VOLUMES_DEFAULT_CAPACITY` | `20` | GB; also the default per-user quota |
 
 All variables are listed with their defaults in `internal/utils/config.go` (`FsliteConfig`).

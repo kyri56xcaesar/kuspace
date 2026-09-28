@@ -56,3 +56,14 @@ func TestAdminPasswordRules(t *testing.T) {
 		}
 	}
 }
+
+func TestTokenValidity(t *testing.T) {
+	old := JwtValidityHours
+	t.Cleanup(func() { JwtValidityHours = old })
+	for hours, want := range map[float64]time.Duration{0.5: 30 * time.Minute, 2: 2 * time.Hour, 0: 4 * time.Hour} {
+		JwtValidityHours = hours
+		if got := tokenValidity(); got != want {
+			t.Errorf("%v hours -> %v, want %v", hours, got, want)
+		}
+	}
+}
