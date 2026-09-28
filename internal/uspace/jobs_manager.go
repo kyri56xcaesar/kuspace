@@ -1,15 +1,12 @@
 package uspace
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -319,39 +316,6 @@ func streamToSocketWS(jobID int64, ch <-chan []byte) {
 			log.Printf("failed to write to the websocket writer: %v", err)
 
 			return
-		}
-	}
-}
-
-func streamToSocket(jobID int, pipe io.Reader) {
-	jobIDStr := strconv.Itoa(jobID)
-	scanner := bufio.NewScanner(pipe)
-
-	log.Printf("streamToSocket function called")
-
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		// log.Printf("line about to be streamed: %s", line)
-
-		req, err := http.NewRequestWithContext(context.Background(), http.MethodPost,
-			fmt.Sprintf("http://"+jobsSocketAddress+"/get-session?jid=%s&role=Producer", jobIDStr),
-			strings.NewReader(line),
-		)
-		if err != nil {
-			log.Printf("failed to send log line to socket server: %v", err)
-
-			return
-		}
-
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			log.Printf("failed to perform the request: %v", err)
-
-			continue
-		}
-		if err := resp.Body.Close(); err != nil {
-			log.Printf("failed to close response body: %v", err)
 		}
 	}
 }

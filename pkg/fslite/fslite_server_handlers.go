@@ -545,9 +545,6 @@ func (fsl *FsLite) copyResourceHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "copy complete"})
 }
 
-func (fsl *FsLite) shareResourceHandler(_ *gin.Context) {
-}
-
 // @Summary Manage user volume claims
 // @Description Fetch user-to-volume mappings. (Currently only GET is implemented. PATCH/DELETE placeholders.)
 // @Tags volume

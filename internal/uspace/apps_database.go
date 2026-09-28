@@ -194,45 +194,6 @@ func (srv *UService) removeApps(ctx context.Context, ids []int) error {
 	return nil
 }
 
-func (srv *UService) getAppByID(ctx context.Context, id int) (ut.Application, error) {
-	var app ut.Application
-	db, err := srv.jdbh.GetConn()
-	if err != nil {
-		log.Printf("failed to get database connection: %v", err)
-
-		return app, fmt.Errorf("failed to retrieve db conn: %w", err)
-	}
-	query := `
-		SELECT
-			*
-		FROM
-			apps
-		WHERE
-			id = ?`
-
-	var insertedAt, createdAt sql.NullString
-	err = db.QueryRowContext(ctx, query, id).Scan(&app.ID, &app.Name, &app.Image, &app.Description,
-		&app.Version, &app.Author, &app.AuthorID, &app.Status, &insertedAt, &createdAt)
-	if err != nil {
-		log.Printf("failed to query row: %v", err)
-
-		return app, fmt.Errorf("failed to query row: %w", err)
-	}
-
-	if insertedAt.Valid {
-		app.InsertedAt = insertedAt.String
-	} else {
-		app.InsertedAt = ""
-	}
-	if createdAt.Valid {
-		app.CreatedAt = createdAt.String
-	} else {
-		app.CreatedAt = ""
-	}
-
-	return app, nil
-}
-
 func (srv *UService) getAppByNameAndVersion(ctx context.Context, name, version string) (ut.Application, error) {
 	var app ut.Application
 	db, err := srv.jdbh.GetConn()

@@ -62,12 +62,12 @@ linters:
   disable:
     - godot
     - testpackage # tests live in their package and use its internals
-    - unused
     - wsl
   exclusions:
     generated: lax
     paths:
       - third_party$
+      - playground
       - builtin$
       - examples$
 formatters:

@@ -716,57 +716,6 @@ func (fsl *FsLite) Share(_ context.Context, _ string, _ any) (any, error) {
 	return nil, nil
 }
 
-/* this should be determined by configurating Volume destination.
-*  also it will ensure the destination location exists.
-* */
-func determinePhysicalStorage(target string, fileSize int64) (string, error) {
-	targetParts := strings.Split(target, "/")
-	availableSpace, err := ut.GetAvailableSpace(strings.Join(targetParts[:2], "/"))
-	if err != nil {
-		return "", fmt.Errorf("failed to get available space: %w", err)
-	}
-
-	if fileSize < 0 || availableSpace < uint64(fileSize) {
-		return "", errors.New("insufficient space")
-	}
-
-	_, err = os.Stat(targetParts[0])
-	if err != nil {
-		err = os.Mkdir(targetParts[0], 0o700)
-		if err != nil {
-			log.Printf("failed to mkdir: %v", err)
-
-			return "", err
-		}
-
-		_, err = os.Stat(strings.Join(targetParts[:2], "/"))
-		if err != nil {
-			err = os.Mkdir(strings.Join(targetParts[:2], "/"), 0o700)
-			if err != nil {
-				log.Printf("failed to mkdir: %v", err)
-
-				return "", err
-			}
-		}
-	}
-
-	for index, part := range targetParts[2:] {
-		if part == "" || index == len(targetParts)-1 {
-			continue
-		}
-		currPath := strings.Join(targetParts[:index], ",")
-		_, err := os.Stat(currPath)
-		if err != nil {
-			err = os.Mkdir(currPath, 0o700)
-			if err != nil {
-				log.Printf("failed to mkdir: %v", err)
-			}
-		}
-	}
-
-	return target, nil
-}
-
 func (fsl *FsLite) selectUserVolumes(ctx context.Context, how map[string]any) (any, error) {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {

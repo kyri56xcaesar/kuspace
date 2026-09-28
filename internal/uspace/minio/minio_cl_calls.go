@@ -11,7 +11,6 @@ import (
 	ut "kyri56xcaesar/kuspace/internal/utils"
 	"log"
 	"net/url"
-	"os"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -68,20 +67,6 @@ func (mc *Client) listBuckets(ctx context.Context) ([]minio.BucketInfo, error) {
 	return buckets, nil
 }
 
-func (mc *Client) bucketExists(ctx context.Context, bucketname string) (bool, error) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	exists, err := mc.client.BucketExists(ctx, bucketname)
-	if err != nil {
-		log.Printf("failed to check if bucket exists: %v", err)
-
-		return false, mapErr(err)
-	}
-
-	return exists, nil
-}
-
 func (mc *Client) removeBucket(ctx context.Context, bucketname string) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -107,43 +92,7 @@ func (mc *Client) listObjects(ctx context.Context, bucketname, prefix string) (<
 	return objectCh, cancel
 }
 
-func (mc *Client) listIncompleteUploads(ctx context.Context, bucketname, prefix string, isRecursive bool) {
-	// List all incomplete uploads from a bucket-name with a matching prefix.
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	objectCh := mc.client.ListIncompleteUploads(ctx, bucketname, prefix, isRecursive)
-	for object := range objectCh {
-		if object.Err != nil {
-			fmt.Println(object.Err)
-
-			return
-		}
-		fmt.Println(object)
-	}
-}
-
 // bucket control
-
-// direct object to/from fs minio
-func (mc *Client) fPutObject(ctx context.Context, bucketname, objectname, filepath string) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	// determine content-type
-	contentType := "application/json"
-
-	uploadInfo, err := mc.client.FPutObject(ctx, bucketname, objectname, filepath, minio.PutObjectOptions{
-		ContentType: contentType,
-	})
-	if err != nil {
-		log.Printf("failed to fput object to minio: %v", err)
-
-		return
-	}
-
-	log.Println("successfully uploaded object: ", uploadInfo)
-}
 
 func (mc *Client) fGetObject(ctx context.Context, bucketname, objectname, filepath string) (context.CancelFunc, error) {
 	ctx, cancel := context.WithCancel(ctx)
@@ -225,80 +174,6 @@ func (mc *Client) removeObject(ctx context.Context, bucketname, objectname strin
 	}
 
 	return mapErr(err)
-}
-
-func (mc *Client) removeObjects(ctx context.Context, bucketname string, objects <-chan minio.ObjectInfo) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	opts := minio.RemoveObjectsOptions{
-		GovernanceBypass: true,
-	}
-
-	for rErr := range mc.client.RemoveObjects(ctx, bucketname, objects, opts) {
-		log.Print("error deleting objects: ", rErr)
-	}
-}
-
-func (mc *Client) selectObjectContent(ctx context.Context, bucketname, objectname string) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	opts := minio.SelectObjectOptions{
-		Expression:     "select count(*) from s3object",
-		ExpressionType: minio.QueryExpressionTypeSQL,
-		InputSerialization: minio.SelectObjectInputSerialization{
-			CompressionType: minio.SelectCompressionNONE,
-			CSV: &minio.CSVInputOptions{
-				FileHeaderInfo:  minio.CSVFileHeaderInfoNone,
-				RecordDelimiter: "\n",
-				FieldDelimiter:  ",",
-			},
-		},
-		OutputSerialization: minio.SelectObjectOutputSerialization{
-			CSV: &minio.CSVOutputOptions{
-				RecordDelimiter: "\n",
-				FieldDelimiter:  ",",
-			},
-		},
-	}
-
-	reader, err := mc.client.SelectObjectContent(ctx, bucketname, objectname, opts)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	defer func() {
-		err := reader.Close()
-		if err != nil {
-			log.Printf("failed to close reader: %v", err)
-		}
-	}()
-
-	if _, err := io.Copy(os.Stdout, reader); err != nil {
-		log.Fatalln(err)
-	}
-}
-
-// object control
-func (mc *Client) getObjectAttributes(ctx context.Context, bucketname, objectname string) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	objectAttributes, err := mc.client.GetObjectAttributes(
-		ctx,
-		bucketname,
-		objectname,
-		minio.ObjectAttributesOptions{
-			VersionID: "object-version-id",
-			MaxParts:  100,
-		})
-	if err != nil {
-		fmt.Println(err)
-
-		return
-	}
-
-	fmt.Println(objectAttributes)
 }
 
 func (mc *Client) getPresignedObject(ctx context.Context, bucketname, objectname string, duration time.Duration) (*url.URL, error) {

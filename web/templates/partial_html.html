@@ -511,34 +511,6 @@
 {{ end }}
 
 
-{{ define "apps_display_template.html"}}
-<div id="applications-display-container">
-  <div>
-    <h3>Applications</h3>
-  </div>
-  <div class="table-container">
-    <table class="darkened k-table" id="all-apps-table">
-      <thead>
-        <tr>
-          <th>Application</th>
-          <th>Image</th>
-          <th>Description</th>
-          <th>Version</th>
-          <th>LAT</th>
-          <th>Author</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody class="k-users-body">
-        {{ range $index, $app := . }}
-
-        {{ end }}
-      </tbody>
-    </table>
-  </div>
-</div>
-{{ end }}
-
 {{ define "sys_conf_display.html" }}
 {{ range $service, $config := . }}
 <dl class="sys-config" aria-label="{{ $service }} settings">
