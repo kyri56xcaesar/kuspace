@@ -146,37 +146,54 @@ WebSockets); the config (defaults, strict parsing, shipped files); the old
 `tests/fslite` (never ran) replaced; Go experiments moved to
 `playground/_go_experiments`.
 
+### Round 6 (2026-09-28: group volumes, frontapp refactor, security)
+
+| Sev | Where | Problem | Fix |
+|---|---|---|---|
+| CRIT | uspace Access-Target | Split at the first space, and frontapp put user input (download targets, file names) before it: `target=/f.txt 0:0` made the caller uid 0, bypassing every permission check. | Split at the last space; the identity must be `uid:gid[,gid...]`. File names with spaces work now. |
+| HIGH | uspace jobs | Any user could list every job (code, inputs, outputs) and pick any uid filter. | Non-privileged callers (not a service, admin or root) see their own jobs only. |
+| HIGH | frontapp roles | `strings.Contains("user,admin", group)`: a group named `adm`, or a token with no groups, passed as admin. | Exact group names (`authn.Claims.InGroup`). |
+| HIGH | gshell | Lines rendered with innerHTML, including other users' input in the shared room: anyone could run script in every connected page. It also never connected (no wss ticket). | Text nodes; frontapp issues `jack` tickets for the shared room (jid 0) only. |
+| MED | frontapp CSRF | None (SameSite only). | Double-submit token (`csrf_token` cookie, `X-Csrf-Token` header via `csrf.js`) plus an Origin check. |
+| MED | frontapp | Every request asked minioth to introspect the token (no revocation exists); user calls went to uspace as a service with an identity frontapp assembled from input. | Local verification (`internal/authn`, shared with uspace); calls carry the user's own token. |
+| MED | frontapp fetch-volumes | Listed every volume, as root, to every user. | Admins: all; users: default volume + their group volumes. |
+| MED | fslite | Package globals (data path, token key, capacity) overwritten by every instance; volume dirs created 0644; the verbose log printed the admin's bcrypt hash. | Per-instance fields (`tokenSigner`, `dataPath`); `objectPath` keeps names inside the data dir; 0750; logs removed. |
+| LOW | frontapp | Logout deleted whatever cookies its query named; `jsonPostRequest` cancelled its context before callers read the body; users added by an admin got no storage until uspace restarted; login stored tokens it couldn't verify. | Fixed. |
+
+Features: **group volumes** - a volume shared by one group: members only
+(403 otherwise), files get the group's gid, usage charged to the group's
+quota (never the members' own). fslite `group_volume` table + accounting,
+uspace `/admin/group/volume` and `/volumes/shared`, job outputs honour it.
+
+frontapp: `handlers.go` (3.3k lines) split into storage / jobs /
+admin_users / account / pages over one upstream client; ~2.3k lines incl.
+tests (was 4.4k), with httptest suites (sessions, CSRF, storage, jobs,
+accounts). Config: `LoadConfig(path, sections...)` - each service loads,
+checks and logs only its sections (Tokens and Storage split out).
+
 ---
 
 ## Open
 
 ### Security
-- `MED` no CSRF tokens: `SameSite=Strict` covers modern browsers; add tokens for
-  depth once the frontend is refactored.
-- `LOW` CSP still needs `'unsafe-inline'` scripts for the templates' `onclick=`
-  handlers - remove with the frontend refactor.
+- `MED` CSP still allows `'unsafe-inline'` scripts: the web refurbish (branch
+  `worktree-agent-a9f58b178c34afdba`, in progress) removes the inline handlers,
+  the htmx `js:`/`hx-on` uses and the unescaped template strings (XSS) in
+  admin-panel.js / vfs.js / tree-resources.html; then set `script-src 'self'`.
+  Until that branch is merged the pages on main don't load `csrf.js`, so their
+  state-changing requests are refused (403) - merge before rebuilding images.
 
 ### Correctness and robustness
-- `LOW` uspace group volumes are unfinished: `handleGroupVolumes` is not
-  routed and fslite has query code but no `groupVolume` table. Build or drop.
-- `LOW` fslite keeps settings in package variables (data path, token key):
-  one configuration per process. `SelectObjects` by prefix uses `LIKE`
-  across all volumes.
-- `LOW` minioth's plain-file store (`MINIOTH_HANDLER=plain`): colon-separated
+- `LOW` fslite `SelectObjects` by prefix uses `LIKE` across all volumes.
+- `LOW` group volumes have no admin UI yet (API only: `/admin/group/volume`);
+  users see them in the volume list.
+- `LOW` (decision pending) minioth's plain-file store (`MINIOTH_HANDLER=plain`): colon-separated
   files rewritten whole and non-atomically, a process-local lock only,
   multi-file changes not transactional, `:` in values not rejected. Fine for
   a single dev instance; production uses the database handler.
-- `LOW` gshell (`jack` role) needs a ticket nobody issues yet - dormant by design.
+- `LOW` gshell works again (tickets) but is still an echo room, not a shell.
 
 ### Code health
-- `HIGH` **frontapp refactor** (planned): `handlers.go` is 3.3k lines of
-  hand-built HTTP calls to uspace, each setting `Access-Target` and the service
-  secret itself - which is how the header-forwarding bug happened. Replace with
-  one typed uspace client that forwards the user's token (uspace now trusts
-  tokens); split handlers by domain; drop inline `onclick` for a strict CSP.
-- `LOW` config: every service loads every section, so wss and frontapp warn
-  about default MinIO/fslite secrets they never use. Let each service name the
-  sections it needs (with the frontapp refactor).
 - `MED` tests: unit suites for utils (incl. config), uspace (identity, executor,
   access targets, job I/O authorization), fslite (quotas, names, races, server
   API via httptest), wss (sessions over real WebSockets), frontapp (gid order),
@@ -203,14 +220,13 @@ WebSockets); the config (defaults, strict parsing, shipped files); the old
   commits).
 
 ### Next up
-1. **Schema migrations** (see Design notes below): replace the ad-hoc start-up
-   fixes with numbered, embedded migrations per database.
-2. **frontapp refactor** (typed uspace client, handlers split by domain, strict
-   CSP), then per-service config sections and frontapp handler tests.
-3. Show a job's engine and a Cancel button in the job views (the API has both).
-4. frontapp issues tickets for the gshell room (`jack` role).
-5. Group volumes: build (table, route, UI) or drop.
-6. Nightly `make smoke` in CI; run the kubernetes executor in kind/minikube.
+1. Finish and merge the web refurbish; then strict CSP (`script-src 'self'`),
+   rebuild the images and run `make smoke` (extended with the job-output gid,
+   quoted code, group volume and CSRF checks).
+2. **Schema migrations** (see Design notes below).
+3. Group volume admin UI; show a job's engine and a Cancel button.
+4. minioth plain store: harden or drop (decision pending).
+5. Nightly `make smoke` in CI; run the kubernetes executor in kind/minikube.
 
 ### Design notes: schema migrations
 Today schema changes are applied by start-up code scattered across the
