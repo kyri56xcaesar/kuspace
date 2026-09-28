@@ -34,14 +34,21 @@
     };
   }
 
-  // XMLHttpRequest
-  var open = XMLHttpRequest.prototype.open, send = XMLHttpRequest.prototype.send;
+  // XMLHttpRequest (htmx sends through it too, and its hook above may
+  // already have set the header: setting it twice sends "tok, tok")
+  var open = XMLHttpRequest.prototype.open, send = XMLHttpRequest.prototype.send,
+      setHeader = XMLHttpRequest.prototype.setRequestHeader;
   XMLHttpRequest.prototype.open = function (method, url) {
     this._csrf = !SAFE[String(method).toUpperCase()] && sameOrigin(url);
+    this._csrfSet = false;
     return open.apply(this, arguments);
   };
+  XMLHttpRequest.prototype.setRequestHeader = function (name, value) {
+    if (String(name).toLowerCase() === "x-csrf-token") this._csrfSet = true;
+    return setHeader.apply(this, arguments);
+  };
   XMLHttpRequest.prototype.send = function () {
-    if (this._csrf) this.setRequestHeader("X-CSRF-Token", token());
+    if (this._csrf && !this._csrfSet) this.setRequestHeader("X-CSRF-Token", token());
     return send.apply(this, arguments);
   };
 })();
