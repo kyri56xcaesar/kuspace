@@ -26,7 +26,7 @@ MINIOTH_DIR  := third_party/minioth
 
 .PHONY: help setup submodule secrets \
         build $(addprefix build-,$(SERVICES)) build-minioth run-% \
-        fmt vet lint test test-race test-js check ci tidy \
+        fmt vet lint test test-race test-js fuzz check ci tidy \
         up down restart logs ps smoke images \
         k8s-build k8s-push k8s-deploy k8s-destroy \
         api-docs code-docs clean
@@ -81,6 +81,14 @@ test: ## unit tests
 
 test-race: ## unit tests with the race detector
 	go test -race $(PKGS)
+
+FUZZTIME ?= 20s
+fuzz: ## run every fuzz target for FUZZTIME (default 20s); failures are saved under testdata/fuzz
+	@for pkg in $$(go list ./...); do \
+	  for t in $$(go test -list '^Fuzz' $$pkg 2>/dev/null | grep '^Fuzz'); do \
+	    echo "== $$pkg $$t"; go test $$pkg -run '^$$' -fuzz "^$$t\$$" -fuzztime $(FUZZTIME) || exit 1; \
+	  done; \
+	done
 
 test-js: ## browser JS tests (node:test; languages without an interpreter are skipped)
 	node --test web/tests/

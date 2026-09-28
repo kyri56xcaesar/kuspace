@@ -16,13 +16,13 @@ import (
 
 // newTestFsl builds an FsLite on a fresh SQLite file (in-memory SQLite gives
 // every pooled connection its own empty database).
-func newTestFsl(t *testing.T) *FsLite {
-	t.Helper()
+func newTestFsl(tb testing.TB) *FsLite {
+	tb.Helper()
 	fsl := NewFsLite(ut.EnvConfig{
 		ServiceConfig: ut.ServiceConfig{APIGinMode: "test"},
 		FsliteConfig: ut.FsliteConfig{
 			FslDB:             "fsl_test.db",
-			FslDBPath:         t.TempDir() + "/",
+			FslDBPath:         tb.TempDir() + "/",
 			FslDBDriver:       "sqlite3",
 			FslDBMaxOpenConns: "4",
 			FslDBMaxIdleConns: "2",
@@ -31,33 +31,33 @@ func newTestFsl(t *testing.T) *FsLite {
 			FslSecretKey:      "adminpassword1",
 		},
 	})
-	t.Cleanup(fsl.Close)
+	tb.Cleanup(fsl.Close)
 
 	return &fsl
 }
 
-func mustVolume(t *testing.T, fsl *FsLite, name string, capacityGB float64) int64 {
-	t.Helper()
-	if err := fsl.CreateVolume(t.Context(), ut.Volume{Name: name, Capacity: capacityGB, CreatedAt: ut.CurrentTime()}); err != nil {
-		t.Fatalf("create volume %s: %v", name, err)
+func mustVolume(tb testing.TB, fsl *FsLite, name string, capacityGB float64) int64 {
+	tb.Helper()
+	if err := fsl.CreateVolume(tb.Context(), ut.Volume{Name: name, Capacity: capacityGB, CreatedAt: ut.CurrentTime()}); err != nil {
+		tb.Fatalf("create volume %s: %v", name, err)
 	}
-	v, err := fsl.SelectVolumes(t.Context(), map[string]any{"name": name})
+	v, err := fsl.SelectVolumes(tb.Context(), map[string]any{"name": name})
 	if err != nil {
-		t.Fatalf("select volume %s: %v", name, err)
+		tb.Fatalf("select volume %s: %v", name, err)
 	}
 
 	return v.(ut.Volume).VID
 }
 
-func mustResource(t *testing.T, fsl *FsLite, r ut.Resource) {
-	t.Helper()
+func mustResource(tb testing.TB, fsl *FsLite, r ut.Resource) {
+	tb.Helper()
 	now := ut.CurrentTime()
 	r.CreatedAt, r.UpdatedAt, r.AccessedAt = now, now, now
 	if r.Perms == "" {
 		r.Perms = ut.DefaultFilePerms
 	}
-	if err := fsl.Insert(t.Context(), r); err != nil {
-		t.Fatalf("insert %s: %v", r.Name, err)
+	if err := fsl.Insert(tb.Context(), r); err != nil {
+		tb.Fatalf("insert %s: %v", r.Name, err)
 	}
 }
 
