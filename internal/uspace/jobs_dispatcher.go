@@ -1,6 +1,7 @@
 package uspace
 
 import (
+	"context"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
@@ -29,6 +30,7 @@ the default one is JDispatcher which works as a scheduler
 */
 type JobDispatcher interface {
 	Start()
+	Drain(ctx context.Context) error
 	PublishJob(job ut.Job) error
 	PublishJobs(jobs []ut.Job) error
 	RemoveJob(jid int) error

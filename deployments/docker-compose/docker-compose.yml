@@ -77,6 +77,9 @@ services:
       context: ../..
       dockerfile: build/Dockerfile.uspace
     container_name: uspace
+    # shutdown waits up to 10s for requests and 15s for running jobs
+    # (compose's default is 10s before SIGKILL)
+    stop_grace_period: 30s
     depends_on:
       # minio:              # DEV SESSION: bundled MinIO disabled
       #   condition: service_healthy

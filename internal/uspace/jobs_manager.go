@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	ut "kyri56xcaesar/kuspace/internal/utils"
 
@@ -36,7 +37,10 @@ var jobsSocketAddress = "localhost:8082"
 var jobsServiceSecret []byte
 
 // ErrJobQueueFull is returned when a job can't be queued right now.
-var ErrJobQueueFull = errors.New("job queue full")
+var ErrJobQueueFull = fmt.Errorf("job queue full (%w)", ut.ErrUnavailable)
+
+// ErrShuttingDown is returned for jobs submitted while uspace drains.
+var ErrShuttingDown = fmt.Errorf("uspace is shutting down (%w)", ut.ErrUnavailable)
 
 // JobDispatcherImpl struct, just a paradeigm implementation of the JobManager interface
 type JobDispatcherImpl struct {
@@ -46,6 +50,11 @@ type JobDispatcherImpl struct {
 // Start method launching the Dispatcher work
 func (j JobDispatcherImpl) Start() {
 	j.Manager.StartDispatcher()
+}
+
+// Drain stops taking jobs and waits (until ctx ends) for the running ones.
+func (j JobDispatcherImpl) Drain(ctx context.Context) error {
+	return j.Manager.Drain(ctx)
 }
 
 // PublishJob method which publishes an incoming Job towards into a Queue towards execution
@@ -115,6 +124,9 @@ type JobManager struct {
 	cancelled map[int64]bool                    // queued jobs to skip (guarded by mu)
 	running   map[int64]context.CancelCauseFunc // running jobs' cancel funcs (guarded by mu)
 
+	inflight *sync.WaitGroup // jobs handed to a worker and not finished
+	draining *atomic.Bool    // set by Drain: no new jobs start
+
 	executor JobExecutor // logic defined for exetuing a Job
 }
 
@@ -142,6 +154,8 @@ func NewJobManager(srv *UService) JobManager {
 		workerPool: make(chan struct{}, mw),
 		cancelled:  map[int64]bool{},
 		running:    map[int64]context.CancelCauseFunc{},
+		inflight:   &sync.WaitGroup{},
+		draining:   &atomic.Bool{},
 	}
 
 	executor, err := JobExecutorShipment(srv.config.UspaceJobExecutor, &jm)
@@ -158,6 +172,12 @@ func (jm *JobManager) StartDispatcher() {
 	log.Printf("[Scheduler] Starting worker")
 	go func() {
 		for job := range jm.jobQueue {
+			if jm.draining.Load() {
+				// stays "queued" in the database; picked up again at start (BACKLOG: jobs across restarts)
+				log.Printf("[Scheduler] draining: job ID=%d left queued", job.JID)
+
+				continue
+			}
 			if jm.takeCancelled(job.JID) {
 				log.Printf("[Scheduler] Job ID=%d was cancelled while queued; skipping", job.JID)
 
@@ -168,7 +188,9 @@ func (jm *JobManager) StartDispatcher() {
 			log.Printf("[Scheduler] Assigned job ID=%ds to a worker. Active workers: %d/%d",
 				job.JID, len(jm.workerPool), cap(jm.workerPool))
 			// the worker itself will release it
+			jm.inflight.Add(1)
 			go func() {
+				defer jm.inflight.Done()
 				err := jm.executor.ExecuteJob(job) // spawn worker goroutine
 				if err != nil {
 					log.Printf("execution of job: %v failed.", job.JID)
@@ -181,6 +203,9 @@ func (jm *JobManager) StartDispatcher() {
 // ScheduleJob method puts a job into the execution queue
 func (jm *JobManager) ScheduleJob(jb ut.Job) error {
 	log.Printf("[Scheduler] Scheduling job... ID=%d", jb.JID)
+	if jm.draining.Load() {
+		return ErrShuttingDown
+	}
 
 	jb.Status = "queued"
 	jb.CreatedAt = ut.CurrentTime()
@@ -195,6 +220,26 @@ func (jm *JobManager) ScheduleJob(jb ut.Job) error {
 		log.Printf("⚠️ [Scheduler] Job queue full! Job ID=%d rejected", jb.JID)
 
 		return ErrJobQueueFull
+	}
+}
+
+// Drain stops starting jobs (new submissions get ErrShuttingDown, queued
+// ones stay queued in the database) and waits for the running ones to
+// finish, or for ctx to end. Jobs still running then keep running in their
+// containers; their status is settled when uspace starts again.
+func (jm *JobManager) Drain(ctx context.Context) error {
+	jm.draining.Store(true)
+	done := make(chan struct{})
+	go func() { jm.inflight.Wait(); close(done) }()
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		jm.mu.Lock()
+		n := len(jm.running)
+		jm.mu.Unlock()
+
+		return fmt.Errorf("%d job(s) still running: %w", n, ctx.Err())
 	}
 }
 

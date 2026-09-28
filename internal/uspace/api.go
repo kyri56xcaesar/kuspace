@@ -195,18 +195,29 @@ func (srv *UService) Serve() {
 	stop()
 	log.Println("[USPACE_SERVER] shutting down gracefully, press Ctrl+C again to force")
 
-	/* don't forgt to close the db conn */
+	// in order: finish the HTTP requests in flight, let running jobs finish
+	// (they record their output and status), then close the databases.
+	// (The databases used to be closed first, failing the requests still
+	// being served.)
+	shutCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer cancel()
+	if err := server.Shutdown(shutCtx); err != nil {
+		log.Printf("[USPACE_SERVER] requests cut short: %v", err)
+	}
+	drainCtx, cancelDrain := context.WithTimeout(context.WithoutCancel(ctx), jobDrainTimeout)
+	defer cancelDrain()
+	if err := srv.jdp.Drain(drainCtx); err != nil {
+		log.Printf("[USPACE_SERVER] stopped waiting for jobs: %v", err)
+	}
 	srv.jdbh.Close()
 	srv.fsl.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := server.Shutdown(ctx); err != nil {
-		log.Fatal("[USPACE_SERVER] Server forced to shutdown: ", err)
-	}
-
 	log.Println("[USPACE_SERVER] Server exiting")
 }
+
+// jobDrainTimeout bounds how long shutdown waits for running jobs
+// (kubernetes gives pods 30s by default after SIGTERM; stay inside it).
+const jobDrainTimeout = 15 * time.Second
 
 // RegisterRoutes method will simply attach the endpoints to the server
 func (srv *UService) RegisterRoutes() {

@@ -3,7 +3,9 @@ package uspace
 import (
 	"context"
 	"errors"
+	"net/http"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -35,6 +37,8 @@ func newTestManager() (*JobManager, *recordingExecutor) {
 		workerPool: make(chan struct{}, 2),
 		cancelled:  map[int64]bool{},
 		running:    map[int64]context.CancelCauseFunc{},
+		inflight:   &sync.WaitGroup{},
+		draining:   &atomic.Bool{},
 	}
 	ex := &recordingExecutor{jm: jm}
 	jm.executor = ex
@@ -98,11 +102,58 @@ func TestCancelRunningJobCancelsItsContext(t *testing.T) {
 }
 
 func TestQueueFull(t *testing.T) {
-	jm := &JobManager{mu: &sync.Mutex{}, jobQueue: make(chan ut.Job, 1)}
+	jm := &JobManager{mu: &sync.Mutex{}, jobQueue: make(chan ut.Job, 1), draining: &atomic.Bool{}}
 	if err := jm.ScheduleJob(ut.Job{JID: 1}); err != nil {
 		t.Fatal(err)
 	}
 	if err := jm.ScheduleJob(ut.Job{JID: 2}); !errors.Is(err, ErrJobQueueFull) {
 		t.Errorf("second job on a full queue: %v, want ErrJobQueueFull", err)
+	}
+}
+
+// blockingExecutor runs jobs until release is closed.
+type blockingExecutor struct {
+	jm      *JobManager
+	started chan int64
+	release chan struct{}
+}
+
+func (b blockingExecutor) ExecuteJob(job ut.Job) error {
+	defer func() { <-b.jm.workerPool }()
+	b.started <- job.JID
+	<-b.release
+
+	return nil
+}
+
+func (b blockingExecutor) CancelJob(ut.Job) error { return nil }
+
+func TestDrainWaitsForRunningJobs(t *testing.T) {
+	jm := &JobManager{
+		mu: &sync.Mutex{}, jobQueue: make(chan ut.Job, 4), workerPool: make(chan struct{}, 2),
+		cancelled: map[int64]bool{}, running: map[int64]context.CancelCauseFunc{},
+		inflight: &sync.WaitGroup{}, draining: &atomic.Bool{},
+	}
+	ex := blockingExecutor{jm: jm, started: make(chan int64, 4), release: make(chan struct{})}
+	jm.executor = ex
+	jm.StartDispatcher()
+	if err := jm.ScheduleJob(ut.Job{JID: 1}); err != nil {
+		t.Fatal(err)
+	}
+	<-ex.started
+
+	// while a job runs, draining times out and refuses new jobs
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	if err := jm.Drain(ctx); err == nil {
+		t.Error("drain returned while a job was running")
+	}
+	if err := jm.ScheduleJob(ut.Job{JID: 2}); !errors.Is(err, ErrShuttingDown) || ut.HTTPStatus(err) != http.StatusServiceUnavailable {
+		t.Errorf("submission while draining: %v", err)
+	}
+
+	close(ex.release)
+	if err := jm.Drain(context.Background()); err != nil {
+		t.Errorf("drain after the job finished: %v", err)
 	}
 }

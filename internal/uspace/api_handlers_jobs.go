@@ -352,9 +352,8 @@ func (srv *UService) submitJobs(c *gin.Context, checkIO bool) {
 			if rmErr := srv.removeJob(c.Request.Context(), int(jid)); rmErr != nil {
 				log.Printf("failed to roll back unqueued job %d: %v", jid, rmErr)
 			}
-			status := http.StatusInternalServerError
-			if errors.Is(err, ErrJobQueueFull) {
-				status = http.StatusServiceUnavailable
+			status := ut.HTTPStatus(err) // queue full or draining: 503
+			if status == http.StatusServiceUnavailable {
 				c.Header("Retry-After", "30")
 			}
 			c.JSON(status, gin.H{"error": err.Error(), "published": jids})
