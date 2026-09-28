@@ -11,12 +11,14 @@ import (
 	"net"
 	"net/http"
 	"os/signal"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
+	"kyri56xcaesar/kuspace/internal/authn"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"github.com/gin-contrib/cors"
@@ -28,9 +30,7 @@ import (
 *
 * Constants */
 const (
-	apiVersion    = "v1"
-	templatesPath = "./web/templates"
-	staticsPath   = "web/static"
+	apiVersion = "v1"
 )
 
 // HTTPService struct holds the engine and the configuration
@@ -40,6 +40,11 @@ const (
 type HTTPService struct {
 	Engine *gin.Engine
 	Config ut.EnvConfig
+
+	webRoot  string          // directory holding web/ ("." in production)
+	verifier *authn.Verifier // checks session tokens locally
+	uspace   *upstream
+	minioth  *upstream
 }
 
 // NewService function as in a constructor for HTTPService struct
@@ -47,13 +52,16 @@ type HTTPService struct {
 *
 * Structs */
 func NewService(conf string) HTTPService {
-	service := HTTPService{}
+	service := HTTPService{webRoot: "."}
 	service.Config = ut.LoadConfig(conf)
 	setGinMode(service.Config.APIGinMode)
 	service.Engine = gin.Default()
 
 	authServiceURL = fmt.Sprintf("http://%s", net.JoinHostPort(service.Config.AuthAddress, service.Config.AuthPort))
 	apiServiceURL = fmt.Sprintf("http://%s", net.JoinHostPort(service.Config.APIAddress, service.Config.APIPort))
+	service.verifier = authn.NewVerifier(service.Config)
+	service.uspace = newUpstream(apiServiceURL, service.Config.ServiceSecretKey)
+	service.minioth = newUpstream(authServiceURL, service.Config.ServiceSecretKey)
 	if strings.ToLower(service.Config.Profile) == "container" {
 		wssServiceURL = "http://" + service.Config.WssAddressInternal
 	} else {
@@ -65,6 +73,15 @@ func NewService(conf string) HTTPService {
 
 // ServeHTTP function launces the listening server
 func (srv *HTTPService) ServeHTTP() {
+	srv.routes()
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	srv.serve(ctx, stop)
+}
+
+// routes sets up templates, middleware and every route on srv.Engine.
+func (srv *HTTPService) routes() {
 	corsconfig := cors.DefaultConfig()
 	corsconfig.AllowOrigins = srv.Config.AllowedOrigins
 	corsconfig.AllowMethods = srv.Config.AllowedMethods
@@ -140,11 +157,11 @@ func (srv *HTTPService) ServeHTTP() {
 	}
 
 	// set a template eng
-	tmpl := template.Must(template.New("").Funcs(funcMap).ParseGlob(templatesPath + "/*.html"))
+	tmpl := template.Must(template.New("").Funcs(funcMap).ParseGlob(filepath.Join(srv.webRoot, "web", "templates", "*.html")))
 
 	// Api
 	srv.Engine.SetHTMLTemplate(tmpl)
-	srv.Engine.Use(static.Serve("/api/"+apiVersion, static.LocalFile(staticsPath, true)))
+	srv.Engine.Use(static.Serve("/api/"+apiVersion, static.LocalFile(filepath.Join(srv.webRoot, "web", "static"), true)))
 	srv.Engine.Use(cors.New(corsconfig))
 
 	srv.Engine.Use(securityMiddleWare)
@@ -173,7 +190,7 @@ func (srv *HTTPService) ServeHTTP() {
 		apiV1.GET("/", func(c *gin.Context) {
 			c.HTML(http.StatusOK, "login.html", c.Request.UserAgent())
 		})
-		apiV1.GET("/login", autoLogin(), func(c *gin.Context) {
+		apiV1.GET("/login", srv.redirectIfLoggedIn(), func(c *gin.Context) {
 			c.HTML(http.StatusOK, "login.html", nil)
 		})
 		apiV1.POST("/login", srv.handleLogin)
@@ -210,7 +227,7 @@ func (srv *HTTPService) ServeHTTP() {
 	}
 
 	verified := apiV1.Group("/verified")
-	verified.Use(authMiddleware("user,admin"))
+	verified.Use(srv.requireRole("user", "admin"))
 	{
 		// actions
 		verified.POST("/passwd", srv.passwordChangeHandler)
@@ -246,8 +263,8 @@ func (srv *HTTPService) ServeHTTP() {
 		verified.POST("/job-cancel", srv.handleJobCancel) // stop a queued or running job
 
 		admin := verified.Group("/admin")
-		admin.PATCH("/chmod", authMiddleware("user,admin"), srv.handleResourcePerms)
-		admin.Use(authMiddleware("admin"))
+		admin.PATCH("/chmod", srv.handleResourcePerms) // owner check is uspace's
+		admin.Use(srv.requireRole("admin"))
 		/* minioth will verify token no need to worry here.*/
 		{
 			admin.Match(
@@ -295,9 +312,9 @@ func (srv *HTTPService) ServeHTTP() {
 		})
 	})
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
+}
 
+func (srv *HTTPService) serve(ctx context.Context, stop context.CancelFunc) {
 	server := &http.Server{
 		Addr:              srv.Config.Addr(srv.Config.FrontPort),
 		Handler:           srv.Engine,
