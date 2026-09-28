@@ -225,16 +225,13 @@ func TestConcurrentSameNameInserts(t *testing.T) {
 	}
 }
 
-// withLocality turns on file storage under a temp dir. fsliteDataPath is a
-// package variable, so these tests must not run in parallel.
+// withLocality turns on file storage under a temp dir.
 func withLocality(t *testing.T, fsl *FsLite, volumes ...string) {
 	t.Helper()
-	old := fsliteDataPath
-	fsliteDataPath = t.TempDir()
-	t.Cleanup(func() { fsliteDataPath = old })
+	fsl.dataPath = t.TempDir()
 	fsl.config.FslLocality = true
 	for _, v := range volumes {
-		if err := os.MkdirAll(fsliteDataPath+"/"+v, 0o755); err != nil {
+		if err := os.MkdirAll(fsl.objectPath(v, ""), 0o750); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -616,7 +616,7 @@ func deleteResourcesByIDs(ctx context.Context, db *sql.DB, rids []string) (int64
 		}
 	}()
 
-	rAff, err := res.RowsAffected()
+	_, err = res.RowsAffected()
 	if err != nil {
 		log.Printf("[FSL_DB_delResByIds] failed to get rows affected: %v", err)
 
@@ -628,9 +628,6 @@ func deleteResourcesByIDs(ctx context.Context, db *sql.DB, rids []string) (int64
 		log.Printf("[FSL_DB_delResByIds] failed to commit transaction: %v", err)
 
 		return 0, fmt.Errorf("failed to commit transaction: %w", err)
-	}
-	if verbose {
-		log.Printf("[FSL_DB_delResByIds] deleted %v rows", rAff)
 	}
 
 	return size, nil
@@ -651,7 +648,7 @@ func deleteResourceByName(ctx context.Context, db *sql.DB, name string) error {
 		return fmt.Errorf("failed to execute transaction: %w", err)
 	}
 
-	rAff, err := res.RowsAffected()
+	_, err = res.RowsAffected()
 	if err != nil {
 		log.Printf("[FSL_DB_delResByName] failed to get rows affected")
 	}
@@ -661,9 +658,6 @@ func deleteResourceByName(ctx context.Context, db *sql.DB, name string) error {
 		log.Printf("[FSL_DB_delResByName] failed to commit transaction: %v", err)
 
 		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-	if verbose {
-		log.Printf("[FSL_DB_delResByNameVolume] deleted %v rows", rAff)
 	}
 
 	return nil
@@ -684,7 +678,7 @@ func deleteResourceByNameAndVolume(ctx context.Context, db *sql.DB, name, volume
 		return fmt.Errorf("failed to execute transaction: %w", err)
 	}
 
-	rAff, err := res.RowsAffected()
+	_, err = res.RowsAffected()
 	if err != nil {
 		log.Printf("[FSL_DB_delResByNameVolume] failed to get rows affected")
 	}
@@ -694,9 +688,6 @@ func deleteResourceByNameAndVolume(ctx context.Context, db *sql.DB, name, volume
 		log.Printf("[FSL_DB_delResByNameVolume] failed to commit transaction: %v", err)
 
 		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-	if verbose {
-		log.Printf("[FSL_DB_delResByNameVolume] deleted %v rows", rAff)
 	}
 
 	return nil
@@ -724,7 +715,7 @@ func updateResourceNameByID(ctx context.Context, db *sql.DB, rid, name string) e
 		return fmt.Errorf("failed to execute transaction: %w", err)
 	}
 
-	rAff, err := res.RowsAffected()
+	_, err = res.RowsAffected()
 	if err != nil {
 		log.Printf("[FSL_DB_updateResNameById] failed to get rows affected")
 	}
@@ -734,9 +725,6 @@ func updateResourceNameByID(ctx context.Context, db *sql.DB, rid, name string) e
 		log.Printf("[FSL_DB_updateResNameById] error committing transaction: %v", err)
 
 		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-	if verbose {
-		log.Printf("[FSL_DB_updateResNameById] updated %v rows", rAff)
 	}
 
 	return nil
@@ -771,7 +759,7 @@ func updateResourceNameAndVolByName(ctx context.Context, db *sql.DB, name, newna
 		return fmt.Errorf("failed to execute transaction: %w", err)
 	}
 
-	rAff, err := res.RowsAffected()
+	_, err = res.RowsAffected()
 	if err != nil {
 		log.Printf("[FSL_DB_updateResNameVolumeById] failed to get rows affected")
 
@@ -783,9 +771,6 @@ func updateResourceNameAndVolByName(ctx context.Context, db *sql.DB, name, newna
 		log.Printf("[FSL_DB_updateResNameVolumeById] error committing transaction: %v", err)
 
 		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-	if verbose {
-		log.Printf("[FSL_DB_updateResNameVolumeById] updated %v rows", rAff)
 	}
 
 	return nil
@@ -815,7 +800,7 @@ func updateResourcePermsByID(ctx context.Context, db *sql.DB, rid, perms string)
 		return fmt.Errorf("failed to execute transaction: %w", err)
 	}
 
-	rAff, err := res.RowsAffected()
+	_, err = res.RowsAffected()
 	if err != nil {
 		log.Printf("[FSL_DB_updateResPermsById] failed to get rows affected")
 
@@ -827,9 +812,6 @@ func updateResourcePermsByID(ctx context.Context, db *sql.DB, rid, perms string)
 		log.Printf("[FSL_DB_updateResPermsById] error committing transaction: %v", err)
 
 		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-	if verbose {
-		log.Printf("[FSL_DB_updateResPermsById] updated %v rows", rAff)
 	}
 
 	return nil
@@ -858,7 +840,7 @@ func updateResourceOwnerByID(ctx context.Context, db *sql.DB, rid, uid int) erro
 		return fmt.Errorf("failed to execute transaction: %w", err)
 	}
 
-	rAff, err := res.RowsAffected()
+	_, err = res.RowsAffected()
 	if err != nil {
 		log.Printf("[FSL_DB_updateResOwnerById] failed to get rows affected")
 
@@ -870,9 +852,6 @@ func updateResourceOwnerByID(ctx context.Context, db *sql.DB, rid, uid int) erro
 		log.Printf("[FSL_DB_updateResOwnerById] error committing transaction: %v", err)
 
 		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-	if verbose {
-		log.Printf("[FSL_DB_updateResOwnerById] updated %v rows", rAff)
 	}
 
 	return nil
@@ -902,7 +881,7 @@ func updateResourceGroupByID(ctx context.Context, db *sql.DB, rid, gid int) erro
 		return fmt.Errorf("failed to execute transaction: %w", err)
 	}
 
-	rAff, err := res.RowsAffected()
+	_, err = res.RowsAffected()
 	if err != nil {
 		log.Printf("[FSL_DB_updateResGroupById] failed to get rows affected")
 
@@ -914,9 +893,6 @@ func updateResourceGroupByID(ctx context.Context, db *sql.DB, rid, gid int) erro
 		log.Printf("[FSL_DB_updateResGroupById] error committing transaction: %v", err)
 
 		return fmt.Errorf("failed to commit  transaction: %w", err)
-	}
-	if verbose {
-		log.Printf("[FSL_DB_updateResGroupById] updated %v rows", rAff)
 	}
 
 	return nil

@@ -24,15 +24,6 @@ const (
 )
 
 var (
-	// hashCost defines the bcrypt hashing cost for password hashing.
-	hashCost = bcrypt.DefaultCost
-	// JwtValidityHours specifies the number of hours a JWT token is valid.
-	JwtValidityHours float64 = 4
-	// jwtSecretKey signs the standalone server's admin tokens. Derived from
-	// the configured JWT secret by NewFsLite (it used to be the constant
-	// "r4nd0m", so anyone could forge admin tokens); empty until configured,
-	// and signing/verifying refuse an empty key.
-	jwtSecretKey []byte
 	// usernameRegex is the regular expression for validating usernames.
 	usernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 	// passwordRegex allows any printable ASCII except spaces.
@@ -115,10 +106,6 @@ func (fsl *FsLite) insertAdmin(username, password string) (Admin, error) {
 	}
 	admin.Password = string(hashpass)
 
-	if verbose {
-		log.Printf("[FSL_ADMIN_insert] inserting default user: %+v", admin)
-	}
-
 	_, err = db.ExecContext(context.Background(), query, id, username, hashpass)
 	if err != nil {
 		log.Printf("[FSL_ADMIN_insert] failed to execute query: %v", err)
@@ -153,7 +140,7 @@ func (fsl *FsLite) authenticateAdmin(username, password string) (string, error) 
 		return "", err
 	}
 
-	token, err := generateAccessJWT(admin.ID.String(), admin.Username)
+	token, err := fsl.tokens.issue(admin.ID.String(), admin.Username)
 	if err != nil {
 		log.Printf("[FSL_ADMIN_auth] failed generating jwt token: %v", err)
 
@@ -165,7 +152,7 @@ func (fsl *FsLite) authenticateAdmin(username, password string) (string, error) 
 
 // hash generates a bcrypt hash from the provided password bytes.
 func hash(password []byte) ([]byte, error) {
-	return bcrypt.GenerateFromPassword(password, hashCost)
+	return bcrypt.GenerateFromPassword(password, bcrypt.DefaultCost)
 }
 
 // verifyPass compares a bcrypt hashed password with its possible plaintext equivalent.
@@ -186,71 +173,62 @@ type CustomClaims struct {
 	jwt.RegisteredClaims
 }
 
-// generateAccessJWT creates and signs a JWT token for the given user ID and username.
-// Returns the signed token string or an error.
-// tokenValidity is JwtValidityHours as a duration (4h when unset). It used
-// to be time.Duration(JwtValidityHours) hours, truncating 0.5 to 0: tokens
-// that were expired when issued.
-func tokenValidity() time.Duration {
-	if JwtValidityHours <= 0 {
+// tokenSigner issues and checks the standalone server's admin tokens: HS256,
+// issuer "fslite", with an expiry. The key is derived from the configured
+// JWT secret (it used to be the constant "r4nd0m"); an empty key signs and
+// accepts nothing.
+type tokenSigner struct {
+	key      []byte
+	validity time.Duration
+}
+
+// hoursToDuration converts JWT_VALIDITY_HOURS (4h when unset). It used to be
+// time.Duration(hours) hours, truncating 0.5 to 0: tokens that were expired
+// when issued.
+func hoursToDuration(hours float64) time.Duration {
+	if hours <= 0 {
 		return 4 * time.Hour
 	}
 
-	return time.Duration(JwtValidityHours * float64(time.Hour))
+	return time.Duration(hours * float64(time.Hour))
 }
 
-func generateAccessJWT(userID, username string) (string, error) {
-	// Set the claims for the token
+func (ts tokenSigner) issue(userID, username string) (string, error) {
+	if len(ts.key) == 0 {
+		return "", errors.New("no JWT secret configured")
+	}
+	now := time.Now()
 	claims := CustomClaims{
 		ID:       userID,
 		Username: username,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "fslite",
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(tokenValidity())),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(now.Add(ts.validity)),
+			IssuedAt:  jwt.NewNumericDate(now),
 			Subject:   userID,
 		},
 	}
-
-	// Create the token using the HS256 signing method
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	// Sign the token using the secret key
-	if len(jwtSecretKey) == 0 {
-		return "", errors.New("no JWT secret configured")
-	}
-	tokenString, err := token.SignedString(jwtSecretKey)
+	signed, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(ts.key)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign token: %w", err)
 	}
 
-	return tokenString, nil
+	return signed, nil
 }
 
-// decodeJWT parses and validates a JWT token string, returning the claims if valid.
-// Returns a boolean indicating validity, the claims, and any error encountered.
-func decodeJWT(tokenString string) (bool, *CustomClaims, error) {
-	// Parse and validate the token
-	if len(jwtSecretKey) == 0 {
-		return false, nil, errors.New("no JWT secret configured")
+func (ts tokenSigner) verify(tokenString string) (*CustomClaims, error) {
+	if len(ts.key) == 0 {
+		return nil, errors.New("no JWT secret configured")
 	}
-	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(*jwt.Token) (any, error) {
-		return jwtSecretKey, nil
+	claims := &CustomClaims{}
+	_, err := jwt.ParseWithClaims(tokenString, claims, func(*jwt.Token) (any, error) {
+		return ts.key, nil
 	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}), jwt.WithIssuer("fslite"), jwt.WithExpirationRequired())
 	if err != nil {
-		log.Printf("[FSL_ADMIN_decjwt] %v token, exiting", token)
-
-		return false, nil, err
+		return nil, err
 	}
 
-	claims, ok := token.Claims.(*CustomClaims)
-	if !ok {
-		log.Printf("[FSL_ADMIN_decjwt] not okay when retrieving claims")
-
-		return false, nil, errors.New("invalid claims")
-	}
-
-	return true, claims, nil
+	return claims, nil
 }
 
 // deriveTokenKey turns the configured JWT secret into fslite's own key, so

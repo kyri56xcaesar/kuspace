@@ -17,7 +17,6 @@ import (
 
 	// fslite swagger docs
 	_ "kyri56xcaesar/kuspace/api/fslite"
-	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
 const (
@@ -48,7 +47,7 @@ func (fsl *FsLite) routes() *gin.Engine {
 
 	admin := api.Group("/admin")
 	// authentication is unconditional (it used to be skipped in gin "debug" mode)
-	admin.Use(authmiddleware(fsl.config))
+	admin.Use(fsl.authmiddleware())
 	{
 		admin.POST("/register", fsl.registerHandler)
 
@@ -108,7 +107,9 @@ func (fsl *FsLite) serve(srv *gin.Engine) {
 
 // authmiddleware admits services (X-Service-Secret) and admins with a valid
 // fslite token, both acting as uid 0; everyone else gets 401.
-func authmiddleware(cfg ut.EnvConfig) gin.HandlerFunc {
+func (fsl *FsLite) authmiddleware() gin.HandlerFunc {
+	cfg := fsl.config
+
 	return func(c *gin.Context) {
 		if claim := c.GetHeader("X-Service-Secret"); claim != "" {
 			if len(cfg.ServiceSecretKey) > 0 && subtle.ConstantTimeCompare([]byte(claim), cfg.ServiceSecretKey) == 1 {
@@ -130,29 +131,19 @@ func authmiddleware(cfg ut.EnvConfig) gin.HandlerFunc {
 			return
 		}
 
-		ok, claims, err := decodeJWT(tokenString)
+		claims, err := fsl.tokens.verify(tokenString)
 		if err != nil {
 			log.Printf("[FSL_SERVER_middleware] rejected token: %v", err)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 
 			return
 		}
-
-		// Set claims in the context for further use
-		if ok {
-			c.Set("username", claims.Username)
-			c.Set("admin_id", claims.ID)
-			// admins are the store's superusers: they act as root (uid 0).
-			// uid used to be the admin's UUID, which the upload and delete
-			// handlers can't parse: every admin upload failed with 500.
-			c.Set("uid", "0")
-		} else {
-			log.Printf("[FSL_SERVER_middleware] invalid token claims")
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
-			c.Abort()
-
-			return
-		}
+		c.Set("username", claims.Username)
+		c.Set("admin_id", claims.ID)
+		// admins are the store's superusers: they act as root (uid 0).
+		// uid used to be the admin's UUID, which the upload and delete
+		// handlers can't parse: every admin upload failed with 500.
+		c.Set("uid", "0")
 
 		c.Next()
 	}

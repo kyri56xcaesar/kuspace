@@ -50,6 +50,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -58,12 +59,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var (
-	fsliteDataPath            = "data/volumes/fslite"
+const (
 	defaultVolumeName         = "default_ku_space_volume"
-	verbose                   = false
-	defaultVolumeCap  float64 = 20
-	maxVolumeCap      float64 = 100
+	maxVolumeCap      float64 = 100 // GB
 )
 
 const (
@@ -127,6 +125,11 @@ const (
 type FsLite struct {
 	config ut.EnvConfig
 	dbh    ut.DBHandler
+	// per-instance settings (these used to be package variables, so a second
+	// FsLite in one process rewired the first one's data path and token key)
+	dataPath         string  // where volumes keep their files (locality)
+	defaultVolumeCap float64 // GB
+	tokens           tokenSigner
 	// Engine exported for testing
 	Engine *gin.Engine
 }
@@ -175,28 +178,48 @@ func NewFsLite(cfg ut.EnvConfig) FsLite {
 		if err != nil {
 			log.Fatalf("[FSL_init] failed to get working directory: %v", err)
 		}
-		fsliteDataPath = wd + "/" + cfg.LocalVolumesDefaultPath
-		if err := os.MkdirAll(fsliteDataPath, 0o644); err != nil {
+		fsl.dataPath = cfg.LocalVolumesDefaultPath
+		if !filepath.IsAbs(fsl.dataPath) {
+			fsl.dataPath = filepath.Join(wd, fsl.dataPath)
+		}
+		// directories need x to be entered (was 0o644: only root could use them)
+		if err := os.MkdirAll(fsl.dataPath, 0o750); err != nil {
 			log.Fatalf("[FSL_init] failed to create main volume storage path: %v", err)
 		}
 	}
-	defaultVolumeCap = cfg.LocalVolumesDefaultCapacity
-	defaultVolumeCap = min(defaultVolumeCap, maxVolumeCap)
-	err = fsl.CreateVolume(context.Background(), ut.Volume{Name: defaultVolumeName, Path: fsliteDataPath + "/" + defaultVolumeName, Capacity: defaultVolumeCap})
+	fsl.defaultVolumeCap = min(cfg.LocalVolumesDefaultCapacity, maxVolumeCap)
+	fsl.tokens = tokenSigner{key: deriveTokenKey(cfg.JwtSecretKey), validity: hoursToDuration(cfg.JwtValidityHours)}
+	if cfg.FslServer && len(fsl.tokens.key) == 0 {
+		log.Fatal("[FSL_init] the standalone server needs JWT_SECRET_KEY to sign admin tokens")
+	}
+	err = fsl.CreateVolume(context.Background(), ut.Volume{Name: defaultVolumeName, Path: fsl.objectPath(defaultVolumeName, ""), Capacity: fsl.defaultVolumeCap})
 	if err != nil {
 		if !errors.Is(err, ErrVolumeExists) {
 			log.Fatalf("[FSL_init] failed to create default volume: %v", err)
 		}
 		log.Print(err)
 	}
-	JwtValidityHours = cfg.JwtValidityHours
-	jwtSecretKey = deriveTokenKey(cfg.JwtSecretKey)
-	if cfg.FslServer && len(jwtSecretKey) == 0 {
-		log.Fatal("[FSL_init] the standalone server needs JWT_SECRET_KEY to sign admin tokens")
-	}
-	verbose = cfg.Verbose
 
 	return fsl
+}
+
+// objectPath is where a volume's object (or, with name "", the volume
+// directory) lives on disk. Names are single path elements; anything that
+// could leave the data directory is mapped to a harmless name.
+func (fsl *FsLite) objectPath(volume, name string) string {
+	clean := func(p string) string {
+		p = filepath.Base(filepath.Clean("/" + p))
+		if p == "/" || p == "." || p == ".." {
+			return "_"
+		}
+
+		return p
+	}
+	if name == "" {
+		return filepath.Join(fsl.dataPath, clean(volume))
+	}
+
+	return filepath.Join(fsl.dataPath, clean(volume), clean(name))
 }
 
 // Close closes the underlying database handler and releases any resources held by FsLite.
@@ -211,7 +234,7 @@ func (fsl *FsLite) CreateVolume(ctx context.Context, v any) error {
 	if !ok1 {
 		return errors.New("failed to cast to volume")
 	}
-	if err := volume.Validate(maxVolumeCap, defaultVolumeCap, "-._"); err != nil {
+	if err := volume.Validate(maxVolumeCap, fsl.defaultVolumeCap, "-._"); err != nil {
 		return err
 	}
 
@@ -228,7 +251,7 @@ func (fsl *FsLite) CreateVolume(ctx context.Context, v any) error {
 	}
 
 	if fsl.config.FslLocality {
-		err = os.MkdirAll(fsliteDataPath+"/"+volume.Name, 0o644)
+		err = os.MkdirAll(fsl.objectPath(volume.Name, ""), 0o750)
 		if err != nil {
 			return err
 		}
@@ -237,7 +260,7 @@ func (fsl *FsLite) CreateVolume(ctx context.Context, v any) error {
 	volume.CreatedAt = ut.CurrentTime()
 	err = insertVolume(ctx, db, volume)
 	if err != nil {
-		err1 := os.RemoveAll(fsliteDataPath + "/" + volume.Name)
+		err1 := os.RemoveAll(fsl.objectPath(volume.Name, ""))
 		if err1 != nil {
 			log.Printf("failed to remove path: %v", err)
 		}
@@ -262,7 +285,7 @@ func (fsl *FsLite) RemoveVolume(ctx context.Context, t any) error {
 		return errors.New("failed to cast to volume")
 	}
 
-	if err := volume.Validate(maxVolumeCap, defaultVolumeCap, "-._"); err != nil {
+	if err := volume.Validate(maxVolumeCap, fsl.defaultVolumeCap, "-._"); err != nil {
 		return err
 	}
 
@@ -277,7 +300,7 @@ func (fsl *FsLite) RemoveVolume(ctx context.Context, t any) error {
 	}
 
 	if err == nil && fsl.config.FslLocality {
-		err = os.RemoveAll(fsliteDataPath + "/" + volume.Name)
+		err = os.RemoveAll(fsl.objectPath(volume.Name, ""))
 	}
 
 	return err
@@ -343,7 +366,7 @@ func (fsl *FsLite) Insert(ctx context.Context, t any) error {
 		}
 
 		if fsl.config.FslLocality {
-			outFile, err := os.Create(fsliteDataPath + "/" + resource.Vname + "/" + resource.Name)
+			outFile, err := os.Create(fsl.objectPath(resource.Vname, resource.Name))
 			if err != nil {
 				log.Printf("[FSL_insert] failed to create a new output file (to save)")
 
@@ -471,7 +494,7 @@ func (fsl *FsLite) Stat(_ context.Context, t any) (any, error) {
 		return nil, errors.New("failed to cast to designated struct")
 	}
 
-	return os.Stat(fsliteDataPath + "/" + resource.Vname + "/" + resource.Name)
+	return os.Stat(fsl.objectPath(resource.Vname, resource.Name))
 }
 
 // Remove deletes a resource (file/object) from the database and, if locality is enabled, from disk.
@@ -497,7 +520,7 @@ func (fsl *FsLite) Remove(ctx context.Context, t any) error {
 	}
 
 	if fsl.config.FslLocality {
-		err = os.Remove(fsliteDataPath + "/" + resource.Vname + "/" + resource.Name)
+		err = os.Remove(fsl.objectPath(resource.Vname, resource.Name))
 		if err != nil {
 			log.Printf("[FSL_remove] failed to remove file from local fs")
 
@@ -596,7 +619,7 @@ func (fsl *FsLite) Download(ctx context.Context, t *any) (context.CancelFunc, er
 		return nil, err
 	}
 
-	file, err := os.Open(fsliteDataPath + "/" + resource.Vname + "/" + resource.Name)
+	file, err := os.Open(fsl.objectPath(resource.Vname, resource.Name))
 	if err != nil {
 		return nil, err
 	}
@@ -633,7 +656,7 @@ func (fsl *FsLite) Copy(ctx context.Context, s, d any) error {
 	}
 
 	if fsl.config.FslLocality {
-		sr, err := os.Open(fsliteDataPath + "/" + src.Vname + "/" + src.Name)
+		sr, err := os.Open(fsl.objectPath(src.Vname, src.Name))
 		if err != nil {
 			log.Printf("[FSL_copy] failed to read the src file")
 
@@ -652,7 +675,7 @@ func (fsl *FsLite) Copy(ctx context.Context, s, d any) error {
 			return err
 		}
 
-		ds, err := os.OpenFile(fsliteDataPath+"/"+dst.Vname+"/"+dst.Name, os.O_CREATE|os.O_WRONLY, 0o644)
+		ds, err := os.OpenFile(fsl.objectPath(dst.Vname, dst.Name), os.O_CREATE|os.O_WRONLY, 0o644)
 		if err != nil {
 			log.Printf("[FSL_copy] failed to open the dst file")
 

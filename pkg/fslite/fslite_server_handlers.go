@@ -483,9 +483,6 @@ func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
 
 			return
 		}
-		if verbose {
-			log.Printf("inserted resource: %+v", resource)
-		}
 	}
 	c.JSON(200, gin.H{
 		"message": "file/s uploaded.",

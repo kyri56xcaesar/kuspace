@@ -74,8 +74,6 @@ All variables are listed with their defaults in `internal/utils/config.go` (`Fsl
 
 ## Known quirks
 
-- Settings like the data path are package variables, so one process holds one fslite
-  configuration (tests must not run fslite instances in parallel).
 - Prefix lookups (`SelectObjects` with `prefix`) match names with `LIKE` across all
   volumes.
 - Group volumes have query code but no table and no route yet (BACKLOG).

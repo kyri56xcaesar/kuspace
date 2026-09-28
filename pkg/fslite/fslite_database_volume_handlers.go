@@ -233,15 +233,11 @@ func deleteVolumeByIDs(ctx context.Context, db *sql.DB, ids []int) error {
 		return fmt.Errorf("[fsl] failed to execute query %w", err)
 	}
 
-	rowsAffected, err := res.RowsAffected()
+	_, err = res.RowsAffected()
 	if err != nil {
 		log.Printf("[FSL_DB_delVolumeByIds] failed to retrieve rows affected: %v", err)
 
 		return fmt.Errorf("[fsl] failed to retrieve rows affected %w", err)
-	}
-
-	if verbose {
-		log.Printf("[FSL_DB_delVolumeByIds] deleted %v entries", rowsAffected)
 	}
 
 	return nil
@@ -362,14 +358,11 @@ func updateUserVolumeQuotaByUID(ctx context.Context, db *sql.DB, quota float32, 
 
 		return fmt.Errorf("[fsl] failed to execute query %w", err)
 	}
-	rAff, err := res.RowsAffected()
+	_, err = res.RowsAffected()
 	if err != nil {
 		log.Printf("[FSL_DB_updateUvQuotaByUid] failed to retrieve info about rows affected")
 
 		return fmt.Errorf("[fsl] failed to retrieve rows affected %w", err)
-	}
-	if verbose {
-		log.Printf("[FSL_DB_updateUvQuotaByUid] rows affected: %v", rAff)
 	}
 
 	return nil
@@ -383,14 +376,11 @@ func updateUserVolumeUsageByUID(ctx context.Context, db *sql.DB, usage float32, 
 
 		return fmt.Errorf("[fsl] failed to execute query %w", err)
 	}
-	rAff, err := res.RowsAffected()
+	_, err = res.RowsAffected()
 	if err != nil {
 		log.Printf("[FSL_DB_updateUvUsageByUid] failed to retrieve info about rows affected")
 
 		return fmt.Errorf("[fsl] failed to retrieve rows affected %w", err)
-	}
-	if verbose {
-		log.Printf("[FSL_DB_updateUvUsageByUid] rows affected: %v", rAff)
 	}
 
 	return nil
@@ -404,14 +394,11 @@ func updateUserVolumeQuotaAndUsageByUID(ctx context.Context, db *sql.DB, usage, 
 
 		return fmt.Errorf("[fsl] failed to execute query %w", err)
 	}
-	rAff, err := res.RowsAffected()
+	_, err = res.RowsAffected()
 	if err != nil {
 		log.Printf("[FSL_DB_updateUvQuotaUsageByUid] failed to retrieve info about rows affected")
 
 		return fmt.Errorf("[fsl] failed to retrieve rows affected %w", err)
-	}
-	if verbose {
-		log.Printf("[FSL_DB_updateUvQuotaUsageByUid] rows affected: %v", rAff)
 	}
 
 	return nil
@@ -736,14 +723,11 @@ func updateGroupVolumesUsageByGids(ctx context.Context, db *sql.DB, gids []strin
 		return fmt.Errorf("failed to execute query: %w", err)
 	}
 
-	rAff, err := res.RowsAffected()
+	_, err = res.RowsAffected()
 	if err != nil {
 		log.Printf("[FSL_DB_updateGvUsageByGids] failed to retrieve rows affected: %v", err)
 
 		return fmt.Errorf("failed to begin retrieve rows affected: %w", err)
-	}
-	if verbose {
-		log.Printf("[FSL_DB_updateGvUsageByGids] len(gids): %v, rAff: %v", len(gids), rAff)
 	}
 
 	return nil
@@ -766,14 +750,11 @@ func updateGroupVolumeQuotaByGID(ctx context.Context, db *sql.DB, quota float32,
 		return fmt.Errorf("failed to execute query: %w", err)
 	}
 
-	rAff, err := res.RowsAffected()
+	_, err = res.RowsAffected()
 	if err != nil {
 		log.Printf("failed to retrieve info about rows affected")
 
 		return fmt.Errorf("failed to retrieve rows affected: %w", err)
-	}
-	if verbose {
-		log.Printf("[FSL_DB_updateGvQuotaByGid] rows affected: %v", rAff)
 	}
 
 	return nil
@@ -796,14 +777,11 @@ func updateGroupVolumeUsageByGID(ctx context.Context, db *sql.DB, usage float32,
 		return fmt.Errorf("failed to execute query: %w", err)
 	}
 
-	rAff, err := res.RowsAffected()
+	_, err = res.RowsAffected()
 	if err != nil {
 		log.Printf("[FSL_DB_updateGvUsageByGid] failed to retrieve info about rows affected")
 
 		return fmt.Errorf("failed to retrieve rows affected: %w", err)
-	}
-	if verbose {
-		log.Printf("[FSL_DB_updateGvUsageByGid] rows affected: %v", rAff)
 	}
 
 	return nil
@@ -826,14 +804,11 @@ func updateGroupVolumeQuotaAndUsageByUID(ctx context.Context, db *sql.DB, usage,
 		return fmt.Errorf("failed to execute query: %w", err)
 	}
 
-	rAff, err := res.RowsAffected()
+	_, err = res.RowsAffected()
 	if err != nil {
 		log.Printf("[FSL_DB_updateGvUsageQuotaByGid] failed to retrieve info about rows affected")
 
 		return fmt.Errorf("failed to retrieve rows affected: %w", err)
-	}
-	if verbose {
-		log.Printf("[FSL_DB_updateGvUsageQuotaByGid] rows affected: %v", rAff)
 	}
 
 	return nil
