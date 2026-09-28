@@ -99,7 +99,7 @@ func NewMinioClient(cfg ut.EnvConfig) Client {
 func (mc *Client) CreateVolume(ctx context.Context, volume any) error {
 	v, ok := volume.(ut.Volume)
 	if !ok {
-		return ut.NewError("failed to cast to a volume")
+		return fmt.Errorf("%s: %w", "failed to cast to a volume", errWrongType)
 	}
 
 	log.Printf("volume incoming: %+v", v)
@@ -114,12 +114,15 @@ func (mc *Client) CreateVolume(ctx context.Context, volume any) error {
 	return nil
 }
 
+// errWrongType: a StorageSystem method got an argument of the wrong type.
+var errWrongType = fmt.Errorf("unexpected argument type (%w)", ut.ErrInvalid)
+
 // Insert uploads an object to Minio, through a presigned URL above
 // objectSizeThreshold (or always, with onlyPresignedUpload).
 func (mc *Client) Insert(ctx context.Context, t any) error {
 	object, ok := t.(ut.Resource)
 	if !ok {
-		return ut.NewError("failed to cast")
+		return fmt.Errorf("%s: %w", "failed to cast", errWrongType)
 	}
 	if object.Size <= objectSizeThreshold && !onlyPresignedUpload {
 		return mc.putObject(ctx, object.Vname, object.Name, object.Reader, object.Size)
@@ -223,7 +226,7 @@ func (mc *Client) SelectObjects(ctx context.Context, which map[string]any) (any,
 func (mc *Client) Stat(ctx context.Context, t any) (any, error) {
 	object, ok := t.(ut.Resource)
 	if !ok {
-		return nil, ut.NewError("failed to cast")
+		return nil, fmt.Errorf("%s: %w", "failed to cast", errWrongType)
 	}
 
 	if fetchstat {
@@ -249,7 +252,7 @@ func (mc *Client) Stat(ctx context.Context, t any) (any, error) {
 func (mc *Client) Remove(ctx context.Context, t any) error {
 	resource, ok := t.(ut.Resource)
 	if !ok {
-		return ut.NewError("failed to cast")
+		return fmt.Errorf("%s: %w", "failed to cast", errWrongType)
 	}
 
 	return mc.removeObject(ctx, resource.Vname, resource.Name)
@@ -267,7 +270,7 @@ func (mc *Client) RemoveVolume(ctx context.Context, t any) error {
 	if !ok {
 		bucketname, ok = t.(string)
 		if !ok {
-			return ut.NewError("failed to cast to a volume/id")
+			return fmt.Errorf("%s: %w", "failed to cast to a volume/id", errWrongType)
 		}
 	} else {
 		bucketname = volume.Name
@@ -282,7 +285,7 @@ func (mc *Client) Download(ctx context.Context, t *any) (context.CancelFunc, err
 	value := *t
 	resourcePtr, ok := value.(*ut.Resource)
 	if !ok {
-		return nil, ut.NewError("failed to cast to *Resource")
+		return nil, fmt.Errorf("%s: %w", "failed to cast to *Resource", errWrongType)
 	}
 
 	minioObj, cancelFn, err := mc.getObject(ctx, resourcePtr.Vname, resourcePtr.Name)
@@ -310,11 +313,11 @@ func (mc *Client) Download(ctx context.Context, t *any) (context.CancelFunc, err
 func (mc *Client) Copy(ctx context.Context, s, d any) error {
 	src, ok := s.(ut.Resource)
 	if !ok {
-		return ut.NewError("failed to cast")
+		return fmt.Errorf("%s: %w", "failed to cast", errWrongType)
 	}
 	dst, ok := d.(ut.Resource)
 	if !ok {
-		return ut.NewError("failed to cast")
+		return fmt.Errorf("%s: %w", "failed to cast", errWrongType)
 	}
 
 	uploadInfo, err := mc.copyObject(ctx, minio.CopySrcOptions{Bucket: src.Vname, Object: src.Name},
@@ -350,7 +353,7 @@ func (mc *Client) Share(ctx context.Context, method string, t any) (any, error) 
 	if !ok {
 		log.Printf("failed to cast to resource")
 
-		return nil, ut.NewError("bad object, failed to cast to resource")
+		return nil, fmt.Errorf("%s: %w", "bad object, failed to cast to resource", errWrongType)
 	}
 
 	switch method {
@@ -373,7 +376,7 @@ func (mc *Client) Share(ctx context.Context, method string, t any) (any, error) 
 	default:
 		log.Printf("invalid method")
 
-		return nil, ut.NewError("bad method")
+		return nil, fmt.Errorf("method must be get or put (%w)", ut.ErrInvalid)
 	}
 }
 

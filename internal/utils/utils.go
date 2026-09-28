@@ -21,7 +21,6 @@
 //   - TailFileLines: Reads the last N lines from a file.
 //
 // Error Formatting:
-//   - NewError, NewWarning, NewInfo: Formats error messages with severity tags.
 //
 // Slices:
 //   - Contains
@@ -325,21 +324,6 @@ func MergeFiles(outputFile string, inputLocation string, inputFiles []string) er
 
 // short error messaging funcs..
 
-// NewError as a wrapper function to fmt.Errorf with a format
-func NewError(msg string, args ...any) error {
-	return fmt.Errorf("[ERROR] %s", fmt.Sprintf(msg, args...))
-}
-
-// NewWarning as a wrapper function to fmt.Errorf with a format
-func NewWarning(msg string, args ...any) error {
-	return fmt.Errorf("[WARNING] %s", fmt.Sprintf(msg, args...))
-}
-
-// NewInfo as a wrapper function to fmt.Errorf with a format
-func NewInfo(msg string, args ...any) error {
-	return fmt.Errorf("[INFO] %s", fmt.Sprintf(msg, args...))
-}
-
 // ReadFileAt will read a specific file at specific window
 func ReadFileAt(filePath string, start, end int64) ([]byte, error) {
 	file, err := os.Open(filePath)
@@ -354,7 +338,7 @@ func ReadFileAt(filePath string, start, end int64) ([]byte, error) {
 	fileSize := fileInfo.Size()
 
 	if start >= fileSize {
-		return nil, NewError("requested range exceeds file size")
+		return nil, fmt.Errorf("requested range exceeds the file size (%w)", ErrInvalid)
 	}
 	if end >= fileSize {
 		end = fileSize - 1

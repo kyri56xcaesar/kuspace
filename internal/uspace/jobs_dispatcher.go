@@ -2,6 +2,8 @@ package uspace
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
@@ -47,15 +49,15 @@ func DispatcherShipment(dispatcherType string, srv *UService) (JobDispatcher, er
 		return JobDispatcherImpl{Manager: NewJobManager(srv)}, nil
 	case "kafka":
 
-		return nil, ut.NewWarning("kafka dispatcher not implemented")
+		return nil, errors.New("the kafka dispatcher is not implemented")
 	case "rabbitmq":
 
-		return nil, ut.NewWarning("rabbitmq dispatcher not implemented")
+		return nil, errors.New("the rabbitmq dispatcher is not implemented")
 	case "natss":
 
-		return nil, ut.NewWarning("natss dispatcher not implemented")
+		return nil, errors.New("the nats dispatcher is not implemented")
 	default:
 
-		return nil, ut.NewWarning("unknown dispatcher type: %s", dispatcherType)
+		return nil, fmt.Errorf("unknown dispatcher type %q", dispatcherType)
 	}
 }

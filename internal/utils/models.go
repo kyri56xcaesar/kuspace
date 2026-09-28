@@ -592,12 +592,12 @@ func (p *Password) ValidatePassword() error {
 
 	// Validate Password Length
 	if len(pass) < 8 {
-		return NewError("password length '%d' is too short: minimum required length is 8 characters", len(pass))
+		return fmt.Errorf("password length %d is too short: at least 8 characters (%w)", len(pass), ErrInvalid)
 	}
 
 	// Validate Hashpass
 	if pass == "" {
-		return NewError("hashpass cannot be empty")
+		return fmt.Errorf("the password is empty (%w)", ErrInvalid)
 	}
 
 	var hasUpper bool
@@ -613,11 +613,11 @@ func (p *Password) ValidatePassword() error {
 	}
 
 	if !hasUpper {
-		return NewError("password must contain at least one uppercase letter")
+		return fmt.Errorf("the password needs an uppercase letter (%w)", ErrInvalid)
 	}
 
 	if !hasDigit {
-		return NewError("password must contain at least one digit")
+		return fmt.Errorf("the password needs a digit (%w)", ErrInvalid)
 	}
 
 	return nil

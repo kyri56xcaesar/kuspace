@@ -360,7 +360,7 @@ func (fsl *FsLite) Insert(ctx context.Context, t any) error {
 		if err != nil {
 			log.Printf("[FSL_insert] failed to get the db conn: %v", err)
 
-			return ut.NewError("failed to get the db conn: %v", err)
+			return fmt.Errorf("database connection: %w", err)
 		}
 
 		resource.Name = NormalizeName(resource.Name)
@@ -368,7 +368,7 @@ func (fsl *FsLite) Insert(ctx context.Context, t any) error {
 		if err != nil { // if err is nil, it exists
 			log.Printf("[FSL_insert] failed to check if object exists")
 
-			return ut.NewError("failed to check if obj exists: %v", err)
+			return fmt.Errorf("check for an existing object: %w", err)
 		}
 		if exists {
 			return fmt.Errorf("%w: %s in %s", ErrResourceExists, resource.Name, resource.Vname)
@@ -650,11 +650,11 @@ func (fsl *FsLite) Download(ctx context.Context, t *any) (context.CancelFunc, er
 func (fsl *FsLite) Copy(ctx context.Context, s, d any) error {
 	src, ok := s.(ut.Resource)
 	if !ok {
-		return ut.NewError("failed to cast")
+		return fmt.Errorf("unexpected argument type (%w)", ut.ErrInvalid)
 	}
 	dst, ok := d.(ut.Resource)
 	if !ok {
-		return ut.NewError("failed to cast")
+		return fmt.Errorf("unexpected argument type (%w)", ut.ErrInvalid)
 	}
 	db, err := fsl.dbh.GetConn()
 	if err != nil {

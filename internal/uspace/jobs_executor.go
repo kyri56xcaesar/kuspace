@@ -7,7 +7,11 @@
 // - kubernetes engine
 package uspace
 
-import ut "kyri56xcaesar/kuspace/internal/utils"
+import (
+	"fmt"
+
+	ut "kyri56xcaesar/kuspace/internal/utils"
+)
 
 // JobExecutor interface defining what a JobExecutor must implement
 type JobExecutor interface {
@@ -29,6 +33,6 @@ func JobExecutorShipment(jobType string, jm *JobManager) (JobExecutor, error) {
 		return NewJKubernetesExecutor(jm), nil
 	default:
 
-		return nil, ut.NewError("Invalid job type")
+		return nil, fmt.Errorf("unknown job executor (%w)", ut.ErrInvalid)
 	}
 }

@@ -529,7 +529,7 @@ func (srv *UService) prepareJobRun(job *ut.Job) ([]string, error) {
 		"Logic":     true,
 		"LogicBody": true,
 	}) {
-		return nil, ut.NewError("empty field that shouldn't be empty..")
+		return nil, fmt.Errorf("the job has no input or output (%w)", ut.ErrInvalid)
 	}
 
 	// Assuming job.Logic is the image name and job.LogicBody is the command
