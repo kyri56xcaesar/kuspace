@@ -74,7 +74,7 @@ type PeersConfig struct {
 	AuthAddress        string `env:"AUTH_ADDRESS" default:"localhost"`
 	WssAddress         string `env:"J_WS_ADDRESS" default:"localhost:8082"`
 	WssAddressInternal string `env:"WSS_ADDRESS_INTERNAL" default:"wss:8082"`
-	WssLogsPath        string `env:"J_WS_LOGS_PATH" default:"data/logs/jobs/job_ws.log"`
+	WssLogsPath        string `env:"J_WS_LOGS_PATH" default:"data/logs/jobs/"` // directory: one log per job session
 }
 
 // AuthConfig holds the token and service-to-service secrets.

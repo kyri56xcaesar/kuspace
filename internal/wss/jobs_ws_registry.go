@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -107,7 +108,7 @@ func NewSocketServer(jid string) (*SocketServer, error) {
 	if err := os.MkdirAll(jobLogPath, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create path to logs: %w", err)
 	}
-	logFile, err := os.OpenFile(jobLogPath+"ws-server-"+jid+".log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o640)
+	logFile, err := os.OpenFile(filepath.Join(jobLogPath, "ws-server-"+jid+".log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o640)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open log file: %w", err)
 	}
@@ -358,14 +359,11 @@ func writeMessages(client *Client) {
 	}
 }
 
-// Serve launches the main service listener
-func Serve(cfg ut.EnvConfig) {
+// newEngine applies the configuration and returns the wss routes.
+func newEngine(cfg ut.EnvConfig) *gin.Engine {
 	address = cfg.WssAddress
 	jobLogPath = cfg.WssLogsPath
 	serviceSecret = cfg.ServiceSecretKey
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 
 	engine := gin.Default()
 	engine.GET("/healthz", func(c *gin.Context) {
@@ -388,6 +386,16 @@ func Serve(cfg ut.EnvConfig) {
 	})
 	engine.GET("/get-session", HandleWSsession)
 	engine.DELETE("/delete-session", HandleWSsessionClose)
+
+	return engine
+}
+
+// Serve launches the main service listener
+func Serve(cfg ut.EnvConfig) {
+	engine := newEngine(cfg)
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
 	server := &http.Server{
 		Addr:              address,

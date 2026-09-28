@@ -34,7 +34,7 @@ differ only in port). Clients without an `Origin` header, such as uspace, are ac
 | Variable | Default | |
 |---|---|---|
 | `J_WS_ADDRESS` | `localhost:8082` | listen address |
-| `J_WS_LOGS_PATH` | `data/logs/jobs/job_ws.log` | per-session log |
+| `J_WS_LOGS_PATH` | `data/logs/jobs/` | directory for the per-session logs (`ws-server-<jid>.log`) |
 | `SERVICE_SECRET_KEY` | required | producer/admin auth and the ticket key |
 
 ## Limits
