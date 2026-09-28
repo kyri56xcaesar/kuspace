@@ -125,6 +125,20 @@ func (srv *UService) handleJob(c *gin.Context) {
 	switch c.Request.Method {
 	// "getting" jobs should be treated as "subscribing"
 	case http.MethodGet:
+		// users see their own jobs only (any user could list everyone's,
+		// code and file paths included; frontapp hid it by filtering)
+		ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
+		if err == nil && !privileged(c, ac) {
+			q := c.Request.URL.Query()
+			q.Del("uids")
+			q.Del("jids")
+			q.Set("uid", ac.UID)
+			c.Request.URL.RawQuery = q.Encode()
+		} else if err != nil && !c.GetBool(ctxPrivileged) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "missing caller identity"})
+
+			return
+		}
 		srv.respondJobsQuery(c)
 	case http.MethodPost:
 		srv.submitJobs(c, true)
@@ -426,7 +440,7 @@ func (srv *UService) handleJobLog(c *gin.Context) {
 		return
 	}
 	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
-	if err != nil || (ac.UID != "0" && ac.UID != strconv.FormatInt(job.UID, 10)) {
+	if err != nil || (!privileged(c, ac) && ac.UID != strconv.FormatInt(job.UID, 10)) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "not your job"})
 
 		return
@@ -465,7 +479,7 @@ func (srv *UService) handleJobCancel(c *gin.Context) {
 		return
 	}
 	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
-	if err != nil || (ac.UID != "0" && ac.UID != strconv.FormatInt(job.UID, 10)) {
+	if err != nil || (!privileged(c, ac) && ac.UID != strconv.FormatInt(job.UID, 10)) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "not your job"})
 
 		return

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"kyri56xcaesar/kuspace/internal/authn"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -30,6 +31,15 @@ import (
 */
 
 var errNoCredentials = errors.New("no credentials")
+
+// ctxPrivileged is set by authenticate: the caller is a service or an admin.
+const ctxPrivileged = "privileged"
+
+// privileged reports whether the caller may act on everyone's jobs: a
+// service, an admin, or root.
+func privileged(c *gin.Context, ac ut.AccessClaim) bool {
+	return c.GetBool(ctxPrivileged) || ac.UID == "0"
+}
 
 // tokenVerifier returns the service's verifier (tests build UService
 // without the constructor).
@@ -81,12 +91,14 @@ func identify(srv *UService, c *gin.Context) (*authn.Claims, bool, error) {
 // with the service secret.
 func authenticate(srv *UService) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if _, _, err := identify(srv, c); err != nil {
+		claims, service, err := identify(srv, c)
+		if err != nil {
 			log.Printf("[Middleware-Auth] refused: %v", err)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "send a minioth access token or the service secret"})
 
 			return
 		}
+		c.Set(ctxPrivileged, service || claims.IsAdmin())
 		c.Next()
 	}
 }

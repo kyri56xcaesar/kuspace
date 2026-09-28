@@ -13,10 +13,13 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
+	"kyri56xcaesar/kuspace/internal/authn"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // memStorage is an in-memory StorageSystem, so handlers run without MinIO.
@@ -255,5 +258,75 @@ func TestGroupVolumeHandlers(t *testing.T) {
 	}
 	if rec := a.do(http.MethodDelete, "/api/v1/admin/group/volume?volume=other", "::/", "0:0", nil, ""); rec.Code != http.StatusNotFound {
 		t.Errorf("release of a non-group volume: %d, want 404", rec.Code)
+	}
+}
+
+// withJobsDB gives the harness a jobs database holding one job per uid.
+func (a *apiHarness) withJobsDB(uids ...int64) {
+	a.t.Helper()
+	a.srv.jdbh = ut.NewDBHandler("jobs_test.db", a.t.TempDir()+"/", "sqlite3")
+	a.srv.jdbh.Init(initSQLJobs, "4", "2", "5")
+	a.t.Cleanup(a.srv.jdbh.Close)
+	if err := a.srv.ensureJobColumns(a.t.Context()); err != nil {
+		a.t.Fatal(err)
+	}
+	for _, uid := range uids {
+		if _, err := a.srv.insertJob(a.t.Context(), ut.Job{UID: uid, Input: "vol1/in.csv", Output: "vol1/out.csv",
+			Logic: "bash", LogicBody: "secret code of " + fmt.Sprint(uid), Status: "completed", CreatedAt: ut.CurrentTime()}); err != nil {
+			a.t.Fatal(err)
+		}
+	}
+}
+
+// Users list their own jobs only; any user used to be able to list
+// everyone's (code and file paths included).
+func TestJobListingIsScopedToTheCaller(t *testing.T) {
+	a := newAPIHarness(t, 1)
+	a.withJobsDB(1001, 2002, 2002)
+	jobsOf := func(who, query string) []ut.Job {
+		t.Helper()
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/job"+query, nil)
+		req.Header.Set("X-Service-Secret", svcSecret)
+		req.Header.Set("Access-Target", "0::/ "+who)
+		rec := httptest.NewRecorder()
+		a.h.ServeHTTP(rec, req)
+		var body struct {
+			Content []ut.Job `json:"content"`
+		}
+		_ = json.Unmarshal(rec.Body.Bytes(), &body)
+
+		return body.Content
+	}
+	// frontapp as a service is privileged; users come with their own token
+	a.srv.config.JwtSecretKey = []byte("jwt")
+	a.srv.tokens = nil
+	tok := func(uid string) string {
+		c := &authn.Claims{UserID: uid, Groups: "user", GroupIDs: uid,
+			RegisteredClaims: jwt.RegisteredClaims{Issuer: "minioth", ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour))}}
+		s, _ := jwt.NewWithClaims(jwt.SigningMethodHS256, c).SignedString([]byte("jwt"))
+
+		return s
+	}
+	asUser := func(uid, query string) (int, []ut.Job) {
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/job"+query, nil)
+		req.Header.Set("Authorization", "Bearer "+tok(uid))
+		rec := httptest.NewRecorder()
+		a.h.ServeHTTP(rec, req)
+		var body struct {
+			Content []ut.Job `json:"content"`
+		}
+		_ = json.Unmarshal(rec.Body.Bytes(), &body)
+
+		return rec.Code, body.Content
+	}
+
+	for _, query := range []string{"", "?uid=2002", "?uids=2002", "?jids=*"} {
+		code, jobs := asUser("1001", query)
+		if code != http.StatusOK || len(jobs) != 1 || jobs[0].UID != 1001 {
+			t.Errorf("user 1001 with %q: %d, %d job(s) %+v", query, code, len(jobs), jobs)
+		}
+	}
+	if jobs := jobsOf("0:0", ""); len(jobs) != 3 {
+		t.Errorf("service listing: %d jobs, want 3", len(jobs))
 	}
 }
