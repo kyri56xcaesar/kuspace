@@ -6,7 +6,9 @@ package uspace
 */
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -14,6 +16,7 @@ import (
 	"strings"
 
 	ut "kyri56xcaesar/kuspace/internal/utils"
+	"kyri56xcaesar/kuspace/pkg/fslite"
 
 	"github.com/gin-gonic/gin"
 )
@@ -46,108 +49,111 @@ import (
 // @Router      /volumes [patch]
 // @Router      /volumes [put]
 func (srv *UService) handleVolumes(c *gin.Context) {
+	ctx := c.Request.Context()
 	switch c.Request.Method {
 	case http.MethodGet:
-		vid := c.Request.URL.Query().Get("vid")
-
-		names := []string{"vid", "limit", "sort"}
-		values := []any{vid, c.Request.URL.Query().Get("limit"), c.Request.URL.Query().Get("sort")}
-
-		volumes, err := srv.storage.SelectVolumes(c.Request.Context(), ut.MakeMapFrom(names, values))
+		// fslite's records: they carry the ids, capacity and usage (the
+		// object store's bucket list carried none of it)
+		volumes, err := srv.fsl.SelectVolumes(ctx, map[string]any{"vid": c.Query("vid")})
 		if err != nil {
-			log.Printf("[USPACE_API] failed to select volumes: %v", err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
+			log.Printf("[USPACE_API] failed to list volumes: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list volumes"})
 
 			return
+		}
+		if v, single := volumes.(ut.Volume); single {
+			volumes = []ut.Volume{v}
 		}
 		c.JSON(http.StatusOK, gin.H{"content": volumes})
-	case http.MethodDelete:
-		vid := c.Query("volume")
-		if vid == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a volume name"})
 
-			return
-		}
-		err := srv.storage.RemoveVolume(c.Request.Context(), vid)
-		if err != nil {
-			log.Printf("[USPACE_API] failed to delete the volume: %v", err)
-			if strings.Contains(err.Error(), "not empty") {
-				c.JSON(http.StatusForbidden, gin.H{"error": "cannot delete bucket if not empty"})
-
-				return
-			}
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete the volume"})
-
-			return
-		}
-
-		c.JSON(http.StatusAccepted, gin.H{"status": "successfully deleted volume"})
 	case http.MethodPost:
-		// read body
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			log.Printf("[USPACE_API] failed to read request body: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read req body"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read req body"})
 
 			return
 		}
-
-		// check for an array of volumes
 		var volumes []ut.Volume
-		err = json.Unmarshal(body, &volumes)
-		if err != nil { // check for single volume
-			var volume ut.Volume
-			err = json.Unmarshal(body, &volume)
-			if err != nil {
-				log.Printf("[USPACE_API] failed to bind as a single volume as well, returning. Bad request: %v", err)
+		if json.Unmarshal(body, &volumes) != nil {
+			var one ut.Volume
+			if err := json.Unmarshal(body, &one); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 
 				return
 			}
-
-			err = volume.Validate(srv.config.LocalVolumesDefaultCapacity, srv.config.LocalVolumesDefaultCapacity, "-.")
-			if err != nil {
-				log.Printf("[USPACE_API] failed to validate the volume info: %v", err)
+			volumes = []ut.Volume{one}
+		}
+		for _, v := range volumes {
+			if err := v.Validate(srv.config.LocalVolumesDefaultCapacity, srv.config.LocalVolumesDefaultCapacity, "-."); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 
 				return
 			}
-			// single volume
-			err = srv.storage.CreateVolume(c.Request.Context(), any(volume))
-			if err != nil {
-				log.Printf("[USPACE_API] failed to insert volume: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "couldn't insert volume"})
+			if err := srv.createVolume(ctx, v); err != nil {
+				if errors.Is(err, fslite.ErrVolumeExists) {
+					c.JSON(http.StatusConflict, gin.H{"error": "volume " + v.Name + " exists"})
+
+					return
+				}
+				log.Printf("[USPACE_API] failed to create volume %s: %v", v.Name, err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "couldn't create volume " + v.Name})
 
 				return
 			}
 		}
-		// array of volumes
-		// insert them iteratevly
-		for _, volume := range volumes {
-			err = volume.Validate(srv.config.LocalVolumesDefaultCapacity, srv.config.LocalVolumesDefaultCapacity, "-.")
-			if err != nil {
-				log.Printf("[USPACE_API] failed to validate the volume info: %v", err)
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-
-				return
-			}
-			err = srv.storage.CreateVolume(c.Request.Context(), any(volume))
-			if err != nil {
-				log.Printf("[USPACE_API] failed to insert volumes: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "couldn't insert volumes"})
-
-				return
-			}
-		}
-
 		c.JSON(http.StatusCreated, gin.H{"message": "inserted volume(s) successfully"})
-	case http.MethodPatch:
-		c.JSON(200, gin.H{"status": "tbd"})
-	case http.MethodPut:
-		c.JSON(200, gin.H{"status": "tbd"})
+
+	case http.MethodDelete:
+		name := c.Query("volume")
+		switch name {
+		case "":
+			c.JSON(http.StatusBadRequest, gin.H{"error": "must provide a volume name"})
+
+			return
+		case srv.config.MinioDefaultBucket:
+			c.JSON(http.StatusForbidden, gin.H{"error": "the default volume can't be deleted"})
+
+			return
+		}
+		if err := srv.storage.RemoveVolume(ctx, name); err != nil {
+			if strings.Contains(err.Error(), "not empty") {
+				c.JSON(http.StatusConflict, gin.H{"error": "the volume still holds files"})
+
+				return
+			}
+			log.Printf("[USPACE_API] failed to delete bucket %s: %v", name, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete the volume"})
+
+			return
+		}
+		if err := srv.fsl.RemoveVolume(ctx, ut.Volume{Name: name}); err != nil {
+			log.Printf("[USPACE_API] bucket %s deleted but its record stays: %v", name, err)
+		}
+		c.JSON(http.StatusAccepted, gin.H{"status": "successfully deleted volume"})
+
 	default:
 		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "not allowed."})
 	}
+}
+
+// createVolume records a volume in fslite and creates it in the object
+// store. It used to create only the bucket, so the volume had no record
+// and every upload to it failed the resources' foreign key. A bucket that
+// already exists is adopted (volumes made the old way can be re-created).
+func (srv *UService) createVolume(ctx context.Context, v ut.Volume) error {
+	v.CreatedAt = ut.CurrentTime()
+	if err := srv.fsl.CreateVolume(ctx, v); err != nil {
+		return err
+	}
+	if err := srv.storage.CreateVolume(ctx, v); err != nil && !strings.Contains(err.Error(), "already exists") {
+		if rbErr := srv.fsl.RemoveVolume(context.WithoutCancel(ctx), v); rbErr != nil {
+			log.Printf("[USPACE_API] failed to roll back volume record %s: %v", v.Name, rbErr)
+		}
+
+		return err
+	}
+
+	return nil
 }
 
 // handleUserVolumes manages user volume registration and updates.

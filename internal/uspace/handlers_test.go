@@ -330,3 +330,34 @@ func TestJobListingIsScopedToTheCaller(t *testing.T) {
 		t.Errorf("service listing: %d jobs, want 3", len(jobs))
 	}
 }
+
+// Volumes made through the admin API get a record as well as a bucket:
+// uploads to them used to fail the resources' foreign key.
+func TestAdminVolumesAreUsable(t *testing.T) {
+	a := newAPIHarness(t, 1)
+	create := func(body string) int {
+		return a.do(http.MethodPost, "/api/v1/admin/volumes", "::/", "0:0", strings.NewReader(body), "application/json").Code
+	}
+	if code := create(`{"name":"lab-data","capacity":1}`); code != http.StatusCreated {
+		t.Fatalf("create: %d", code)
+	}
+	if code := create(`{"name":"lab-data","capacity":1}`); code != http.StatusConflict {
+		t.Errorf("duplicate: %d, want 409", code)
+	}
+	if rec := a.upload("lab-data", "x.csv", "1,2", "1001:1001"); rec.Code != http.StatusOK {
+		t.Errorf("upload to the new volume: %d %s", rec.Code, rec.Body)
+	}
+	rec := a.do(http.MethodGet, "/api/v1/admin/volumes", "::/", "0:0", nil, "")
+	if !strings.Contains(rec.Body.String(), `"lab-data"`) || !strings.Contains(rec.Body.String(), `"vid"`) {
+		t.Errorf("list: %s", rec.Body)
+	}
+	if rec := a.do(http.MethodDelete, "/api/v1/admin/volumes?volume=vol1", "::/", "0:0", nil, ""); rec.Code != http.StatusForbidden {
+		t.Errorf("deleting the default volume: %d, want 403", rec.Code)
+	}
+	if rec := a.do(http.MethodDelete, "/api/v1/admin/volumes?volume=team", "::/", "0:0", nil, ""); rec.Code != http.StatusAccepted {
+		t.Errorf("delete: %d %s", rec.Code, rec.Body)
+	}
+	if rec := a.do(http.MethodGet, "/api/v1/admin/volumes", "::/", "0:0", nil, ""); strings.Contains(rec.Body.String(), `"team"`) {
+		t.Errorf("deleted volume still listed: %s", rec.Body)
+	}
+}
