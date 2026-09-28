@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -328,5 +329,52 @@ func TestCreateVolumeExists(t *testing.T) {
 	mustVolume(t, fsl, "volume1", 0)
 	if err := fsl.CreateVolume(t.Context(), ut.Volume{Name: "volume1", CreatedAt: ut.CurrentTime()}); !errors.Is(err, ErrVolumeExists) {
 		t.Errorf("second create = %v, want ErrVolumeExists", err)
+	}
+}
+
+// Prefix listings stay in their volume, match from the start of the path,
+// and treat "_" and "%" literally (it was "%name%" across all volumes).
+func TestPrefixListing(t *testing.T) {
+	fsl := newTestFsl(t)
+	v1 := mustVolume(t, fsl, "volume1", 0)
+	v2 := mustVolume(t, fsl, "volume2", 0)
+	for _, r := range []struct {
+		vid  int64
+		vol  string
+		name string
+	}{{v1, "volume1", "/docs/a_1.txt"}, {v1, "volume1", "/docs/aX1.txt"}, {v1, "volume1", "/other/docs/z.txt"},
+		{v1, "volume1", "/100%.txt"}, {v2, "volume2", "/docs/a_1.txt"}} {
+		mustResource(t, fsl, ut.Resource{Name: r.name, Vname: r.vol, VID: r.vid, UID: 1, GID: 1, Type: "file"})
+	}
+	names := func(how map[string]any) []string {
+		t.Helper()
+		res, err := fsl.SelectObjects(ctx, how)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, r := range res.([]ut.Resource) {
+			out = append(out, r.Vname+r.Name)
+		}
+
+		return out
+	}
+	cases := []struct {
+		how  map[string]any
+		want []string
+	}{
+		{map[string]any{"vname": "volume1", "prefix": "docs/"}, []string{"volume1/docs/a_1.txt", "volume1/docs/aX1.txt"}},
+		{map[string]any{"vname": "volume1", "prefix": "docs/a_"}, []string{"volume1/docs/a_1.txt"}},
+		{map[string]any{"vname": "volume1", "prefix": "100%"}, []string{"volume1/100%.txt"}},
+		{map[string]any{"vname": "volume2", "prefix": ""}, []string{"volume2/docs/a_1.txt"}},
+		{map[string]any{"vname": "*", "prefix": "docs/a_"}, []string{"volume1/docs/a_1.txt", "volume2/docs/a_1.txt"}},
+	}
+	for _, tc := range cases {
+		got := names(tc.how)
+		sort.Strings(got)
+		sort.Strings(tc.want)
+		if strings.Join(got, ",") != strings.Join(tc.want, ",") {
+			t.Errorf("%v: %v, want %v", tc.how, got, tc.want)
+		}
 	}
 }

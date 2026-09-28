@@ -462,12 +462,12 @@ func (fsl *FsLite) SelectObjects(ctx context.Context, how map[string]any) (any, 
 		return nil, err
 	}
 	// limit := how["limit"]
-	name, ok := how["prefix"]
-	if ok && name != "" {
-		name, ok := name.(string)
-		if ok {
-			return getResourcesByNameLike(ctx, db, name)
-		}
+	vname, _ := how["vname"].(string)
+	if vname == "*" {
+		vname = ""
+	}
+	if prefix, ok := how["prefix"].(string); ok && (prefix != "" || vname != "") {
+		return getResourcesByPrefix(ctx, db, vname, prefix)
 	}
 	rids, ok := how["rids"]
 	if ok && rids != "" {
@@ -480,7 +480,7 @@ func (fsl *FsLite) SelectObjects(ctx context.Context, how map[string]any) (any, 
 		return nil, err
 	}
 
-	name, ok = how["name"]
+	name, ok := how["name"]
 	volume, ok2 := how["volume"]
 	if ok && ok2 {
 		return getResourceByNameAndVolume(ctx, db, name.(string), volume.(string))

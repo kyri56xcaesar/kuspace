@@ -117,6 +117,9 @@ var (
 	ErrVolumeNotFound = fmt.Errorf("volume %w", ut.ErrNotFound)
 )
 
+// likeEscaper escapes LIKE's wildcards (used with ESCAPE '\').
+var likeEscaper = strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`)
+
 // isUniqueViolation reports a unique/primary-key conflict: by SQLite's
 // error code, or - for the DuckDB driver, which has no typed error - its
 // message.
@@ -522,16 +525,18 @@ func exists(ctx context.Context, db *sql.DB, name, volume string) (bool, error) 
 	return true, nil // exists
 }
 
-func getResourcesByNameLike(ctx context.Context, db *sql.DB, name string) ([]ut.Resource, error) {
+// getResourcesByPrefix lists the resources whose name starts with
+// "/"+prefix, in one volume (every volume when vname is ""). It used to
+// match "%name%" anywhere in the name across all volumes, and "_" or "%" in
+// a name acted as wildcards.
+func getResourcesByPrefix(ctx context.Context, db *sql.DB, vname, prefix string) ([]ut.Resource, error) {
+	pattern := likeEscaper.Replace(NormalizeName(prefix)) + "%"
 	rows, err := db.QueryContext(ctx, `
-    SELECT
-      	*
-    FROM 
-      	resources
-	WHERE
-		name LIKE ?`, "%"+name+"%")
+    SELECT * FROM resources
+    WHERE name LIKE ? ESCAPE '\' AND (? = '' OR vname = ?)
+    ORDER BY name`, pattern, vname, vname)
 	if err != nil {
-		log.Printf("[FSL_DB_getResByNameLike] error querying db: %v", err)
+		log.Printf("[FSL_DB_getResByPrefix] error querying db: %v", err)
 
 		return nil, fmt.Errorf("failed to execute query: %w", err)
 	}
@@ -547,7 +552,7 @@ func getResourcesByNameLike(ctx context.Context, db *sql.DB, name string) ([]ut.
 		var r ut.Resource
 		err = rows.Scan(r.PtrFields()...)
 		if err != nil {
-			log.Printf("[FSL_DB_getResByNameLike] error scanning row: %v", err)
+			log.Printf("[FSL_DB_getResByPrefix] error scanning row: %v", err)
 
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
@@ -556,7 +561,7 @@ func getResourcesByNameLike(ctx context.Context, db *sql.DB, name string) ([]ut.
 	}
 
 	if err = rows.Err(); err != nil {
-		log.Printf("[FSL_DB_getResByNameLike] row iteration error: %v", err)
+		log.Printf("[FSL_DB_getResByPrefix] row iteration error: %v", err)
 
 		return nil, fmt.Errorf("iteration error: %w", err)
 	}
