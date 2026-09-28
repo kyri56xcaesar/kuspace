@@ -54,7 +54,7 @@ type HTTPService struct {
 * Structs */
 func NewService(conf string) HTTPService {
 	service := HTTPService{webRoot: "."}
-	service.Config = ut.LoadConfig(conf)
+	service.Config = ut.LoadConfig(conf, ut.Service, ut.Peers, ut.Auth, ut.Tokens, ut.Storage, ut.Jobs)
 	setGinMode(service.Config.APIGinMode)
 	service.Engine = gin.Default()
 

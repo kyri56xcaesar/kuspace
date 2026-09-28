@@ -56,7 +56,7 @@ func probe(t *testing.T, mw gin.HandlerFunc, headers map[string]string) (int, st
 }
 
 func TestAuthenticate(t *testing.T) {
-	srv := &UService{config: ut.EnvConfig{AuthConfig: ut.AuthConfig{JwtSecretKey: testJWTKey, ServiceSecretKey: []byte("svc")}}}
+	srv := &UService{config: ut.EnvConfig{TokensConfig: ut.TokensConfig{JwtSecretKey: testJWTKey}, AuthConfig: ut.AuthConfig{ServiceSecretKey: []byte("svc")}}}
 	user := "Bearer " + token(t, testJWTKey, jwt.SigningMethodHS256, nil)
 
 	// a user claiming root in Access-Target gets their own identity instead

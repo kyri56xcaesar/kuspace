@@ -61,7 +61,7 @@ func TestTokenVerifierRS256(t *testing.T) {
 	keys := map[string]*rsa.PrivateKey{"k1": key}
 	js := jwksServer(t, keys, &hits)
 
-	v := NewVerifier(ut.EnvConfig{AuthConfig: ut.AuthConfig{JwtSigningAlg: "RS256", JwtSecretKey: []byte("hs-key")}})
+	v := NewVerifier(ut.EnvConfig{TokensConfig: ut.TokensConfig{JwtSigningAlg: "RS256", JwtSecretKey: []byte("hs-key")}})
 	v.jwksURL = js.URL
 
 	if c, err := v.Verify(rsaToken(t, key, "k1")); err != nil || c.UserID != "1001" {
@@ -105,7 +105,7 @@ func TestTokenVerifierRS256(t *testing.T) {
 
 func TestTokenVerifierHS256RejectsRS256(t *testing.T) {
 	key, _ := rsa.GenerateKey(rand.Reader, 2048)
-	v := NewVerifier(ut.EnvConfig{AuthConfig: ut.AuthConfig{JwtSecretKey: testJWTKey}})
+	v := NewVerifier(ut.EnvConfig{TokensConfig: ut.TokensConfig{JwtSecretKey: testJWTKey}})
 	if _, err := v.Verify(rsaToken(t, key, "k1")); err == nil {
 		t.Error("RS256 token accepted by an HS256 verifier")
 	}

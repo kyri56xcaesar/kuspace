@@ -35,7 +35,7 @@ func token(t *testing.T, key []byte, method jwt.SigningMethod, mutate func(*Clai
 }
 
 func TestVerifyAccessToken(t *testing.T) {
-	hs := NewVerifier(ut.EnvConfig{AuthConfig: ut.AuthConfig{JwtSecretKey: testJWTKey}}) // HS256 is the default
+	hs := NewVerifier(ut.EnvConfig{TokensConfig: ut.TokensConfig{JwtSecretKey: testJWTKey}}) // HS256 is the default
 	good := token(t, testJWTKey, jwt.SigningMethodHS256, nil)
 	if c, err := hs.Verify(good); err != nil || c.UserID != "1001" {
 		t.Fatalf("valid token rejected: %v", err)

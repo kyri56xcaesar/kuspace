@@ -24,7 +24,8 @@ func newTestServer(t *testing.T) (*FsLite, *gin.Engine) {
 	t.Helper()
 	fsl := NewFsLite(ut.EnvConfig{
 		ServiceConfig: ut.ServiceConfig{APIGinMode: "test"},
-		AuthConfig:    ut.AuthConfig{JwtSecretKey: []byte("jwt-key"), ServiceSecretKey: []byte(testServiceSecret)},
+		AuthConfig:    ut.AuthConfig{ServiceSecretKey: []byte(testServiceSecret)},
+		TokensConfig:  ut.TokensConfig{JwtSecretKey: []byte("jwt-key")},
 		FsliteConfig: ut.FsliteConfig{
 			FslDB: "fsl_test.db", FslDBPath: t.TempDir() + "/", FslDBDriver: "sqlite3",
 			FslDBMaxOpenConns: "4", FslDBMaxIdleConns: "2", FslDBMaxLifetime: "5",

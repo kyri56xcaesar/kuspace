@@ -16,8 +16,8 @@ func newTestService(t *testing.T) *UService {
 			FslDB: "fsl_test.db", FslDBPath: t.TempDir() + "/", FslDBDriver: "sqlite3",
 			FslDBMaxOpenConns: "4", FslDBMaxIdleConns: "2", FslDBMaxLifetime: "5",
 			FslAccessKey: "admin", FslSecretKey: "adminpassword1",
-			LocalVolumesDefaultCapacity: 1, // GB: per-user quota in these tests
 		},
+		StorageConfig: ut.StorageConfig{LocalVolumesDefaultCapacity: 1}, // GB: per-user quota in these tests
 	}
 	srv := &UService{config: cfg, fsl: fslite.NewFsLite(cfg)}
 	if err := srv.fsl.CreateVolume(t.Context(), ut.Volume{Name: "vol1", CreatedAt: ut.CurrentTime()}); err != nil {

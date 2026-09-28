@@ -7,6 +7,6 @@ import (
 )
 
 func main() {
-	fslite := fslite.NewFsLite(utils.LoadConfig("configs/fslite.conf"))
+	fslite := fslite.NewFsLite(utils.LoadConfig("configs/fslite.conf", utils.Service, utils.Auth, utils.Tokens, utils.Storage, utils.Fslite))
 	fslite.ListenAndServe()
 }

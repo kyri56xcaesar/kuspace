@@ -89,8 +89,9 @@ func newFrontHarness(t *testing.T) *frontHarness {
 	gin.SetMode(gin.TestMode)
 	us, mo := newFakeUpstream(t), newFakeUpstream(t)
 	cfg := ut.EnvConfig{
-		AuthConfig:    ut.AuthConfig{JwtSecretKey: testKey, ServiceSecretKey: []byte("svc")},
-		MinioConfig:   ut.MinioConfig{MinioDefaultBucket: "uspace-default"},
+		AuthConfig:    ut.AuthConfig{ServiceSecretKey: []byte("svc")},
+		TokensConfig:  ut.TokensConfig{JwtSecretKey: testKey},
+		StorageConfig: ut.StorageConfig{MinioDefaultBucket: "uspace-default"},
 		ServiceConfig: ut.ServiceConfig{AllowedOrigins: []string{"*"}},
 	}
 	srv := &HTTPService{

@@ -36,11 +36,32 @@ type EnvConfig struct {
 	ServiceConfig
 	PeersConfig
 	AuthConfig
+	TokensConfig
+	StorageConfig
 	FsliteConfig
 	MinioConfig
 	JobsConfig
 	MiniothConfig
+
+	sections map[Section]bool // what LoadConfig loaded (nil: everything)
 }
+
+// Section names a part of EnvConfig. A service loads the sections it uses
+// (LoadConfig); the others stay zero and are neither checked nor logged.
+type Section string
+
+// The sections, by the struct that holds them.
+const (
+	Service Section = "ServiceConfig" // identity, listener, logs, CORS
+	Peers   Section = "PeersConfig"   // where the other services are
+	Auth    Section = "AuthConfig"    // the service-to-service secret
+	Tokens  Section = "TokensConfig"  // minioth access tokens (JWT)
+	Storage Section = "StorageConfig" // storage backend, default volume and quota
+	Fslite  Section = "FsliteConfig"  // fslite database and server
+	Minio   Section = "MinioConfig"   // MinIO connection
+	Jobs    Section = "JobsConfig"    // job queue, executors, limits
+	Minioth Section = "MiniothConfig" // mirrored minioth settings (tools)
+)
 
 // ServiceConfig is what every service has: identity, listener, logs, CORS.
 type ServiceConfig struct {
@@ -77,20 +98,31 @@ type PeersConfig struct {
 	WssLogsPath        string `env:"J_WS_LOGS_PATH" default:"data/logs/jobs/"` // directory: one log per job session
 }
 
-// AuthConfig holds the token and service-to-service secrets.
+// AuthConfig holds the service-to-service secret.
 type AuthConfig struct {
+	ServiceSecretKey []byte `env:"SERVICE_SECRET_KEY" secret:"true" required:"true"`
+}
+
+// TokensConfig verifies (and, for fslite's admin tokens, derives keys from)
+// minioth's access tokens.
+type TokensConfig struct {
 	JwtValidityHours float64 `env:"JWT_VALIDITY_HOURS" default:"1"`
 	JwtSecretKey     []byte  `env:"JWT_SECRET_KEY" secret:"true" required:"true"`
 	JwtSigningAlg    string  `env:"JWT_SIGNING_ALG" default:"HS256"` // HS256 (shared JwtSecretKey) or RS256 (minioth's JWKS)
-	ServiceSecretKey []byte  `env:"SERVICE_SECRET_KEY" secret:"true" required:"true"`
-	HashCost         string  `env:"HASH_COST" default:"4"` // bcrypt, used by minioth
+	HashCost         string  `env:"HASH_COST" default:"4"`           // bcrypt, used by minioth
+}
+
+// StorageConfig is the storage policy every storage-facing service shares.
+type StorageConfig struct {
+	StorageSystem               string  `env:"STORAGE_SYSTEM" default:"local"`         // minio, or local (fslite)
+	MinioDefaultBucket          string  `env:"MINIO_DEFAULT_BUCKET" default:"default"` // the default volume (every user's)
+	LocalVolumesDefaultPath     string  `env:"LOCAL_VOLUMES_DEFAULT_PATH" default:"data/volumes/fslite"`
+	LocalVolumesDefaultCapacity float64 `env:"LOCAL_VOLUMES_DEFAULT_CAPACITY" default:"20"` // GB; also the default per-user quota
 }
 
 // FsliteConfig configures fslite: uspace's metadata store, or the
 // standalone fslite server.
 type FsliteConfig struct {
-	StorageSystem string `env:"STORAGE_SYSTEM" default:"local"` // minio, or local (fslite)
-
 	FslDB             string `env:"FSL_DB" default:"database.db"`
 	FslDBPath         string `env:"FSL_DB_PATH" default:"data/db/fslite"`
 	FslDBDriver       string `env:"FSL_DB_DRIVER" default:"sqlite3"`
@@ -102,9 +134,6 @@ type FsliteConfig struct {
 	FslServer         bool   `env:"FSL_SERVER" default:"true"`
 	FslLocality       bool   `env:"FSL_LOCALITY" default:"true"`  // keep file contents on local disk
 	FslUnlocked       bool   `env:"FSL_UNLOCKED" default:"false"` // don't limit or check usage/capacity
-
-	LocalVolumesDefaultPath     string  `env:"LOCAL_VOLUMES_DEFAULT_PATH" default:"data/volumes/fslite"`
-	LocalVolumesDefaultCapacity float64 `env:"LOCAL_VOLUMES_DEFAULT_CAPACITY" default:"20"` // GB
 }
 
 // MinioConfig configures the MinIO object store.
@@ -114,7 +143,6 @@ type MinioConfig struct {
 	MinioAccessKey          string `env:"MINIO_ACCESS_KEY" default:"minioadmin"`
 	MinioSecretKey          string `env:"MINIO_SECRET_KEY" default:"minioadmin" secret:"true"`
 	MinioUseSSL             string `env:"MINIO_USE_SSL" default:"false"`
-	MinioDefaultBucket      string `env:"MINIO_DEFAULT_BUCKET" default:"default"`
 	MinioObjectLocking      bool   `env:"MINIO_OBJECT_LOCKING" default:"false"`
 	MinioFetchStat          bool   `env:"MINIO_FETCH_STAT" default:"false"`
 	ObjectSharing           bool   `env:"OBJECT_SHARED" default:"false"`
@@ -160,14 +188,21 @@ type MiniothConfig struct {
 }
 
 // LoadConfig loads the .conf file at path into the environment (variables
-// already set win) and builds the configuration from the environment. A
-// missing required secret or an unparsable value stops the service.
-func LoadConfig(path string) EnvConfig {
+// already set win) and builds the named sections of the configuration from
+// the environment (all of them when none are named). A missing required
+// secret or an unparsable value stops the service.
+func LoadConfig(path string, sections ...Section) EnvConfig {
 	if err := godotenv.Load(path); err != nil {
 		log.Printf("Could not load %s config file. Using default variables", path)
 	}
 
 	var cfg EnvConfig
+	if len(sections) > 0 {
+		cfg.sections = map[Section]bool{}
+		for _, s := range sections {
+			cfg.sections[s] = true
+		}
+	}
 	if err := loadEnv(&cfg); err != nil {
 		log.Fatalf("[CONF] invalid configuration:\n%v", err)
 	}
@@ -183,9 +218,9 @@ func LoadConfig(path string) EnvConfig {
 // loadEnv fills every `env`-tagged field of the struct dst points to (and
 // of its embedded sections) from the environment, falling back to the
 // field's `default`. It reports all problems at once.
-func loadEnv(dst any) error {
+func loadEnv(cfg *EnvConfig) error {
 	var errs []error
-	walkConfig(reflect.ValueOf(dst).Elem(), func(f reflect.StructField, v reflect.Value) {
+	cfg.walk(func(f reflect.StructField, v reflect.Value) {
 		name := f.Tag.Get("env")
 		raw, set := os.LookupEnv(name)
 		raw = strings.TrimSpace(raw)
@@ -205,15 +240,22 @@ func loadEnv(dst any) error {
 	return errors.Join(errs...)
 }
 
-// walkConfig calls fn for each `env`-tagged field, descending into
-// embedded sections.
-func walkConfig(v reflect.Value, fn func(reflect.StructField, reflect.Value)) {
+// walk calls fn for each `env`-tagged field of the loaded sections.
+func (cfg *EnvConfig) walk(fn func(reflect.StructField, reflect.Value)) {
+	walkConfig(reflect.ValueOf(cfg).Elem(), cfg.sections, fn)
+}
+
+// walkConfig calls fn for each `env`-tagged field, descending into the
+// embedded sections (only those in only, unless it is nil).
+func walkConfig(v reflect.Value, only map[Section]bool, fn func(reflect.StructField, reflect.Value)) {
 	t := v.Type()
 	for i := range t.NumField() {
 		f := t.Field(i)
 		switch {
 		case f.Anonymous && f.Type.Kind() == reflect.Struct:
-			walkConfig(v.Field(i), fn)
+			if only == nil || only[Section(f.Type.Name())] {
+				walkConfig(v.Field(i), nil, fn)
+			}
 		case f.Tag.Get("env") != "":
 			fn(f, v.Field(i))
 		}
@@ -274,7 +316,7 @@ func splitList(raw string) []string {
 // default value.
 func (cfg *EnvConfig) DefaultSecrets() []string {
 	var names []string
-	walkConfig(reflect.ValueOf(cfg).Elem(), func(f reflect.StructField, v reflect.Value) {
+	cfg.walk(func(f reflect.StructField, v reflect.Value) {
 		def := f.Tag.Get("default")
 		if f.Tag.Get("secret") == "true" && def != "" && fieldString(v) == def {
 			names = append(names, f.Tag.Get("env"))
@@ -314,7 +356,7 @@ func (cfg *EnvConfig) DeepCopy() EnvConfig {
 func (cfg *EnvConfig) ToString() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "[CFG]CONFIGURATION: %s\n", cfg.ConfigPath)
-	walkConfig(reflect.ValueOf(cfg).Elem(), func(f reflect.StructField, v reflect.Value) {
+	cfg.walk(func(f reflect.StructField, v reflect.Value) {
 		value := fieldString(v)
 		if (f.Tag.Get("secret") == "true" || isSecretName(f.Name)) && value != "" {
 			value = "<redacted>"

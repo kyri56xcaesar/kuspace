@@ -91,7 +91,7 @@ type UService struct {
 */
 func NewUService(conf string) UService {
 	// configuration
-	cfg := ut.LoadConfig(conf)
+	cfg := ut.LoadConfig(conf, ut.Service, ut.Peers, ut.Auth, ut.Tokens, ut.Storage, ut.Fslite, ut.Minio, ut.Jobs)
 	verbose = cfg.Verbose
 
 	setGinMode(cfg.APIGinMode)

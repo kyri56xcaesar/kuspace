@@ -56,7 +56,7 @@ func TestLoadEnvReportsEveryProblem(t *testing.T) {
 
 func TestEveryFieldIsLoadable(t *testing.T) {
 	seen := map[string]string{}
-	walkConfig(reflect.ValueOf(&EnvConfig{}).Elem(), func(f reflect.StructField, v reflect.Value) {
+	walkConfig(reflect.ValueOf(&EnvConfig{}).Elem(), nil, func(f reflect.StructField, v reflect.Value) {
 		name := f.Tag.Get("env")
 		if prev, dup := seen[name]; dup {
 			t.Errorf("%s is read by both %s and %s", name, prev, f.Name)
@@ -72,7 +72,7 @@ func TestEveryFieldIsLoadable(t *testing.T) {
 
 func TestDeepCopySharesNothing(t *testing.T) {
 	cfg := EnvConfig{
-		AuthConfig:    AuthConfig{JwtSecretKey: []byte("k")},
+		TokensConfig:  TokensConfig{JwtSecretKey: []byte("k")},
 		ServiceConfig: ServiceConfig{AllowedOrigins: []string{"a"}},
 		JobsConfig:    JobsConfig{UspaceJobTTL: 7},
 		FsliteConfig:  FsliteConfig{FslUnlocked: true}, // the hand-written copy dropped fields like this
@@ -126,7 +126,7 @@ var foreignKeys = map[string]bool{
 // uspace.conf set DB_FSL_PATH for years while the loader read FSL_DB_PATH.
 func TestConfigFilesUseKnownKeys(t *testing.T) {
 	known := map[string]bool{}
-	walkConfig(reflect.ValueOf(&EnvConfig{}).Elem(), func(f reflect.StructField, _ reflect.Value) {
+	walkConfig(reflect.ValueOf(&EnvConfig{}).Elem(), nil, func(f reflect.StructField, _ reflect.Value) {
 		known[f.Tag.Get("env")] = true
 	})
 	root := filepath.Join("..", "..")
@@ -173,5 +173,30 @@ func TestShippedConfigsLoad(t *testing.T) {
 				t.Errorf("%s does not load:\n%v", name, err)
 			}
 		})
+	}
+}
+
+// A service loads only its sections: wss needs neither the JWT key nor
+// MinIO, so it must not require or warn about them.
+func TestSectionsLimitWhatIsLoaded(t *testing.T) {
+	t.Setenv("SERVICE_SECRET_KEY", "svc")
+	t.Setenv("JWT_SECRET_KEY", "")
+	cfg := EnvConfig{sections: map[Section]bool{Service: true, Peers: true, Auth: true}}
+	if err := loadEnv(&cfg); err != nil {
+		t.Fatalf("wss sections: %v", err)
+	}
+	if cfg.MinioEndpoint != "" || cfg.UspaceJobMaxCPU != 0 {
+		t.Error("sections outside the list were loaded")
+	}
+	if d := cfg.DefaultSecrets(); len(d) != 0 {
+		t.Errorf("warned about unused secrets: %v", d)
+	}
+	if out := cfg.ToString(); strings.Contains(out, "MINIO_ENDPOINT") || !strings.Contains(out, "J_WS_ADDRESS") {
+		t.Errorf("logged the wrong sections:\n%s", out)
+	}
+
+	all := EnvConfig{}
+	if err := loadEnv(&all); err == nil {
+		t.Error("loading everything without JWT_SECRET_KEY succeeded")
 	}
 }
