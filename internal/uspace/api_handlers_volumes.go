@@ -41,11 +41,11 @@ import (
 // @Failure     405     {object}  map[string]string       "Method not allowed"
 // @Failure     500     {object}  map[string]string       "Internal server error"
 //
-// @Router      /volumes [get]
-// @Router      /volumes [post]
-// @Router      /volumes [delete]
-// @Router      /volumes [patch]
-// @Router      /volumes [put]
+// @Router      /admin/volumes [get]
+// @Router      /admin/volumes [post]
+// @Router      /admin/volumes [delete]
+// @Router      /admin/volumes [patch]
+// @Router      /admin/volumes [put]
 func (srv *UService) handleVolumes(c *gin.Context) {
 	ctx := c.Request.Context()
 	switch c.Request.Method {

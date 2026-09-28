@@ -71,8 +71,9 @@ func (fsl *FsLite) routes() *gin.Engine {
 
 		// admin.GET("/resource/share", fsl.shareResourceHandler)
 
-		admin.Match([]string{"GET", "PATCH", "DELETE"}, "/user/volumes", fsl.handleUserVolumes)
-		admin.Match([]string{"GET"}, "/system-conf", fsl.handleSysConf)
+		// PATCH and DELETE were routed too, and did nothing (200, empty)
+		admin.GET("/user/volumes", fsl.handleUserVolumes)
+		admin.GET("/system-conf", fsl.handleSysConf)
 	}
 
 	return srv

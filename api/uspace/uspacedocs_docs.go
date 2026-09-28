@@ -453,9 +453,63 @@ const docTemplateuspacedocs = `{
                 }
             }
         },
+        "/admin/group/volume": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "volumes"
+                ],
+                "summary": "Manage group volumes",
+                "responses": {}
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "volumes"
+                ],
+                "summary": "Manage group volumes",
+                "responses": {}
+            },
+            "delete": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "volumes"
+                ],
+                "summary": "Manage group volumes",
+                "responses": {}
+            },
+            "patch": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "volumes"
+                ],
+                "summary": "Manage group volumes",
+                "responses": {}
+            }
+        },
         "/admin/job": {
             "get": {
-                "description": "Handles CRUD operations for jobs. Supports multiple HTTP methods.",
+                "description": "Query, submit (as root: no input/output permission checks), update and delete jobs.",
                 "consumes": [
                     "application/json"
                 ],
@@ -554,6 +608,15 @@ const docTemplateuspacedocs = `{
                     },
                     "500": {
                         "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "job queue full, nothing was saved",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -564,7 +627,7 @@ const docTemplateuspacedocs = `{
                 }
             },
             "put": {
-                "description": "Handles CRUD operations for jobs. Supports multiple HTTP methods.",
+                "description": "Query, submit (as root: no input/output permission checks), update and delete jobs.",
                 "consumes": [
                     "application/json"
                 ],
@@ -663,6 +726,15 @@ const docTemplateuspacedocs = `{
                     },
                     "500": {
                         "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "job queue full, nothing was saved",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -673,7 +745,7 @@ const docTemplateuspacedocs = `{
                 }
             },
             "post": {
-                "description": "Handles CRUD operations for jobs. Supports multiple HTTP methods.",
+                "description": "Query, submit (as root: no input/output permission checks), update and delete jobs.",
                 "consumes": [
                     "application/json"
                 ],
@@ -754,6 +826,259 @@ const docTemplateuspacedocs = `{
                     },
                     "400": {
                         "description": "Bad request (e.g., parse error)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "job queue full, nothing was saved",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Query, submit (as root: no input/output permission checks), update and delete jobs.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "jobs"
+                ],
+                "summary": "Admin job endpoint",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Filter jobs by single user ID",
+                        "name": "uid",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of user IDs to filter jobs",
+                        "name": "uids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of job IDs to retrieve or delete",
+                        "name": "jids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Single job ID to retrieve or delete",
+                        "name": "jid",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination limit for job list",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination offset for job list",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Job object for POST (single) and PUT",
+                        "name": "job",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Job"
+                        }
+                    },
+                    {
+                        "description": "Job array for POST (multiple)",
+                        "name": "jobs",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Job"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success with job(s) content or status message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request (e.g., parse error)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "job queue full, nothing was saved",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/system-conf": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "System configuration",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/system-metrics": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "System metrics",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/user/volume": {
+            "get": {
+                "description": "Insert single or multiple user volume objects.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "volumes",
+                    "users"
+                ],
+                "summary": "Manage user volumes",
+                "parameters": [
+                    {
+                        "description": "Single user volume",
+                        "name": "userVolume",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.UserVolume"
+                        }
+                    },
+                    {
+                        "description": "Array of user volumes",
+                        "name": "userVolumes",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.UserVolume"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "User volume(s) inserted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request (binding or decoding error)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -781,117 +1106,6 @@ const docTemplateuspacedocs = `{
                     }
                 }
             },
-            "delete": {
-                "description": "Handles CRUD operations for jobs. Supports multiple HTTP methods.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "admin",
-                    "jobs"
-                ],
-                "summary": "Admin job endpoint",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Filter jobs by single user ID",
-                        "name": "uid",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Comma-separated list of user IDs to filter jobs",
-                        "name": "uids",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Comma-separated list of job IDs to retrieve or delete",
-                        "name": "jids",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Single job ID to retrieve or delete",
-                        "name": "jid",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Pagination limit for job list",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Pagination offset for job list",
-                        "name": "offset",
-                        "in": "query"
-                    },
-                    {
-                        "description": "Job object for POST (single) and PUT",
-                        "name": "job",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Job"
-                        }
-                    },
-                    {
-                        "description": "Job array for POST (multiple)",
-                        "name": "jobs",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Job"
-                            }
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success with job(s) content or status message",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request (e.g., parse error)",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "405": {
-                        "description": "Method not allowed",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/admin/user/volume": {
             "post": {
                 "description": "Insert single or multiple user volume objects.",
                 "consumes": [
@@ -1090,6 +1304,548 @@ const docTemplateuspacedocs = `{
                     },
                     "400": {
                         "description": "Bad request (binding or decoding error)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/volumes": {
+            "get": {
+                "description": "GET to list volumes, POST to create one or more, DELETE to remove by vid",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "volumes"
+                ],
+                "summary": "Manage volumes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Volume ID to filter (GET) or delete (DELETE)",
+                        "name": "vid",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Limit number of returned volumes",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort order for volumes",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Single volume object",
+                        "name": "volume",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
+                        }
+                    },
+                    {
+                        "description": "Array of volume objects",
+                        "name": "volumes",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success with content",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "201": {
+                        "description": "Volume(s) created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "202": {
+                        "description": "Volume deleted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request or validation failure",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "GET to list volumes, POST to create one or more, DELETE to remove by vid",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "volumes"
+                ],
+                "summary": "Manage volumes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Volume ID to filter (GET) or delete (DELETE)",
+                        "name": "vid",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Limit number of returned volumes",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort order for volumes",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Single volume object",
+                        "name": "volume",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
+                        }
+                    },
+                    {
+                        "description": "Array of volume objects",
+                        "name": "volumes",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success with content",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "201": {
+                        "description": "Volume(s) created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "202": {
+                        "description": "Volume deleted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request or validation failure",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "GET to list volumes, POST to create one or more, DELETE to remove by vid",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "volumes"
+                ],
+                "summary": "Manage volumes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Volume ID to filter (GET) or delete (DELETE)",
+                        "name": "vid",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Limit number of returned volumes",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort order for volumes",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Single volume object",
+                        "name": "volume",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
+                        }
+                    },
+                    {
+                        "description": "Array of volume objects",
+                        "name": "volumes",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success with content",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "201": {
+                        "description": "Volume(s) created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "202": {
+                        "description": "Volume deleted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request or validation failure",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "GET to list volumes, POST to create one or more, DELETE to remove by vid",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "volumes"
+                ],
+                "summary": "Manage volumes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Volume ID to filter (GET) or delete (DELETE)",
+                        "name": "vid",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Limit number of returned volumes",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort order for volumes",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Single volume object",
+                        "name": "volume",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
+                        }
+                    },
+                    {
+                        "description": "Array of volume objects",
+                        "name": "volumes",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success with content",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "201": {
+                        "description": "Volume(s) created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "202": {
+                        "description": "Volume deleted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request or validation failure",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "GET to list volumes, POST to create one or more, DELETE to remove by vid",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "volumes"
+                ],
+                "summary": "Manage volumes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Volume ID to filter (GET) or delete (DELETE)",
+                        "name": "vid",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Limit number of returned volumes",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort order for volumes",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Single volume object",
+                        "name": "volume",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
+                        }
+                    },
+                    {
+                        "description": "Array of volume objects",
+                        "name": "volumes",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success with content",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "201": {
+                        "description": "Volume(s) created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "202": {
+                        "description": "Volume deleted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request or validation failure",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1401,6 +2157,15 @@ const docTemplateuspacedocs = `{
                             }
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
                     "405": {
                         "description": "Method Not Allowed",
                         "schema": {
@@ -1412,6 +2177,15 @@ const docTemplateuspacedocs = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "job queue full, nothing was saved",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1497,6 +2271,15 @@ const docTemplateuspacedocs = `{
                             }
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
                     "405": {
                         "description": "Method Not Allowed",
                         "schema": {
@@ -1508,6 +2291,116 @@ const docTemplateuspacedocs = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "job queue full, nothing was saved",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/job/cancel": {
+            "post": {
+                "tags": [
+                    "jobs"
+                ],
+                "summary": "Cancel a job",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Job ID",
+                        "name": "jid",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "the job already finished",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/job/log": {
+            "get": {
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "jobs"
+                ],
+                "summary": "Job output log",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Job ID",
+                        "name": "jid",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "the job's output (tail, up to 64 KiB)",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1622,7 +2515,7 @@ const docTemplateuspacedocs = `{
             }
         },
         "/resource/group": {
-            "post": {
+            "patch": {
                 "description": "Updates the group (group ID) of a resource based on its resource ID.",
                 "consumes": [
                     "application/x-www-form-urlencoded"
@@ -1683,7 +2576,7 @@ const docTemplateuspacedocs = `{
             }
         },
         "/resource/mv": {
-            "post": {
+            "patch": {
                 "description": "Moves a resource (copy + delete) to another bucket/object path using the ` + "`" + `dest` + "`" + ` query parameter.",
                 "consumes": [
                     "application/json"
@@ -1736,7 +2629,7 @@ const docTemplateuspacedocs = `{
             }
         },
         "/resource/ownership": {
-            "post": {
+            "patch": {
                 "description": "Updates the owner (user ID) of a resource based on its resource ID.",
                 "consumes": [
                     "application/x-www-form-urlencoded"
@@ -1797,7 +2690,7 @@ const docTemplateuspacedocs = `{
             }
         },
         "/resource/permissions": {
-            "post": {
+            "patch": {
                 "description": "Updates permissions for a resource given its ID and a permission string.",
                 "consumes": [
                     "application/x-www-form-urlencoded"
@@ -2070,542 +2963,22 @@ const docTemplateuspacedocs = `{
                 }
             }
         },
-        "/volumes": {
+        "/volumes/shared": {
             "get": {
-                "description": "GET to list volumes, POST to create one or more, DELETE to remove by vid",
-                "consumes": [
-                    "application/json"
-                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "volumes"
                 ],
-                "summary": "Manage volumes",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Volume ID to filter (GET) or delete (DELETE)",
-                        "name": "vid",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Limit number of returned volumes",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Sort order for volumes",
-                        "name": "sort",
-                        "in": "query"
-                    },
-                    {
-                        "description": "Single volume object",
-                        "name": "volume",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
-                        }
-                    },
-                    {
-                        "description": "Array of volume objects",
-                        "name": "volumes",
-                        "in": "body",
-                        "required": true,
+                "summary": "List my group volumes",
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
-                            }
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success with content",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "201": {
-                        "description": "Volume(s) created",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "202": {
-                        "description": "Volume deleted",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request or validation failure",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "405": {
-                        "description": "Method not allowed",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "GET to list volumes, POST to create one or more, DELETE to remove by vid",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "volumes"
-                ],
-                "summary": "Manage volumes",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Volume ID to filter (GET) or delete (DELETE)",
-                        "name": "vid",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Limit number of returned volumes",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Sort order for volumes",
-                        "name": "sort",
-                        "in": "query"
-                    },
-                    {
-                        "description": "Single volume object",
-                        "name": "volume",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
-                        }
-                    },
-                    {
-                        "description": "Array of volume objects",
-                        "name": "volumes",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
-                            }
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success with content",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "201": {
-                        "description": "Volume(s) created",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "202": {
-                        "description": "Volume deleted",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request or validation failure",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "405": {
-                        "description": "Method not allowed",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "GET to list volumes, POST to create one or more, DELETE to remove by vid",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "volumes"
-                ],
-                "summary": "Manage volumes",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Volume ID to filter (GET) or delete (DELETE)",
-                        "name": "vid",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Limit number of returned volumes",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Sort order for volumes",
-                        "name": "sort",
-                        "in": "query"
-                    },
-                    {
-                        "description": "Single volume object",
-                        "name": "volume",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
-                        }
-                    },
-                    {
-                        "description": "Array of volume objects",
-                        "name": "volumes",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
-                            }
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success with content",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "201": {
-                        "description": "Volume(s) created",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "202": {
-                        "description": "Volume deleted",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request or validation failure",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "405": {
-                        "description": "Method not allowed",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "GET to list volumes, POST to create one or more, DELETE to remove by vid",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "volumes"
-                ],
-                "summary": "Manage volumes",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Volume ID to filter (GET) or delete (DELETE)",
-                        "name": "vid",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Limit number of returned volumes",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Sort order for volumes",
-                        "name": "sort",
-                        "in": "query"
-                    },
-                    {
-                        "description": "Single volume object",
-                        "name": "volume",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
-                        }
-                    },
-                    {
-                        "description": "Array of volume objects",
-                        "name": "volumes",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
-                            }
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success with content",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "201": {
-                        "description": "Volume(s) created",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "202": {
-                        "description": "Volume deleted",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request or validation failure",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "405": {
-                        "description": "Method not allowed",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            },
-            "patch": {
-                "description": "GET to list volumes, POST to create one or more, DELETE to remove by vid",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "volumes"
-                ],
-                "summary": "Manage volumes",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Volume ID to filter (GET) or delete (DELETE)",
-                        "name": "vid",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Limit number of returned volumes",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Sort order for volumes",
-                        "name": "sort",
-                        "in": "query"
-                    },
-                    {
-                        "description": "Single volume object",
-                        "name": "volume",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
-                        }
-                    },
-                    {
-                        "description": "Array of volume objects",
-                        "name": "volumes",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume"
-                            }
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success with content",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "201": {
-                        "description": "Volume(s) created",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "202": {
-                        "description": "Volume deleted",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request or validation failure",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "405": {
-                        "description": "Method not allowed",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
+                                "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.GroupVolume"
                             }
                         }
                     }
@@ -2620,7 +2993,7 @@ const docTemplateuspacedocs = `{
                 "author": {
                     "type": "string"
                 },
-                "author_id": {
+                "authorId": {
                     "type": "integer"
                 },
                 "createdAt": {
@@ -2649,19 +3022,42 @@ const docTemplateuspacedocs = `{
                 }
             }
         },
+        "kyri56xcaesar_kuspace_internal_utils.GroupVolume": {
+            "type": "object",
+            "properties": {
+                "gid": {
+                    "type": "integer"
+                },
+                "quota": {
+                    "type": "number"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "usage": {
+                    "type": "number"
+                },
+                "vid": {
+                    "type": "integer"
+                },
+                "vname": {
+                    "type": "string"
+                }
+            }
+        },
         "kyri56xcaesar_kuspace_internal_utils.Job": {
             "type": "object",
             "properties": {
                 "completed": {
                     "type": "boolean"
                 },
-                "completed_at": {
+                "completedAt": {
                     "type": "string"
                 },
-                "cpu_limit": {
+                "cpuLimit": {
                     "type": "string"
                 },
-                "cpu_request": {
+                "cpuRequest": {
                     "type": "string"
                 },
                 "createdAt": {
@@ -2673,23 +3069,31 @@ const docTemplateuspacedocs = `{
                 "duration": {
                     "type": "number"
                 },
+                "engine": {
+                    "description": "Engine is where the job ran (\"kubernetes\" or \"docker\"); set by uspace,\nnever by the submitter.",
+                    "type": "string"
+                },
                 "env": {
                     "type": "object",
                     "additionalProperties": {
                         "type": "string"
                     }
                 },
-                "ephimeral_storage_limit": {
+                "ephemeralStorageLimit": {
                     "type": "string"
                 },
-                "ephimeral_storage_request": {
+                "ephemeralStorageRequest": {
                     "type": "string"
+                },
+                "gid": {
+                    "description": "GID is the owner's primary group at submission: the job's output files\nget it. Set by uspace, never by the submitter.",
+                    "type": "integer"
                 },
                 "input": {
                     "type": "string"
                 },
-                "input_format": {
-                    "description": "perhaps unecessary",
+                "inputFormat": {
+                    "description": "perhaps unnecessary",
                     "type": "string"
                 },
                 "jid": {
@@ -2698,22 +3102,22 @@ const docTemplateuspacedocs = `{
                 "logic": {
                     "type": "string"
                 },
-                "logic_body": {
+                "logicBody": {
                     "type": "string"
                 },
-                "logic_headers": {
+                "logicHeaders": {
                     "type": "string"
                 },
-                "memory_limit": {
+                "memoryLimit": {
                     "type": "string"
                 },
-                "memory_request": {
+                "memoryRequest": {
                     "type": "string"
                 },
                 "output": {
                     "type": "string"
                 },
-                "output_format": {
+                "outputFormat": {
                     "type": "string"
                 },
                 "parallelism": {
@@ -2749,7 +3153,7 @@ const docTemplateuspacedocs = `{
                 "uid": {
                     "type": "integer"
                 },
-                "updated_at": {
+                "updatedAt": {
                     "type": "string"
                 },
                 "usage": {
@@ -2757,6 +3161,10 @@ const docTemplateuspacedocs = `{
                 },
                 "vid": {
                     "type": "integer"
+                },
+                "vname": {
+                    "description": "filled by listings, not stored",
+                    "type": "string"
                 }
             }
         },
@@ -2772,14 +3180,21 @@ const docTemplateuspacedocs = `{
                 "dynamic": {
                     "type": "boolean"
                 },
+                "gid": {
+                    "type": "integer"
+                },
                 "name": {
                     "type": "string"
                 },
-                "object_count": {
+                "objectCount": {
                     "type": "integer"
                 },
                 "path": {
                     "type": "string"
+                },
+                "shared": {
+                    "description": "Shared marks a group volume; GID is its group (neither is stored in\nthe volumes table: they come from the group assignment).",
+                    "type": "boolean"
                 },
                 "usage": {
                     "type": "number"

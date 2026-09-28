@@ -1,7 +1,7 @@
 definitions:
   kyri56xcaesar_kuspace_internal_utils.Resource:
     properties:
-      accessed_at:
+      accessedAt:
         type: string
       createdAt:
         type: string
@@ -26,7 +26,7 @@ definitions:
       uid:
         description: as in user id (owner)
         type: integer
-      updated_at:
+      updatedAt:
         type: string
       vid:
         type: integer
@@ -41,12 +41,19 @@ definitions:
         type: string
       dynamic:
         type: boolean
+      gid:
+        type: integer
       name:
         type: string
-      object_count:
+      objectCount:
         type: integer
       path:
         type: string
+      shared:
+        description: |-
+          Shared marks a group volume; GID is its group (neither is stored in
+          the volumes table: they come from the group assignment).
+        type: boolean
       usage:
         type: number
       vid:
@@ -334,10 +341,28 @@ paths:
       summary: Upload one or more files to a volume
       tags:
       - resource
-  /admin/uservolumes:
+  /admin/system-conf:
     get:
-      description: Fetch user-to-volume mappings. (Currently only GET is implemented.
-        PATCH/DELETE placeholders.)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: System configuration
+      tags:
+      - system
+  /admin/user/volumes:
+    get:
+      description: Fetch user-to-volume mappings.
       parameters:
       - description: Comma-separated user IDs to filter
         in: query
@@ -355,19 +380,13 @@ paths:
           schema:
             additionalProperties: true
             type: object
-        "403":
-          description: Method not allowed
-          schema:
-            additionalProperties:
-              type: string
-            type: object
         "500":
           description: Server error
           schema:
             additionalProperties:
               type: string
             type: object
-      summary: Manage user volume claims
+      summary: List user volume claims
       tags:
       - volume
   /admin/volume/delete:

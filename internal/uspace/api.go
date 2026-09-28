@@ -305,8 +305,10 @@ func (srv *UService) RegisterRoutes() {
 			"/volumes",
 			srv.handleVolumes,
 		)
+		// GET and POST were handled but not routed: frontapp's "submit as
+		// admin" got a 404
 		admin.Match(
-			[]string{"DELETE", "PUT"},
+			[]string{"GET", "POST", "PUT", "DELETE"},
 			"/job",
 			srv.handleJobAdmin,
 		)
@@ -334,21 +336,39 @@ func (srv *UService) RegisterRoutes() {
 				srv.handleSysConf,
 			)
 
-			admin.GET("/system-metrics", func(c *gin.Context) {
-				kMetrics, err := k.GetSystemMetrics(srv.config.Namespace)
-				if err != nil {
-					log.Printf("[API] system metrics errors: %v", err)
-				}
-				// uspace's own process, available with or without a cluster
-				var ms runtime.MemStats
-				runtime.ReadMemStats(&ms)
-				kMetrics["process"] = gin.H{"goroutines": runtime.NumGoroutine(), "heap_bytes": ms.HeapAlloc}
-				c.JSON(http.StatusOK, kMetrics)
-			})
+			admin.GET("/system-metrics", srv.handleSysMetrics)
 		}
 	}
 }
 
+// handleSysMetrics reports the cluster's metrics (available: false without
+// one) and uspace's own process.
+//
+// @Summary     System metrics
+// @Tags        system
+// @Produce     json
+// @Success     200 {object} map[string]any
+// @Router      /admin/system-metrics [get]
+func (srv *UService) handleSysMetrics(c *gin.Context) {
+	kMetrics, err := k.GetSystemMetrics(srv.config.Namespace)
+	if err != nil {
+		log.Printf("[API] system metrics errors: %v", err)
+	}
+	// uspace's own process, available with or without a cluster
+	var ms runtime.MemStats
+	runtime.ReadMemStats(&ms)
+	kMetrics["process"] = gin.H{"goroutines": runtime.NumGoroutine(), "heap_bytes": ms.HeapAlloc}
+	c.JSON(http.StatusOK, kMetrics)
+}
+
+// handleSysConf returns uspace's configuration file.
+//
+// @Summary     System configuration
+// @Tags        system
+// @Produce     json
+// @Success     200 {object} map[string]any
+// @Failure     500 {object} map[string]string
+// @Router      /admin/system-conf [get]
 func (srv *UService) handleSysConf(c *gin.Context) {
 	uspacecfg, err := ut.ReadConfig("configs/"+srv.config.ConfigPath, false)
 	if err != nil {

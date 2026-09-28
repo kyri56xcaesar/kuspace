@@ -206,6 +206,10 @@ checks and logs only its sections (Tokens and Storage split out).
 | MED | uspace moves | The old object was removed before the record update: a failed update left a record pointing at nothing. | Copy, update the record, then remove the old object. |
 | LOW | lint | 42 findings; CI only failed on new ones; `unused` disabled. | Zero findings, CI fails on any, `unused` on: 18 dead functions removed (one would `log.Fatal` uspace). |
 | LOW | errors | `[ERROR]`-prefixed messages without a kind (500 for bad input). | Kinds (`ErrInvalid`, ...), helpers deleted. |
+| MED | uspace routes | `GET`/`POST /admin/job` were handled but not routed: frontapp's "submit as admin" always got a 404. | Routed; test. |
+| LOW | fslite routes | `PATCH`/`DELETE /admin/user/volumes` were routed and did nothing (200, empty). | GET only. |
+| LOW | API docs | Swagger (api/) had drifted: POST documented for PATCH routes, admin volume routes under the user API, routes undocumented. | Annotations fixed and regenerated (`make api-docs`, swag pinned); a test per service fails when an annotation and the routes disagree. |
+| LOW | browser JS | No linter; implicit globals, duplicate definitions, an upload error path that threw a ReferenceError instead of reporting the error, dead handlers (a SweetAlert confirm for a library never loaded). | ESLint (`make lint-js`, in CI) at zero findings; fixed. |
 
 Tests added: 9 fuzz targets (`make fuzz`, CI 10s each; Access-Target
 identity, names/paths, tokens, tickets, config values, prefix listings);
@@ -214,7 +218,13 @@ and "no record without its object" through the handlers over storage that
 fails 30% of calls before or after taking effect (6 x 250); both fail on
 the bugs they guard (checked by planting them). Browser JS suites in
 `web/tests` (csrf.js, gShell commands, every language starter against
-fake presigned URLs; `make test-js`, in CI with ruby/php/java installed).
+fake presigned URLs; `make test-js`, in CI with ruby/php/java installed);
+DOM tests on jsdom: the quotas page on its real markup (rendering, pickers,
+the call each action makes, errors, hostile names as text), admin-panel's
+markup builders (resource details, user row edit/cancel, job modal) against
+injection, and the whole panel booting without a script error; all of them
+fail on planted bugs. JS dev tools live in `web/package.json` (pinned,
+lockfile; `web/go.mod` keeps Go out of `node_modules`).
 tests/uspace (thesis scaffolding) retired to playground.
 
 minioth v1.1.0 (submodule bumped): frontapp now uses its user-facing
@@ -248,11 +258,6 @@ once. Smoke checks the old session and password stop working.
   then bump kuspace's submodule to it.
 
 ### Code health
-- `LOW` a frontend (JS) linter and DOM-level tests for the console pages
-  (quotas.js, admin-panel.js) - the JS tests cover csrf.js, gShell and the
-  starters only.
-- `LOW` the Swagger docs (api/) predate this year's API changes; regenerate
-  with `make api-docs` after the next API change settles.
 
 ### Operations
 - `MED` CI runs unit tests and lint (`.github/workflows/ci.yml`) but has not run

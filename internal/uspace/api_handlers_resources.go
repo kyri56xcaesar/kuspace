@@ -220,7 +220,7 @@ func (srv *UService) refuseTakenDestination(c *gin.Context, name, volume string)
 // @Failure     400   {object}  map[string]string  "Invalid destination format or missing destination"
 // @Failure     500   {object}  map[string]string  "Copy or delete failed"
 //
-// @Router      /resource/mv [post]
+// @Router      /resource/mv [patch]
 func (srv *UService) mvResourcesHandler(c *gin.Context) {
 	// its assumed that the user is privelleged to download (from middleware) (write)
 	// get header
@@ -796,7 +796,7 @@ func buildTreeRec(tree map[string]any, entry []string, resource ut.Resource) {
 // @Failure 400 {object} map[string]string "Missing or invalid parameters"
 // @Failure 500 {object} map[string]string "Failed to update resource"
 //
-// @Router /resource/permissions [post]
+// @Router /resource/permissions [patch]
 func (srv *UService) chmodResourceHandler(c *gin.Context) {
 	rid := c.Request.URL.Query().Get("rid")
 	if rid == "" {
@@ -843,7 +843,7 @@ func (srv *UService) chmodResourceHandler(c *gin.Context) {
 // @Failure 400 {object} map[string]string "Missing or invalid parameters"
 // @Failure 500 {object} map[string]string "Failed to update resource"
 //
-// @Router /resource/ownership [post]
+// @Router /resource/ownership [patch]
 func (srv *UService) chownResourceHandler(c *gin.Context) {
 	rid := c.Request.URL.Query().Get("rid")
 	if rid == "" {
@@ -891,7 +891,7 @@ func (srv *UService) chownResourceHandler(c *gin.Context) {
 // @Failure 400 {object} map[string]string "Missing or invalid parameters"
 // @Failure 500 {object} map[string]string "Failed to update resource"
 //
-// @Router /resource/group [post]
+// @Router /resource/group [patch]
 func (srv *UService) chgroupResourceHandler(c *gin.Context) {
 	rid := c.Request.URL.Query().Get("rid")
 	if rid == "" {

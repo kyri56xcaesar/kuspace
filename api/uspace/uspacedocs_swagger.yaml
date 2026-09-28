@@ -4,7 +4,7 @@ definitions:
     properties:
       author:
         type: string
-      author_id:
+      authorId:
         type: integer
       createdAt:
         type: string
@@ -23,15 +23,30 @@ definitions:
       version:
         type: string
     type: object
+  kyri56xcaesar_kuspace_internal_utils.GroupVolume:
+    properties:
+      gid:
+        type: integer
+      quota:
+        type: number
+      updatedAt:
+        type: string
+      usage:
+        type: number
+      vid:
+        type: integer
+      vname:
+        type: string
+    type: object
   kyri56xcaesar_kuspace_internal_utils.Job:
     properties:
       completed:
         type: boolean
-      completed_at:
+      completedAt:
         type: string
-      cpu_limit:
+      cpuLimit:
         type: string
-      cpu_request:
+      cpuRequest:
         type: string
       createdAt:
         type: string
@@ -39,34 +54,44 @@ definitions:
         type: string
       duration:
         type: number
+      engine:
+        description: |-
+          Engine is where the job ran ("kubernetes" or "docker"); set by uspace,
+          never by the submitter.
+        type: string
       env:
         additionalProperties:
           type: string
         type: object
-      ephimeral_storage_limit:
+      ephemeralStorageLimit:
         type: string
-      ephimeral_storage_request:
+      ephemeralStorageRequest:
         type: string
+      gid:
+        description: |-
+          GID is the owner's primary group at submission: the job's output files
+          get it. Set by uspace, never by the submitter.
+        type: integer
       input:
         type: string
-      input_format:
-        description: perhaps unecessary
+      inputFormat:
+        description: perhaps unnecessary
         type: string
       jid:
         type: integer
       logic:
         type: string
-      logic_body:
+      logicBody:
         type: string
-      logic_headers:
+      logicHeaders:
         type: string
-      memory_limit:
+      memoryLimit:
         type: string
-      memory_request:
+      memoryRequest:
         type: string
       output:
         type: string
-      output_format:
+      outputFormat:
         type: string
       parallelism:
         type: integer
@@ -90,12 +115,15 @@ definitions:
         type: number
       uid:
         type: integer
-      updated_at:
+      updatedAt:
         type: string
       usage:
         type: number
       vid:
         type: integer
+      vname:
+        description: filled by listings, not stored
+        type: string
     type: object
   kyri56xcaesar_kuspace_internal_utils.Volume:
     properties:
@@ -105,12 +133,19 @@ definitions:
         type: string
       dynamic:
         type: boolean
+      gid:
+        type: integer
       name:
         type: string
-      object_count:
+      objectCount:
         type: integer
       path:
         type: string
+      shared:
+        description: |-
+          Shared marks a group volume; GID is its group (neither is stored in
+          the volumes table: they come from the group assignment).
+        type: boolean
       usage:
         type: number
       vid:
@@ -416,11 +451,49 @@ paths:
       tags:
       - admin
       - apps
+  /admin/group/volume:
+    delete:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses: {}
+      summary: Manage group volumes
+      tags:
+      - volumes
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses: {}
+      summary: Manage group volumes
+      tags:
+      - volumes
+    patch:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses: {}
+      summary: Manage group volumes
+      tags:
+      - volumes
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses: {}
+      summary: Manage group volumes
+      tags:
+      - volumes
   /admin/job:
     delete:
       consumes:
       - application/json
-      description: Handles CRUD operations for jobs. Supports multiple HTTP methods.
+      description: 'Query, submit (as root: no input/output permission checks), update
+        and delete jobs.'
       parameters:
       - description: Filter jobs by single user ID
         in: query
@@ -482,6 +555,12 @@ paths:
             type: object
         "500":
           description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: job queue full, nothing was saved
           schema:
             additionalProperties:
               type: string
@@ -493,7 +572,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Handles CRUD operations for jobs. Supports multiple HTTP methods.
+      description: 'Query, submit (as root: no input/output permission checks), update
+        and delete jobs.'
       parameters:
       - description: Filter jobs by single user ID
         in: query
@@ -555,6 +635,12 @@ paths:
             type: object
         "500":
           description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: job queue full, nothing was saved
           schema:
             additionalProperties:
               type: string
@@ -566,7 +652,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Handles CRUD operations for jobs. Supports multiple HTTP methods.
+      description: 'Query, submit (as root: no input/output permission checks), update
+        and delete jobs.'
       parameters:
       - description: Filter jobs by single user ID
         in: query
@@ -628,6 +715,12 @@ paths:
             type: object
         "500":
           description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: job queue full, nothing was saved
           schema:
             additionalProperties:
               type: string
@@ -639,7 +732,8 @@ paths:
     put:
       consumes:
       - application/json
-      description: Handles CRUD operations for jobs. Supports multiple HTTP methods.
+      description: 'Query, submit (as root: no input/output permission checks), update
+        and delete jobs.'
       parameters:
       - description: Filter jobs by single user ID
         in: query
@@ -705,12 +799,100 @@ paths:
             additionalProperties:
               type: string
             type: object
+        "503":
+          description: job queue full, nothing was saved
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       summary: Admin job endpoint
       tags:
       - admin
       - jobs
+  /admin/system-conf:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: System configuration
+      tags:
+      - system
+  /admin/system-metrics:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: System metrics
+      tags:
+      - system
   /admin/user/volume:
     delete:
+      consumes:
+      - application/json
+      description: Insert single or multiple user volume objects.
+      parameters:
+      - description: Single user volume
+        in: body
+        name: userVolume
+        required: true
+        schema:
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.UserVolume'
+      - description: Array of user volumes
+        in: body
+        name: userVolumes
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.UserVolume'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User volume(s) inserted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request (binding or decoding error)
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Manage user volumes
+      tags:
+      - volumes
+      - users
+    get:
       consumes:
       - application/json
       description: Insert single or multiple user volume objects.
@@ -860,6 +1042,372 @@ paths:
       tags:
       - volumes
       - users
+  /admin/volumes:
+    delete:
+      consumes:
+      - application/json
+      description: GET to list volumes, POST to create one or more, DELETE to remove
+        by vid
+      parameters:
+      - description: Volume ID to filter (GET) or delete (DELETE)
+        in: query
+        name: vid
+        type: string
+      - description: Limit number of returned volumes
+        in: query
+        name: limit
+        type: string
+      - description: Sort order for volumes
+        in: query
+        name: sort
+        type: string
+      - description: Single volume object
+        in: body
+        name: volume
+        required: true
+        schema:
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
+      - description: Array of volume objects
+        in: body
+        name: volumes
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success with content
+          schema:
+            additionalProperties: true
+            type: object
+        "201":
+          description: Volume(s) created
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "202":
+          description: Volume deleted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request or validation failure
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Manage volumes
+      tags:
+      - volumes
+    get:
+      consumes:
+      - application/json
+      description: GET to list volumes, POST to create one or more, DELETE to remove
+        by vid
+      parameters:
+      - description: Volume ID to filter (GET) or delete (DELETE)
+        in: query
+        name: vid
+        type: string
+      - description: Limit number of returned volumes
+        in: query
+        name: limit
+        type: string
+      - description: Sort order for volumes
+        in: query
+        name: sort
+        type: string
+      - description: Single volume object
+        in: body
+        name: volume
+        required: true
+        schema:
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
+      - description: Array of volume objects
+        in: body
+        name: volumes
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success with content
+          schema:
+            additionalProperties: true
+            type: object
+        "201":
+          description: Volume(s) created
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "202":
+          description: Volume deleted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request or validation failure
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Manage volumes
+      tags:
+      - volumes
+    patch:
+      consumes:
+      - application/json
+      description: GET to list volumes, POST to create one or more, DELETE to remove
+        by vid
+      parameters:
+      - description: Volume ID to filter (GET) or delete (DELETE)
+        in: query
+        name: vid
+        type: string
+      - description: Limit number of returned volumes
+        in: query
+        name: limit
+        type: string
+      - description: Sort order for volumes
+        in: query
+        name: sort
+        type: string
+      - description: Single volume object
+        in: body
+        name: volume
+        required: true
+        schema:
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
+      - description: Array of volume objects
+        in: body
+        name: volumes
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success with content
+          schema:
+            additionalProperties: true
+            type: object
+        "201":
+          description: Volume(s) created
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "202":
+          description: Volume deleted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request or validation failure
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Manage volumes
+      tags:
+      - volumes
+    post:
+      consumes:
+      - application/json
+      description: GET to list volumes, POST to create one or more, DELETE to remove
+        by vid
+      parameters:
+      - description: Volume ID to filter (GET) or delete (DELETE)
+        in: query
+        name: vid
+        type: string
+      - description: Limit number of returned volumes
+        in: query
+        name: limit
+        type: string
+      - description: Sort order for volumes
+        in: query
+        name: sort
+        type: string
+      - description: Single volume object
+        in: body
+        name: volume
+        required: true
+        schema:
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
+      - description: Array of volume objects
+        in: body
+        name: volumes
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success with content
+          schema:
+            additionalProperties: true
+            type: object
+        "201":
+          description: Volume(s) created
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "202":
+          description: Volume deleted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request or validation failure
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Manage volumes
+      tags:
+      - volumes
+    put:
+      consumes:
+      - application/json
+      description: GET to list volumes, POST to create one or more, DELETE to remove
+        by vid
+      parameters:
+      - description: Volume ID to filter (GET) or delete (DELETE)
+        in: query
+        name: vid
+        type: string
+      - description: Limit number of returned volumes
+        in: query
+        name: limit
+        type: string
+      - description: Sort order for volumes
+        in: query
+        name: sort
+        type: string
+      - description: Single volume object
+        in: body
+        name: volume
+        required: true
+        schema:
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
+      - description: Array of volume objects
+        in: body
+        name: volumes
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success with content
+          schema:
+            additionalProperties: true
+            type: object
+        "201":
+          description: Volume(s) created
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "202":
+          description: Volume deleted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request or validation failure
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Manage volumes
+      tags:
+      - volumes
   /app:
     get:
       consumes:
@@ -1050,6 +1598,12 @@ paths:
             additionalProperties:
               type: string
             type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
         "405":
           description: Method Not Allowed
           schema:
@@ -1058,6 +1612,12 @@ paths:
             type: object
         "500":
           description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: job queue full, nothing was saved
           schema:
             additionalProperties:
               type: string
@@ -1115,6 +1675,12 @@ paths:
             additionalProperties:
               type: string
             type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
         "405":
           description: Method Not Allowed
           schema:
@@ -1127,7 +1693,79 @@ paths:
             additionalProperties:
               type: string
             type: object
+        "503":
+          description: job queue full, nothing was saved
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       summary: Get or submit jobs
+      tags:
+      - jobs
+  /job/cancel:
+    post:
+      parameters:
+      - description: Job ID
+        in: query
+        name: jid
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: the job already finished
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Cancel a job
+      tags:
+      - jobs
+  /job/log:
+    get:
+      parameters:
+      - description: Job ID
+        in: query
+        name: jid
+        required: true
+        type: integer
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: the job's output (tail, up to 64 KiB)
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Job output log
       tags:
       - jobs
   /resource/cp:
@@ -1201,7 +1839,7 @@ paths:
       tags:
       - resources
   /resource/group:
-    post:
+    patch:
       consumes:
       - application/x-www-form-urlencoded
       description: Updates the group (group ID) of a resource based on its resource
@@ -1243,7 +1881,7 @@ paths:
       - resources
       - admin
   /resource/mv:
-    post:
+    patch:
       consumes:
       - application/json
       description: Moves a resource (copy + delete) to another bucket/object path
@@ -1279,7 +1917,7 @@ paths:
       tags:
       - resources
   /resource/ownership:
-    post:
+    patch:
       consumes:
       - application/x-www-form-urlencoded
       description: Updates the owner (user ID) of a resource based on its resource
@@ -1321,7 +1959,7 @@ paths:
       - resources
       - admin
   /resource/permissions:
-    post:
+    patch:
       consumes:
       - application/x-www-form-urlencoded
       description: Updates permissions for a resource given its ID and a permission
@@ -1507,370 +2145,18 @@ paths:
       summary: List resources (like `ls`)
       tags:
       - resources
-  /volumes:
-    delete:
-      consumes:
-      - application/json
-      description: GET to list volumes, POST to create one or more, DELETE to remove
-        by vid
-      parameters:
-      - description: Volume ID to filter (GET) or delete (DELETE)
-        in: query
-        name: vid
-        type: string
-      - description: Limit number of returned volumes
-        in: query
-        name: limit
-        type: string
-      - description: Sort order for volumes
-        in: query
-        name: sort
-        type: string
-      - description: Single volume object
-        in: body
-        name: volume
-        required: true
-        schema:
-          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
-      - description: Array of volume objects
-        in: body
-        name: volumes
-        required: true
-        schema:
-          items:
-            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
-          type: array
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Success with content
-          schema:
-            additionalProperties: true
-            type: object
-        "201":
-          description: Volume(s) created
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "202":
-          description: Volume deleted
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad request or validation failure
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "405":
-          description: Method not allowed
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Manage volumes
-      tags:
-      - volumes
+  /volumes/shared:
     get:
-      consumes:
-      - application/json
-      description: GET to list volumes, POST to create one or more, DELETE to remove
-        by vid
-      parameters:
-      - description: Volume ID to filter (GET) or delete (DELETE)
-        in: query
-        name: vid
-        type: string
-      - description: Limit number of returned volumes
-        in: query
-        name: limit
-        type: string
-      - description: Sort order for volumes
-        in: query
-        name: sort
-        type: string
-      - description: Single volume object
-        in: body
-        name: volume
-        required: true
-        schema:
-          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
-      - description: Array of volume objects
-        in: body
-        name: volumes
-        required: true
-        schema:
-          items:
-            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
-          type: array
       produces:
       - application/json
       responses:
         "200":
-          description: Success with content
+          description: OK
           schema:
-            additionalProperties: true
-            type: object
-        "201":
-          description: Volume(s) created
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "202":
-          description: Volume deleted
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad request or validation failure
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "405":
-          description: Method not allowed
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Manage volumes
-      tags:
-      - volumes
-    patch:
-      consumes:
-      - application/json
-      description: GET to list volumes, POST to create one or more, DELETE to remove
-        by vid
-      parameters:
-      - description: Volume ID to filter (GET) or delete (DELETE)
-        in: query
-        name: vid
-        type: string
-      - description: Limit number of returned volumes
-        in: query
-        name: limit
-        type: string
-      - description: Sort order for volumes
-        in: query
-        name: sort
-        type: string
-      - description: Single volume object
-        in: body
-        name: volume
-        required: true
-        schema:
-          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
-      - description: Array of volume objects
-        in: body
-        name: volumes
-        required: true
-        schema:
-          items:
-            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
-          type: array
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Success with content
-          schema:
-            additionalProperties: true
-            type: object
-        "201":
-          description: Volume(s) created
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "202":
-          description: Volume deleted
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad request or validation failure
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "405":
-          description: Method not allowed
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Manage volumes
-      tags:
-      - volumes
-    post:
-      consumes:
-      - application/json
-      description: GET to list volumes, POST to create one or more, DELETE to remove
-        by vid
-      parameters:
-      - description: Volume ID to filter (GET) or delete (DELETE)
-        in: query
-        name: vid
-        type: string
-      - description: Limit number of returned volumes
-        in: query
-        name: limit
-        type: string
-      - description: Sort order for volumes
-        in: query
-        name: sort
-        type: string
-      - description: Single volume object
-        in: body
-        name: volume
-        required: true
-        schema:
-          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
-      - description: Array of volume objects
-        in: body
-        name: volumes
-        required: true
-        schema:
-          items:
-            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
-          type: array
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Success with content
-          schema:
-            additionalProperties: true
-            type: object
-        "201":
-          description: Volume(s) created
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "202":
-          description: Volume deleted
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad request or validation failure
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "405":
-          description: Method not allowed
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Manage volumes
-      tags:
-      - volumes
-    put:
-      consumes:
-      - application/json
-      description: GET to list volumes, POST to create one or more, DELETE to remove
-        by vid
-      parameters:
-      - description: Volume ID to filter (GET) or delete (DELETE)
-        in: query
-        name: vid
-        type: string
-      - description: Limit number of returned volumes
-        in: query
-        name: limit
-        type: string
-      - description: Sort order for volumes
-        in: query
-        name: sort
-        type: string
-      - description: Single volume object
-        in: body
-        name: volume
-        required: true
-        schema:
-          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
-      - description: Array of volume objects
-        in: body
-        name: volumes
-        required: true
-        schema:
-          items:
-            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Volume'
-          type: array
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Success with content
-          schema:
-            additionalProperties: true
-            type: object
-        "201":
-          description: Volume(s) created
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "202":
-          description: Volume deleted
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad request or validation failure
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "405":
-          description: Method not allowed
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Manage volumes
+            items:
+              $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.GroupVolume'
+            type: array
+      summary: List my group volumes
       tags:
       - volumes
 schemes:

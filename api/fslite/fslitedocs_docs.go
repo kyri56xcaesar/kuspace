@@ -421,16 +421,45 @@ const docTemplatefslitedocs = `{
                 }
             }
         },
-        "/admin/uservolumes": {
+        "/admin/system-conf": {
             "get": {
-                "description": "Fetch user-to-volume mappings. (Currently only GET is implemented. PATCH/DELETE placeholders.)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "System configuration",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/user/volumes": {
+            "get": {
+                "description": "Fetch user-to-volume mappings.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "volume"
                 ],
-                "summary": "Manage user volume claims",
+                "summary": "List user volume claims",
                 "parameters": [
                     {
                         "type": "string",
@@ -451,15 +480,6 @@ const docTemplatefslitedocs = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
-                        }
-                    },
-                    "403": {
-                        "description": "Method not allowed",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
                         }
                     },
                     "500": {
@@ -688,7 +708,7 @@ const docTemplatefslitedocs = `{
         "kyri56xcaesar_kuspace_internal_utils.Resource": {
             "type": "object",
             "properties": {
-                "accessed_at": {
+                "accessedAt": {
                     "type": "string"
                 },
                 "createdAt": {
@@ -724,7 +744,7 @@ const docTemplatefslitedocs = `{
                     "description": "as in user id (owner)",
                     "type": "integer"
                 },
-                "updated_at": {
+                "updatedAt": {
                     "type": "string"
                 },
                 "vid": {
@@ -747,14 +767,21 @@ const docTemplatefslitedocs = `{
                 "dynamic": {
                     "type": "boolean"
                 },
+                "gid": {
+                    "type": "integer"
+                },
                 "name": {
                     "type": "string"
                 },
-                "object_count": {
+                "objectCount": {
                     "type": "integer"
                 },
                 "path": {
                     "type": "string"
+                },
+                "shared": {
+                    "description": "Shared marks a group volume; GID is its group (neither is stored in\nthe volumes table: they come from the group assignment).",
+                    "type": "boolean"
                 },
                 "usage": {
                     "type": "number"

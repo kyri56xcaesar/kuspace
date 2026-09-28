@@ -122,6 +122,7 @@ type groupVolumeRequest struct {
 //
 //	GET    ?gids=1,2          list (all without gids)
 //	POST   {vname,gid,quota}  give an existing volume to a group / change its quota
+//	PATCH  the same as POST
 //	DELETE ?volume=name       make an empty group volume an ordinary volume
 //
 // @Summary     Manage group volumes
@@ -129,6 +130,7 @@ type groupVolumeRequest struct {
 // @Accept      json
 // @Produce     json
 // @Router      /admin/group/volume [get]
+// @Router      /admin/group/volume [patch]
 // @Router      /admin/group/volume [post]
 // @Router      /admin/group/volume [delete]
 func (srv *UService) handleGroupVolumes(c *gin.Context) {

@@ -545,16 +545,15 @@ func (fsl *FsLite) copyResourceHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "copy complete"})
 }
 
-// @Summary Manage user volume claims
-// @Description Fetch user-to-volume mappings. (Currently only GET is implemented. PATCH/DELETE placeholders.)
+// @Summary List user volume claims
+// @Description Fetch user-to-volume mappings.
 // @Tags volume
 // @Produce json
 // @Param uids query string false "Comma-separated user IDs to filter"
 // @Param vids query string false "Comma-separated volume IDs to filter"
 // @Success 200 {object} map[string]any "User volume claims retrieved"
 // @Failure 500 {object} map[string]string "Server error"
-// @Failure 403 {object} map[string]string "Method not allowed"
-// @Router /admin/uservolumes [get]
+// @Router /admin/user/volumes [get]
 func (fsl *FsLite) handleUserVolumes(c *gin.Context) {
 	// limit, err := strconv.Atoi(c.Request.URL.Query().Get("limit"))
 	// if err != nil {
@@ -562,23 +561,23 @@ func (fsl *FsLite) handleUserVolumes(c *gin.Context) {
 	// }
 	uids := c.Request.URL.Query().Get("uids")
 	vids := c.Request.URL.Query().Get("vids")
+	res, err := fsl.selectUserVolumes(c.Request.Context(), map[string]any{"uids": uids, "vids": vids})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user volumes"})
 
-	switch c.Request.Method {
-	case http.MethodGet:
-		res, err := fsl.selectUserVolumes(c.Request.Context(), map[string]any{"uids": uids, "vids": vids})
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user volumes"})
-		} else {
-			c.JSON(http.StatusOK, gin.H{"content": res})
-		}
-	case http.MethodPatch:
-	case http.MethodDelete:
-
-	default:
-		c.JSON(http.StatusForbidden, gin.H{"error": "method not allowed"})
+		return
 	}
+	c.JSON(http.StatusOK, gin.H{"content": res})
 }
 
+// handleSysConf returns fslite's configuration file.
+//
+// @Summary System configuration
+// @Tags system
+// @Produce json
+// @Success 200 {object} map[string]any
+// @Failure 500 {object} map[string]string
+// @Router /admin/system-conf [get]
 func (fsl *FsLite) handleSysConf(c *gin.Context) {
 	fslcfg, err := ut.ReadConfig("configs/"+fsl.config.ConfigPath, false)
 	if err != nil {
