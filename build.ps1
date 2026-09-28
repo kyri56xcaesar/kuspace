@@ -107,7 +107,7 @@ function Smoke {
 function Kuspacectl([string[]]$ArgList) { Invoke-Checked "go" (@("run", "scripts/kuspacectl.go") + $ArgList) }
 
 # --------------------------------------------------------------- cleanup
-function Remove-Built { Remove-Item -Recurse -Force $Bin, "docs/fslite", "docs/uspace" -ErrorAction SilentlyContinue }
+function Remove-Built { Remove-Item -Recurse -Force $Bin, "docs/code" -ErrorAction SilentlyContinue }
 
 $tasks = [ordered]@{
     "help"          = { $tasks.Keys | ForEach-Object { "  $_" } }

@@ -27,8 +27,7 @@ data/volumes/*
 !data/go.mod
 
 # docs
-docs/uspace/*
-docs/fslite/*
+docs/code/
 docs/minioth/*
 # api/fslite/*
 # api/uspace/*

@@ -85,16 +85,14 @@ streams back live.
 
 ### Documentation
 
-documentation tools
-> go install github.com/swaggo/swag/cmd/swag@latest
->
-> go install github.com/go101/golds@latest
+Both generators run at pinned versions through `go run` (nothing to install):
 
-generate documentation using:
-
-- make code-docs
-
-- make api-docs
+- `make api-docs` regenerates the Swagger docs in `api/` from the handlers'
+  annotations (swag); tests fail when an annotation and the routes disagree.
+- `make code-docs` builds browsable code docs for fslite and uspace in
+  `docs/code` (golds; open `docs/code/index.html`, ~310 MB, gitignored).
+  `make code-docs CODE_DOCS_SOURCE=external` links the source on GitHub
+  instead (~90 MB; the current commit must be pushed).
 
 changes, known issues and planned work are tracked in [BACKLOG.md](BACKLOG.md)
 

@@ -146,8 +146,6 @@ k8s-destroy: ## delete the kuspace namespace
 	go run scripts/kuspacectl.go -destroy
 
 # --------------------------------------------------------------- docs
-# go install github.com/swaggo/swag/cmd/swag@latest
-# go install github.com/go101/golds@latest
 # swag at go.mod's version, without a global install
 SWAG ?= go run github.com/swaggo/swag/cmd/swag@v1.16.4
 
@@ -155,10 +153,17 @@ api-docs: ## regenerate swagger docs (uspace, fslite); tests keep the annotation
 	$(SWAG) init -g internal/uspace/api.go -o api/uspace --instanceName uspacedocs --exclude pkg/fslite --parseDependency --parseInternal
 	$(SWAG) init -g pkg/fslite/fslite_server.go -o api/fslite --instanceName fslitedocs --exclude internal/uspace --parseDependency --parseInternal
 
-code-docs: ## generate browsable code docs into docs/
-	golds -gen -dir docs/fslite -compact -wdpkgs-listing solo ./pkg/fslite/
-	golds -gen -dir docs/uspace -compact -wdpkgs-listing solo ./internal/uspace/
+# golds at a pinned version, without a global install
+GOLDS ?= go run go101.org/golds@v0.8.7
+# plain: all source rendered locally (~310 MB, works offline);
+# external: source linked on GitHub at the current commit (~90 MB, needs it pushed)
+CODE_DOCS_SOURCE ?= plain
+
+code-docs: ## browsable code docs for fslite and uspace in docs/code (gitignored; open docs/code/index.html)
+	rm -rf docs/code
+	$(GOLDS) -gen -silent -dir docs/code -compact -source-code-reading=$(CODE_DOCS_SOURCE) \
+	  -wdpkgs-listing=promoted ./pkg/fslite/ ./internal/uspace/
 
 # --------------------------------------------------------------- cleanup
 clean: ## remove built binaries and generated code docs
-	rm -rf $(BIN) docs/fslite docs/uspace
+	rm -rf $(BIN) docs/code
