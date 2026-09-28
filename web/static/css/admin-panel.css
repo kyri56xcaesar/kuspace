@@ -294,6 +294,7 @@ body.k-app {
 .k-btn-primary:disabled:hover { background: var(--k-cyan); }
 .k-btn-ghost { background: transparent; border-color: transparent; color: var(--k-ink-2); }
 .k-btn-ghost:hover { background: var(--k-surface-3); border-color: transparent; color: var(--k-ink); }
+.k-btn-sm.k-btn-ghost:not(.k-btn-icon) { border-color: var(--k-line); }
 .k-btn-danger { background: transparent; border-color: color-mix(in srgb, var(--st-crit) 45%, transparent); color: var(--st-crit-ink); }
 .k-btn-danger:hover { background: var(--st-crit-soft); border-color: var(--st-crit); }
 .k-btn-sm { height: 28px; padding: 0 10px; font-size: var(--fs-sm); gap: 6px; }
@@ -307,7 +308,7 @@ body.k-app {
 .htmx-request > .fa-redo, .htmx-request > .fa-rotate-right, .htmx-request > .fa-rotate-left { animation: k-spin 0.8s linear infinite; }
 #fetch-shell.htmx-request i { animation: k-spin 0.8s linear infinite; }
 
-.k-app input[type="text"], .k-app input[type="number"], .k-app input[type="search"],
+.k-app input:not([type]), .k-app input[type="text"], .k-app input[type="number"], .k-app input[type="search"],
 .k-app input[type="email"], .k-app input[type="password"], .k-app select, .k-app textarea {
   height: 34px;
   padding: 0 10px;
@@ -400,6 +401,7 @@ body.k-app {
 
 /* chips */
 .k-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.k-table .k-chips { flex-wrap: nowrap; }
 .k-chip {
   display: inline-block; padding: 1px 8px; border-radius: 999px;
   background: var(--k-surface-3); color: var(--k-ink-2);

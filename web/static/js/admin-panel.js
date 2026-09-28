@@ -173,13 +173,32 @@ function toggle_job_optionals(jobDiv) {
   }
 }
 
-// volumes listed on the Volumes page, for the pickers
-function listedVolumes() {
-  return [...document.querySelectorAll(".v-body")].map((v) => ({
-    name: (v.querySelector("h3") || {}).textContent?.trim() || "",
-    usage: (v.querySelector(".k-vol-numbers") || {}).textContent?.replace(/\s+/g, " ").trim() || "",
-    kind: typeof kVolumeKind === "function" ? kVolumeKind((v.querySelector("h3") || {}).textContent?.trim()) : "",
-  })).filter((v) => v.name);
+// volumes the user can write to, for the pickers: straight from
+// fetch-volumes ({"volumes":[{vid,name,capacity,usage}], "elevated":0|1}),
+// falling back to the cards on the Volumes page
+async function listedVolumes() {
+  const fmt = (v) => {
+    const used = Number(v.usage) || 0;
+    const cap = Number(v.capacity) || 0;
+    return cap > 0 ? `${used.toFixed(2)} of ${cap.toFixed(2)} GB` : `${used.toFixed(2)} GB, no quota`;
+  };
+  const kind = (name) => (typeof kVolumeKind === "function" ? kVolumeKind(name) : "");
+  try {
+    const r = await fetch("/api/v1/verified/fetch-volumes?format=json", { credentials: "same-origin", headers: { Accept: "application/json" } });
+    if (r.ok) {
+      const data = await r.json();
+      const vols = Array.isArray(data) ? data : (data && Array.isArray(data.volumes) ? data.volumes : []);
+      if (vols.length) {
+        return vols.map((v) => ({ name: v.name || v.Name || "", usage: fmt(v), kind: kind(v.name || v.Name) })).filter((v) => v.name);
+      }
+    }
+  } catch (e) {
+    // fall through to the page
+  }
+  return [...document.querySelectorAll(".v-body")].map((v) => {
+    const name = (v.querySelector("h3") || {}).textContent?.trim() || "";
+    return { name, usage: (v.querySelector(".k-vol-numbers") || {}).textContent?.replace(/\s+/g, " ").trim() || "", kind: kind(name) };
+  }).filter((v) => v.name);
 }
 
 // fill a picker list with one button per option (DOM built, no innerHTML)
@@ -295,13 +314,13 @@ document.addEventListener("DOMContentLoaded", () => {
   // select a volume output for the job
   const job_output = document.getElementById("job-output");
   job_output.value = "";
-  document.getElementById("select-volume-btn-job").addEventListener("click", () => {
+  document.getElementById("select-volume-btn-job").addEventListener("click", async () => {
     const modal = document.getElementById("select-volume-btn-job").parentNode.querySelector(".modal");
     const volumeList = modal.querySelector("#volume-list");
-    fillPicker(volumeList, listedVolumes().map((v) => ({ label: v.name, meta: v.usage, kind: v.kind })), (it) => {
+    fillPicker(volumeList, (await listedVolumes()).map((v) => ({ label: v.name, meta: v.usage, kind: v.kind })), (it) => {
       job_output.value = it.label + "/";
       modal.classList.add("hidden");
-    }, "No volumes loaded yet.");
+    }, "No volumes available to you.");
     modal.classList.remove("hidden");
   });
 
@@ -337,15 +356,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // for choosing a volume when upload
-  document.getElementById("select-volume-btn").addEventListener("click", () => {
+  document.getElementById("select-volume-btn").addEventListener("click", async () => {
     const modal = document.getElementById("select-volume-btn").parentNode.querySelector(".modal");
     const volumeList = modal.querySelector("#volume-list");
-    fillPicker(volumeList, listedVolumes().map((v) => ({ label: v.name, meta: v.usage, kind: v.kind })), (it) => {
+    fillPicker(volumeList, (await listedVolumes()).map((v) => ({ label: v.name, meta: v.usage, kind: v.kind })), (it) => {
       const sel = document.getElementById("selected-volume");
       sel.textContent = it.label;
       sel.dataset.kind = it.kind || "";
       modal.classList.add("hidden");
-    }, "No volumes loaded yet.");
+    }, "No volumes available to you.");
     modal.classList.remove("hidden");
   });
 
@@ -483,6 +502,8 @@ function resourceDetailsHTML(r, opts) {
     </div>`;
 }
 
+const fmtWhen = (v) => (typeof kFmtWhen === "function" ? kFmtWhen(v) : v);
+
 function parseAndInjectRTableRowdata(tr, injectTarget) {
   if (!tr || tr.cells.length != 13 || !injectTarget) {
     return
@@ -513,7 +534,7 @@ function parseAndInjectRTableRowdata(tr, injectTarget) {
     facts: [
       ["RID", resource.id], ["Path", resource.path], ["Volume", resource.vname],
       ["Type", resource.type], ["Size", `${resource.size} B`], ["Permissions", resource.perms],
-      ["Created", resource.createdAt], ["Updated", resource.updatedAt], ["Accessed", resource.accessedAt],
+      ["Created", fmtWhen(resource.createdAt)], ["Updated", fmtWhen(resource.updatedAt)], ["Accessed", fmtWhen(resource.accessedAt)],
       ["Owner", resource.owner], ["Group", resource.group], ["VID", resource.vid],
     ],
   });

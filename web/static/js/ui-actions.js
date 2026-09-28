@@ -154,6 +154,9 @@ function kMarkSubSection(parentId, id) {
     b.setAttribute("aria-selected", on ? "true" : "false");
     b.classList.toggle("is-active", on);
   });
+  // CodeMirror measures nothing while hidden: redraw once it is visible
+  const cm = document.querySelector(`#${id} .CodeMirror`);
+  if (cm && cm.CodeMirror) cm.CodeMirror.refresh();
 }
 
 // wrap the index.js functions so every caller (dashboard.js too) updates the
