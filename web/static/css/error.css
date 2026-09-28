@@ -1,30 +1,39 @@
-html, body {
-  height: 100%;
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: linear-gradient(to top, #75e8e1, #FFFFFF);
+/* error page - builds on the tokens in styles.css */
+body {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding: var(--sp-4);
+  background-image:
+    linear-gradient(var(--k-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--k-grid) 1px, transparent 1px);
+  background-size: 32px 32px;
 }
 
 .error {
-  margin: 50 auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-evenly;
-
-  width: 550px;
-  background-image: url("../assets/logos/cropped.png");
-  background-repeat: no-repeat;
-  background-size: 300px 300px;
-  background-position: left;
-
-  text-align: end;
-
-  padding: 100px;
-  border: 2px dotted;
-  border-radius: 40px;
+  width: min(480px, 100%);
+  padding: var(--sp-6);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--k-line);
+  border-top: 4px solid var(--st-crit);
+  background: var(--k-surface);
+  box-shadow: var(--k-shadow);
 }
 
-
-.error-message {
-  color: red;
+.error-mark { width: 44px; height: 44px; border-radius: 12px; background: #fff; padding: 3px; }
+.error-code {
+  margin: var(--sp-4) 0 var(--sp-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--st-crit-ink);
 }
+.error-message { margin: 0 0 var(--sp-2); font-size: var(--fs-2xl); letter-spacing: -0.015em; }
+.error-hint { margin: 0 0 var(--sp-5); color: var(--k-ink-2); }
+.error-back {
+  display: inline-flex; align-items: center; height: 40px; padding: 0 var(--sp-4);
+  border-radius: var(--r-sm); background: var(--k-cyan); color: var(--k-navy);
+  font-weight: 700; text-decoration: none;
+}
+.error-back:hover { background: var(--k-cyan-hover); }
