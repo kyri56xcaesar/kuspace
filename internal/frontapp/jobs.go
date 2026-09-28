@@ -228,7 +228,7 @@ func (srv *HTTPService) appAdminHandler(c *gin.Context) {
 // relayCall makes r to uspace as the session user and relays the answer.
 func (srv *HTTPService) relayCall(c *gin.Context, what string, r request) {
 	r.token, r.target = userToken(c), "0::/"
-	resp, err := srv.uspace.do(c.Request.Context(), r)
+	resp, err := srv.uspace.do(c.Request.Context(), r) //nolint:bodyclose // relay closes it
 	if err != nil {
 		fail(c, what, err)
 

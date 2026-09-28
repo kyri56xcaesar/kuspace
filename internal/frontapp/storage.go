@@ -74,7 +74,7 @@ func (srv *HTTPService) handleFetchResources(c *gin.Context) {
 }
 
 func (srv *HTTPService) handleResourceUpload(c *gin.Context) {
-	resp, err := srv.uspace.do(c.Request.Context(), request{
+	resp, err := srv.uspace.do(c.Request.Context(), request{ //nolint:bodyclose // relay closes it
 		method: http.MethodPost, path: "/api/v1/resource/upload",
 		body: c.Request.Body, ctype: c.GetHeader("Content-Type"),
 		token: userToken(c), target: accessTarget(srv.volumeParam(c), "/"),
@@ -94,7 +94,7 @@ func (srv *HTTPService) handleResourceDownload(c *gin.Context) {
 
 		return
 	}
-	resp, err := srv.uspace.do(c.Request.Context(), request{
+	resp, err := srv.uspace.do(c.Request.Context(), request{ //nolint:bodyclose // relay closes it
 		method: http.MethodGet, path: "/api/v1/resource/download",
 		token: userToken(c), target: accessTarget(srv.volumeParam(c), target),
 		header: map[string]string{"Range": c.GetHeader("Range")},
@@ -158,7 +158,7 @@ func (srv *HTTPService) handleResourceMove(c *gin.Context) {
 		return
 	}
 	volume := srv.volumeParam(c)
-	resp, err := srv.uspace.do(c.Request.Context(), request{
+	resp, err := srv.uspace.do(c.Request.Context(), request{ //nolint:bodyclose // relay closes it
 		method: http.MethodPatch, path: "/api/v1/resource/mv", query: url.Values{"dest": {volume + "/" + newName}},
 		token: userToken(c), target: accessTarget(volume, name),
 	})
@@ -177,7 +177,7 @@ func (srv *HTTPService) handleResourceDelete(c *gin.Context) {
 
 		return
 	}
-	resp, err := srv.uspace.do(c.Request.Context(), request{
+	resp, err := srv.uspace.do(c.Request.Context(), request{ //nolint:bodyclose // relay closes it
 		method: http.MethodDelete, path: "/api/v1/resource/rm",
 		token: userToken(c), target: accessTarget(srv.volumeParam(c), name),
 	})
@@ -196,7 +196,7 @@ func (srv *HTTPService) handleResourceCopy(c *gin.Context) {
 
 		return
 	}
-	resp, err := srv.uspace.do(c.Request.Context(), request{
+	resp, err := srv.uspace.do(c.Request.Context(), request{ //nolint:bodyclose // relay closes it
 		method: http.MethodPost, path: "/api/v1/resource/cp", query: url.Values{"dest": {dest}},
 		token: userToken(c), target: accessTarget(srv.volumeParam(c), name),
 	})
@@ -234,7 +234,7 @@ func (srv *HTTPService) handleResourcePerms(c *gin.Context) {
 
 		return
 	}
-	resp, err := srv.uspace.do(c.Request.Context(), request{
+	resp, err := srv.uspace.do(c.Request.Context(), request{ //nolint:bodyclose // relay closes it
 		method: http.MethodPatch, path: endpoint, query: url.Values{"rid": {rid}},
 		body: strings.NewReader(form.Encode()), ctype: "application/x-www-form-urlencoded",
 		token: userToken(c), target: accessTarget(srv.volumeParam(c), "$rids="+rid),
@@ -295,7 +295,7 @@ func (srv *HTTPService) handleVolumeadd(c *gin.Context) {
 
 		return
 	}
-	resp, err := srv.uspace.do(c.Request.Context(), request{
+	resp, err := srv.uspace.do(c.Request.Context(), request{ //nolint:bodyclose // relay closes it
 		method: http.MethodPost, path: "/api/v1/admin/volumes", json: v, token: userToken(c), target: "0::/",
 	})
 	if err != nil {
@@ -313,7 +313,7 @@ func (srv *HTTPService) handleVolumedel(c *gin.Context) {
 
 		return
 	}
-	resp, err := srv.uspace.do(c.Request.Context(), request{
+	resp, err := srv.uspace.do(c.Request.Context(), request{ //nolint:bodyclose // relay closes it
 		method: http.MethodDelete, path: "/api/v1/admin/volumes", query: url.Values{"volume": {vname}},
 		token: userToken(c), target: "0::/",
 	})

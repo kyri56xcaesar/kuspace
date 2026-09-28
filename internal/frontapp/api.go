@@ -45,6 +45,7 @@ type HTTPService struct {
 	verifier *authn.Verifier // checks session tokens locally
 	uspace   *upstream
 	minioth  *upstream
+	wss      *upstream
 }
 
 // NewService function as in a constructor for HTTPService struct
@@ -57,16 +58,15 @@ func NewService(conf string) HTTPService {
 	setGinMode(service.Config.APIGinMode)
 	service.Engine = gin.Default()
 
-	authServiceURL = fmt.Sprintf("http://%s", net.JoinHostPort(service.Config.AuthAddress, service.Config.AuthPort))
-	apiServiceURL = fmt.Sprintf("http://%s", net.JoinHostPort(service.Config.APIAddress, service.Config.APIPort))
-	service.verifier = authn.NewVerifier(service.Config)
-	service.uspace = newUpstream(apiServiceURL, service.Config.ServiceSecretKey)
-	service.minioth = newUpstream(authServiceURL, service.Config.ServiceSecretKey)
-	if strings.ToLower(service.Config.Profile) == "container" {
-		wssServiceURL = "http://" + service.Config.WssAddressInternal
-	} else {
-		wssServiceURL = "http://" + service.Config.WssAddress
+	cfg := service.Config
+	service.verifier = authn.NewVerifier(cfg)
+	service.uspace = newUpstream("http://"+net.JoinHostPort(cfg.APIAddress, cfg.APIPort), cfg.ServiceSecretKey)
+	service.minioth = newUpstream("http://"+net.JoinHostPort(cfg.AuthAddress, cfg.AuthPort), cfg.ServiceSecretKey)
+	wss := cfg.WssAddress
+	if strings.ToLower(cfg.Profile) == "container" {
+		wss = cfg.WssAddressInternal
 	}
+	service.wss = newUpstream("http://"+wss, cfg.ServiceSecretKey)
 
 	return service
 }
@@ -149,6 +149,7 @@ func (srv *HTTPService) routes() {
 			if err != nil {
 				return "{}"
 			}
+
 			return template.HTMLEscapeString(string(b))
 		},
 		"lower":     strings.ToLower,
@@ -311,7 +312,6 @@ func (srv *HTTPService) routes() {
 			"message": "Not found",
 		})
 	})
-
 }
 
 func (srv *HTTPService) serve(ctx context.Context, stop context.CancelFunc) {
@@ -332,7 +332,7 @@ func (srv *HTTPService) serve(ctx context.Context, stop context.CancelFunc) {
 	stop()
 	log.Println("shutting down gracefully, press Ctrl+C again to force")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
 	if err := server.Shutdown(ctx); err != nil {
 		log.Fatal("Server forced to shutdown: ", err)

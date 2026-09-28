@@ -98,8 +98,8 @@ func newFrontHarness(t *testing.T) *frontHarness {
 		verifier: authn.NewVerifier(cfg),
 		uspace:   newUpstream(us.URL, cfg.ServiceSecretKey),
 		minioth:  newUpstream(mo.URL, cfg.ServiceSecretKey),
+		wss:      newUpstream("http://127.0.0.1:1", cfg.ServiceSecretKey),
 	}
-	apiServiceURL, authServiceURL = us.URL, mo.URL // handlers not yet on the client
 	srv.routes()
 
 	return &frontHarness{t: t, srv: srv, uspace: us, minioth: mo}
@@ -177,8 +177,8 @@ func TestSessions(t *testing.T) {
 		t.Errorf("page without a session: %d %q", rec.Code, rec.Header().Get("Location"))
 	}
 	rec = h.do(http.MethodGet, "/api/v1/verified/fetch-jobs", nil, nil, map[string]string{"HX-Request": "true"})
-	if rec.Header().Get("HX-Redirect") != "/api/v1/login" {
-		t.Errorf("htmx without a session: %d, HX-Redirect %q", rec.Code, rec.Header().Get("HX-Redirect"))
+	if rec.Header().Get("Hx-Redirect") != "/api/v1/login" {
+		t.Errorf("htmx without a session: %d, HX-Redirect %q", rec.Code, rec.Header().Get("Hx-Redirect"))
 	}
 
 	// the login page sends a logged-in user to the panel

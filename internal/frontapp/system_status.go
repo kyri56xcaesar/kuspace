@@ -33,9 +33,9 @@ func (srv *HTTPService) handleSysStatus(c *gin.Context) {
 		probe string
 	}{
 		{serviceStatus{Name: "frontapp", Role: "Web interface", Address: "self", HasConfig: true}, ""},
-		{serviceStatus{Name: "minioth", Role: "Identity & tokens", Address: authServiceURL}, authServiceURL + authVersion + "/.well-known/minioth"},
-		{serviceStatus{Name: "uspace", Role: "Storage & jobs API", Address: apiServiceURL, HasConfig: true}, apiServiceURL + "/healthz"},
-		{serviceStatus{Name: "wss", Role: "Live job updates", Address: wssServiceURL, HasConfig: true}, wssServiceURL + "/healthz"},
+		{serviceStatus{Name: "minioth", Role: "Identity & tokens", Address: srv.minioth.base}, srv.minioth.base + "/v1/.well-known/minioth"},
+		{serviceStatus{Name: "uspace", Role: "Storage & jobs API", Address: srv.uspace.base, HasConfig: true}, srv.uspace.base + "/healthz"},
+		{serviceStatus{Name: "wss", Role: "Live job updates", Address: srv.wss.base, HasConfig: true}, srv.wss.base + "/healthz"},
 	}
 
 	out := make([]serviceStatus, len(services))
