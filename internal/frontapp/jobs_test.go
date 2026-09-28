@@ -1,10 +1,12 @@
 package frontendapp
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
@@ -73,5 +75,27 @@ func TestWSTicketOnlyForOwnJobs(t *testing.T) {
 	}
 	if rec := h.do(http.MethodGet, "/api/v1/verified/ws-ticket?jid=7", login(t, "1", "admin"), nil, nil); rec.Code != http.StatusOK {
 		t.Errorf("admin: %d", rec.Code)
+	}
+}
+
+func TestGshellTickets(t *testing.T) {
+	h := newFrontHarness(t)
+	user := login(t, "1001", "user")
+	rec := h.do(http.MethodGet, "/api/v1/verified/ws-ticket?jid=0&role=jack", user, nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("gshell ticket: %d %s", rec.Code, rec.Body)
+	}
+	var body struct {
+		Ticket string `json:"ticket"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if _, err := ut.VerifyWSTicket([]byte("svc"), body.Ticket, "0", "jack", time.Now()); err != nil {
+		t.Errorf("ticket doesn't open the gshell room: %v", err)
+	}
+	if rec := h.do(http.MethodGet, "/api/v1/verified/ws-ticket?jid=7&role=jack", user, nil, nil); rec.Code != http.StatusForbidden {
+		t.Errorf("jack ticket for a job: %d, want 403", rec.Code)
+	}
+	if rec := h.do(http.MethodGet, "/api/v1/verified/ws-ticket?jid=0&role=producer", user, nil, nil); rec.Code != http.StatusBadRequest {
+		t.Errorf("producer ticket: %d, want 400", rec.Code)
 	}
 }

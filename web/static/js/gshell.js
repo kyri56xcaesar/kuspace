@@ -30,23 +30,37 @@ function giveFunctionality(element) {
   const terminalBody = element.querySelector('#terminal-body');
   const terminalInput = element.querySelector('#terminal-input');
   terminalBody.scrollIntoView(false);
-  // websocket 
-  const socket = new WebSocket("ws://"+WS_ADDRESS+"/get-session?role=jack&jid=0");
+  // websocket: wss only admits the shared gshell room (jid 0, role "jack")
+  // with a short-lived ticket from frontapp
+  let socket = null;
+  (async function connect() {
+    let ticket;
+    try {
+      const r = await fetch("/api/v1/verified/ws-ticket?jid=0&role=jack", { credentials: "same-origin" });
+      if (!r.ok) throw new Error(r.status);
+      ticket = (await r.json()).ticket;
+    } catch (e) {
+      appendLine("Could not join gShell (no ticket): " + e.message);
+      return;
+    }
+    const proto = location.protocol === "https:" ? "wss://" : "ws://";
+    socket = new WebSocket(proto + WS_ADDRESS + "/get-session?role=jack&jid=0&ticket=" + encodeURIComponent(ticket));
 
-  socket.onopen = function () {
-    console.log("Connected to WebSocket server");
-  };
+    socket.onopen = function () {
+      console.log("Connected to WebSocket server");
+    };
 
-  socket.onmessage = function (event) {
-    appendLine(event.data);
-    setTimeout(() => {
-      terminalBody.scrollTop = terminalBody.scrollHeight;
-    }, 100);
-  };
+    socket.onmessage = function (event) {
+      appendLine(event.data);
+      setTimeout(() => {
+        terminalBody.scrollTop = terminalBody.scrollHeight;
+      }, 100);
+    };
 
-  socket.onclose = function () {
-    appendLine("Disconnected from gShell.");
-  }
+    socket.onclose = function () {
+      appendLine("Disconnected from gShell.");
+    };
+  })();
 
 
 
@@ -55,8 +69,8 @@ function giveFunctionality(element) {
   terminalInput.addEventListener('keypress', (event) => {
     if (event.key === 'Enter') {
       let command = terminalInput.value;
-      appendLine(`<span style="color: #00ff00;">k></span> ${command}`);
-      socket.send(command);
+      appendLine(command, "k>");
+      if (socket && socket.readyState === WebSocket.OPEN) socket.send(command);
       terminalInput.value = "";
 
       setTimeout(() => {
@@ -66,18 +80,27 @@ function giveFunctionality(element) {
     }
   });
 
-  function prependLine(text) {
+  // Lines are text, never HTML: the room relays other users' input, and
+  // innerHTML let anyone run script in every connected user's page.
+  function makeLine(text, prompt) {
     let line = document.createElement("div");
     line.classList.add("line");
-    line.innerHTML = text;
-    terminalBody.insertBefore(line, terminalInput.parentNode);
+    if (prompt) {
+      let p = document.createElement("span");
+      p.classList.add("gshell-prompt");
+      p.textContent = prompt + " ";
+      line.appendChild(p);
+    }
+    line.appendChild(document.createTextNode(text));
+    return line;
   }
 
-  function appendLine(text) {
-    let line = document.createElement("div");
-    line.classList.add("line");
-    line.innerHTML = text;
-    terminalBody.appendChild(line);
+  function prependLine(text, prompt) {
+    terminalBody.insertBefore(makeLine(text, prompt), terminalInput.parentNode);
+  }
+
+  function appendLine(text, prompt) {
+    terminalBody.appendChild(makeLine(text, prompt));
   }
 
   function moveToLast(child, parent) {
@@ -153,7 +176,7 @@ function giveFunctionality(element) {
   });
 
   element.querySelector(".close").addEventListener('click', ()=> {
-    socket.close();
+    if (socket) socket.close();
     element.remove();
     shellCounter--;
   });

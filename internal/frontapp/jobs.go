@@ -250,8 +250,14 @@ func (srv *HTTPService) jobOwner(ctx context.Context, jid int) (int64, error) {
 	return resp.Content.UID, err
 }
 
-// handleWSTicket issues a one-minute ticket to watch a job's live output on
-// wss (which can't see this session itself): the job's owner or an admin.
+// gshellRoom is the wss session the gshell terminals share.
+const gshellRoom = 0
+
+// handleWSTicket issues a one-minute ticket for wss (which can't see this
+// session itself):
+//
+//	role=consumer (default)  watch a job's live output: its owner or an admin
+//	role=jack                join the shared gshell room (jid 0): any user
 func (srv *HTTPService) handleWSTicket(c *gin.Context) {
 	jid, err := strconv.Atoi(c.Query("jid"))
 	if err != nil {
@@ -259,7 +265,18 @@ func (srv *HTTPService) handleWSTicket(c *gin.Context) {
 
 		return
 	}
-	if !isAdmin(c) {
+	role := c.DefaultQuery("role", "consumer")
+	switch {
+	case role == "jack" && jid == gshellRoom:
+	case role == "jack":
+		c.JSON(http.StatusForbidden, gin.H{"error": "gshell tickets are for the shared room only"})
+
+		return
+	case role != "consumer":
+		c.JSON(http.StatusBadRequest, gin.H{"error": "role must be consumer or jack"})
+
+		return
+	case !isAdmin(c):
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 		owner, err := srv.jobOwner(ctx, jid)
@@ -274,7 +291,7 @@ func (srv *HTTPService) handleWSTicket(c *gin.Context) {
 			return
 		}
 	}
-	ticket := ut.SignWSTicket(srv.Config.ServiceSecretKey, strconv.Itoa(jid), "consumer", c.GetString("userID"), time.Now())
+	ticket := ut.SignWSTicket(srv.Config.ServiceSecretKey, strconv.Itoa(jid), role, c.GetString("userID"), time.Now())
 	c.JSON(http.StatusOK, gin.H{"ticket": ticket, "expiresIn": int(ut.WSTicketTTL.Seconds())})
 }
 
