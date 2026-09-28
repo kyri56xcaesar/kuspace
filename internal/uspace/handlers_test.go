@@ -459,3 +459,33 @@ func TestUserQuotaAdmin(t *testing.T) {
 		t.Errorf("unauthenticated: %d", rec.Code)
 	}
 }
+
+// The code languages are in the app catalogue next to the built-in apps.
+func TestLanguagesAreApps(t *testing.T) {
+	a := newAPIHarness(t, 1)
+	a.withJobsDB()
+	if err := a.srv.seedDefaultApps(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.srv.seedDefaultApps(t.Context()); err != nil { // idempotent
+		t.Fatal(err)
+	}
+	rec := a.do(http.MethodGet, "/api/v1/app", "::/", "1001:1001", nil, "")
+	var body struct {
+		Content []ut.Application `json:"content"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	names := map[string]string{}
+	for _, app := range body.Content {
+		names[app.Name] = app.Image
+	}
+	for lang, image := range map[string]string{"python": "python:3.12-alpine", "node": "node:22-alpine", "c": "gcc:14", "duckdb": ""} {
+		got, ok := names[lang]
+		if !ok || (image != "" && got != image) {
+			t.Errorf("%s in the catalogue: %q (present %v), want %q", lang, got, ok, image)
+		}
+	}
+	if len(body.Content) != len(names) {
+		t.Errorf("duplicate apps after seeding twice: %d rows, %d names", len(body.Content), len(names))
+	}
+}

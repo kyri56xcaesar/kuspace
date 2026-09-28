@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sort"
 
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
@@ -51,7 +52,42 @@ func (srv *UService) seedDefaultApps(ctx context.Context) error {
 			installed++
 		}
 	}
-	log.Printf("[USPACE_init] default apps: %d installed or updated, %d unchanged", installed, len(apps)-installed)
+	// the code languages are apps too, so the catalogue and the job form
+	// list them; an app an admin already made under the same name is kept
+	for _, app := range languageApps() {
+		now := ut.CurrentTime()
+		app.InsertedAt, app.CreatedAt = now, now
+		res, err := db.ExecContext(ctx, `
+			INSERT INTO apps (name, image, description, version, author, authorId, status, insertedAt, createdAt)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(name) DO NOTHING;`, app.FieldsNoID()...)
+		if err != nil {
+			return fmt.Errorf("failed to install language %q: %w", app.Name, err)
+		}
+		if n, _ := res.RowsAffected(); n > 0 {
+			installed++
+		}
+	}
+	log.Printf("[USPACE_init] default apps and languages: %d installed or updated", installed)
 
 	return nil
+}
+
+// languageApps lists the code languages (codeModes) as catalogue entries.
+func languageApps() []ut.Application {
+	names := make([]string, 0, len(codeModes))
+	for n := range codeModes {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	apps := make([]ut.Application, 0, len(names))
+	for _, n := range names {
+		m := codeModes[n]
+		apps = append(apps, ut.Application{
+			Name: n, Image: m.image + ":" + m.tag, Version: m.tag, Author: "kuspace", Status: "available",
+			Description: m.desc + ": write it in the editor. The job's input and output are presigned URLs in INPUT_URL and OUTPUT_URL.",
+		})
+	}
+
+	return apps
 }

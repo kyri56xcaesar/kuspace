@@ -203,7 +203,8 @@ func TestFormatJobCommandCodeModes(t *testing.T) {
 		t.Errorf("command = %v", cmd)
 	}
 
-	for lang, image := range map[string]string{"js": "node:latest", "c": "gcc:latest", "java": "eclipse-temurin:latest", "golang": "golang:latest"} {
+	// without a tag a language gets its small pinned image (":latest" pulled ~1 GB for python)
+	for lang, image := range map[string]string{"js": "node:22-alpine", "c": "gcc:14", "java": "eclipse-temurin:21-jdk-alpine", "golang": "golang:1.24-alpine", "python": "python:3.12-alpine"} {
 		j := ut.Job{Logic: lang}
 		if _, err := formatJobCommand(&j); err != nil || j.Logic != image {
 			t.Errorf("%s -> %q, %v; want %s", lang, j.Logic, err, image)

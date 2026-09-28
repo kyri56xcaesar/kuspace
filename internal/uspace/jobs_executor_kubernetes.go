@@ -671,21 +671,23 @@ func presignJobIO(storage any, in, out ut.Resource, valid time.Duration) (string
 // The code gets INPUT_URL/OUTPUT_URL like the applications but does its own
 // input and output.
 type codeMode struct {
-	image string // docker image repository; the job's version is the tag
+	image string // docker image repository
+	tag   string // default tag (small images); a job's "lang:tag" overrides it
 	run   string // sh command; the code is in $LOGIC
+	desc  string // shown in the app catalogue
 }
 
 var (
 	codeModes = map[string]codeMode{
-		"python": {"python", `python3 -c "$LOGIC"`},
-		"node":   {"node", `node -e "$LOGIC"`},
-		"ruby":   {"ruby", `ruby -e "$LOGIC"`},
-		"php":    {"php", `php -r "$LOGIC"`},
-		"perl":   {"perl", `perl -e "$LOGIC"`},
-		"r":      {"r-base", `Rscript -e "$LOGIC"`},
-		"go":     {"golang", `printf '%s' "$LOGIC" > /tmp/main.go && go run /tmp/main.go`},
-		"java":   {"eclipse-temurin", `printf '%s' "$LOGIC" > /tmp/Main.java && java /tmp/Main.java`},
-		"c":      {"gcc", `printf '%s' "$LOGIC" > /tmp/main.c && gcc -o /tmp/main /tmp/main.c && /tmp/main`},
+		"python": {"python", "3.12-alpine", `python3 -c "$LOGIC"`, "Python 3 code"},
+		"node":   {"node", "22-alpine", `node -e "$LOGIC"`, "JavaScript on Node.js"},
+		"ruby":   {"ruby", "3.3-alpine", `ruby -e "$LOGIC"`, "Ruby code"},
+		"php":    {"php", "8.3-cli-alpine", `php -r "$LOGIC"`, "PHP code (CLI)"},
+		"perl":   {"perl", "5.40-slim", `perl -e "$LOGIC"`, "Perl 5 code"},
+		"r":      {"r-base", "4.4.2", `Rscript -e "$LOGIC"`, "R code (Rscript)"},
+		"go":     {"golang", "1.24-alpine", `printf '%s' "$LOGIC" > /tmp/main.go && go run /tmp/main.go`, "A Go program (package main)"},
+		"java":   {"eclipse-temurin", "21-jdk-alpine", `printf '%s' "$LOGIC" > /tmp/Main.java && java /tmp/Main.java`, "A Java program (class Main)"},
+		"c":      {"gcc", "14", `printf '%s' "$LOGIC" > /tmp/main.c && gcc -o /tmp/main /tmp/main.c && /tmp/main`, "A C program (gcc)"},
 	}
 	codeAliases = map[string]string{
 		"py": "python", "javascript": "node", "js": "node", "golang": "go",
@@ -707,7 +709,8 @@ func formatJobCommand(job *ut.Job) ([]string, error) {
 	var name, version string
 	// deduct name and version and format it
 	p := strings.Split(strings.TrimSpace(job.Logic), ":")
-	if len(p) == 2 {
+	explicit := len(p) == 2
+	if explicit {
 		name = p[0]
 		version = p[1]
 	} else {
@@ -752,6 +755,9 @@ func formatJobCommand(job *ut.Job) ([]string, error) {
 		}
 		if !ok {
 			return nil, fmt.Errorf("unsupported application or language %q (languages: %s)", lang, supportedLanguages())
+		}
+		if !explicit { // the language's small default image, not :latest
+			version = mode.tag
 		}
 		job.Logic = mode.image + ":" + version
 		// the code reaches the interpreter through $LOGIC (job env), never
