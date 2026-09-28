@@ -121,6 +121,31 @@ marked as such for the linter.
 | MED | job outputs | Overwriting an existing output failed to record ("already exists") and kept the old size. | The record is updated and only the size difference is charged/refunded to the file's owner. |
 | LOW | jobs | Nobody could tell where a job ran; jobs never showed "running". | `jobs.engine` (docker/kubernetes); status `running` once started. Job queries name their columns (no `SELECT *`). |
 
+### Round 5 (2026-09-28: fslite, context, config, CI, tests)
+
+| Sev | Where | Problem | Fix |
+|---|---|---|---|
+| HIGH | fslite admin tokens | Signed with the hardcoded key `r4nd0m`; any algorithm accepted. | Key derived from `JWT_SECRET_KEY` (HMAC, fslite-only); HS256, issuer `fslite` and expiry required; no key, no server. |
+| HIGH | fslite server | Never worked end to end: every admin upload/delete was 500 (uid = the admin's UUID), uploads carried volume id 0 (foreign key), fractional `JWT_VALIDITY_HOURS` issued expired tokens, duplicates answered 200. | Admins act as uid 0; the volume id is resolved (unknown volume 404); validity computed in float; duplicates 409; quota refusals 507 and refunded on failure. |
+| MED | fslite server auth | Wrong service secret got an empty 200; a short `Authorization` header panicked; bad tokens were 500. | All 401; constant-time secret compare. |
+| MED | fslite passwords | bcrypt cost 4; odd character rule (no `-`). | Default cost; 8-72 printable characters. |
+| MED | fslite names | Check-then-insert race on duplicate names. | `UNIQUE (vname, name)` index decides (`ErrResourceExists`); existing duplicates reported at start. Tested with 20 concurrent inserts. |
+| MED | storage | `StorageSystem` calls ran on `context.Background()`; `Insert` returned a CancelFunc callers deferred while nil. | Every method takes the caller's context (handlers pass the request's); `Insert` returns only an error. |
+| MED | fslite `Download`/`Stat` | Locality check inverted (worked only without local files); rejected the `*Resource` uspace passes. | Fixed; `Download` returns a func that closes the file. |
+| MED | config | Settings silently ignored: conf files and the uspace config map set `DB_FSL_*`, `DB_JOBS_MAX_IDLE_LIFETIME`, `API_LOGS_MAX_SIZE`; `FSL_UNLOCKED` was never applied. CORS lists split with `SplitAfter` (`"GET,"`). `DeepCopy` dropped fields. | Sectioned `EnvConfig` with one tag-driven loader (bad values and missing secrets stop start-up, all listed); keys renamed to the real ones with the values in effect (no data moved); a test fails on any unknown key. |
+| MED | CI | `ci-cd.yaml` built `./cmd/service-a` with Go 1.21: could never pass. `./...` broke on root-owned dirs in `data/`. | `.github/workflows/ci.yml` (`make ci`: gofmt, vet, race tests; minioth tests; lint on new issues). `data/go.mod` keeps runtime data out of `./...`. |
+| LOW | job outputs | Group = the job owner's uid. | The owner's primary group (from `Access-Target`). |
+| LOW | language modes | Code pasted into `python -c '...'` etc.; a `'` broke it. | Code is passed in `$LOGIC`; one table of modes and aliases; unknown languages list the supported ones. |
+| LOW | utils | `MakeMapFrom` filtered nothing (checked a `reflect.Value` wrapper). | Fixed. |
+| LOW | wss | `J_WS_LOGS_PATH` default was a file name, concatenated with the session file name. | A directory, joined properly. |
+| LOW | uspace group volumes | Handler deferred a nil func. | Fixed; the feature itself is unfinished (see Open). |
+
+Also: READMEs for `pkg/fslite`, `internal/uspace`, `internal/wss`; tests for
+`authorizeJobIO`, the fslite server (httptest) and wss sessions (real
+WebSockets); the config (defaults, strict parsing, shipped files); the old
+`tests/fslite` (never ran) replaced; Go experiments moved to
+`playground/_go_experiments`.
+
 ---
 
 ## Open
@@ -130,15 +155,18 @@ marked as such for the linter.
   depth once the frontend is refactored.
 - `LOW` CSP still needs `'unsafe-inline'` scripts for the templates' `onclick=`
   handlers - remove with the frontend refactor.
-- `LOW` fslite's admin password may not contain `-` (odd validation rule).
 
 ### Correctness and robustness
-- `LOW` job output files get group = uid (the job doesn't carry the owner's
-  primary group).
-- `LOW` the ad-hoc language modes (python -c, node -e, ...) quote the user's code
-  with single quotes; code containing `'` breaks the command.
-- `LOW` minioth's plain-file store and fslite have their own quirks (see their
-  repos); gshell (`jack` role) needs a ticket nobody issues yet - dormant by design.
+- `LOW` uspace group volumes are unfinished: `handleGroupVolumes` is not
+  routed and fslite has query code but no `groupVolume` table. Build or drop.
+- `LOW` fslite keeps settings in package variables (data path, token key):
+  one configuration per process. `SelectObjects` by prefix uses `LIKE`
+  across all volumes.
+- `LOW` minioth's plain-file store (`MINIOTH_HANDLER=plain`): colon-separated
+  files rewritten whole and non-atomically, a process-local lock only,
+  multi-file changes not transactional, `:` in values not rejected. Fine for
+  a single dev instance; production uses the database handler.
+- `LOW` gshell (`jack` role) needs a ticket nobody issues yet - dormant by design.
 
 ### Code health
 - `HIGH` **frontapp refactor** (planned): `handlers.go` is 3.3k lines of
@@ -146,28 +174,26 @@ marked as such for the linter.
   secret itself - which is how the header-forwarding bug happened. Replace with
   one typed uspace client that forwards the user's token (uspace now trusts
   tokens); split handlers by domain; drop inline `onclick` for a strict CSP.
-- `MED` config: keep one loader, but a small shared `Common` struct (address,
-  port, gin mode, service secret, JWT key, logging) embedded in per-service
-  structs, instead of one 80-field `EnvConfig` every service loads and dumps.
-  Do it with the frontapp refactor.
-- `MED` `StorageSystem` methods take no context, so fslite's (now context-aware)
-  queries get `context.Background()` from them; add ctx to the interface.
-- `MED` tests: unit suites for utils, uspace (identity, executor, access
-  targets), fslite (quotas, names, moves, foreign keys), frontapp (gid order),
-  minioth; `scripts/smoke.sh` end to end. Next: `authorizeJobIO` and quota
-  enforcement through uspace handlers with `httptest`, frontapp handlers.
+- `LOW` config: every service loads every section, so wss and frontapp warn
+  about default MinIO/fslite secrets they never use. Let each service name the
+  sections it needs (with the frontapp refactor).
+- `MED` tests: unit suites for utils (incl. config), uspace (identity, executor,
+  access targets, job I/O authorization), fslite (quotas, names, races, server
+  API via httptest), wss (sessions over real WebSockets), frontapp (gid order),
+  minioth; `scripts/smoke.sh` end to end. Next: uspace upload/quota handlers
+  and frontapp handlers through `httptest` (frontapp after its refactor).
 - `LOW` golangci-lint: 39 style findings left (revive, staticcheck quick-fixes,
   testpackage, ...).
 
 ### Operations
-- `MED` no CI. `make check` + `make lint` on every push; `make smoke` on a
-  compose stack nightly.
+- `MED` CI runs unit tests and lint (`.github/workflows/ci.yml`) but has not run
+  on GitHub yet (first push will tell). `make smoke` on a compose stack
+  nightly is still to do.
 - `MED` the kubernetes executor is unit-tested (fake clientset) but not run
   end to end in a cluster yet (kind/minikube are available locally); the
   docker executor is verified end to end by `make smoke`.
-- `LOW` `go build ./...` breaks when containers leave root-owned dirs in `data/`
-  (the Makefile builds `./cmd/... ./internal/... ./pkg/...`). Move runtime data
-  out of the module tree.
+- `LOW` runtime data lives in `data/` inside the repository (kept out of the Go
+  build by `data/go.mod`). A deployment should mount it elsewhere.
 - `LOW` compose images must be built one at a time on 8 GB machines (`make images` does).
 
 ### Pending actions
@@ -179,14 +205,12 @@ marked as such for the linter.
 ### Next up
 1. **Schema migrations** (see Design notes below): replace the ad-hoc start-up
    fixes with numbered, embedded migrations per database.
-2. README for `pkg/fslite`; notes on minioth's plain-file store and fslite's quirks.
-3. frontapp issues tickets for the gshell room (`jack` role).
-4. Per-service config structs embedding a shared `Common` struct.
-5. `StorageSystem` methods take a context; a UNIQUE (volume, name) index
-   instead of a mutex against duplicate-name races.
-6. CI (`make check`, `make lint` on push) so the Makefile and scripts can't
-   rot unnoticed.
-7. Show a job's engine and a Cancel button in the job views (the API has both).
+2. **frontapp refactor** (typed uspace client, handlers split by domain, strict
+   CSP), then per-service config sections and frontapp handler tests.
+3. Show a job's engine and a Cancel button in the job views (the API has both).
+4. frontapp issues tickets for the gshell room (`jack` role).
+5. Group volumes: build (table, route, UI) or drop.
+6. Nightly `make smoke` in CI; run the kubernetes executor in kind/minikube.
 
 ### Design notes: schema migrations
 Today schema changes are applied by start-up code scattered across the
