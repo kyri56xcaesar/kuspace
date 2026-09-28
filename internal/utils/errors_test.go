@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -27,5 +28,17 @@ func TestHTTPStatusFollowsTheWrappedKind(t *testing.T) {
 	}
 	if !errors.Is(fmt.Errorf("%w: team", specific), ErrExists) {
 		t.Error("a package sentinel wrapping a kind must match the kind")
+	}
+}
+
+func TestReady(t *testing.T) {
+	ok := func(context.Context) error { return nil }
+	slow := func(ctx context.Context) error { <-ctx.Done(); return ctx.Err() }
+	if code, res := Ready(context.Background(), map[string]Check{"db": ok}); code != http.StatusOK || res["db"] != "ok" {
+		t.Errorf("all ok: %d %v", code, res)
+	}
+	code, res := Ready(context.Background(), map[string]Check{"db": ok, "storage": slow})
+	if code != http.StatusServiceUnavailable || res["db"] != "ok" || res["storage"] == "ok" {
+		t.Errorf("a hanging check: %d %v", code, res)
 	}
 }

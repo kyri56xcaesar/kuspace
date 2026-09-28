@@ -74,3 +74,24 @@ func TestFetchVolumesByRole(t *testing.T) {
 		t.Errorf("admin's volumes: %s", rec.Body)
 	}
 }
+
+// A service that can't be reached is a 503 with Retry-After; page loads
+// get the error page.
+func TestUpstreamDown(t *testing.T) {
+	h := newFrontHarness(t)
+	h.uspace.Close() // uspace is down
+	user := login(t, "1001", "user")
+
+	rec := h.do(http.MethodGet, "/api/v1/verified/fetch-jobs?format=json", user, nil, nil)
+	if rec.Code != http.StatusServiceUnavailable || rec.Header().Get("Retry-After") == "" {
+		t.Errorf("API call: %d, Retry-After %q", rec.Code, rec.Header().Get("Retry-After"))
+	}
+	rec = h.do(http.MethodGet, "/api/v1/verified/fetch-volumes", user, nil, map[string]string{"Accept": "text/html"})
+	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "not answering") {
+		t.Errorf("page load: %d %.200s", rec.Code, rec.Body)
+	}
+	rec = h.do(http.MethodGet, "/readyz", nil, nil, nil)
+	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), `"uspace"`) {
+		t.Errorf("readyz: %d %s", rec.Code, rec.Body)
+	}
+}

@@ -82,8 +82,9 @@ func NewMinioClient(cfg ut.EnvConfig) Client {
 	}
 
 	client, err := minio.New(mc.endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(mc.accessKey, mc.secretKey, ""),
-		Secure: mc.useSSL,
+		Creds:     credentials.NewStaticV4(mc.accessKey, mc.secretKey, ""),
+		Secure:    mc.useSSL,
+		Transport: ut.NewTransport(), // bounded connect/header waits (MinIO down fails fast)
 	})
 	if err != nil {
 		log.Fatal("failed to instantiate a new minio client: ", err)

@@ -46,7 +46,7 @@ func TestAuthorizeJobIO(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			c, _ := gin.CreateTestContext(httptest.NewRecorder())
-			c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/job", nil)
+			c.Request = httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/job", nil)
 			if tc.target != "" {
 				c.Request.Header.Set("Access-Target", "0:vol1:/ "+tc.target)
 			}
@@ -80,7 +80,7 @@ func TestAuthorizeJobOutputOnGroupVolume(t *testing.T) {
 	job := ut.Job{UID: 1001, Input: "vol1/in.csv", Output: "team/result.csv"}
 	for who, allowed := range map[string]bool{"1001:1001,500": true, "1001:1001": false} {
 		c, _ := gin.CreateTestContext(httptest.NewRecorder())
-		c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/job", nil)
+		c.Request = httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/job", nil)
 		c.Request.Header.Set("Access-Target", "0:vol1:/ "+who)
 		err := srv.authorizeJobIO(c, job)
 		if allowed != (err == nil) {

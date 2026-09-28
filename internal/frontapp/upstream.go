@@ -10,7 +10,11 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 	"time"
+
+	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -33,7 +37,10 @@ type upstream struct {
 }
 
 func newUpstream(base string, secret []byte) *upstream {
-	return &upstream{base: base, secret: secret, client: &http.Client{Timeout: 5 * time.Minute}}
+	// no overall timeout: bodies (uploads, downloads) stream for as long as
+	// the browser's request lasts; connecting and waiting for headers are
+	// bounded by the transport, JSON calls by callTimeout
+	return &upstream{base: base, secret: secret, client: &http.Client{Transport: ut.NewTransport()}}
 }
 
 // request describes one upstream call.
@@ -88,6 +95,8 @@ func (u *upstream) do(ctx context.Context, r request) (*http.Response, error) {
 // decode runs the call and decodes a 2xx JSON answer into out. Other
 // statuses become an *upstreamError carrying the upstream's message.
 func (u *upstream) decode(ctx context.Context, r request, out any) error {
+	ctx, cancel := context.WithTimeout(ctx, callTimeout)
+	defer cancel()
 	resp, err := u.do(ctx, r)
 	if err != nil {
 		return err
@@ -124,17 +133,31 @@ func newUpstreamError(resp *http.Response) *upstreamError {
 	return &upstreamError{status: resp.StatusCode, msg: msg}
 }
 
+// callTimeout bounds a JSON call to an upstream service.
+const callTimeout = 30 * time.Second
+
 // fail answers a failed upstream call: its own status and message for an
-// upstream error, 502 when the service couldn't be reached.
+// upstream error; 503 with Retry-After when the service couldn't be
+// reached or took too long. Page loads get the error page, not JSON.
 func fail(c *gin.Context, what string, err error) {
+	status, msg := http.StatusServiceUnavailable, what+": a service is unavailable, try again shortly"
 	var ue *upstreamError
 	if errors.As(err, &ue) {
-		c.JSON(ue.status, gin.H{"error": ue.msg})
+		status, msg = ue.status, ue.msg
+	} else {
+		log.Printf("[frontapp] %s: %v", what, err)
+		c.Header("Retry-After", "5")
+	}
+	if c.Request.Method == http.MethodGet && c.GetHeader("HX-Request") == "" && strings.Contains(c.GetHeader("Accept"), "text/html") {
+		hint := ""
+		if status == http.StatusServiceUnavailable {
+			hint = "Part of kuSpace is not answering right now. Reload the page in a moment."
+		}
+		c.HTML(status, "error.html", gin.H{"error": strconv.Itoa(status), "message": msg, "hint": hint})
 
 		return
 	}
-	log.Printf("[frontapp] %s: %v", what, err)
-	c.JSON(http.StatusBadGateway, gin.H{"error": what + ": service unavailable"})
+	c.JSON(status, gin.H{"error": msg})
 }
 
 // relay streams an upstream answer to the client: status, the listed

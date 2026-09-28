@@ -41,6 +41,8 @@ type Verifier struct {
 	lastFetch time.Time
 }
 
+// NewVerifier checks tokens with the configured algorithm (JWT_SIGNING_ALG)
+// and key: the shared JWT_SECRET_KEY, or minioth's JWKS for RS256.
 func NewVerifier(cfg ut.EnvConfig) *Verifier {
 	alg := strings.ToUpper(strings.TrimSpace(cfg.JwtSigningAlg))
 	if alg == "" {

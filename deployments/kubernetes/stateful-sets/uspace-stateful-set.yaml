@@ -25,6 +25,13 @@ spec:
         ports:
         - containerPort: 8079
           name: web
+        livenessProbe: # the process answers
+          httpGet: {path: /healthz, port: 8079}
+          periodSeconds: 10
+        readinessProbe: # it can serve (its dependencies answer)
+          httpGet: {path: /readyz, port: 8079}
+          periodSeconds: 5
+          failureThreshold: 3
         volumeMounts:
         - name: database
           mountPath: /root/data

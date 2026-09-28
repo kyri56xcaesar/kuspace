@@ -369,6 +369,9 @@ func newEngine(cfg ut.EnvConfig) *gin.Engine {
 	engine.GET("/healthz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "alive"})
 	})
+	engine.GET("/readyz", func(c *gin.Context) { // no dependencies: ready when alive
+		c.JSON(http.StatusOK, gin.H{"status": "ready"})
+	})
 	engine.GET("/system-conf", func(c *gin.Context) {
 		if !hasServiceSecret(c) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "service secret required"})
@@ -397,11 +400,10 @@ func Serve(cfg ut.EnvConfig) {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	server := &http.Server{
-		Addr:              address,
-		Handler:           engine,
-		ReadHeaderTimeout: time.Second * 5,
-	}
+	server := ut.ServerTimeouts(&http.Server{
+		Addr:    address,
+		Handler: engine,
+	})
 
 	go func() {
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {

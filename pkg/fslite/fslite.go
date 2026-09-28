@@ -221,6 +221,16 @@ func (fsl *FsLite) objectPath(volume, name string) string {
 	return filepath.Join(fsl.dataPath, clean(volume), clean(name))
 }
 
+// Ping reports whether fslite's database answers.
+func (fsl *FsLite) Ping(ctx context.Context) error {
+	db, err := fsl.dbh.GetConn()
+	if err != nil {
+		return err
+	}
+
+	return db.PingContext(ctx)
+}
+
 // Close closes the underlying database handler and releases any resources held by FsLite.
 func (fsl *FsLite) Close() {
 	fsl.dbh.Close()

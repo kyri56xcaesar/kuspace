@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"time"
 
+	ut "kyri56xcaesar/kuspace/internal/utils"
+
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -37,6 +39,10 @@ func (fsl *FsLite) routes() *gin.Engine {
 
 	srv.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "alive"})
+	})
+	srv.GET("/readyz", func(c *gin.Context) {
+		status, checks := ut.Ready(c.Request.Context(), map[string]ut.Check{"database": fsl.Ping})
+		c.JSON(status, checks)
 	})
 	api := srv.Group(version)
 	{
@@ -74,11 +80,10 @@ func (fsl *FsLite) routes() *gin.Engine {
 
 // serve runs the server until SIGINT/SIGTERM, then shuts down gracefully.
 func (fsl *FsLite) serve(srv *gin.Engine) {
-	server := &http.Server{
-		Addr:              fsl.config.Addr(fsl.config.APIPort),
-		Handler:           srv,
-		ReadHeaderTimeout: time.Second * 5,
-	}
+	server := ut.ServerTimeouts(&http.Server{
+		Addr:    fsl.config.Addr(fsl.config.APIPort),
+		Handler: srv,
+	})
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

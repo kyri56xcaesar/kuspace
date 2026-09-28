@@ -17,7 +17,7 @@
     <img class="error-mark" src="/api/v1/assets/logos/cropped.png" alt="">
     <p class="error-code">Error {{ .error }}</p>
     <h1 class="error-message">{{ .message }}</h1>
-    <p class="error-hint">The page you asked for is not here, or you cannot see it.</p>
+    <p class="error-hint">{{ if .hint }}{{ .hint }}{{ else }}The page you asked for is not here, or you cannot see it.{{ end }}</p>
     <a class="error-back" href="/api/v1/login">Back to kuSpace</a>
   </main>
 </body>

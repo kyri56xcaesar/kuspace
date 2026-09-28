@@ -178,11 +178,10 @@ func (srv *UService) Serve() {
 	defer stop()
 
 	/* server std lib raw definition */
-	server := &http.Server{
-		Addr:              srv.config.Addr(srv.config.APIPort),
-		Handler:           srv.Engine,
-		ReadHeaderTimeout: time.Second * 5,
-	}
+	server := ut.ServerTimeouts(&http.Server{
+		Addr:    srv.config.Addr(srv.config.APIPort),
+		Handler: srv.Engine,
+	})
 
 	/* listen in a goroutine */
 	go func() {
@@ -215,6 +214,26 @@ func (srv *UService) Serve() {
 	log.Println("[USPACE_SERVER] Server exiting")
 }
 
+// readinessChecks: what uspace needs to serve requests.
+func (srv *UService) readinessChecks() map[string]ut.Check {
+	return map[string]ut.Check{
+		"metadata": srv.fsl.Ping,
+		"jobs": func(ctx context.Context) error {
+			db, err := srv.jdbh.GetConn()
+			if err != nil {
+				return err
+			}
+
+			return db.PingContext(ctx)
+		},
+		"storage": func(ctx context.Context) error {
+			_, err := srv.storage.SelectVolumes(ctx, nil)
+
+			return err
+		},
+	}
+}
+
 // jobDrainTimeout bounds how long shutdown waits for running jobs
 // (kubernetes gives pods 30s by default after SIGTERM; stay inside it).
 const jobDrainTimeout = 15 * time.Second
@@ -227,6 +246,11 @@ func (srv *UService) RegisterRoutes() {
 			c.JSON(200, gin.H{
 				"message": "alive",
 			})
+		})
+		// ready = able to serve: its databases and the object store answer
+		root.GET("/readyz", func(c *gin.Context) {
+			status, checks := ut.Ready(c.Request.Context(), srv.readinessChecks())
+			c.JSON(status, checks)
 		})
 	}
 	/* These endpoints should parse an authentication token and handle verification of authorization according

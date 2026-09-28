@@ -390,3 +390,23 @@ func TestErrorsAnswerByKind(t *testing.T) {
 		t.Errorf("taken name: %d, want 409", rec.Code)
 	}
 }
+
+type brokenStorage struct{ *memStorage }
+
+func (brokenStorage) SelectVolumes(context.Context, map[string]any) (any, error) {
+	return nil, fmt.Errorf("minio: %w", ut.ErrUnavailable)
+}
+
+func TestReadiness(t *testing.T) {
+	a := newAPIHarness(t, 1)
+	a.withJobsDB()
+	rec := a.do(http.MethodGet, "/readyz", "", "", nil, "")
+	if rec.Code != http.StatusOK {
+		t.Errorf("ready: %d %s", rec.Code, rec.Body)
+	}
+	a.srv.storage = brokenStorage{&memStorage{objects: map[string][]byte{}}}
+	rec = a.do(http.MethodGet, "/readyz", "", "", nil, "")
+	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), `"metadata":"ok"`) {
+		t.Errorf("storage down: %d %s", rec.Code, rec.Body)
+	}
+}

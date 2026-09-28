@@ -28,6 +28,13 @@ spec:
             cpu: "500m"
         ports:
         - containerPort: 8082
+        livenessProbe: # the process answers
+          httpGet: {path: /healthz, port: 8082}
+          periodSeconds: 10
+        readinessProbe: # it can serve (its dependencies answer)
+          httpGet: {path: /readyz, port: 8082}
+          periodSeconds: 5
+          failureThreshold: 3
         volumeMounts: # volume mount used for configuration
         - name: config
           mountPath: /root/configs/wss.conf

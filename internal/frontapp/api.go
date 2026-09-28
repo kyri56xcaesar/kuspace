@@ -180,6 +180,14 @@ func (srv *HTTPService) routes() {
 				"status": "alive",
 			})
 		})
+		// ready = the services every page needs answer
+		root.GET("/readyz", func(c *gin.Context) {
+			status, checks := ut.Ready(c.Request.Context(), map[string]ut.Check{
+				"uspace":  ut.Reachable(srv.uspace.client, srv.uspace.base+"/healthz"),
+				"minioth": ut.Reachable(srv.minioth.client, srv.minioth.base+"/v1/.well-known/minioth"),
+			})
+			c.JSON(status, checks)
+		})
 
 		root.GET("/conf", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
@@ -307,11 +315,10 @@ func (srv *HTTPService) routes() {
 }
 
 func (srv *HTTPService) serve(ctx context.Context, stop context.CancelFunc) {
-	server := &http.Server{
-		Addr:              srv.Config.Addr(srv.Config.FrontPort),
-		Handler:           srv.Engine,
-		ReadHeaderTimeout: time.Second * 5,
-	}
+	server := ut.ServerTimeouts(&http.Server{
+		Addr:    srv.Config.Addr(srv.Config.FrontPort),
+		Handler: srv.Engine,
+	})
 
 	go func() {
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
