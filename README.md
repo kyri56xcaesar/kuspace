@@ -33,11 +33,11 @@ streams back live.
 ### Microservices
 
 - identity provision (minioth)  
-- central API for storage and for submitting "jobs" (uspace)  
+- central API for storage and for submitting "jobs" ([uspace](internal/uspace/README.md))  
   - user defined orchestration  
   - code as jobs execution  
   - builtin applications (modular)  
-- websocket streaming for logs/results/output (wss)  
+- websocket streaming for logs/results/output ([wss](internal/wss/README.md))  
 - frontend application for i/o + management (frontapp)  
 
 ### More
@@ -46,7 +46,7 @@ streams back live.
   - minio  
             (bundled in docker-compose; its root password comes from the secrets file)  
     or
-  - fslite [custom implementation]
+  - [fslite](pkg/fslite/README.md) [custom implementation]
             (a pretty basic fs storing mechanism, with an api and a database holding file metadata)
 
 - minioth (identity provider) [custom implementation, own repository]
