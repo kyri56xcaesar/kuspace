@@ -2,6 +2,7 @@ package frontendapp
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -78,5 +79,54 @@ func TestUserListNeverCarriesHashes(t *testing.T) {
 	}
 	if got := h.minioth.last(t); got.header.Get("Authorization") == "" {
 		t.Error("admin call without the admin's token")
+	}
+}
+
+func TestPasswordChangeEndsTheSession(t *testing.T) {
+	h := newFrontHarness(t)
+	session := login(t, "1001", "user")
+	change := func(cur, next, repeat string) *httptest.ResponseRecorder {
+		body, hdr := form(url.Values{"currentPassword": {cur}, "newPassword": {next}, "newPasswordRepeat": {repeat}})
+
+		return h.do(http.MethodPost, "/api/v1/verified/passwd", session, body, hdr)
+	}
+
+	h.minioth.on("POST /v1/passwd", http.StatusOK, `{"message":"password changed"}`)
+	rec := change("old-pass", "new-pass", "new-pass")
+	if rec.Code != http.StatusNoContent || rec.Header().Get("Hx-Redirect") != "/api/v1/login" ||
+		!strings.HasPrefix(rec.Header().Get("Set-Cookie"), sessionCookie+"=;") {
+		t.Fatalf("password change: %d %v", rec.Code, rec.Header())
+	}
+	got := h.minioth.last(t)
+	if got.header.Get("Authorization") != "Bearer "+session.Value || got.header.Get("X-Service-Secret") != "" ||
+		got.body != `{"current_password":"old-pass","new_password":"new-pass"}` {
+		t.Errorf("minioth got %+v", got)
+	}
+
+	// minioth checks the current password; its answer reaches the user and the session stays
+	h.minioth.on("POST /v1/passwd", http.StatusUnauthorized, `{"error":"current password is wrong"}`)
+	rec = change("bad-pass", "new-pass", "new-pass")
+	if rec.Code != http.StatusUnauthorized || !strings.Contains(rec.Body.String(), "current password is wrong") || rec.Header().Get("Set-Cookie") != "" {
+		t.Errorf("wrong current password: %d %s %v", rec.Code, rec.Body, rec.Header())
+	}
+
+	before := len(h.minioth.seen)
+	if rec := change("old-pass", "new-pass", "other-pass"); rec.Code != http.StatusBadRequest || len(h.minioth.seen) != before {
+		t.Errorf("mismatched repeat: %d", rec.Code)
+	}
+}
+
+func TestEmailChangeIsSelfService(t *testing.T) {
+	h := newFrontHarness(t)
+	h.minioth.on("PATCH /v1/user/me", http.StatusOK, `{"message":"updated"}`)
+	session := login(t, "1001", "user")
+	body, hdr := form(url.Values{"new-email-change": {"a@example.com"}})
+	if rec := h.do(http.MethodPut, "/api/v1/verified/user-update", session, body, hdr); rec.Code != http.StatusOK {
+		t.Fatalf("email change: %d %s", rec.Code, rec.Body)
+	}
+	got := h.minioth.last(t)
+	if got.header.Get("Authorization") != "Bearer "+session.Value || got.header.Get("X-Service-Secret") != "" ||
+		!strings.Contains(got.body, `"email":"a@example.com"`) {
+		t.Errorf("minioth got %+v", got)
 	}
 }

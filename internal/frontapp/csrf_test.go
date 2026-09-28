@@ -70,7 +70,12 @@ func TestCSRF(t *testing.T) {
 
 func TestLogoutClearsOnlyTheSession(t *testing.T) {
 	h := newFrontHarness(t)
-	rec := h.do(http.MethodDelete, "/api/v1/logout?csrf_token&other", login(t, "1001", "user"), nil, nil)
+	h.minioth.on("POST /v1/logout", http.StatusOK, `{"message":"logged out"}`)
+	session := login(t, "1001", "user")
+	rec := h.do(http.MethodDelete, "/api/v1/logout?csrf_token&other", session, nil, nil)
+	if got := h.minioth.last(t); got.path != "/v1/logout" || got.header.Get("Authorization") != "Bearer "+session.Value {
+		t.Errorf("logout did not revoke the session at minioth: %+v", got)
+	}
 	cookies := rec.Header().Values("Set-Cookie")
 	if rec.Code != http.StatusNoContent || rec.Header().Get("Hx-Redirect") != "/api/v1/login" {
 		t.Errorf("logout: %d %v", rec.Code, rec.Header())
@@ -79,6 +84,15 @@ func TestLogoutClearsOnlyTheSession(t *testing.T) {
 		if !strings.HasPrefix(c, sessionCookie+"=;") {
 			t.Errorf("logout touched %q", c)
 		}
+	}
+}
+
+func TestLogoutWorksWhenMiniothIsDown(t *testing.T) {
+	h := newFrontHarness(t)
+	h.minioth.on("POST /v1/logout", http.StatusBadGateway, `{"error":"down"}`)
+	rec := h.do(http.MethodDelete, "/api/v1/logout", login(t, "1001", "user"), nil, nil)
+	if rec.Code != http.StatusNoContent || !strings.HasPrefix(rec.Header().Get("Set-Cookie"), sessionCookie+"=;") {
+		t.Errorf("logout with minioth down: %d %v", rec.Code, rec.Header())
 	}
 }
 

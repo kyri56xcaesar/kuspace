@@ -1,6 +1,7 @@
 package frontendapp
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -112,8 +113,9 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 	c.Redirect(http.StatusSeeOther, "/api/v1/login")
 }
 
-// passwordChangeHandler changes the session user's password after checking
-// the current one.
+// passwordChangeHandler changes the session user's password. minioth checks
+// the current one and revokes every token of the user, this session's too,
+// so the user logs in again with the new password.
 func (srv *HTTPService) passwordChangeHandler(c *gin.Context) {
 	var cp passChange
 	if err := c.ShouldBind(&cp); err != nil {
@@ -126,30 +128,43 @@ func (srv *HTTPService) passwordChangeHandler(c *gin.Context) {
 
 		return
 	}
-	username := c.GetString("username")
-	ctx := c.Request.Context()
-	if err := srv.minioth.decode(ctx, request{
-		method: http.MethodPost, path: "/v1/admin/verify-password", svc: true,
-		json: gin.H{"username": username, "password": cp.CurPass},
-	}, nil); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "current password not matched"})
-
-		return
-	}
-	resp, err := srv.minioth.do(ctx, request{ //nolint:bodyclose // relay closes it
+	err := srv.minioth.decode(c.Request.Context(), request{
 		method: http.MethodPost, path: "/v1/passwd", token: userToken(c),
-		json: gin.H{"username": username, "password": cp.NewPass},
-	})
+		json: gin.H{"current_password": cp.CurPass, "new_password": cp.NewPass},
+	}, nil)
 	if err != nil {
 		fail(c, "change password", err)
 
 		return
 	}
-	relay(c, resp)
+	srv.verifier.Forget(userToken(c))
+	endSession(c)
 }
 
-// updateUser changes the session user's email. The user id comes from the
-// verified session (it was looked up with an extra /user/me call).
+// endSession drops the session cookie and sends the browser to the login page.
+func endSession(c *gin.Context) {
+	setSessionCookie(c, sessionCookie, "", -1)
+	c.Header("HX-Redirect", "/api/v1/login")
+	c.Status(http.StatusNoContent)
+}
+
+// handleLogout revokes the user's tokens at minioth ("log out everywhere":
+// minioth has no per-session logout) and ends this session. The cookie goes
+// even when minioth can't be reached.
+func (srv *HTTPService) handleLogout(c *gin.Context) {
+	if _, raw, ok := srv.session(c); ok {
+		if err := srv.minioth.decode(c.Request.Context(), request{
+			method: http.MethodPost, path: "/v1/logout", token: raw,
+		}, nil); err != nil {
+			log.Printf("logout: revoking the session at minioth: %v", err)
+		}
+		srv.verifier.Forget(raw)
+	}
+	endSession(c)
+}
+
+// updateUser changes the session user's email through minioth's
+// self-service profile endpoint (as the user, not as a service).
 func (srv *HTTPService) updateUser(c *gin.Context) {
 	email := c.PostForm("new-email-change")
 	if email == "" {
@@ -157,15 +172,10 @@ func (srv *HTTPService) updateUser(c *gin.Context) {
 
 		return
 	}
-	uid, err := strconv.ParseInt(c.GetString("userID"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "bad session"})
-
-		return
-	}
+	// info held the email before minioth had an email field; the pages show it
 	resp, err := srv.minioth.do(c.Request.Context(), request{ //nolint:bodyclose // relay closes it
-		method: http.MethodPatch, path: "/v1/admin/userpatch", svc: true,
-		json: gin.H{"uid": uid, "info": email},
+		method: http.MethodPatch, path: "/v1/user/me", token: userToken(c),
+		json: gin.H{"email": email, "info": email},
 	})
 	if err != nil {
 		fail(c, "update email", err)

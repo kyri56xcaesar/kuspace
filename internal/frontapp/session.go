@@ -14,9 +14,9 @@ import (
 
 	A session is minioth's access token in the HttpOnly, SameSite=Strict
 	"accessToken" cookie. frontapp verifies it itself with the configured
-	algorithm (internal/authn, the same check uspace does) instead of asking
-	minioth on every request: minioth keeps no revocation list, so its
-	introspection added a network round trip and nothing else.
+	algorithm (internal/authn, the same check uspace does). Logging out or
+	changing the password revokes the user's tokens at minioth; the verifier
+	learns that from minioth's introspection, cached for 30 seconds.
 */
 
 const sessionCookie = "accessToken"

@@ -39,6 +39,8 @@ type Verifier struct {
 	mu        sync.Mutex
 	keys      map[string]*rsa.PublicKey
 	lastFetch time.Time
+
+	revocations *revocations // nil: signature and expiry only
 }
 
 // NewVerifier checks tokens with the configured algorithm (JWT_SIGNING_ALG)
@@ -49,17 +51,32 @@ func NewVerifier(cfg ut.EnvConfig) *Verifier {
 		alg = jwt.SigningMethodHS256.Alg()
 	}
 
-	return &Verifier{
+	v := &Verifier{
 		alg:     alg,
 		hmacKey: cfg.JwtSecretKey,
 		jwksURL: "http://" + cfg.AuthAddress + ":" + cfg.AuthPort + "/v1/.well-known/jwks.json",
 		client:  &http.Client{Timeout: 5 * time.Second},
 		keys:    map[string]*rsa.PublicKey{},
 	}
+	if cfg.JwtRevocationCheck && cfg.AuthAddress != "" {
+		v.revocations = newRevocations("http://" + cfg.AuthAddress + ":" + cfg.AuthPort + "/v1/user/token")
+	}
+
+	return v
+}
+
+// Forget drops what the verifier remembers about raw being valid: call it
+// after revoking raw at minioth, so this service stops accepting it now
+// instead of when the cached answer expires.
+func (v *Verifier) Forget(raw string) {
+	if v.revocations != nil {
+		v.revocations.forget(raw)
+	}
 }
 
 // Verify validates raw as a minioth access token: the configured algorithm,
-// issuer "minioth", an expiry, and a user id.
+// issuer "minioth", an expiry, a user id and, when revocation checks are
+// on, that minioth hasn't revoked it.
 func (v *Verifier) Verify(raw string) (*Claims, error) {
 	claims := &Claims{}
 	_, err := jwt.ParseWithClaims(raw, claims, v.key,
@@ -72,6 +89,9 @@ func (v *Verifier) Verify(raw string) (*Claims, error) {
 	}
 	if claims.UserID == "" {
 		return nil, errors.New("token has no user_id")
+	}
+	if v.revocations != nil && claims.ExpiresAt != nil && v.revocations.revoked(raw, claims.ExpiresAt.Time) {
+		return nil, ErrRevoked
 	}
 
 	return claims, nil

@@ -211,12 +211,7 @@ func (srv *HTTPService) routes() {
 		})
 		apiV1.POST("/register", srv.handleRegister)
 
-		apiV1.DELETE("/logout", func(c *gin.Context) {
-			// only the session cookie (it used to delete whatever cookies the query named)
-			setSessionCookie(c, sessionCookie, "", -1)
-			c.Header("HX-Redirect", "/api/v1/login")
-			c.Status(http.StatusNoContent)
-		})
+		apiV1.DELETE("/logout", srv.handleLogout)
 	}
 
 	oauth := apiV1.Group("/auth")

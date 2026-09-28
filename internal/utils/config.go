@@ -110,6 +110,9 @@ type TokensConfig struct {
 	JwtSecretKey     []byte  `env:"JWT_SECRET_KEY" secret:"true" required:"true"`
 	JwtSigningAlg    string  `env:"JWT_SIGNING_ALG" default:"HS256"` // HS256 (shared JwtSecretKey) or RS256 (minioth's JWKS)
 	HashCost         string  `env:"HASH_COST" default:"4"`           // bcrypt, used by minioth
+	// ask minioth whether a token was revoked (logout, password change),
+	// caching answers for 30s; off: signature and expiry only
+	JwtRevocationCheck bool `env:"JWT_REVOCATION_CHECK" default:"true"`
 }
 
 // StorageConfig is the storage policy every storage-facing service shares.

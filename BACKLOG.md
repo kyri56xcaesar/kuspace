@@ -217,6 +217,17 @@ the bugs they guard (checked by planting them). Browser JS suites in
 fake presigned URLs; `make test-js`, in CI with ruby/php/java installed).
 tests/uspace (thesis scaffolding) retired to playground.
 
+minioth v1.1.0 (submodule bumped): frontapp now uses its user-facing
+endpoints instead of the service secret - password change is `POST
+/v1/passwd {current_password,new_password}` with the user's token (the
+extra admin verify-password call is gone) and ends the session; email is
+`PATCH /v1/user/me`; logout calls `POST /v1/logout`, revoking the user's
+tokens everywhere. `internal/authn` asks minioth's introspection whether a
+token was revoked (`JWT_REVOCATION_CHECK`, default on): answers cached 30s,
+revoked ones until expiry, accepted on the signature while minioth is
+unreachable; the service that revokes a token forgets its cached answer at
+once. Smoke checks the old session and password stop working.
+
 ---
 
 ## Open
@@ -233,8 +244,8 @@ tests/uspace (thesis scaffolding) retired to playground.
   "running" after a restart (drain now leaves them so) - re-queue / re-attach
   or fail them at start, plus a timeout watchdog.
 - `PENDING` minioth branch `next` (primary-group fix, plain-store hardening)
-  is committed locally only: push it and tag v1.0.7, then bump kuspace's
-  submodule to it.
+  is committed locally only (rebased on v1.1.0): push it and tag v1.1.1,
+  then bump kuspace's submodule to it.
 
 ### Code health
 - `LOW` a frontend (JS) linter and DOM-level tests for the console pages

@@ -208,6 +208,16 @@ if [ "${SMOKE_JOBS:-1}" != "0" ]; then
   check "finished job not cancellable" 409 "$(code -b "$J/user.jar" -X POST "$F/verified/job-cancel?jid=$RJ")"
 fi
 
+echo "--- ending sessions (last: they revoke the user's tokens)"
+check "password change"             204 "$(code -b "$J/user.jar" -X POST "$F/verified/passwd" -d "currentPassword=smokepass123&newPassword=smokepass456&newPasswordRepeat=smokepass456")"
+check "old session revoked"         401 "$(code -b "$J/user.jar" "$F/verified/admin-panel")"
+check "old password refused"        "4??" "$(code -X POST "$F/login" -d "username=$U&password=smokepass123")"
+check "login with new password"     303 "$(code -c "$J/new.jar" -X POST "$F/login" -d "username=$U&password=smokepass456")"
+fixjar "$J/new.jar"
+check "logout"                      204 "$(code -b "$J/new.jar" -X DELETE "$F/logout")"
+# -b alone doesn't update the jar: it still holds the token logout revoked
+check "logged-out token revoked"    401 "$(code -b "$J/new.jar" "$F/verified/admin-panel")"
+
 if [ -d "$COMPOSE_DIR" ] && command -v docker >/dev/null; then
   echo "--- secret hygiene"
   check "no secret in any container log" no "$( (cd "$COMPOSE_DIR" && docker compose logs --no-color 2>&1) | yes_if grep -q -F -f "$J/secrets")"
