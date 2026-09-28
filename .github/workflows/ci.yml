@@ -20,7 +20,14 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: gofmt, go vet, unit tests with the race detector
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # interpreters for the editor starters' tests (python, perl, gcc and
+      # go are on the runner already; R is skipped)
+      - name: language interpreters
+        run: sudo apt-get update -q && sudo apt-get install -yq ruby php-cli default-jdk-headless
+      - name: gofmt, go vet, unit tests with the race detector, browser JS tests
         run: make ci
       - name: minioth unit tests (pinned submodule)
         run: cd third_party/minioth && go test ./...

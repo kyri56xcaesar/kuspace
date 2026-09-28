@@ -2,7 +2,10 @@ package uspace
 
 import (
 	"context"
+	"encoding/json"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -220,5 +223,35 @@ func TestFormatJobCommandCodeModes(t *testing.T) {
 	j := ut.Job{Logic: "duckdb"}
 	if cmd, err := formatJobCommand(&j); err != nil || j.Logic != duckImage || cmd[1] != "duckdb_app.py" {
 		t.Errorf("duckdb app: %v %v %v", j.Logic, cmd, err)
+	}
+}
+
+// web/tests/code_modes.json mirrors codeModes for the editor starters'
+// tests (web/tests/starters.test.js run each starter with its language's
+// command). This keeps the two from drifting; UPDATE_GOLDEN=1 rewrites it.
+func TestCodeModesGolden(t *testing.T) {
+	type mode struct {
+		Image string `json:"image"`
+		Tag   string `json:"tag"`
+		Run   string `json:"run"`
+	}
+	modes := map[string]mode{}
+	for name, m := range codeModes {
+		modes[name] = mode{m.image, m.tag, m.run}
+	}
+	want, err := json.MarshalIndent(modes, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want = append(want, '\n')
+	path := filepath.Join("..", "..", "web", "tests", "code_modes.json")
+	if os.Getenv("UPDATE_GOLDEN") == "1" {
+		if err := os.WriteFile(path, want, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := os.ReadFile(path)
+	if err != nil || string(got) != string(want) {
+		t.Errorf("%s is out of date with codeModes (UPDATE_GOLDEN=1 go test ./internal/uspace -run CodeModesGolden): %v", path, err)
 	}
 }

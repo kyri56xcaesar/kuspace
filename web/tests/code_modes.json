@@ -1,0 +1,47 @@
+{
+  "c": {
+    "image": "gcc",
+    "tag": "14",
+    "run": "printf '%s' \"$LOGIC\" \u003e /tmp/main.c \u0026\u0026 gcc -o /tmp/main /tmp/main.c \u0026\u0026 /tmp/main"
+  },
+  "go": {
+    "image": "golang",
+    "tag": "1.24-alpine",
+    "run": "printf '%s' \"$LOGIC\" \u003e /tmp/main.go \u0026\u0026 go run /tmp/main.go"
+  },
+  "java": {
+    "image": "eclipse-temurin",
+    "tag": "21-jdk-alpine",
+    "run": "printf '%s' \"$LOGIC\" \u003e /tmp/Main.java \u0026\u0026 java /tmp/Main.java"
+  },
+  "node": {
+    "image": "node",
+    "tag": "22-alpine",
+    "run": "node -e \"$LOGIC\""
+  },
+  "perl": {
+    "image": "perl",
+    "tag": "5.40-slim",
+    "run": "perl -e \"$LOGIC\""
+  },
+  "php": {
+    "image": "php",
+    "tag": "8.3-cli-alpine",
+    "run": "php -r \"$LOGIC\""
+  },
+  "python": {
+    "image": "python",
+    "tag": "3.12-alpine",
+    "run": "python3 -c \"$LOGIC\""
+  },
+  "r": {
+    "image": "r-base",
+    "tag": "4.4.2",
+    "run": "Rscript -e \"$LOGIC\""
+  },
+  "ruby": {
+    "image": "ruby",
+    "tag": "3.3-alpine",
+    "run": "ruby -e \"$LOGIC\""
+  }
+}

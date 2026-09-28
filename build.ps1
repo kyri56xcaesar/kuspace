@@ -82,6 +82,10 @@ function Fmt {
 function Vet  { Invoke-Checked "go" (@("vet") + $Pkgs) }
 function Test { Invoke-Checked "go" (@("test") + $Pkgs) }
 function Lint { Invoke-Checked "golangci-lint" (@("run", "-c", ".golangci-lint.yaml") + $Pkgs) }
+function TestJs {
+    if (-not (Get-Command node -ErrorAction SilentlyContinue)) { throw "test-js needs node" }
+    Invoke-Checked "node" @("--test", "web/tests/")
+}
 function Check { Fmt; Vet; Test }
 
 # --------------------------------------------------------------- docker compose
@@ -109,6 +113,7 @@ $tasks = [ordered]@{
     "fmt"           = { Fmt }
     "vet"           = { Vet }
     "test"          = { Test }
+    "test-js"       = { TestJs }
     "lint"          = { Lint }
     "check"         = { Check }
     "images"        = { Images }

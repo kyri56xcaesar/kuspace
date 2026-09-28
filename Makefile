@@ -26,7 +26,7 @@ MINIOTH_DIR  := third_party/minioth
 
 .PHONY: help setup submodule secrets \
         build $(addprefix build-,$(SERVICES)) build-minioth run-% \
-        fmt vet lint test test-race check ci tidy \
+        fmt vet lint test test-race test-js check ci tidy \
         up down restart logs ps smoke images \
         k8s-build k8s-push k8s-deploy k8s-destroy \
         api-docs code-docs clean
@@ -82,9 +82,12 @@ test: ## unit tests
 test-race: ## unit tests with the race detector
 	go test -race $(PKGS)
 
+test-js: ## browser JS tests (node:test; languages without an interpreter are skipped)
+	node --test web/tests/
+
 check: fmt vet test ## fmt + vet + unit tests
 
-ci: fmt vet test-race ## what CI runs (.github/workflows/ci.yml)
+ci: fmt vet test-race test-js ## what CI runs (.github/workflows/ci.yml)
 
 tidy: ## go mod tidy
 	go mod tidy
