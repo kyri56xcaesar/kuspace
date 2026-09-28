@@ -6,11 +6,13 @@
 cachedUsers = [];
 cachedGroups = [];
 cachedResources = [];
+var cacheVolumeResults = [];
+var cacheResourceResults = [];
 
 
 const PORT = window.location.port || (window.location.protocol === "https:" ? "443" : "80");
 const WS_PORT = "8082"
-const IP = window.location.hostname; 
+const IP = window.location.hostname;
 let fileUploadModule;
 
 
@@ -42,8 +44,6 @@ async function initWebSocketAddress() {
     console.error("WebSocket address not initialized.");
     return;
   }
-
-  // Use socket here...
 })();
 
 
@@ -51,110 +51,117 @@ async function initWebSocketAddress() {
 // global functions/utilities
 /**************************************************************************/
 
-// user entries control 
+// escape for HTML text/attributes (ui-actions.js has the same as kEsc; kept
+// local so this file does not depend on load order)
+function escHTML(v) {
+  return String(v ?? "").replace(/[&<>"'`]/g, (ch) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;", "`": "&#96;",
+  })[ch]);
+}
+
+// the original cells of rows being edited, so Cancel restores them exactly
+const userEditOriginals = new Map();
+
+// user entries control
 function editUser(uid, index) {
   const row = document.getElementById(`table-${index}`);
   if (!row) return;
 
   const cells = row.querySelectorAll('td');
-  if (!cells) return;
+  if (!cells || !cells.length) return;
 
-  const originalValues = {};
+  const original = { html: [], text: [] };
 
   for (let i = 0; i < cells.length - 1; i++) {
     const cell = cells[i];
-    const originalText = cell.textContent.trim();
+    original.html[i] = cell.innerHTML;
+    original.text[i] = cell.textContent.trim();
 
-    originalValues[i] = originalText;
-
-    if (i == 0) {
-      continue;
-    }
-
-    if (i == 5) {
+    if (i == 0 || i == 5) {
       continue;
     }
 
     const input = document.createElement('input');
     input.type = 'text';
-    //input.value = originalText;
-    input.id = 'edit-input-'+uid+'-'+i;
+    input.id = 'edit-input-' + uid + '-' + i;
     input.classList.add("table-input");
-    input.placeholder = originalText;
+    input.placeholder = original.text[i];
     input.dataset.index = i;
-    cell.innerHTML = '';
+    cell.textContent = '';
     cell.appendChild(input);
   }
+  userEditOriginals.set(String(index), original);
+  row.classList.add("is-editing");
 
   const actionsCell = cells[cells.length - 1];
   actionsCell.innerHTML = `
     <div id="actions-btns">
-      <button 
-        id="submit-btn-${index}" 
+      <button
+        id="submit-btn-${escHTML(index)}"
+        class="k-btn k-btn-sm k-btn-primary"
+        data-uid="${escHTML(uid)}"
         hx-patch="/api/v1/verified/admin/userpatch"
         hx-swap="none"
         hx-trigger="click"
-        hx-confirm="Are you sure you want to update user ${originalValues[0]}?"
-        hx-vals="js:{...getUserPatchValues(${uid})}"
-
+        hx-confirm="Are you sure you want to update user ${escHTML(original.text[0])}?"
         type="button"
-      >
-        Submit
-      </button>
-      <button id="cancel-btn-${index}" onclick='cancelEdit(${index}, ${JSON.stringify(originalValues).replace(/'/g, "\\'")})'>Cancel</button>
+      >Save</button>
+      <button id="cancel-btn-${escHTML(index)}" type="button" class="k-btn k-btn-sm k-btn-ghost" data-cancel-edit="${escHTML(index)}">Cancel</button>
     </div>
   `;
   htmx.process(document.getElementById(`submit-btn-${index}`));
-
+  const first = row.querySelector(".table-input");
+  if (first) first.focus();
 }
 
 function getUserPatchValues(uid) {
-  let ed1 = document.getElementById("edit-input-"+uid+"-1");
-  let ed2 = document.getElementById("edit-input-"+uid+"-2");
-  let ed3 = document.getElementById("edit-input-"+uid+"-3");
-  let ed4 = document.getElementById("edit-input-"+uid+"-4")
-  let ed6 = document.getElementById("edit-input-"+uid+"-6");
-  r = {
-    uid: uid,
-    username : ed1.value,
-    password : ed2.value,
-    info : ed3.value,
-    home: ed4.value,
-    groups: ed6.value
+  const val = (i) => {
+    const el = document.getElementById("edit-input-" + uid + "-" + i);
+    return el ? el.value : "";
   };
-
-  return r
+  return {
+    uid: uid,
+    username: val(1),
+    password: val(2),
+    info: val(3),
+    home: val(4),
+    groups: val(6),
+  };
 }
 
-function cancelEdit(index, originalValues) {
+function cancelEdit(index) {
   const row = document.getElementById(`table-${index}`);
-  if (!row) return;
+  const original = userEditOriginals.get(String(index));
+  if (!row || !original) return;
 
   const cells = row.querySelectorAll('td');
-  
-  // Restore original cell values
+
+  // restore the server-rendered (already escaped) cell markup
   for (let i = 0; i < cells.length - 1; i++) {
-    cells[i].innerHTML = originalValues[i];
+    cells[i].innerHTML = original.html[i];
   }
+  userEditOriginals.delete(String(index));
+  row.classList.remove("is-editing");
 
-
-  // Restore actions cell
+  const uid = original.text[0];
   const actionsCell = cells[cells.length - 1];
   actionsCell.innerHTML = `
     <div id="actions-btns">
-      <button id="edit-btn-${index}" onclick="editUser('${originalValues[0]}', ${index})">Edit</button>
-      <button 
-        id="delete-btn-${index}"
-        hx-delete="/api/v1/verified/admin/userdel?uid=${originalValues[0]}"
+      <button type="button" class="k-btn k-btn-sm k-btn-ghost" id="edit-btn-${escHTML(index)}" data-edit-user data-uid="${escHTML(uid)}" data-index="${escHTML(index)}">Edit</button>
+      ${uid === "0" ? "" : `<button
+        type="button"
+        class="k-btn k-btn-sm k-btn-danger"
+        id="delete-btn-${escHTML(index)}"
+        hx-delete="/api/v1/verified/admin/userdel?uid=${encodeURIComponent(uid)}"
         hx-swap="none"
         hx-trigger="click"
-        hx-target="#table-${index}"
-        hx-confirm="Are you sure you want to delete user ${originalValues[0]}?"
-      >Delete</button>
+        hx-target="#table-${escHTML(index)}"
+        hx-confirm="Are you sure you want to delete user ${escHTML(uid)}?"
+      >Delete</button>`}
     </div>
   `;
-  htmx.process(document.getElementById(`delete-btn-${index}`));
-
+  const del = document.getElementById(`delete-btn-${index}`);
+  if (del) htmx.process(del);
 }
 
 function toggle_job_optionals(jobDiv) {
@@ -166,38 +173,73 @@ function toggle_job_optionals(jobDiv) {
   }
 }
 
+// volumes listed on the Volumes page, for the pickers
+function listedVolumes() {
+  return [...document.querySelectorAll(".v-body")].map((v) => ({
+    name: (v.querySelector("h3") || {}).textContent?.trim() || "",
+    usage: (v.querySelector(".k-vol-numbers") || {}).textContent?.replace(/\s+/g, " ").trim() || "",
+    kind: typeof kVolumeKind === "function" ? kVolumeKind((v.querySelector("h3") || {}).textContent?.trim()) : "",
+  })).filter((v) => v.name);
+}
+
+// fill a picker list with one button per option (DOM built, no innerHTML)
+function fillPicker(listEl, items, onPick, emptyText) {
+  listEl.textContent = "";
+  if (!items.length) {
+    const p = document.createElement("p");
+    p.className = "k-dim";
+    p.textContent = emptyText;
+    listEl.appendChild(p);
+    return;
+  }
+  items.forEach((it) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "k-pick";
+    const name = document.createElement("span");
+    name.className = "k-pick-name";
+    name.textContent = it.label;
+    button.appendChild(name);
+    if (it.kind) {
+      const badge = document.createElement("span");
+      badge.className = `k-vol-badge is-${it.kind}`;
+      badge.textContent = it.kind;
+      button.appendChild(badge);
+    }
+    if (it.meta) {
+      const meta = document.createElement("span");
+      meta.className = "k-pick-meta";
+      meta.textContent = it.meta;
+      button.appendChild(meta);
+    }
+    button.addEventListener("click", () => onPick(it));
+    listEl.appendChild(button);
+  });
+}
 
 
 /**************************************************************************/
 // after DOM content is loaded, actions, lets say initialization of page functionalities
 /**************************************************************************/
 
-// actions to do when everything is loaded
 document.addEventListener("DOMContentLoaded", () => {
   /**************************************************************************/
   // side-bar
   /**************************************************************************/
-  // give functionality to the sider bad of the admin panel
   const sidebar = document.getElementById('sidebar');
   const toggleSidebarButton = document.getElementById('toggle-sidebar');
   const sidebarList = document.querySelectorAll('.collapsing');
   toggleSidebarButton.addEventListener('click', () => {
     sidebar.classList.toggle('collapsed');
-    sidebarList.forEach((item) => {
-      if (sidebar.classList.contains('collapsed')) {
-        item.style.opacity = '0';
-        item.style.pointerEvents = 'none'; // Prevent interaction when hidden
-      } else {
-        item.style.opacity = '1';
-        item.style.pointerEvents = 'auto';
-      }
-    });
+    const collapsed = sidebar.classList.contains('collapsed');
+    toggleSidebarButton.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+    toggleSidebarButton.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+    sidebarList.forEach((item) => item.classList.toggle('is-rail', collapsed));
   });
 
   /**************************************************************************/
   // files
   /**************************************************************************/
-  // functionality of file upload via drag
   const dropZone = document.getElementById("drop-zone");
   const fileInput = document.getElementById("file");
   const fileBoxContainer = document.getElementById("file-boxes");
@@ -211,450 +253,270 @@ document.addEventListener("DOMContentLoaded", () => {
     submitButton,
     fileNameDisplay
   );
- 
+
 
   /**************************************************************************/
-  // job setup 
+  // job setup
   /**************************************************************************/
-  // Job history functionalities
-  // set to what we want to search by
-  
   setupJobSubmitter(document.querySelector('#job-create-form-editor'));
 
   // select a resource input for the job
   const job_input = document.getElementById("job-input")
-  job_input.value = ""; //reset the value
+  job_input.value = "";
   document.getElementById("select-resource-btn-job").addEventListener("click", () => {
     const modal = document.getElementById("select-resource-btn-job").parentNode.querySelector(".modal");
     const resourceList = modal.querySelector("#resource-list");
-    resourceList.innerHTML = "";
 
-    
-    // must retrieve all the resources from the page somehwere..
+    const items = [];
     const rTable = document.querySelector("#resource-list-table > tbody");
-    // if not admin you load them from a differnt place
     if (!rTable) {
-      if (cachedResources) {
-        cachedResources.forEach((li) => {
-          let rname = li.name;
-          rname = rname.startsWith("/") ? rname : "/" + rname
-          const resourceName =  li.vname + rname;
-    
-          const button = document.createElement("button");
-          button.textContent = resourceName;
-          button.type = "button";
-          button.addEventListener("click", () => {
-            job_input.value = resourceName;
-            document.getElementById("select-resource-btn-job").parentNode.querySelector(".modal").classList.add("hidden");
-          });
-          resourceList.appendChild(button);
-        });
-      } else {
-        // we need to fetch the resources...
-      }
-      modal.classList.remove("hidden");
+      // not admin: the resources come from the files view
+      (cachedResources || []).forEach((li) => {
+        let rname = li.name || "";
+        rname = rname.startsWith("/") ? rname : "/" + rname;
+        items.push({ label: (li.vname || "") + rname, meta: typeof kFmtBytes === "function" ? kFmtBytes(li.size) : "" });
+      });
     } else {
       rTable.querySelectorAll("tr").forEach((li) => {
         let rname = li.querySelector(".name").textContent.trim();
-        rname = rname.startsWith("/") ? rname : "/" + rname
-        let vname =li.querySelector(".volume").textContent.trim();
-        const resourceName =  vname + rname;
-  
-        const button = document.createElement("button");
-        button.textContent = resourceName;
-        button.type = "button";
-        button.addEventListener("click", () => {
-          job_input.value = resourceName;
-          document.getElementById("select-resource-btn-job").parentNode.querySelector(".modal").classList.add("hidden");
-        });
-        resourceList.appendChild(button);
+        rname = rname.startsWith("/") ? rname : "/" + rname;
+        const vname = li.querySelector(".volume").textContent.trim();
+        items.push({ label: vname + rname });
       });
-      modal.classList.remove("hidden");
     }
-
-
+    fillPicker(resourceList, items, (it) => {
+      job_input.value = it.label;
+      modal.classList.add("hidden");
+    }, "No files yet. Upload one from Access Profile first.");
+    modal.classList.remove("hidden");
   });
 
 
   // select a volume output for the job
   const job_output = document.getElementById("job-output");
-  job_output.value = ""; //reset the value
+  job_output.value = "";
   document.getElementById("select-volume-btn-job").addEventListener("click", () => {
-    const modal =  document.getElementById("select-volume-btn-job").parentNode.querySelector(".modal");
+    const modal = document.getElementById("select-volume-btn-job").parentNode.querySelector(".modal");
     const volumeList = modal.querySelector("#volume-list");
-
-    // Clear existing list
-    volumeList.innerHTML = "";
-
-    // Grab all volumes from the page
-    document.querySelectorAll(".v-body h3").forEach((h3) => {
-      const volumeName = h3.textContent.trim();
-
-      const button = document.createElement("button");
-      button.textContent = volumeName;
-      button.type = "button";
-      button.addEventListener("click", () => {
-        job_output.value = volumeName + "/";
-        document.getElementById("select-volume-btn-job").parentNode.querySelector(".modal").classList.add("hidden");
-      });
-
-      volumeList.appendChild(button);
-    });
-
+    fillPicker(volumeList, listedVolumes().map((v) => ({ label: v.name, meta: v.usage, kind: v.kind })), (it) => {
+      job_output.value = it.label + "/";
+      modal.classList.add("hidden");
+    }, "No volumes loaded yet.");
     modal.classList.remove("hidden");
   });
 
 
-  
-  /**************************************************************************/
+
   /**************************************************************************/
   // Volumes
-  /**************************************************************************/
   /**************************************************************************/
   const vSearch = document.getElementById("volume-search");
   let vSearchBy = "name";
   const vSearchSelector = document.querySelector(".v-header").querySelector("#search-by");
   vSearchSelector.value = vSearchBy;
-  vSearchSelector.addEventListener("input", (event) => {
+  vSearchSelector.addEventListener("input", () => {
     vSearchBy = vSearchSelector.value;
-    vSearch.placeholder = "Search by '" + vSearchBy+"'";
+    vSearch.placeholder = "Search by '" + vSearchBy + "'";
   });
 
   vSearch.value = "";
-  vSearch.addEventListener("input", function() {
-    if (cacheVolumeResults.length == 0) {// empty cache, must fetch 
-      
-    }
-    searchValue = vSearch.value;
-    // console.log("searching by " + searchBy + " at " + searchValue);
-    // do search and display
+  vSearch.addEventListener("input", function () {
+    const searchValue = vSearch.value;
     cacheVolumeResults.forEach((li) => {
-      switch (vSearchBy) {
-        case "name":
-          if (!li.querySelector(".name").innerText.includes(searchValue)) {
-            li.classList.add("hidden");
-          } else {
-            li.classList.remove("hidden");
-          }
-          break;
-        case "createdat":
-          if (!li.querySelector(".createdat").innerText.includes(searchValue)) {
-            li.classList.add("hidden");
-          } else {
-            li.classList.remove("hidden");
-          }
-          break;
-      }
+      const cell = li.querySelector(vSearchBy === "name" ? ".name" : ".createdat");
+      const text = cell ? (cell.title || "") + " " + cell.innerText : "";
+      li.classList.toggle("hidden", !text.includes(searchValue));
     });
- 
   });
 
   const cancelModalbtn = document.getElementById("cancel-modal-btn");
   if (cancelModalbtn) {
     cancelModalbtn.addEventListener("click", () => {
       document.getElementById("create-volume-modal").classList.add("hidden");
-    });    
+    });
   }
 
   // for choosing a volume when upload
   document.getElementById("select-volume-btn").addEventListener("click", () => {
     const modal = document.getElementById("select-volume-btn").parentNode.querySelector(".modal");
     const volumeList = modal.querySelector("#volume-list");
-
-    // Clear existing list
-    volumeList.innerHTML = "";
-
-    // Grab all volumes from the page
-    document.querySelectorAll(".v-body h3").forEach((h3) => {
-      const volumeName = h3.textContent.trim();
-
-      const button = document.createElement("button");
-      button.textContent = volumeName;
-      button.type = "button";
-      button.addEventListener("click", () => {
-        document.getElementById("selected-volume").textContent = volumeName;
-        document.getElementById("select-volume-btn").parentNode.querySelector(".modal").classList.add("hidden");
-      });
-
-      volumeList.appendChild(button);
-    });
-
+    fillPicker(volumeList, listedVolumes().map((v) => ({ label: v.name, meta: v.usage, kind: v.kind })), (it) => {
+      const sel = document.getElementById("selected-volume");
+      sel.textContent = it.label;
+      sel.dataset.kind = it.kind || "";
+      modal.classList.add("hidden");
+    }, "No volumes loaded yet.");
     modal.classList.remove("hidden");
   });
-  
+
 
   document.querySelectorAll("#cancel-select").forEach((cancel_btn) => {
     cancel_btn.addEventListener("click", () => {
-      cancel_btn.parentNode.parentNode.classList.add("hidden");
+      cancel_btn.closest(".modal").classList.add("hidden");
     });
-    
   })
 
 
-
-  /**************************************************************************/
   /**************************************************************************/
   // Resources
-  /**************************************************************************/
   /**************************************************************************/
   const rSearch = document.getElementById("resource-search");
   if (rSearch) {
     let rSearchBy = "name";
     const rSearchBySelector = document.getElementById("resources-header").querySelector("#search-by");
     rSearchBySelector.value = rSearchBy;
-    rSearchBySelector.addEventListener("input", (event) => {
+    rSearchBySelector.addEventListener("input", () => {
       rSearchBy = rSearchBySelector.value;
-      rSearch.placeholder = "Search by '" + rSearchBy+"'";
+      rSearch.placeholder = "Search by '" + rSearchBy + "'";
     });
     rSearch.value = "";
-    rSearch.addEventListener("input", function() {
-      if (cacheResourceResults.length == 0) {// empty cache, must fetch 
-        
-      }
-      searchValue = rSearch.value;
-      // console.log("searching by " + searchBy + " at " + searchValue);
-      // do search and display
-      let r_dets = document.getElementById("resource-details");
+    rSearch.addEventListener("input", function () {
+      const searchValue = rSearch.value;
+      const cls = { name: ".name", volume: ".volume", createdat: ".createdat", updateddat: ".updatedat", updatedat: ".updatedat", accessedat: ".accessedat", owner: ".owner", group: ".group" }[rSearchBy];
+      if (!cls) return;
       cacheResourceResults.forEach((li) => {
-        switch (rSearchBy) {
-          case "name":
-            if (!li.querySelector(".name").innerText.includes(searchValue)) {
-              li.classList.add("hidden");
-            } else {
-              li.classList.remove("hidden");
-              parseAndInjectRTableRowdata(li, r_dets);
-            }
-            break;
-          case "volume":
-            if (!li.querySelector(".volume").innerText.includes(searchValue)) {
-              li.classList.add("hidden");
-            } else {
-              li.classList.remove("hidden");
-              parseAndInjectRTableRowdata(li, r_dets);
-            }
-            break;
-          case "createdat":
-            if (!li.querySelector(".createdat").innerText.includes(searchValue)) {
-              li.classList.add("hidden");
-            } else {
-              li.classList.remove("hidden");
-              parseAndInjectRTableRowdata(li, r_dets);
-            }
-            break;
-          case "updatedat":
-            if (!li.querySelector(".updatedat").innerText.includes(searchValue)) {
-              li.classList.add("hidden");
-            } else {
-              li.classList.remove("hidden");
-              parseAndInjectRTableRowdata(li, r_dets);
-            }
-            break;
-          case "accessedat":
-            if (!li.querySelector(".accessedat").innerText.includes(searchValue)) {
-              li.classList.add("hidden");
-            } else {
-              li.classList.remove("hidden");
-              parseAndInjectRTableRowdata(li, r_dets);
-            }
-            break;
-          case "owner":
-            if (!li.querySelector(".owner").innerText.includes(searchValue)) {
-              li.classList.add("hidden");
-            } else {
-              li.classList.remove("hidden");
-              parseAndInjectRTableRowdata(li, r_dets);
-            }
-            break;
-          case "group":
-            if (!li.querySelector(".group").innerText.includes(searchValue)) {
-              li.classList.add("hidden");
-            } else {
-              li.classList.remove("hidden");
-              parseAndInjectRTableRowdata(li, r_dets);
-            }
-            break;
-        }
-  
+        const cell = li.querySelector(cls);
+        const text = cell ? (cell.dataset.ts || "") + " " + cell.innerText : "";
+        li.classList.toggle("hidden", !text.includes(searchValue));
       });
-  
-  
-      
     });
   }
-
-
 });
 
 function addResourceListListeners() {
-  tableRows = document.querySelectorAll("#resource-list-table tbody tr");
-  resourceDetails = document.getElementById("resource-details");
+  const tableRows = document.querySelectorAll("#resource-list-table tbody tr");
+  const resourceDetails = document.getElementById("resource-details");
 
   tableRows.forEach((row) => {
     row.addEventListener("click", () => {
-      // Remove 'selected' class from all rows
       tableRows.forEach((r) => r.classList.remove("selected"));
-      // Add 'selected' class to the clicked row
       row.classList.add("selected");
-      // Extract resource information from the row
 
       parseAndInjectRTableRowdata(row, resourceDetails);
-      
-      const btns = document.querySelectorAll(".r-btn-download, .r-btn-edit, .r-btn-delete, #preview-resource-btn, #next-arrow-right, #next-arrow-left");
-      btns.forEach(button => {
+
+      resourceDetails.querySelectorAll(".r-btn-download, .r-btn-edit, .r-btn-delete, #preview-resource-btn, #next-arrow-right, #next-arrow-left").forEach(button => {
         htmx.process(button);
       });
-
     });
   });
+}
+
+// resourceDetailsHTML renders the details + actions block shared by the
+// Resources page and the Files view. Every value is escaped.
+function resourceDetailsHTML(r, opts) {
+  const q = encodeURIComponent;
+  const previewURL = `/api/v1/verified/preview?rid=${q(r.id)}&resourcename=${q(r.name)}&volume=${q(r.vname)}`;
+  const extraCls = opts.vfs ? " vfs-action-btn" : "";
+  const arrow = (dir) => `
+    <button type="button"
+      id="next-arrow-${dir}"
+      class="next-arrow k-btn k-btn-icon k-btn-ghost${extraCls}"
+      title="${dir === "left" ? "Previous page" : "Next page"}"
+      aria-label="${dir === "left" ? "Previous page" : "Next page"}"
+      hx-target="#${opts.previewId}"
+      hx-trigger="click"
+      hx-swap="innerHTML"
+      hx-get="${escHTML(previewURL)}"
+    ><i class="fa-solid fa-chevron-${dir}" aria-hidden="true"></i></button>`;
+  const facts = opts.facts.map(([k, v]) => `<div><dt>${escHTML(k)}</dt><dd>${escHTML(v)}</dd></div>`).join("");
+
+  return `
+    <div class="resource-details-headers">
+      <div class="k-details-title">
+        <p class="k-eyebrow">${escHTML(r.vname)}</p>
+        <h3 class="k-mono" title="${escHTML(r.name)}">${escHTML(r.name)}</h3>
+      </div>
+      <div class="resource-options">
+        <button type="button" id="resource-options-dropdown-button" class="k-btn k-btn-sm" data-toggle-dropdown aria-haspopup="true" aria-expanded="false">Actions <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+        <div class="resource-options-inner dropdown" role="menu">
+          <button type="button" class="r-btn-download" role="menuitem"
+            data-download="${escHTML(`/api/v1/verified/download?target=${q(r.name)}&volume=${q(r.vname)}`)}"
+          ><i class="fa-solid fa-download" aria-hidden="true"></i> Download</button>
+          <button type="button"
+            id="preview-resource-btn"
+            class="${opts.vfs ? "vfs-action-btn" : ""}"
+            role="menuitem"
+            hx-target="#${opts.previewId}"
+            hx-trigger="click"
+            hx-swap="innerHTML"
+            hx-get="${escHTML(previewURL)}"
+            hx-headers='{"Range": "bytes=${getPreviewWindow(0)}"}'
+          ><i class="fa-solid fa-eye" aria-hidden="true"></i> Preview</button>
+          <button type="button"
+            class="r-btn-edit"
+            role="menuitem"
+            hx-get="${escHTML(`/api/v1/verified/edit-form?resourcename=${q(r.name)}&owner=${q(r.owner || 0)}&group=${q(r.group || 0)}&perms=${q(r.perms)}&rid=${q(r.id)}&volume=${q(r.vname)}`)}"
+            hx-swap="innerHTML"
+            hx-trigger="click"
+            hx-target="next .modal"
+          ><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</button>
+          <button type="button"
+            class="r-btn-delete${extraCls}"
+            role="menuitem"
+            hx-delete="${escHTML(`/api/v1/verified/rm?name=${q(r.name)}&volume=${q(r.vname)}`)}"
+            hx-trigger="click"
+            hx-swap="none"
+            hx-confirm="${escHTML(`Are you sure you want to delete resource ${r.name}?`)}"
+          ><i class="fa-solid fa-trash" aria-hidden="true"></i> Delete</button>
+          <button type="button" id="close-r-selected-display" role="menuitem" ${opts.closeAttr}><i class="fa-solid fa-xmark" aria-hidden="true"></i> Close</button>
+        </div>
+        <div id="edit-modal-2" class="modal hidden darkened"></div>
+      </div>
+      ${opts.draggable ? '<div id="selected-resource-draggable-bar" class="draggable-bar" title="Drag to move"></div>' : ""}
+    </div>
+    <div class="resource-details-main">
+      <dl class="resource-details-inner k-details">${facts}</dl>
+      <div id="resource-preview" class="resource-preview-window">
+        <div class="resource-preview-main blurred">
+          <div id="${opts.previewId}" class="resource-preview-content"><p class="k-dim">Choose <strong>Preview</strong> to read the first 4 KB.</p></div>
+          <div id="resource-preview-controls">
+            ${arrow("left")}
+            <span class="k-page">page <span id="page-index">0</span></span>
+            ${arrow("right")}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="resource-details-footer">
+      <div class="feedback"></div>
+      <div class="r-loader hidden"><div></div></div>
+    </div>`;
 }
 
 function parseAndInjectRTableRowdata(tr, injectTarget) {
   if (!tr || tr.cells.length != 13 || !injectTarget) {
     return
   }
+  const cell = (i) => (tr.cells[i].dataset.ts || tr.cells[i].innerText).trim();
 
   const resource = {
-    id: tr.cells[0].innerText,
-    name: tr.cells[1].innerText,
-    path: tr.cells[2].innerText,
-    vname: tr.cells[3].innerText,
-    type: tr.cells[4].innerText,
-    size: tr.cells[5].innerText,
-    perms: tr.cells[6].innerText,
-    createdAt: tr.cells[7].innerText,
-    updatedAt: tr.cells[8].innerText,
-    accessedAt: tr.cells[9].innerText,
-    owner: tr.cells[10].innerText,
-    group: tr.cells[11].innerText,
-    vid: tr.cells[12].innerText,
+    id: cell(0),
+    name: cell(1),
+    path: cell(2),
+    vname: cell(3),
+    type: cell(4),
+    size: cell(5),
+    perms: cell(6),
+    createdAt: cell(7),
+    updatedAt: cell(8),
+    accessedAt: cell(9),
+    owner: cell(10),
+    group: cell(11),
+    vid: cell(12),
   };
-  
-  // injection
-  injectTarget.innerHTML = `
-      <div class="resource-details-headers">
-        <h3>Resource Details</h3>
-        <div class="resource-options">
-          <i id="resource-options-dropdown-button" onclick="this.nextElementSibling.firstElementChild.classList.toggle('open');" class="fa">&#xf078;</i>
-          <div class="resource-options">
-            <div class="resource-options-inner dropdown">
-              <button 
-                class="r-btn-download" 
-                onclick="downloadResource('/api/v1/verified/download?target=${resource.name}&volume=${resource.vname}')"
-              >
-                Download
-              </button>
 
-              <button
-                id="preview-resource-btn"
-                hx-target="#resource-preview-content-1"
-                hx-trigger="click"
-                hx-swap="innerHTML"
-                hx-get="/api/v1/verified/preview?rid=${resource.id}&resourcename=${resource.name}&volume=${resource.vname}"
-                hx-headers='{"Range": "bytes=${getPreviewWindow(0)}"}'
-              >Preview</button>
-
-              <button 
-                class="r-btn-edit"
-                hx-get="/api/v1/verified/edit-form?resourcename=${resource.name}&owner=${resource.owner || 0}&group=${resource.group || 0}&perms=${resource.perms}&rid=${resource.id}&volume=${resource.vname}"
-                hx-swap="innerHTML"
-                hx-trigger="click"
-                hx-target="#edit-modal-2"
-                hx-on::after-request="show(this.parentNode.querySelector('#edit-modal-2'))"
-                >
-                Edit
-              </button>
-              <div id="edit-modal-2" class="modal hidden darkened"></div>
-
-              <button 
-                class="r-btn-delete"
-                hx-delete="/api/v1/verified/rm?name=${resource.name}&volume=${resource.vname}"
-                hx-trigger="click"
-                hx-swap="none"
-                hx-confirm="Are you sure you want to delete resource ${resource.name}?"
-
-                hx-on::before-request="show(document.querySelector('.r-loader'))"
-              >
-                Delete
-              </button>
-
-              <button
-                id="close-r-selected-display"
-                onclick="document.getElementById('resource-details').innerHTML='';"
-              >
-              Close
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <hr>
-      <div class="resource-details-main">
-        <div class="resource-details-inner">
-          <p><strong>Rid:</strong> ${resource.id}</p>
-          <p><strong>Name:</strong> ${resource.name}</p>
-          <p><strong>Path:</strong> ${resource.path}</p>
-          <p><strong>Volume:</strong> ${resource.vname}</p>
-          <p><strong>Type:</strong> ${resource.type}</p>
-          <p><strong>Size:</strong> ${resource.size}</p>
-          <p><strong>Permissions:</strong> ${resource.perms}</p>
-          <p><strong>Created At:</strong> ${resource.createdAt}</p>
-          <p><strong>Updated At:</strong> ${resource.updatedAt}</p>
-          <p><strong>Accessed At:</strong> ${resource.accessedAt}</p>
-          <p><strong>Owner:</strong> ${resource.owner}</p>
-          <p><strong>Group:</strong> ${resource.group}</p>
-          <p><strong>Volume:</strong> ${resource.vname}</p>
-        </div>
-        <div id="resource-preview" class="resource-preview-window">
-          <div class="resource-preview-main blurred">
-            <div id="resource-preview-content-1" class="resource-preview-content"></div>
-            <div id="resource-preview-controls">
-              <div 
-                id="next-arrow-left" 
-                class="next-arrow"
-                hx-target="#resource-preview-content-1"
-                hx-trigger="click"
-                hx-swap="innerHTML"
-                hx-get="/api/v1/verified/preview?rid=${resource.id}&resourcename=${resource.name}&volume=${resource.vname}"
-                hx-headers='js:{"Range": "bytes=" + getPreviewWindow(-1)}'  
-              >
-                <svg width="24" height="8" viewBox="0 0 16 8" fill="none" xmlns="http://www.w3.org/2000/svg" class="arrow-icon">
-                <g transform="scale(-1,1) translate(-16,0)">
-                  <path d="M15 4H4V1" stroke="white"/>
-                  <path d="M14.5 4H3.5H0" stroke="white"/>
-                  <path d="M15.8536 4.35355C16.0488 4.15829 16.0488 3.84171 15.8536 3.64645L12.6716 0.464466C12.4763 0.269204 12.1597 0.269204 11.9645 0.464466C11.7692 0.659728 11.7692 0.976311 11.9645 1.17157L14.7929 4L11.9645 6.82843C11.7692 7.02369 11.7692 7.34027 11.9645 7.53553C12.1597 7.7308 12.4763 7.7308 12.6716 7.53553L15.8536 4.35355ZM15 4.5L15.5 4.5L15.5 3.5L15 3.5L15 4.5Z" fill="white"/>
-                </g>
-                </svg>
-              </div>
-              <div>
-                <span id="page-index">0</span>
-              </div>
-              <div 
-                id="next-arrow-right" 
-                class="next-arrow"
-                hx-target="#resource-preview-content-1"
-                hx-trigger="click"
-                hx-swap="innerHTML"
-                hx-get="/api/v1/verified/preview?rid=${resource.id}&resourcename=${resource.name}&volume=${resource.vname}"
-                hx-headers='js:{"Range": "bytes=" + getPreviewWindow(+1)}'  
-              >
-                <svg width="24" height="8" viewBox="0 0 16 8" fill="none" xmlns="http://www.w3.org/2000/svg" class="arrow-icon">
-                  <path d="M15 4H4V1" stroke="white"/>
-                  <path d="M14.5 4H3.5H0" stroke="white"/>
-                  <path d="M15.8536 4.35355C16.0488 4.15829 16.0488 3.84171 15.8536 3.64645L12.6716 0.464466C12.4763 0.269204 12.1597 0.269204 11.9645 0.464466C11.7692 0.659728 11.7692 0.976311 11.9645 1.17157L14.7929 4L11.9645 6.82843C11.7692 7.02369 11.7692 7.34027 11.9645 7.53553C12.1597 7.7308 12.4763 7.7308 12.6716 7.53553L15.8536 4.35355ZM15 4.5L15.5 4.5L15.5 3.5L15 3.5L15 4.5Z" fill="white"/>
-                </svg>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div id="edit-modal" class="modal hidden"></div>
-      </div>
-      <hr>
-      <div class="resource-details-footer">
-        <div class="feedback"></div>
-        <div class="r-loader hidden"><div></div></div>
-      </div>`;
-
-
+  injectTarget.innerHTML = resourceDetailsHTML(resource, {
+    previewId: "resource-preview-content-1",
+    vfs: false,
+    draggable: false,
+    closeAttr: 'data-clear="#resource-details"',
+    facts: [
+      ["RID", resource.id], ["Path", resource.path], ["Volume", resource.vname],
+      ["Type", resource.type], ["Size", `${resource.size} B`], ["Permissions", resource.perms],
+      ["Created", resource.createdAt], ["Updated", resource.updatedAt], ["Accessed", resource.accessedAt],
+      ["Owner", resource.owner], ["Group", resource.group], ["VID", resource.vid],
+    ],
+  });
 }
 
 function setupSearchBar(jobSearchDiv, cacheJobResults) {
@@ -662,304 +524,153 @@ function setupSearchBar(jobSearchDiv, cacheJobResults) {
   const jobSearch = jobSearchDiv.querySelector("#job-search");
   const jobSearchSelector = jobSearchDiv.querySelector("#search-by");
   jobSearchSelector.value = searchBy;
-  jobSearchSelector.addEventListener("input", (event) => {
+  jobSearchSelector.addEventListener("input", () => {
     searchBy = jobSearchSelector.value;
-    jobSearch.placeholder = "Search by '" + searchBy+"'";
+    jobSearch.placeholder = "Search by '" + searchBy + "'";
   });
 
-  // actual search by
+  const cls = { jid: ".jid", uid: ".uid", createdAt: ".createdAt", completed_at: ".completedAt", status: ".status", output: ".output", input: ".input" };
   jobSearch.value = "";
-  jobSearch.addEventListener("input", function() {
-    // we need to search from the currently paged jobs according to the search selector
-    // @TODO
-    searchValue = jobSearch.value;
-    // console.log("searching by " + searchBy + " at " + searchValue);
-    if (cacheJobResults.length == 0) {// empty cache, must fetch 
-      
-    }
-
-    // do search and display
-    switch (searchBy) {
-      case "jid":
-        cacheJobResults.forEach((li) => {
-          const jidSpan = li.querySelector(".jid");
-
-          if (!jidSpan.innerText.includes(searchValue)) {
-            li.classList.add("hidden");
-          } else {
-            li.classList.remove("hidden");
-          }
-        });
-        break;
-      case "uid":
-        cacheJobResults.forEach((li) => {
-          if (!li.querySelector(".uid").innerText.includes(searchValue)) {
-            li.classList.add("hidden");
-          } else {
-            li.classList.remove("hidden");
-          }
-        });
-        break;
-      case "createdAt":
-        cacheJobResults.forEach((li) => {
-          if (!li.querySelector(".createdAt").innerText.includes(searchValue)) {
-            li.classList.add("hidden");
-          } else {
-            li.classList.remove("hidden");
-          }
-        });
-        break;
-      case "completed_at":
-        cacheJobResults.forEach((li) => {
-          if (!li.querySelector(".completed_at").innerText.includes(searchValue)) {
-            li.classList.add("hidden");
-          } else {
-            li.classList.remove("hidden");
-          }
-        });
-        break;
-      case "status":
-        cacheJobResults.forEach((li) => {
-          if (!li.querySelector(".status").innerText.includes(searchValue)) {
-            li.classList.add("hidden");
-          } else {
-            li.classList.remove("hidden");
-          }
-        });
-        break;    
-      case "output":
-        cacheJobResults.forEach((li) => {
-          if (!li.querySelector(".output").innerText.includes(searchValue)) {
-            li.classList.add("hidden");
-          } else {
-            li.classList.remove("hidden");
-          }
-        });
-      case "input":
-        cacheJobResults.forEach((li) => {
-          if (!li.querySelector(".input").innerText.includes(searchValue)) {
-            li.classList.add("hidden");
-          } else {
-            li.classList.remove("hidden");
-          }
-        });
-        break;
-      default:
-         break;
-    }
+  jobSearch.addEventListener("input", function () {
+    const searchValue = jobSearch.value;
+    const sel = cls[searchBy];
+    if (!sel) return;
+    cacheJobResults.forEach((li) => {
+      const el = li.querySelector(sel);
+      const text = el ? (el.dataset.v || "") + " " + el.innerText : "";
+      li.classList.toggle("hidden", !text.includes(searchValue));
+    });
   });
+}
+
+// field reads a value the list templates keep in data-v (falls back to text)
+function field(root, cls) {
+  const el = root.querySelector("." + cls);
+  if (!el) return "";
+  return (el.dataset.v !== undefined ? el.dataset.v : el.textContent).trim();
+}
+
+function showModal(parentDiv, html, formSel) {
+  let modal = parentDiv.querySelector(':scope > .modal');
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.className = "modal";
+    parentDiv.appendChild(modal);
+  }
+  modal.innerHTML = html;
+  modal.classList.remove('hidden');
+  htmx.process(modal.querySelector(formSel));
+  const first = modal.querySelector("textarea, input:not([readonly]):not([type=hidden])");
+  if (first) first.focus();
 }
 
 function modJobModal(div, parentDiv) {
   if (!div || !parentDiv) {
     return
   }
-  const jid = div.querySelector('.jid').textContent.replace("#JobId:", "").trim();
-  const uid = div.querySelector('.uid').textContent.replace("by", "").trim();
-  const status = div.querySelector('.status').textContent.replace("Status:", "").trim();
-  const duration = div.querySelector('.duration').textContent.replace("Duration: ", "").trim();
-  const input = div.querySelector('.input').textContent.replace("Input: ", "").trim();
-  const output = div.querySelector('.output').textContent.replace("Output: ", "").trim();
-  const description = div.querySelector('.description').textContent.replace("Description:", "").trim();
-  const createdAt = div.querySelector('.createdAt').textContent.replace('CreatedAt:', '').trim();
-  const completedAt = div.querySelector('.completedAt').textContent.replace('CompletedAt:', '').trim();
-  const completed = div.querySelector('.completed').textContent.replace("Completed:", "").trim();
-  const timeout = div.querySelector('.timeout').textContent.trim();
-  const parallelism = div.querySelector('.parallelism').textContent.trim();
-  const priority = div.querySelector('.priority').textContent.trim();
-  const memoryRequest = div.querySelector('.memoryRequest').textContent.trim();
-  const cpuRequest = div.querySelector('.cpuRequest').textContent.trim();
-  const memoryLimit = div.querySelector('.memoryLimit').textContent.trim();
-  const cpuLimit = div.querySelector('.cpuLimit').textContent.trim();
-  const ephemeralStorageRequest = div.querySelector('.ephemeralStorageRequest').textContent.trim();
-  const ephemeralStorageLimit = div.querySelector('.ephemeralStorageLimit').textContent.trim();
-  const logic = div.querySelector('.logic').textContent.trim();
-  const logicBody = div.querySelector('.logicBody').textContent.trim();
-  const logicHeaders = div.querySelector('.logicHeaders').textContent.trim();
+  const f = (c) => escHTML(field(div, c));
+  const completed = field(div, 'completed');
 
   const html = `
-  <div class="modal-content">
-    <h2>Modify Job</h2>
-    <form 
+  <div class="modal-content k-modal-wide" role="dialog" aria-labelledby="mod-job-title">
+    <h2 id="mod-job-title">Modify job <span class="k-mono">#${f('jid')}</span></h2>
+    <form
       id="modify-job-form"
       hx-put="/api/v1/verified/admin/jobs"
       hx-swap="none"
       hx-trigger="submit"
     >
-    <div class="disabled-display">
-      <div>
-        Job id
-        <input type="number" name="jid" value="${jid}" readonly="readonly">
-      </div><br>
-
-      <div>
-        Duration
-        <input type="text" name="duration" value="${duration}" readonly="readonly">
-      </div><br>
-      <div>
-        Input
-        <input type="text" name="input" value="${input}" readonly="readonly">
-      </div><br>
-      <div>
-        Output
-        <input type="text" name="output" value="${output}" readonly="readonly">
-      </div><br>
-      <div>
-        CreatedAt
-        <input type="text" name="createdAt" value="${createdAt}" readonly="readonly">
-      </div><br>
-      <div>
-        CompletedAt
-        <input type="text" name="completedAt" value="${completedAt}" readonly="readonly">
-      </div><br>
-      <div>
-        <input type="text" name="logic" value="${logic}" hidden>
-        <input type="text" name="logicBody" value="${logicBody}" hidden>
-        <input type="text" name="logicHeaders" value="${logicHeaders}" hidden>
-        <input type="text" name="ephemeralStorageLimit" value="${ephemeralStorageLimit}" hidden>
-        <input type="text" name="ephemeralStorageRequest" value="${ephemeralStorageRequest}" hidden>
-        <input type="text" name="cpuLimit" value="${cpuLimit}" hidden>
-        <input type="text" name="memoryLimit" value="${memoryLimit}" hidden>
-        <input type="text" name="cpuRequest" value="${cpuRequest}" hidden>
-        <input type="text" name="memoryRequest" value="${memoryRequest}" hidden>
-        <input type="number" name="priority" value="${priority}" hidden>
-        <input type="number" name="parallelism" value="${parallelism}" hidden>
-        <input type="number" name="timeout" value="${timeout}" hidden>
+      <div class="disabled-display k-readonly-grid">
+        <div class="k-field"><label>Job id</label><input type="number" name="jid" value="${f('jid')}" readonly tabindex="-1"></div>
+        <div class="k-field"><label>Duration</label><input type="text" name="duration" value="${f('duration')}" readonly tabindex="-1"></div>
+        <div class="k-field"><label>Input</label><input type="text" name="input" value="${f('input')}" readonly tabindex="-1"></div>
+        <div class="k-field"><label>Output</label><input type="text" name="output" value="${f('output')}" readonly tabindex="-1"></div>
+        <div class="k-field"><label>Created</label><input type="text" name="createdAt" value="${f('createdAt')}" readonly tabindex="-1"></div>
+        <div class="k-field"><label>Completed at</label><input type="text" name="completedAt" value="${f('completedAt')}" readonly tabindex="-1"></div>
+        <input type="hidden" name="logic" value="${f('logic')}">
+        <input type="hidden" name="logicBody" value="${f('logicBody')}">
+        <input type="hidden" name="logicHeaders" value="${f('logicHeaders')}">
+        <input type="hidden" name="ephemeralStorageLimit" value="${f('ephemeralStorageLimit')}">
+        <input type="hidden" name="ephemeralStorageRequest" value="${f('ephemeralStorageRequest')}">
+        <input type="hidden" name="cpuLimit" value="${f('cpuLimit')}">
+        <input type="hidden" name="memoryLimit" value="${f('memoryLimit')}">
+        <input type="hidden" name="cpuRequest" value="${f('cpuRequest')}">
+        <input type="hidden" name="memoryRequest" value="${f('memoryRequest')}">
+        <input type="hidden" name="priority" value="${f('priority')}">
+        <input type="hidden" name="parallelism" value="${f('parallelism')}">
+        <input type="hidden" name="timeout" value="${f('timeout')}">
       </div>
-    </div>
-      <div>
-        Description<br>
-        <textarea name="description" maxlength="150">${description}</textarea>
-      </div><br>
-
-      <div>
-        User id<br>
-        <input type="number" name="uid" value="${uid}" min="0" required>
-      </div><br>
-
-      <div>
-        Status <br>
-        <input type="text" name="status" value="${status}" required>
-      </div><br>
-
-      <div>
-        Completed
-        <input type="checkbox" name="completed" value="true" ${completed === "true" || completed === true ? "checked" : ""}>
-      </div><br>
-
+      <div class="k-field">
+        <label for="mj-description">Description</label>
+        <textarea id="mj-description" name="description" maxlength="150">${f('description')}</textarea>
+      </div>
+      <div class="k-field-row">
+        <div class="k-field">
+          <label for="mj-uid">User id</label>
+          <input id="mj-uid" type="number" name="uid" value="${f('uid')}" min="0" required>
+        </div>
+        <div class="k-field">
+          <label for="mj-status">Status</label>
+          <input id="mj-status" type="text" name="status" value="${f('status')}" required>
+        </div>
+      </div>
+      <label class="k-check">
+        <input type="checkbox" name="completed" value="true" ${completed === "true" ? "checked" : ""}> Completed
+      </label>
       <div class="modal-actions">
-        <button type="submit">Submit</button>
-        <button type="button" id="cancel-modal-btn" onclick="this.parentNode.parentNode.parentNode.parentNode.classList.add('hidden');">Cancel</button>
+        <button type="button" id="cancel-modal-btn" class="k-btn" data-hide-closest=".modal">Cancel</button>
+        <button type="submit" class="k-btn k-btn-primary">Save</button>
       </div>
     </form>
   </div>
   <div class="feedback hidden modal-feedback"></div>
   `;
-
-  const modalExists = parentDiv.querySelector('.modal');
-  if (modalExists) {
-    modalExists.innerHTML = html;
-    modalExists.classList.remove('hidden');
-    htmx.process(modalExists.querySelector("#modify-job-form"));
-  } else {
-    const modJobDiv = document.createElement("div");
-    modJobDiv.className = "modal";
-    modJobDiv.innerHTML = html;
-    htmx.process(modJobDiv.querySelector("#modify-job-form"));
-    parentDiv.appendChild(modJobDiv);
-  }
+  showModal(parentDiv, html, "#modify-job-form");
 }
 
 function modAppModal(div, parentDiv) {
-   if (!div || !parentDiv) {
+  if (!div || !parentDiv) {
     return
   }
-  const id = div.querySelector('.app-id').textContent.replace("app-id:", "").trim();
-  const name = div.querySelector('.app-name').textContent.trim().split(" ")[0];
-  const version = div.querySelector('.app-version').textContent.replace("v", "").trim();
-  const status = div.querySelector('.app-status').textContent.trim();
-  const image = div.querySelector('.image').textContent.replace("Image:", "").trim();
-  const author = div.querySelector('.author').textContent.replace("Author: ", "").trim();
-  const author_id = div.querySelector('.authorId').textContent.trim();
-  const createdAt = div.querySelector('.createdAt').textContent.replace("Created: ", "").trim();
-  const insertedAt = div.querySelector('.insertedAt').textContent.trim();
-  const description = div.querySelector('.app-description').textContent.trim();
- 
+  const f = (c) => escHTML(field(div, c));
+  const version = escHTML(field(div, 'app-version').replace(/^v/, ""));
+
   const html = `
-  <div class="modal-content">
-    <h2>Modify App</h2>
-    <form 
+  <div class="modal-content k-modal-wide" role="dialog" aria-labelledby="mod-app-title">
+    <h2 id="mod-app-title">Modify application</h2>
+    <form
       id="modify-app-form"
       class="modify-app"
       hx-put="/api/v1/verified/admin/apps"
       hx-swap="none"
       hx-trigger="submit"
     >
-      <div class="disabled-display">
-        <div>
-          App id
-          <input type="number" name="id" value="${id}" readonly="readonly"  tabindex="-1">
-        </div><br>
-        <div>
-          CreatedAt
-          <input type="text" name="createdAt" value="${createdAt}" readonly="readonly"  tabindex="-1">
-        </div><br>
-        <div>
-          Inserted_at
-          <input type="text" name="insertedAt" value="${insertedAt}" readonly="readonly"  tabindex="-1">
-        </div><br>
-        <div>
-          <input type="hidden" name="authorId" value="${author_id}"  tabindex="-1">
-        </div>
-        
+      <div class="disabled-display k-readonly-grid">
+        <div class="k-field"><label>App id</label><input type="number" name="id" value="${f('app-id')}" readonly tabindex="-1"></div>
+        <div class="k-field"><label>Created</label><input type="text" name="createdAt" value="${f('createdAt')}" readonly tabindex="-1"></div>
+        <div class="k-field"><label>Inserted</label><input type="text" name="insertedAt" value="${f('insertedAt')}" readonly tabindex="-1"></div>
+        <input type="hidden" name="authorId" value="${f('authorId')}">
       </div>
-      <div>
-        Name<br>
-        <input type="text" name="name" value="${name}" required>
-      </div><br>
-      <div>
-        Image<br>
-        <input type="text" name="image" value="${image}" required>
-      </div><br>
-      <div>
-        Version<br>
-        <input type="text" name="version" value="${version}" required>
-      </div><br>
-      <div>
-        Author<br>
-        <input type="text" name="author" value="${author}" required>
-      </div><br>
-
-      <div>
-        Description<br>
-        <textarea name="description" maxlength="150">${description}</textarea>
-      </div><br>
-
-      <div>
-        Status <br>
-        <input type="text" name="status" value="${status}" required>
-      </div><br>
-
-
+      <div class="k-field-row">
+        <div class="k-field"><label for="ma-name">Name</label><input id="ma-name" type="text" name="name" value="${f('app-name')}" required></div>
+        <div class="k-field"><label for="ma-version">Version</label><input id="ma-version" type="text" name="version" value="${version}" required></div>
+      </div>
+      <div class="k-field"><label for="ma-image">Image</label><input id="ma-image" class="k-mono" type="text" name="image" value="${f('image')}" required></div>
+      <div class="k-field-row">
+        <div class="k-field"><label for="ma-author">Author</label><input id="ma-author" type="text" name="author" value="${f('author')}" required></div>
+        <div class="k-field"><label for="ma-status">Status</label><input id="ma-status" type="text" name="status" value="${f('app-status')}" required></div>
+      </div>
+      <div class="k-field">
+        <label for="ma-description">Description</label>
+        <textarea id="ma-description" name="description" maxlength="150">${f('app-description')}</textarea>
+      </div>
       <div class="modal-actions">
-        <button type="submit">Submit</button>
-        <button type="button" id="cancel-modal-btn" onclick="this.parentNode.parentNode.parentNode.parentNode.classList.add('hidden');">Cancel</button>
+        <button type="button" id="cancel-modal-btn" class="k-btn" data-hide-closest=".modal">Cancel</button>
+        <button type="submit" class="k-btn k-btn-primary">Save</button>
       </div>
     </form>
   </div>
   <div class="feedback hidden modal-feedback"></div>
   `;
-
-  const modalExists = parentDiv.querySelector('.modal');
-  if (modalExists) {
-    modalExists.innerHTML = html;
-    modalExists.classList.remove('hidden');
-    htmx.process(modalExists.querySelector("#modify-app-form"));
-  } else {
-    const modJobDiv = document.createElement("div");
-    modJobDiv.className = "modal";
-    modJobDiv.innerHTML = html;
-    htmx.process(modJobDiv.querySelector("#modify-app-form"));
-    parentDiv.appendChild(modJobDiv);
-  }
+  showModal(parentDiv, html, "#modify-app-form");
 }

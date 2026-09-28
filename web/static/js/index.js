@@ -1,4 +1,3 @@
-// unused currently
 
 
 
@@ -23,13 +22,9 @@ domReady(() => {
     toggleButton.addEventListener("click", () => {
       toggleButton.classList.toggle("collapsed");
       // get the closest h1 or p or span...
-      target = toggleButton.closest(".info").querySelector(".target");
+      const target = toggleButton.closest(".info").querySelector(".target");
       target.classList.toggle("collapsed");  
-      if (toggleButton.classList.contains("collapsed")) {
-        toggleButton.style.transform = `translateX(-${target.offsetWidth}px)`;
-      } else {
-        toggleButton.style.transform = `translateX(0)`;
-      }
+      toggleButton.setAttribute("aria-expanded", target.classList.contains("collapsed") ? "false" : "true");
     });
   });
 
@@ -38,7 +33,7 @@ domReady(() => {
   if (logout_btn) {
     logout_btn.addEventListener("click", () => {
       console.log("logging out");
-      // window.location.href = "http://"+IP+":"+PORT+"/api/v1/login";
+      // window.location.href = "/api/v1/login";
     });
   }
 
@@ -188,11 +183,14 @@ function copyToClipboard(selector, copyBtnId) {
     const text = element.textContent.trim(); // Trim any extra spaces
     navigator.clipboard.writeText(text).then(() => {
       const copyBtn = document.getElementById(copyBtnId);
-      if (copyBtn) {
-        copyBtn.textContent = "✔️"; // Show a checkmark temporarily
+      if (copyBtn && !copyBtn.classList.contains("is-copied")) {
+        const label = copyBtn.innerHTML;
+        copyBtn.classList.add("is-copied");
+        copyBtn.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i> Copied';
         setTimeout(() => {
-          copyBtn.textContent = "📋"; // Revert back to clipboard icon
-        }, 2000); // Reset after 2 seconds
+          copyBtn.innerHTML = label;
+          copyBtn.classList.remove("is-copied");
+        }, 2000);
       }
     }).catch(err => {
       alert("Failed to copy: " + err);
@@ -295,7 +293,8 @@ document.addEventListener('htmx:afterSettle', function(event) {
     appSelector.innerHTML = '';
     event.detail.target.querySelectorAll('.app-card').forEach((item) => {
       const option = document.createElement('option');
-      const appName = item.querySelector('.app-name').textContent.trim().split(" ")[0];
+      const nameEl = item.querySelector('.app-name');
+      const appName = (nameEl.dataset.v || nameEl.textContent.trim().split(" ")[0]).trim();
       option.value = appName;
       option.textContent = appName;
       option.selected = appName === current;
@@ -605,7 +604,7 @@ document.addEventListener('htmx:afterRequest', function (event) {
     } else {
       // Failed delete, apply red border
       const rowId = triggeringElement.closest('tr').id;
-      document.getElementById(rowId).style.border = '2px solid red';
+      document.getElementById(rowId).classList.add('error-highlight');
     }
   
   
@@ -618,14 +617,14 @@ document.addEventListener('htmx:afterRequest', function (event) {
     } else {
       // Failed delete, apply red border
       const rowId = triggeringElement.closest('tr').id;
-      document.getElementById(rowId).style.border = '2px solid red';
+      document.getElementById(rowId).classList.add('error-highlight');
     }
   // logging out (generic)
  
   
   } else if (typeof triggeringElement.id === "string" && triggeringElement.id.startsWith("logout")) {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 400) {
-      window.location.href = "http://"+IP+":"+PORT+"/api/v1/login";
+      window.location.href = "/api/v1/login";
     }
   // hasher related
  
@@ -704,34 +703,13 @@ document.addEventListener('htmx:afterRequest', function (event) {
       if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300 && fileUploadModule) {
         fileUploadModule.reset();
 
-        const feedback = document.querySelector("#file-boxes");
-        feedback.style.opacity = "1";
-        feedback.style.color = "green";
-        const p = document.querySelector(".fupload-header > p");
-        p.textContent = "File(s) uploaded";
-        p.style.opacity = "1";
-        setTimeout(() => {
-          feedback.opacity = "0.4";
-          p.style.opacity = "0.4";
-          feedback.style.color = "black";
-          p.textContent = "Browse File to upload or drag & drop!";
-        }, 10000);  
+        kUploadState("is-success", "File(s) uploaded", 10000);
         // reload resources
         document.querySelector("#fetch-resources-form").requestSubmit();
         document.getElementById("fetch-resources-form").scrollTo({ top: 0, behavior: "smooth"});
 
       } else if (event.detail.xhr.status >= 300) {
-        const feedback = document.querySelector(".fupload-header > svg");
-        feedback.style.opacity = "1";
-        feedback.style.color = "red";
-        const p = document.querySelector(".fupload-header > p");
-        p.textContent = "Failed to upload.";
-        p.style.opacity = "1";
-        setTimeout(() => {
-          feedback.opacity = "0.4";
-          feedback.style.color = "black";
-          p.textContent = "Browse File to upload or drag & drop!";
-        }, 2000)
+        kUploadState("is-error", "Failed to upload.", 4000);
       }
   } else if (triggeringElement.id === 'upload-files-form-dash') {
       setTimeout(() => {
@@ -742,33 +720,12 @@ document.addEventListener('htmx:afterRequest', function (event) {
       if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300 && fileUploadModule) {
         fileUploadModule.reset();
 
-        const feedback = document.querySelector("#file-boxes");
-        feedback.style.opacity = "1";
-        feedback.style.color = "green";
-        const p = document.querySelector(".fupload-header > p");
-        p.textContent = "File(s) uploaded";
-        p.style.opacity = "1";
-        setTimeout(() => {
-          feedback.opacity = "0.4";
-          p.style.opacity = "0.4";
-          feedback.style.color = "black";
-          p.textContent = "Browse File to upload or drag & drop!";
-        }, 10000);  
+        kUploadState("is-success", "File(s) uploaded", 10000);
 
       } else if (event.detail.xhr.status >= 300) {
-        const feedback = document.querySelector(".fupload-header > svg");
-        feedback.style.opacity = "1";
-        feedback.style.color = "red";
-        const p = document.querySelector(".fupload-header > p");
-        p.textContent = "Failed to upload.";
-        p.style.opacity = "1";
-        setTimeout(() => {
-          feedback.opacity = "0.4";
-          feedback.style.color = "black";
-          p.textContent = "Browse File to upload or drag & drop!";
-        }, 2000)
+        kUploadState("is-error", "Failed to upload.", 4000);
       }
-  } else if (triggeringElement.className === "r-btn-delete") {
+  } else if (triggeringElement.classList.contains("r-btn-delete") && !triggeringElement.classList.contains("vfs-action-btn")) {
     const feedback = document.getElementById("resources-feedback");
     feedback.classList.remove('hidden');
     feedback.textContent = event.detail.xhr.responseText.replace(/[{}]/g, '');
@@ -812,7 +769,8 @@ document.addEventListener('htmx:afterRequest', function (event) {
       }
   } else if (triggeringElement.id === 'preview-resource-btn') {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
-      document.querySelector(".resource-preview-main").classList.remove("blurred");
+      const host = triggeringElement.closest("#resource-details, #selected-resource-display") || document;
+      host.querySelector(".resource-preview-main")?.classList.remove("blurred");
     }
   } else if (triggeringElement.id === 'register-form') {
     if (event.detail.xhr.status < 300) {
@@ -870,23 +828,17 @@ document.addEventListener('htmx:afterRequest', function (event) {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
       triggeringElement.reset();
       feedback.classList.add('green');
-      triggeringElement.querySelectorAll('*').forEach((child) => {
-        child.style.color = "green";
-      });
+      triggeringElement.classList.add('is-ok');
     } else {
       triggeringElement.reset();
       feedback.classList.add('red');
-      triggeringElement.querySelectorAll('*').forEach((child) => {
-        child.style.color = "red";
-      });
+      triggeringElement.classList.add('is-bad');
     }
     setTimeout(() =>{
       feedback.classList.add('hidden');
       feedback.textContent = '';
       feedback.classList.remove('green', 'red');
-      triggeringElement.querySelectorAll('*').forEach((child) => {
-        child.style.color = "black";
-      });
+      triggeringElement.classList.remove('is-ok', 'is-bad');
     }, 8000);
   } else if (triggeringElement.id === 'email-change-form') {
     const feedback = document.getElementById("user-actions-feedback");
@@ -894,24 +846,18 @@ document.addEventListener('htmx:afterRequest', function (event) {
     feedback.textContent = event.detail.xhr.responseText.replace(/[{}]/g, '');
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
       triggeringElement.reset();
-      triggeringElement.querySelectorAll('*').forEach((child) => {
-        child.style.color = "green";
-      });
+      triggeringElement.classList.add('is-ok');
       feedback.classList.add('green');
     } else {
       triggeringElement.reset();
-      triggeringElement.querySelectorAll('*').forEach((child) => {
-        child.style.color = "red";
-      });
+      triggeringElement.classList.add('is-bad');
       feedback.classList.add('red');
     }
     setTimeout(() =>{
       feedback.classList.add('hidden');
       feedback.classList.remove('green', 'red');
       feedback.textContent = '';
-      triggeringElement.querySelectorAll('*').forEach((child) => {
-        child.style.color = "black";
-      });
+      triggeringElement.classList.remove('is-ok', 'is-bad');
     }, 6000);
   } else if (triggeringElement.id === 'delete-volume-btn') {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
@@ -1051,9 +997,10 @@ document.addEventListener('htmx:afterRequest', function (event) {
     }, 8000);
   } 
 
-  if (triggeringElement.className === 'vfs-action-btn') {
+  if (triggeringElement.classList.contains('vfs-action-btn')) {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
-      if (triggeringElement.id === 'r-btn-delete') {
+      if (triggeringElement.classList.contains('r-btn-delete')) {
+        hide(document.getElementById("selected-resource-display"));
         document.querySelector("#vfs-reload").dispatchEvent(new Event('click'));
       }
     } else {
@@ -1065,7 +1012,7 @@ document.addEventListener('htmx:afterRequest', function (event) {
       setTimeout(() => {
         feedback.classList.add('hidden');
         feedback.textContent = '';
-      }, 80000);
+      }, 8000);
     } 
   }
 });
@@ -1091,7 +1038,7 @@ document.addEventListener('htmx:responseError', function(event) {
   if (event.detail.xhr.status === 401) { // token expired
      // Prevent HTMX from replacing content
      event.detail.shouldSwap = false;
-     window.location.href = "http://"+IP+":"+PORT+"/api/v1/login";
+     window.location.href = "/api/v1/login";
      event.preventDefault();
   }
 });
@@ -1124,3 +1071,18 @@ document.addEventListener("htmx:afterOnLoad", function(evt) {
 
 
 
+
+// upload drop-zone status line (success / error), then back to the prompt
+function kUploadState(cls, text, ms) {
+  const box = document.querySelector("#file-boxes");
+  const p = document.querySelector(".fupload-header > p");
+  if (!box || !p) return;
+  box.classList.remove("is-success", "is-error");
+  box.classList.add(cls);
+  p.textContent = text;
+  clearTimeout(kUploadState.t);
+  kUploadState.t = setTimeout(() => {
+    box.classList.remove(cls);
+    p.textContent = "Browse File to upload or drag & drop!";
+  }, ms);
+}

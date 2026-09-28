@@ -221,7 +221,7 @@
       ${quota ? `<div class="dash-meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct.toFixed(1)}"
           aria-label="Storage used: ${pct.toFixed(1)} percent" tabindex="0"
           data-tip="${esc(`${fmtBytes(used)} of ${fmtBytes(quota)} (${pct < 0.1 && used ? "<0.1" : pct.toFixed(1)}%)`)}">
-          <span style="width:${Math.min(100, shown)}%"></span></div>` : ""}
+          <span data-w="${Math.min(100, shown)}"></span></div>` : ""}
       <p class="dash-note">${fmtInt(mine.length)} file${mine.length === 1 ? "" : "s"} you own${quota ? " · default per-user quota" : ""}</p>`;
   }
 
@@ -369,7 +369,7 @@
           <div class="dash-meter" tabindex="0" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct.toFixed(1)}"
             aria-label="${esc(`${v.name}: ${pct.toFixed(1)} percent used`)}"
             data-tip="${esc(`${v.name}: ${use.toFixed(2)} of ${cap} GB · ${fmtInt(v.objectCount || 0)} objects`)}">
-            <span style="width:${Math.min(100, use > 0 ? Math.max(pct, 0.8) : 0)}%"></span></div>
+            <span data-w="${Math.min(100, use > 0 ? Math.max(pct, 0.8) : 0)}"></span></div>
           <span class="dash-vol-val">${cap ? `${pct < 0.1 && use ? "<0.1" : pct.toFixed(1)}%` : "—"}</span></li>`;
       })
       .join("")}</ul>`;
@@ -478,6 +478,8 @@
     bits.push(`${apps.length} application${apps.length === 1 ? "" : "s"} available`);
     root.querySelector("#dash-summary").textContent = bits.join(" · ");
 
+    // meter widths set through CSSOM (no style="" attributes: strict CSP)
+    root.querySelectorAll("[data-w]").forEach((el) => { el.style.width = `${el.dataset.w}%`; });
     bindTips(root);
     root.classList.add("is-ready");
   }

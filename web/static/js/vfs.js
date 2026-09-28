@@ -58,193 +58,98 @@ function getNodeAtPath(pathParts) {
 }
   
 function renderVFS(pathParts, container) {
-  container.innerHTML = "";
+  container.textContent = "";
 
   const node = getNodeAtPath(pathParts);
   if (!node) return;
 
+  // where we are
+  const crumb = document.createElement("div");
+  crumb.className = "vfs-path";
+  crumb.textContent = "/" + pathParts.join("/");
+  container.appendChild(crumb);
+
   if (pathParts.length > 0) {
-    const back = document.createElement("div");
+    const back = document.createElement("button");
+    back.type = "button";
     back.textContent = "..";
     back.classList.add("back");
-    back.style.cursor = "pointer";
-    back.onclick = () => {
+    back.addEventListener("click", () => {
       currentPath.pop();
       renderVFS(currentPath, container);
-    };
+    });
     container.appendChild(back);
   }
 
-  Object.keys(node).sort().forEach(key => {
+  const keys = Object.keys(node).sort();
+  if (!keys.length) {
+    const empty = document.createElement("p");
+    empty.className = "k-dim vfs-empty";
+    empty.textContent = "No files yet. Upload some below.";
+    container.appendChild(empty);
+    return;
+  }
+
+  keys.forEach(key => {
     const entry = node[key];
     const isFile = entry.__isFile;
-    const div = document.createElement("div");
-    div.textContent = (isFile || key == ".") ? key : key + "/";
-    div.classList.add(isFile ? "file" : "directory");
-    div.style.cursor = "pointer";
-    div.style.paddingLeft = "10px";
-    div.onclick = () => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.textContent = (isFile || key == ".") ? key : key + "/";
+    item.classList.add(isFile ? "file" : "directory");
+    item.addEventListener("click", () => {
+      container.querySelectorAll(".is-selected").forEach((el) => el.classList.remove("is-selected"));
       if (isFile) {
+        item.classList.add("is-selected");
         displaySelectedResource([...currentPath, key].join("/"));
-      } else {
-        if (key != ".") {
-          currentPath.push(key);
-          renderVFS(currentPath, container);
-        }
+      } else if (key != ".") {
+        currentPath.push(key);
+        renderVFS(currentPath, container);
       }
-    };
-    container.appendChild(div);
+    });
+    container.appendChild(item);
   });
 }
 
 function displaySelectedResource(resourcePath) {
   const targetDiv = document.getElementById("selected-resource-display");
-  targetDiv.classList.remove("hidden");
-  // find resource data by name (the)
 
-  let resource;
-
-  for (resource of cachedResources) {
-    if (resourcePath.includes(resource.name)) {
-      resource = resource;
-      break;
+  // the tree is built as <volume>/<name parts>: match both
+  let resource = null;
+  for (const r of cachedResources) {
+    const full = (r.vname || "default") + "/" + String(r.name || "").split("/").filter(Boolean).join("/");
+    if (full === resourcePath) { resource = r; break; }
+  }
+  if (!resource) {
+    for (const r of cachedResources) {
+      if (resourcePath.includes(r.name)) { resource = r; break; }
     }
   }
+  if (!resource) return;
+  targetDiv.classList.remove("hidden");
 
-  // Update the resource details div
-  targetDiv.innerHTML = `
-    <div class="resource-details-headers">
-      <h3>details</h3>
-      <div class="resource-options">
-        <i id="resource-options-dropdown-button" style="font-size:24px" onclick="this.nextElementSibling.firstElementChild.classList.toggle('open');" class="fa">&#xf078;</i>
-
-        <div class="resource-options">
-          <div class="resource-options-inner dropdown">
-            <button 
-              class="r-btn-download" 
-              onclick="downloadResource('/api/v1/verified/download?target=${resource.name}&volume=${resource.vname}')"
-            >
-              Download
-            </button>
-
-            <button
-              id="preview-resource-btn"
-              class="vfs-action-btn"
-              hx-target="#resource-preview-content-2"
-              hx-trigger="click"
-              hx-swap="innerHTML"
-              hx-get="/api/v1/verified/preview?rid=${resource.rid}&resourcename=${resource.name}&volume=${resource.vname}"
-              hx-headers='{"Range": "bytes=${getPreviewWindow(0)}"}'
-            >Preview</button>
-              
-            <button 
-              class="r-btn-edit"
-              hx-get="/api/v1/verified/edit-form?resourcename=${resource.name}&owner=${resource.owner || 0}&group=${resource.group || 0}&perms=${resource.perms}&rid=${resource.rid}&volume=${resource.vname}"
-              hx-swap="innerHTML"
-              hx-trigger="click"
-              hx-target="#edit-modal-2"
-              hx-on::after-request="show(this.parentNode.querySelector('#edit-modal-2'))"
-              >
-              Edit
-            </button>
-            <div id="edit-modal-2" class="modal hidden darkened"></div>
-
-            <button 
-              class="r-btn-delete vfs-action-btn"
-              hx-delete="/api/v1/verified/rm?name=${resource.name}&volume=${resource.vname}"
-              hx-trigger="click"
-              hx-swap="none"
-              hx-confirm="Are you sure you want to delete resource ${resource.name}?"
-              hx-on::before-request="show(document.querySelector('.r-loader'))"
-            >
-              Delete
-            </button>
-
-            <button
-              id="close-r-selected-display"
-              onclick="document.querySelector('#selected-resource-display').classList.add('hidden');"
-            >
-            Close
-            </button>
-          </div>
-        </div>
-      </div>
-      <div id="selected-resource-draggable-bar" class="draggable-bar"></div>
-    </div>
-    <hr>
-    <div class="resource-details-main">
-      <div class="resource-details-inner">
-        <p><strong>Rid:</strong> ${resource.rid}</p>
-        <p><strong>Name:</strong> ${resource.name}</p>
-        <p><strong>Volume:</strong> ${resource.vname}</p>
-        <p><strong>Type:</strong> ${resource.type}</p>
-        <p><strong>Size:</strong> ${resource.size}</p>
-        <p><strong>Permissions:</strong> ${resource.perms}</p>
-        <p><strong>Created At:</strong> ${resource.createdAt}</p>
-        <p><strong>Updated At:</strong> ${resource.updatedAt}</p>
-        <p><strong>Accessed At:</strong> ${resource.accessedAt}</p>
-        <p><strong>Owner:</strong> ${resource.uid || 0}</p>
-        <p><strong>Group:</strong> ${resource.gid || 0}</p>
-        <p><strong>Vid:</strong> ${resource.vid || 0}</p>
-      </div>
-      <div id="resource-preview" class="resource-preview-window">
-        
-        <div class="resource-preview-main blurred">
-          <div id="resource-preview-content-2" class="resource-preview-content"></div>
-          <div id="resource-preview-controls">
-            <div 
-              id="next-arrow-left" 
-              class="next-arrow vfs-action-btn"
-              hx-target="#resource-preview-content-2"
-              hx-trigger="click"
-              hx-swap="innerHTML"
-              hx-get="/api/v1/verified/preview?rid=${resource.rid}&resourcename=${resource.name}&volume=${resource.vname}"
-              hx-headers='js:{"Range": "bytes=" + getPreviewWindow(-1)}'  
-            >
-              <svg width="24" height="8" viewBox="0 0 16 8" fill="none" xmlns="http://www.w3.org/2000/svg" class="arrow-icon">
-              <g transform="scale(-1,1) translate(-16,0)">
-                <path d="M15 4H4V1" stroke="white"/>
-                <path d="M14.5 4H3.5H0" stroke="white"/>
-                <path d="M15.8536 4.35355C16.0488 4.15829 16.0488 3.84171 15.8536 3.64645L12.6716 0.464466C12.4763 0.269204 12.1597 0.269204 11.9645 0.464466C11.7692 0.659728 11.7692 0.976311 11.9645 1.17157L14.7929 4L11.9645 6.82843C11.7692 7.02369 11.7692 7.34027 11.9645 7.53553C12.1597 7.7308 12.4763 7.7308 12.6716 7.53553L15.8536 4.35355ZM15 4.5L15.5 4.5L15.5 3.5L15 3.5L15 4.5Z" fill="white"/>
-              </g>
-              </svg>
-            </div>
-            <div>
-              <span id="page-index">0</span>
-            </div>
-            <div 
-              id="next-arrow-right" 
-              class="next-arrow vfs-action-btn"
-              hx-target="#resource-preview-content-2"
-              hx-trigger="click"
-              hx-swap="innerHTML"
-              hx-get="/api/v1/verified/preview?rid=${resource.rid}&resourcename=${resource.name}&volume=${resource.vname}"
-              hx-headers='js:{"Range": "bytes=" + getPreviewWindow(+1)}'            >
-              <svg width="24" height="8" viewBox="0 0 16 8" fill="none" xmlns="http://www.w3.org/2000/svg" class="arrow-icon">
-                <path d="M15 4H4V1" stroke="white"/>
-                <path d="M14.5 4H3.5H0" stroke="white"/>
-                <path d="M15.8536 4.35355C16.0488 4.15829 16.0488 3.84171 15.8536 3.64645L12.6716 0.464466C12.4763 0.269204 12.1597 0.269204 11.9645 0.464466C11.7692 0.659728 11.7692 0.976311 11.9645 1.17157L14.7929 4L11.9645 6.82843C11.7692 7.02369 11.7692 7.34027 11.9645 7.53553C12.1597 7.7308 12.4763 7.7308 12.6716 7.53553L15.8536 4.35355ZM15 4.5L15.5 4.5L15.5 3.5L15 3.5L15 4.5Z" fill="white"/>
-              </svg>
-            </div>
-          </div>
-        </div>
-      </div>
-
-    </div>
-    <hr>
-    <div class="resource-details-footer">
-      <div class="feedback"></div>
-      <div class="r-loader hidden"><div></div></div>
-    </div>
-    </div>
-  `;
-  const btns = targetDiv.querySelectorAll(".r-btn-download, .r-btn-edit, .r-btn-delete, #preview-resource-btn, #next-arrow-right, #next-arrow-left");
-  btns.forEach(button => {
+  const r = {
+    id: resource.rid, name: resource.name, vname: resource.vname,
+    owner: resource.uid, group: resource.gid, perms: resource.perms,
+  };
+  const size = typeof kFmtBytes === "function" ? kFmtBytes(resource.size) : resource.size;
+  const when = (v) => (typeof kFmtWhen === "function" ? kFmtWhen(v) : v);
+  targetDiv.innerHTML = resourceDetailsHTML(r, {
+    previewId: "resource-preview-content-2",
+    vfs: true,
+    draggable: true,
+    closeAttr: 'data-hide="#selected-resource-display"',
+    facts: [
+      ["RID", resource.rid], ["Type", resource.type], ["Size", size], ["Permissions", resource.perms],
+      ["Created", when(resource.createdAt)], ["Updated", when(resource.updatedAt)], ["Accessed", when(resource.accessedAt)],
+      ["Owner", resource.uid || 0], ["Group", resource.gid || 0], ["VID", resource.vid || 0],
+    ],
+  });
+  targetDiv.querySelectorAll(".r-btn-download, .r-btn-edit, .r-btn-delete, #preview-resource-btn, #next-arrow-right, #next-arrow-left").forEach(button => {
     htmx.process(button);
   });
 
   addDragFunctionality(targetDiv);
-
 }
 
 
