@@ -315,42 +315,6 @@ func (fsl *FsLite) deleteResourceHandler(c *gin.Context) {
 		resource.Vname = vname
 	}
 
-	if !fsl.config.FslUnlocked {
-		res, err := fsl.SelectObjects(c.Request.Context(), map[string]any{"name": resource.Name, "volume": resource.Vname})
-		if err != nil {
-			log.Printf("failed to retrieve info for the specified object")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the object info"})
-
-			return
-		}
-		resources, ok := res.([]ut.Resource)
-		if !ok {
-			r, ok := res.(ut.Resource)
-			if !ok {
-				log.Printf("failed to cast the result as resource and as resource slice")
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "bad state"})
-
-				return
-			}
-			err = fsl.ReleaseSpace(c.Request.Context(), r.UID, r.Vname, r.Size)
-			if err != nil {
-				log.Printf("failed to release the volume claim due to deletion: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to release volume claim"})
-
-				return
-			}
-
-		} else {
-			err = fsl.ReleaseSpace(c.Request.Context(), resources[0].UID, resource.Vname, resources[0].Size)
-			if err != nil {
-				log.Printf("failed to release the volume claim due to deletion: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to release volume claim"})
-
-				return
-			}
-		}
-	}
-
 	err = fsl.Remove(c.Request.Context(), resource)
 	if err != nil {
 		log.Printf("failed to delete resource: %v", err)
@@ -360,8 +324,7 @@ func (fsl *FsLite) deleteResourceHandler(c *gin.Context) {
 
 		return
 	}
-	// release volume claim
-
+	// usage is computed from the records: nothing to release
 	c.JSON(http.StatusOK, gin.H{"status": resource.Vname + "/" + resource.Name + " deleted"})
 }
 
@@ -447,7 +410,7 @@ func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
 		}
 
 		if !fsl.config.FslUnlocked {
-			err = fsl.ClaimSpace(c.Request.Context(), uid, resource.Vname, resource.Size, fsl.config.LocalVolumesDefaultCapacity, true)
+			err = fsl.CheckSpace(c.Request.Context(), uid, resource.Vname, resource.Size, fsl.config.LocalVolumesDefaultCapacity)
 			if err != nil {
 				if cErr := file.Close(); cErr != nil {
 					log.Printf("failed to close the file: %v", cErr)
@@ -468,11 +431,6 @@ func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
 			log.Printf("failed to close the file: %v", cErr)
 		}
 		if err != nil {
-			if !fsl.config.FslUnlocked { // give back what was claimed for it
-				if rErr := fsl.ReleaseSpace(c.Request.Context(), uid, resource.Vname, resource.Size); rErr != nil {
-					log.Printf("failed to release claimed space: %v", rErr)
-				}
-			}
 			if errors.Is(err, ErrResourceExists) {
 				c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 

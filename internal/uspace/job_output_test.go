@@ -47,12 +47,11 @@ func TestSaveJobOutputOverwrite(t *testing.T) {
 	if err != nil || !found || r.Size != 200*mb || r.UID != 1001 {
 		t.Fatalf("record after overwrite = %+v, %v (want size 200 MB, owner kept)", r, err)
 	}
-	// owner 1001 now holds 0.2 GB of a 1 GB quota: 0.7 GB more fits only if
-	// the 0.4 GB difference was refunded
-	if err := srv.fsl.ClaimSpace(ctx, 1001, "vol1", 700*mb, 1, true); err != nil {
-		t.Errorf("overwrite didn't refund the size difference: %v", err)
+	// owner 1001 now holds 0.2 GB of a 1 GB quota (usage follows the record)
+	if err := srv.fsl.CheckSpace(ctx, 1001, "vol1", 800*mb, 1); err != nil {
+		t.Errorf("0.8 GB more should fit after the overwrite: %v", err)
 	}
-	if err := srv.fsl.ClaimSpace(ctx, 1001, "vol1", 200*mb, 1, true); err == nil {
-		t.Error("quota not enforced after overwrite accounting")
+	if err := srv.fsl.CheckSpace(ctx, 1001, "vol1", 801*mb, 1); err == nil {
+		t.Error("quota not enforced after the overwrite")
 	}
 }

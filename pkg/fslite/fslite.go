@@ -21,7 +21,7 @@
 //   - NewFsLite: Initializes a new FsLite instance, sets up database schema, admin user, and default volume.
 //   - CreateVolume, RemoveVolume, SelectVolumes: Manage storage volumes.
 //   - Insert, Remove, SelectObjects: Manage resources (files/objects).
-//   - ClaimSpace, ReleaseSpace (quota.go): Track and enforce storage usage and quotas.
+//   - CheckSpace, InsertResource (quota.go): usage computed from the records, quota checks.
 //   - Download, Copy: Support for file download and duplication.
 //   - selectUserVolumes: Query user-volume usage and quota information.
 //   - determinePhysicalStorage: Ensures physical storage paths exist and have sufficient space.
@@ -149,7 +149,7 @@ func NewFsLite(cfg ut.EnvConfig) FsLite {
 		dbh:    ut.NewDBHandler(cfg.FslDB, cfg.FslDBPath, cfg.FslDBDriver),
 		Engine: ginEngine,
 	}
-	fsl.dbh.Init(initSQL+groupVolumeSchema, cfg.FslDBMaxOpenConns, cfg.FslDBMaxIdleConns, cfg.FslDBMaxLifetime)
+	fsl.dbh.Init(initSQL+groupVolumeSchema+usageSchema, cfg.FslDBMaxOpenConns, cfg.FslDBMaxIdleConns, cfg.FslDBMaxLifetime)
 	_, err := fsl.insertAdmin(cfg.FslAccessKey, cfg.FslSecretKey)
 	if err != nil && strings.Contains(strings.ToLower(err.Error()), "unique") {
 		log.Printf("[FSL_init] admin user already exists")

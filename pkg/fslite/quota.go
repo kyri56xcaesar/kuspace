@@ -9,123 +9,194 @@ import (
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
+/*
+	Usage and quotas
+
+	Usage is not stored: it is the sum of the sizes of the resources on a
+	volume (for a user: those they own; for a group volume: all of them).
+	The views below compute it for the read queries, and the quota checks
+	compute it inside the transaction that inserts the record. There used to
+	be usage counters, adjusted by separate claim/release calls; any failure
+	or crash between a record change and its counter update left them wrong
+	for good.
+
+	A capacity or quota of 0 means unlimited. Quotas and capacities are GB
+	(10^9 bytes); sizes are bytes. uid 0 (root) is never limited.
+*/
+
 var (
-	// ErrQuotaExceeded: the write would take the user past their quota.
+	// ErrQuotaExceeded is returned when a write would take the owner (or
+	// the group, on a group volume) past its quota.
 	ErrQuotaExceeded = errors.New("storage quota exceeded")
-	// ErrVolumeFull: the write would take the volume past its capacity.
+	// ErrVolumeFull is returned when a write would take the volume past its capacity.
 	ErrVolumeFull = errors.New("volume is full")
 )
 
-// ClaimSpace charges size bytes to uid on the named volume, in one
-// transaction. With enforce, it fails with ErrVolumeFull / ErrQuotaExceeded
-// instead of charging past the volume's capacity or the user's quota; without
-// it (e.g. job outputs that already exist) it only records the usage.
-//
-// A capacity or quota of 0 means unlimited. uid 0 (root) is never limited or
-// tracked. A user without a claim on the volume gets one with defaultQuota GB.
-// On a group volume the group's quota is charged instead of uid's (see
-// group_volume.go).
-func (fsl *FsLite) ClaimSpace(ctx context.Context, uid int64, volume string, size int64, defaultQuota float64, enforce bool) error {
-	return fsl.adjustSpace(ctx, uid, volume, ut.SizeInGb(size), defaultQuota, enforce)
+// usageSchema: the views the read queries use, and the index the sums use.
+// Views are re-created on every start, so their definition can change.
+const usageSchema = `
+	CREATE INDEX IF NOT EXISTS idx_resources_vid_uid ON resources(vid, uid);
+
+	DROP VIEW IF EXISTS volume_usage;
+	CREATE VIEW volume_usage AS
+	    SELECT v.vid, v.name, v.path, v.dynamic, v.capacity,
+	           COALESCE((SELECT SUM(r.size) FROM resources r WHERE r.vid = v.vid), 0) / 1e9 AS usage,
+	           v.createdAt
+	    FROM volumes v;
+
+	DROP VIEW IF EXISTS user_volume_usage;
+	CREATE VIEW user_volume_usage AS
+	    SELECT uv.vid, uv.uid,
+	           COALESCE((SELECT SUM(r.size) FROM resources r WHERE r.vid = uv.vid AND r.uid = uv.uid), 0) / 1e9 AS usage,
+	           uv.quota, uv.updatedAt
+	    FROM user_volume uv;
+`
+
+// querier is what the checks need from a *sql.DB, *sql.Conn or *sql.Tx.
+type querier interface {
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 }
 
-// ReleaseSpace gives size bytes back to uid on the named volume (never below 0).
-func (fsl *FsLite) ReleaseSpace(ctx context.Context, uid int64, volume string, size int64) error {
-	return fsl.adjustSpace(ctx, uid, volume, -ut.SizeInGb(size), 0, false)
-}
+const gbBytes = 1e9
 
-func (fsl *FsLite) adjustSpace(ctx context.Context, uid int64, volume string, deltaGB, defaultQuota float64, enforce bool) error {
-	if uid == 0 || deltaGB == 0 {
-		return nil
+// checkSpace reports whether size more bytes, owned by uid, fit on the
+// named volume: its capacity, and the owner's quota there (the group's on a
+// group volume). A user without a quota on the volume gets defaultQuota GB.
+// It returns the volume's id.
+func checkSpace(ctx context.Context, q querier, uid int64, volume string, size int64, defaultQuota float64) (int64, error) {
+	var vid int64
+	var capacity float64
+	if err := q.QueryRowContext(ctx, `SELECT vid, COALESCE(capacity, 0) FROM volumes WHERE name = ?`, volume).
+		Scan(&vid, &capacity); err != nil {
+		return 0, fmt.Errorf("volume %q: %w", volume, err)
 	}
+	var used int64
+	if err := q.QueryRowContext(ctx, `SELECT COALESCE(SUM(size), 0) FROM resources WHERE vid = ?`, vid).Scan(&used); err != nil {
+		return 0, err
+	}
+	if capacity > 0 && float64(used+size) > capacity*gbBytes {
+		return vid, ErrVolumeFull
+	}
+	if uid == 0 {
+		return vid, nil
+	}
+
+	gid, shared, err := groupOf(ctx, q, vid)
+	if err != nil {
+		return 0, err
+	}
+	if shared { // the group pays, from everything on the volume
+		var quota float64
+		if err := q.QueryRowContext(ctx, `SELECT quota FROM group_volume WHERE vid = ?`, vid).Scan(&quota); err != nil {
+			return 0, err
+		}
+		if quota > 0 && float64(used+size) > quota*gbBytes {
+			return vid, fmt.Errorf("%w (group %d)", ErrQuotaExceeded, gid)
+		}
+
+		return vid, nil
+	}
+
+	quota, err := personalQuota(ctx, q, vid, uid, defaultQuota)
+	if err != nil {
+		return 0, err
+	}
+	if quota > 0 {
+		var mine int64
+		if err := q.QueryRowContext(ctx, `SELECT COALESCE(SUM(size), 0) FROM resources WHERE vid = ? AND uid = ?`, vid, uid).
+			Scan(&mine); err != nil {
+			return 0, err
+		}
+		if float64(mine+size) > quota*gbBytes {
+			return vid, ErrQuotaExceeded
+		}
+	}
+
+	return vid, nil
+}
+
+// personalQuota is uid's quota (GB) on volume vid; a user without one gets
+// a claim with defaultQuota.
+func personalQuota(ctx context.Context, q querier, vid, uid int64, defaultQuota float64) (float64, error) {
+	var quota float64
+	err := q.QueryRowContext(ctx, `SELECT COALESCE(quota, 0) FROM user_volume WHERE vid = ? AND uid = ?`, vid, uid).Scan(&quota)
+	if errors.Is(err, sql.ErrNoRows) {
+		_, err = q.ExecContext(ctx, `INSERT OR IGNORE INTO user_volume (vid, uid, usage, quota, updatedAt) VALUES (?, ?, 0, ?, ?)`,
+			vid, uid, defaultQuota, ut.CurrentTime())
+
+		return defaultQuota, err
+	}
+
+	return quota, err
+}
+
+// CheckSpace reports whether size more bytes owned by uid fit on the named
+// volume (ErrVolumeFull / ErrQuotaExceeded). It is a pre-check, to refuse
+// before any bytes are written; InsertResource checks again atomically.
+func (fsl *FsLite) CheckSpace(ctx context.Context, uid int64, volume string, size int64, defaultQuota float64) error {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
 		return err
 	}
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }() // no-op after Commit
+	_, err = checkSpace(ctx, db, uid, volume, size, defaultQuota)
 
-	var vid int64
-	var capacity, vusage float64
-	err = tx.QueryRowContext(ctx, `SELECT vid, COALESCE(capacity, 0), COALESCE(usage, 0) FROM volumes WHERE name = ?`, volume).
-		Scan(&vid, &capacity, &vusage)
-	if err != nil {
-		return fmt.Errorf("volume %q: %w", volume, err)
-	}
-
-	// a group volume charges its group, never the member's own quota
-	gid, shared, err := groupOf(ctx, tx, vid)
-	if err != nil {
-		return err
-	}
-	if shared {
-		return adjustGroupSpace(ctx, tx, vid, gid, capacity, vusage, deltaGB, enforce)
-	}
-
-	var quota, usage float64
-	err = tx.QueryRowContext(ctx, `SELECT COALESCE(quota, 0), COALESCE(usage, 0) FROM user_volume WHERE vid = ? AND uid = ?`, vid, uid).
-		Scan(&quota, &usage)
-	if errors.Is(err, sql.ErrNoRows) {
-		quota, usage = defaultQuota, 0
-		if _, err := tx.ExecContext(ctx, `INSERT INTO user_volume (vid, uid, usage, quota, updatedAt) VALUES (?, ?, 0, ?, ?)`,
-			vid, uid, quota, ut.CurrentTime()); err != nil {
-			return fmt.Errorf("create claim: %w", err)
-		}
-	} else if err != nil {
-		return err
-	}
-
-	if enforce && deltaGB > 0 {
-		if capacity > 0 && vusage+deltaGB > capacity {
-			return ErrVolumeFull
-		}
-		if quota > 0 && usage+deltaGB > quota {
-			return ErrQuotaExceeded
-		}
-	}
-
-	now := ut.CurrentTime()
-	if _, err := tx.ExecContext(ctx, `UPDATE user_volume SET usage = MAX(0, usage + ?), updatedAt = ? WHERE vid = ? AND uid = ?`,
-		deltaGB, now, vid, uid); err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, `UPDATE volumes SET usage = MAX(0, COALESCE(usage, 0) + ?) WHERE vid = ?`, deltaGB, vid); err != nil {
-		return err
-	}
-
-	return tx.Commit()
+	return err
 }
 
-func adjustGroupSpace(ctx context.Context, tx *sql.Tx, vid, gid int64, capacity, vusage, deltaGB float64, enforce bool) error {
-	var quota, usage float64
-	if err := tx.QueryRowContext(ctx, `SELECT quota, usage FROM group_volume WHERE vid = ?`, vid).Scan(&quota, &usage); err != nil {
-		return err
-	}
-	if enforce && deltaGB > 0 {
-		if capacity > 0 && vusage+deltaGB > capacity {
-			return ErrVolumeFull
+// InsertResource records r, and - with enforce - only if it fits the
+// volume's capacity and the owner's (or group's) quota. The check and the
+// insert are one transaction that takes SQLite's write lock up front, so
+// concurrent inserts can't both squeeze into the same free space.
+func (fsl *FsLite) InsertResource(ctx context.Context, r ut.Resource, defaultQuota float64, enforce bool) error {
+	return fsl.immediate(ctx, func(q querier) error {
+		if r.Vname == "" {
+			r.Vname = defaultVolumeName
 		}
-		if quota > 0 && usage+deltaGB > quota {
-			return fmt.Errorf("%w (group %d)", ErrQuotaExceeded, gid)
+		if enforce {
+			vid, err := checkSpace(ctx, q, r.UID, r.Vname, r.Size, defaultQuota)
+			if err != nil {
+				return err
+			}
+			r.VID = vid
+		} else if err := q.QueryRowContext(ctx, `SELECT vid FROM volumes WHERE name = ?`, r.Vname).Scan(&r.VID); err != nil {
+			return fmt.Errorf("volume %q: %w", r.Vname, err)
 		}
-	}
-	now := ut.CurrentTime()
-	if _, err := tx.ExecContext(ctx, `UPDATE group_volume SET usage = MAX(0, usage + ?), updatedAt = ? WHERE vid = ?`,
-		deltaGB, now, vid); err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, `UPDATE volumes SET usage = MAX(0, COALESCE(usage, 0) + ?) WHERE vid = ?`, deltaGB, vid); err != nil {
-		return err
-	}
 
-	return tx.Commit()
+		return insertResource(ctx, q, r)
+	})
+}
+
+// immediate runs fn in a transaction opened with BEGIN IMMEDIATE (the write
+// lock is taken at the start, not at the first write).
+func (fsl *FsLite) immediate(ctx context.Context, fn func(q querier) error) (err error) {
+	db, err := fsl.dbh.GetConn()
+	if err != nil {
+		return err
+	}
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = conn.Close() }()
+	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_, _ = conn.ExecContext(context.WithoutCancel(ctx), "ROLLBACK")
+		}
+	}()
+	if err := fn(conn); err != nil {
+		return err
+	}
+	_, err = conn.ExecContext(ctx, "COMMIT")
+
+	return err
 }
 
 // SetObjectSize records a new size (and modification time) for an existing
-// resource, e.g. when a job overwrote it.
+// resource, e.g. when a job overwrote it. Usage follows automatically.
 func (fsl *FsLite) SetObjectSize(ctx context.Context, name, volume string, size int64) error {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {

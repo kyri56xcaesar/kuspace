@@ -760,23 +760,20 @@ func formatJobCommand(job *ut.Job) ([]string, error) {
 	}
 }
 
-// saveJobOutput records a job's output object: a new one is created and
-// charged to the job's owner; an existing one (a job may overwrite an output
-// its owner can write, checked at submission) gets its new size and time,
-// and only the size difference is charged to - or refunded to - the file's
-// owner. It used to fail with "already exists" and keep the old size.
+// saveJobOutput records a job's output object: a new one is created (owned
+// by the job's owner); an existing one (a job may overwrite an output its
+// owner can write, checked at submission) gets its new size and time. Usage
+// follows the records, so nothing else is charged or refunded.
 func (srv *UService) saveJobOutput(ctx context.Context, output ut.Resource) (string, error) {
 	quota := min(srv.config.LocalVolumesDefaultCapacity, maxDefaultVolumeCapacity)
-	existing, found, err := srv.lookupResource(ctx, output.Name, output.Vname)
+	_, found, err := srv.lookupResource(ctx, output.Name, output.Vname)
 	if err != nil {
 		return "", err
 	}
 	if !found {
-		if err := srv.fsl.Insert(ctx, output); err != nil {
+		// recorded even past the quota: the job already wrote it
+		if err := srv.fsl.InsertResource(ctx, output, quota, false); err != nil {
 			return "", err
-		}
-		if err := srv.fsl.ClaimSpace(ctx, output.UID, output.Vname, output.Size, quota, false); err != nil {
-			log.Printf("failed to account new output %s: %v", output.Name, err)
 		}
 
 		return "created", nil
@@ -784,15 +781,6 @@ func (srv *UService) saveJobOutput(ctx context.Context, output ut.Resource) (str
 
 	if err := srv.fsl.SetObjectSize(ctx, output.Name, output.Vname, output.Size); err != nil {
 		return "", err
-	}
-	switch delta := output.Size - existing.Size; {
-	case delta > 0:
-		err = srv.fsl.ClaimSpace(ctx, existing.UID, output.Vname, delta, quota, false)
-	case delta < 0:
-		err = srv.fsl.ReleaseSpace(ctx, existing.UID, output.Vname, -delta)
-	}
-	if err != nil {
-		log.Printf("failed to account overwritten output %s: %v", output.Name, err)
 	}
 
 	return "updated (overwrote the existing file)", nil

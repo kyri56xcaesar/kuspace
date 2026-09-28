@@ -150,36 +150,24 @@ func (srv *UService) rmResourceHandler(c *gin.Context) {
 	}
 	ac := acH.(ut.AccessClaim)
 
-	// if this fails perhaps we need to delete the db entry...
-	target, found, err := srv.lookupResource(c.Request.Context(), ac.Target, ac.Vname)
+	_, found, err := srv.lookupResource(c.Request.Context(), ac.Target, ac.Vname)
 	if err != nil || !found {
 		c.JSON(http.StatusNotFound, gin.H{"error": "resource not found"})
 
 		return
 	}
-	if err := srv.storage.Remove(c.Request.Context(), ut.Resource{
-		Name:  ac.Target,
-		Vname: ac.Vname,
-	}); err != nil {
-		log.Printf("error when removing object: %v", err) // perhaps specify exact details of error
+	// record first, object last: a failure in between leaves an orphan
+	// object (invisible, collectable), never a listed file without data
+	if err := srv.fsl.Remove(c.Request.Context(), ut.Resource{Name: ac.Target, Vname: ac.Vname}); err != nil {
+		log.Printf("error when removing the record: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete obj"})
 
 		return
 	}
-
-	if err := srv.fsl.Remove(c.Request.Context(), ut.Resource{
-		Name:  ac.Target,
-		Vname: ac.Vname,
-	}); err != nil {
-		log.Printf("error when removing object from fsl: %v", err) // perhaps specify exact details of error
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete obj"})
-
-		return
+	if err := srv.storage.Remove(c.Request.Context(), ut.Resource{Name: ac.Target, Vname: ac.Vname}); err != nil {
+		log.Printf("record of %s/%s deleted, its object stays behind (orphan): %v", ac.Vname, ac.Target, err)
 	}
 
-	if err := srv.fsl.ReleaseSpace(context.WithoutCancel(c.Request.Context()), target.UID, ac.Vname, target.Size); err != nil {
-		log.Printf("failed to refund quota after delete: %v", err)
-	}
 	c.JSON(200, gin.H{
 		"message": "resource deleted successfully.",
 	})
@@ -295,20 +283,10 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 
 			return
 		}
-		if !srv.claimSpace(c, moved.UID, parts[0], moved.Size) {
+		// usage follows the record to the destination; check it fits there
+		if !srv.checkQuota(c, moved.UID, parts[0], moved.Size) {
 			return
 		}
-		defer func() {
-			// charged on the destination either way; refund whichever side
-			// no longer holds the file
-			side := ac.Vname
-			if c.Writer.Status() != http.StatusOK {
-				side = parts[0]
-			}
-			if err := srv.fsl.ReleaseSpace(context.WithoutCancel(c.Request.Context()), moved.UID, side, moved.Size); err != nil {
-				log.Printf("failed to settle quota after move: %v", err)
-			}
-		}()
 	}
 
 	if err := srv.storage.Copy(c.Request.Context(),
@@ -430,24 +408,17 @@ func (srv *UService) cpResourceHandler(c *gin.Context) {
 		UID: caller, GID: gid, Perms: ut.DefaultFilePerms,
 		CreatedAt: now, UpdatedAt: now, AccessedAt: now,
 	}
-	if !srv.claimSpace(c, caller, dst.Vname, dst.Size) {
+	if !srv.checkQuota(c, caller, dst.Vname, dst.Size) {
 		return
-	}
-	refund := func() {
-		if err := srv.fsl.ReleaseSpace(context.WithoutCancel(c.Request.Context()), caller, dst.Vname, dst.Size); err != nil {
-			log.Printf("failed to refund quota: %v", err)
-		}
 	}
 
 	if err := srv.storage.Copy(c.Request.Context(), ut.Resource{Name: ac.Target, Vname: ac.Vname}, dst); err != nil {
-		refund()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to copy object"})
 
 		return
 	}
 	// database
 	if err := srv.fsl.Copy(c.Request.Context(), ut.Resource{Name: ac.Target, Vname: ac.Vname}, dst); err != nil {
-		refund()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to record the copy"})
 
 		return
@@ -678,27 +649,31 @@ func (srv *UService) handleUpload(c *gin.Context) {
 			return
 		}
 
-		if !srv.claimSpace(c, uid, resource.Vname, resource.Size) {
+		// refuse early, before any bytes move
+		if !srv.checkQuota(c, uid, resource.Vname, resource.Size) {
 			return
 		}
-		refund := func() {
-			if err := srv.fsl.ReleaseSpace(context.WithoutCancel(c.Request.Context()), uid, resource.Vname, resource.Size); err != nil {
-				log.Printf("failed to refund quota: %v", err)
-			}
-		}
-
+		// object first, record last: a failure in between leaves only an
+		// orphan object (invisible, collectable), never a record without data
 		err = srv.storage.Insert(c.Request.Context(), resource)
 		if err != nil {
-			refund()
 			log.Printf("failed to insert resources: %v", err)
 			c.JSON(422, gin.H{"error": "failed to insert resources"})
 
 			return
 		}
-		// defer cancelFn()
-		err = srv.fsl.Insert(c.Request.Context(), resource)
-		if err != nil {
-			refund()
+		// the quota is checked again atomically with the insert (a
+		// concurrent upload may have taken the space since the pre-check)
+		quota := min(srv.config.LocalVolumesDefaultCapacity, maxDefaultVolumeCapacity)
+		if err := srv.fsl.InsertResource(c.Request.Context(), resource, quota, true); err != nil {
+			if rmErr := srv.storage.Remove(context.WithoutCancel(c.Request.Context()), resource); rmErr != nil {
+				log.Printf("failed to remove the object of a refused upload: %v", rmErr)
+			}
+			if errors.Is(err, fslite.ErrQuotaExceeded) || errors.Is(err, fslite.ErrVolumeFull) {
+				c.JSON(http.StatusInsufficientStorage, gin.H{"error": err.Error()})
+
+				return
+			}
 			log.Printf("failed to insert resources to db: %v", err)
 			c.JSON(422, gin.H{"error": "failed to insert resources"})
 
@@ -984,11 +959,11 @@ func primaryGID(ac ut.AccessClaim, fallback int64) int64 {
 	return fallback
 }
 
-// claimSpace charges size bytes to uid on volume, answering 507 (and
-// returning false) when that would exceed the user's quota or the volume.
-func (srv *UService) claimSpace(c *gin.Context, uid int64, volume string, size int64) bool {
+// checkQuota reports whether size more bytes owned by uid fit on volume,
+// answering 507 (and returning false) when they don't.
+func (srv *UService) checkQuota(c *gin.Context, uid int64, volume string, size int64) bool {
 	quota := min(srv.config.LocalVolumesDefaultCapacity, maxDefaultVolumeCapacity)
-	err := srv.fsl.ClaimSpace(c.Request.Context(), uid, volume, size, quota, true)
+	err := srv.fsl.CheckSpace(c.Request.Context(), uid, volume, size, quota)
 	switch {
 	case err == nil:
 		return true

@@ -21,13 +21,13 @@ func TestGroupVolumeQuotaIsTheGroups(t *testing.T) {
 	}
 
 	// two members share the group's 2 GB; their personal quota (1 GB) doesn't apply
-	if err := fsl.ClaimSpace(ctx, 1001, "team", gb+gb/2, 1, true); err != nil {
+	if err := fsl.InsertResource(ctx, file("m1", "team", 1001, gb+gb/2), 1, true); err != nil {
 		t.Fatalf("member 1: %v", err)
 	}
-	if err := fsl.ClaimSpace(ctx, 1002, "team", gb/2, 1, true); err != nil {
+	if err := fsl.InsertResource(ctx, file("m2", "team", 1002, gb/2), 1, true); err != nil {
 		t.Fatalf("member 2: %v", err)
 	}
-	if err := fsl.ClaimSpace(ctx, 1002, "team", 1, 1, true); !errors.Is(err, ErrQuotaExceeded) {
+	if err := fsl.InsertResource(ctx, file("m3", "team", 1002, 1), 1, true); !errors.Is(err, ErrQuotaExceeded) {
 		t.Fatalf("past the group quota: %v, want ErrQuotaExceeded", err)
 	}
 	if gv, _ = fsl.GroupVolume(ctx, "team"); gv.Usage != 2 {
@@ -35,7 +35,7 @@ func TestGroupVolumeQuotaIsTheGroups(t *testing.T) {
 	}
 
 	// and the group volume never touched the members' own accounts
-	if err := fsl.ClaimSpace(ctx, 1001, "personal", gb, 1, true); err != nil {
+	if err := fsl.InsertResource(ctx, file("p1", "personal", 1001, gb), 1, true); err != nil {
 		t.Errorf("member's personal quota was charged for the group volume: %v", err)
 	}
 	uvs, err := fsl.selectUserVolumes(ctx, map[string]any{"uids": "1001"})
@@ -48,12 +48,12 @@ func TestGroupVolumeQuotaIsTheGroups(t *testing.T) {
 		}
 	}
 
-	// releases go back to the group
-	if err := fsl.ReleaseSpace(ctx, 1002, "team", gb); err != nil {
+	// deleting a member's file frees the group's space
+	if err := fsl.Remove(ctx, ut.Resource{Name: "m2", Vname: "team"}); err != nil {
 		t.Fatal(err)
 	}
-	if gv, _ = fsl.GroupVolume(ctx, "team"); gv.Usage != 1 {
-		t.Errorf("group usage after release = %v GB, want 1", gv.Usage)
+	if gv, _ = fsl.GroupVolume(ctx, "team"); gv.Usage != 1.5 {
+		t.Errorf("group usage after a delete = %v GB, want 1.5", gv.Usage)
 	}
 
 	// changing the quota is allowed while it holds files

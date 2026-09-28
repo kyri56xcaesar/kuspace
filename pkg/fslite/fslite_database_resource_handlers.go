@@ -77,7 +77,7 @@ func normalizeStoredNames(ctx context.Context, db *sql.DB) (int64, error) {
 	return res.RowsAffected()
 }
 
-func insertResource(ctx context.Context, db *sql.DB, resource ut.Resource) error {
+func insertResource(ctx context.Context, db querier, resource ut.Resource) error {
 	resource.Name = NormalizeName(resource.Name)
 	query := `
     INSERT INTO 
@@ -104,6 +104,9 @@ func insertResource(ctx context.Context, db *sql.DB, resource ut.Resource) error
 // ErrResourceExists is returned when a resource with that name already exists in the volume
 // (enforced by the unique (vname, name) index).
 var ErrResourceExists = errors.New("resource already exists")
+
+// ErrResourceNotFound is returned when no resource has that name in the volume.
+var ErrResourceNotFound = errors.New("resource not found")
 
 // ErrVolumeExists is returned when a volume with that name already exists.
 var ErrVolumeExists = errors.New("volume already exists")
@@ -664,30 +667,13 @@ func deleteResourceByName(ctx context.Context, db *sql.DB, name string) error {
 }
 
 func deleteResourceByNameAndVolume(ctx context.Context, db *sql.DB, name, volume string) error {
-	tx, err := db.BeginTx(ctx, nil)
+	name = NormalizeName(name) // it used to match raw names: "a.txt" deleted nothing and reported success
+	res, err := db.ExecContext(ctx, "DELETE FROM resources WHERE name = ? AND vname = ?", name, volume)
 	if err != nil {
-		log.Printf("[FSL_DB_delResByNameVolume] error starting transaction: %v", err)
-
-		return fmt.Errorf("failed to begin transaction: %w", err)
+		return fmt.Errorf("delete resource: %w", err)
 	}
-
-	res, err := tx.ExecContext(ctx, "DELETE FROM resources WHERE name = ? AND vname = ?", name, volume)
-	if err != nil {
-		log.Printf("[FSL_DB_delResByNameVolume] failed to execute query: %v", err)
-
-		return fmt.Errorf("failed to execute transaction: %w", err)
-	}
-
-	_, err = res.RowsAffected()
-	if err != nil {
-		log.Printf("[FSL_DB_delResByNameVolume] failed to get rows affected")
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		log.Printf("[FSL_DB_delResByNameVolume] failed to commit transaction: %v", err)
-
-		return fmt.Errorf("failed to commit transaction: %w", err)
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("%w: %s in %s", ErrResourceNotFound, name, volume)
 	}
 
 	return nil

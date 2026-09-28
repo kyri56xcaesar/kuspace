@@ -11,10 +11,10 @@ ownership and permissions, per-user quotas on each volume. It is used in two way
 ## Data model
 
 ```
-volumes       vid, name (unique), path, capacity (GB), usage (GB), createdAt
+volumes       vid, name (unique), path, capacity (GB), createdAt (usage: computed)
 resources     rid, vid → volumes, vname, name, type, size, perms "rw-r-----",
               uid, gid, timestamps; UNIQUE (vname, name)
-user_volume   vid, uid, quota (GB), usage (GB)   one row per user per volume
+user_volume   vid, uid, quota (GB)   one row per user per volume (usage: computed)
 user_admin    the standalone server's admin accounts (bcrypt)
 ```
 
@@ -30,7 +30,8 @@ fsl := fslite.NewFsLite(cfg)
 err := fsl.CreateVolume(ctx, ut.Volume{Name: "data", Capacity: 10})
 err  = fsl.Insert(ctx, ut.Resource{Name: "a.csv", Vname: "data", VID: vid, UID: 1000, GID: 1000})
 res, err := fsl.SelectObjects(ctx, map[string]any{"name": "a.csv", "volume": "data"})
-err  = fsl.ClaimSpace(ctx, uid, "data", sizeBytes, defaultQuotaGB, true) // quota check + charge, one transaction
+err  = fsl.CheckSpace(ctx, uid, "data", sizeBytes, defaultQuotaGB)             // pre-check, nothing written
+err  = fsl.InsertResource(ctx, r, defaultQuotaGB, true)                     // quota check + insert, one transaction
 ```
 
 `Insert` accepts a `ut.Resource`, `[]ut.Resource`, `ut.UserVolume` or
@@ -40,10 +41,14 @@ err  = fsl.ClaimSpace(ctx, uid, "data", sizeBytes, defaultQuotaGB, true) // quot
 |---|---|
 | `ErrResourceExists` | the name is taken in that volume (the unique index decides, so concurrent inserts of one name leave exactly one row) |
 | `ErrVolumeExists` | a volume with that name exists |
-| `ErrQuotaExceeded`, `ErrVolumeFull` | `ClaimSpace` with `enforce` refused the write |
+| `ErrQuotaExceeded`, `ErrVolumeFull` | `CheckSpace` / `InsertResource` refused the write |
+| `ErrResourceNotFound` | a delete matched nothing |
 
+Usage is not stored: it is the sum of the record sizes (the `volume_usage` and
+`user_volume_usage` views compute it), so it can never drift from the files.
 Concurrency comes from SQLite, not from Go locks: the unique index settles
-duplicate names, and quota changes run in one transaction each.
+duplicate names, and `InsertResource` checks the quota and inserts in one
+transaction that takes the write lock up front.
 
 ## Standalone server
 

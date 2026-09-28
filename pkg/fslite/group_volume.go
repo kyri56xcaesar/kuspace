@@ -16,7 +16,7 @@ import (
 	there is charged to the group's quota on that volume, never to their
 	personal (user_volume) quotas, and the volume's other quotas don't apply.
 	Who may write there (members) is uspace's decision; fslite keeps the
-	assignment and the accounting (ClaimSpace/ReleaseSpace branch on it).
+	assignment; the quota checks (quota.go) branch on it.
 */
 
 var (
@@ -157,7 +157,9 @@ func (fsl *FsLite) queryGroupVolumes(ctx context.Context, where string, args ...
 		return nil, err
 	}
 	rows, err := db.QueryContext(ctx, `
-		SELECT g.vid, v.name, g.gid, g.usage, g.quota, COALESCE(g.updatedAt, '')
+		SELECT g.vid, v.name, g.gid,
+		       COALESCE((SELECT SUM(r.size) FROM resources r WHERE r.vid = g.vid), 0) / 1e9,
+		       g.quota, COALESCE(g.updatedAt, '')
 		FROM group_volume g JOIN volumes v ON v.vid = g.vid `+where+` ORDER BY v.name`, args...)
 	if err != nil {
 		return nil, err

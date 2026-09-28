@@ -21,10 +21,7 @@ import (
 /* database call handlers regarding the Volume table */
 func getAllVolumes(ctx context.Context, db *sql.DB) ([]ut.Volume, error) {
 	rows, err := db.QueryContext(ctx, `
-    SELECT
-      *
-    FROM 
-      volumes`)
+    SELECT * FROM volume_usage`)
 	if err != nil {
 		log.Printf("[FSL_DB_getVolumes] error querying db: %v", err)
 
@@ -59,7 +56,7 @@ func getAllVolumes(ctx context.Context, db *sql.DB) ([]ut.Volume, error) {
 
 func getVolumeByVid(ctx context.Context, db *sql.DB, vid int) (ut.Volume, error) {
 	var volume ut.Volume
-	err := db.QueryRowContext(ctx, `SELECT * FROM volumes WHERE vid = ?`, vid).Scan(volume.PtrFields()...)
+	err := db.QueryRowContext(ctx, `SELECT * FROM volume_usage WHERE vid = ?`, vid).Scan(volume.PtrFields()...)
 	if err != nil {
 		log.Printf("[FSL_DB_getVolumeByVid] failed to scan result query: %v", err)
 
@@ -71,7 +68,7 @@ func getVolumeByVid(ctx context.Context, db *sql.DB, vid int) (ut.Volume, error)
 
 func getVolumeByName(ctx context.Context, db *sql.DB, name string) (ut.Volume, error) {
 	var volume ut.Volume
-	err := db.QueryRowContext(ctx, `SELECT * FROM volumes WHERE name = ?`, name).Scan(volume.PtrFields()...)
+	err := db.QueryRowContext(ctx, `SELECT * FROM volume_usage WHERE name = ?`, name).Scan(volume.PtrFields()...)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ut.Volume{}, errors.New("empty") // or return a custom error
 	} else if err != nil {
@@ -81,26 +78,6 @@ func getVolumeByName(ctx context.Context, db *sql.DB, name string) (ut.Volume, e
 	}
 
 	return volume, nil
-}
-
-func updateVolume(ctx context.Context, db *sql.DB, volume ut.Volume) error {
-	query := `
-		UPDATE 
-			volumes
-		SET
-			name = ?, path = ?, dynamic = ?, capacity = ?, usage = ?
-		WHERE
-			vid = ?;
-	`
-
-	_, err := db.ExecContext(ctx, query, volume.Name, volume.Path, volume.Dynamic, volume.Capacity, volume.Usage, volume.VID)
-	if err != nil {
-		log.Printf("[FSL_DB_updateVolume] error on query execution: %v", err)
-
-		return fmt.Errorf("[fsl] failed to execute query %w", err)
-	}
-
-	return nil
 }
 
 func deleteVolume(ctx context.Context, db *sql.DB, vid int64) error {
@@ -160,84 +137,6 @@ func insertVolume(ctx context.Context, db *sql.DB, volume ut.Volume) error {
 		log.Printf("[FSL_DB_insertVolume] error upon executing insert query: %v", err)
 
 		return fmt.Errorf("[fsl] failed to execute query %w", err)
-	}
-
-	return nil
-}
-
-func insertVolumes(ctx context.Context, db *sql.DB, volumes []ut.Volume) error {
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		log.Printf("[FSL_DB_insertVolumes] error starting transaction: %v", err)
-
-		return fmt.Errorf("[fsl] failed to start transaction %w", err)
-	}
-
-	placeholder := strings.Repeat("(?, ?, ?, ?, ?, ?),", len(volumes))
-	query := "\n INSERT INTO \n\t\tvolumes (name, path, dynamic, capacity, usage, createdAt) \n    VALUES " + placeholder[:len(placeholder)-1]
-
-	stmt, err := tx.PrepareContext(ctx, query)
-	if err != nil {
-		log.Printf("[FSL_DB_insertVolumes] error preparing transaction: %v", err)
-
-		return fmt.Errorf("[fsl] failed to prepare transaction %w", err)
-	}
-	defer func() {
-		err := stmt.Close()
-		if err != nil {
-			log.Printf("failed to close statement: %v", err)
-		}
-	}()
-
-	for _, v := range volumes {
-		_, err = stmt.ExecContext(ctx, v.Path, v.Capacity, v.Usage)
-		if err != nil {
-			log.Printf("[FSL_DB_insertVolumes] error executing transaction: %v", err)
-			err = tx.Rollback()
-			if err != nil {
-				log.Printf("[FSL_DB_insertVolumes] failed to rollback transaction")
-
-				return fmt.Errorf("[fsl] failed to rollback transaction %w", err)
-			}
-
-			return errors.New("[FSL_DB_insertVolumes] failed to execute query, rolling back")
-		}
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		log.Printf("failed to commit transaction: %v", err)
-
-		return fmt.Errorf("[fsl] failed to commit transaction %w", err)
-	}
-
-	return nil
-}
-
-func deleteVolumeByIDs(ctx context.Context, db *sql.DB, ids []int) error {
-	if ids == nil {
-		return errors.New("must provide ids")
-	}
-
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		log.Printf("[FSL_DB_delVolumeByIds] error starting transaction: %v", err)
-
-		return fmt.Errorf("[fsl] failed to start transaction %w", err)
-	}
-
-	res, err := tx.ExecContext(ctx, "DELETE FROM volumes WHERE vid IN (?)", ids)
-	if err != nil {
-		log.Printf("[FSL_DB_delVolumeByIds] failed to exec deletion query: %v", err)
-
-		return fmt.Errorf("[fsl] failed to execute query %w", err)
-	}
-
-	_, err = res.RowsAffected()
-	if err != nil {
-		log.Printf("[FSL_DB_delVolumeByIds] failed to retrieve rows affected: %v", err)
-
-		return fmt.Errorf("[fsl] failed to retrieve rows affected %w", err)
 	}
 
 	return nil
@@ -317,95 +216,8 @@ func insertUserVolumes(ctx context.Context, db *sql.DB, uvs []ut.UserVolume) err
 	return nil
 }
 
-func deleteUserVolumeByUID(ctx context.Context, db *sql.DB, uid int) error {
-	query := `DELETE FROM user_volume WHERE uid = ?`
-	_, err := db.ExecContext(ctx, query, uid)
-	if err != nil {
-		return fmt.Errorf("failed to delete user volume: %w", err)
-	}
-
-	return nil
-}
-
-func deleteUserVolumeByVid(ctx context.Context, db *sql.DB, vid int) error {
-	_, err := db.ExecContext(ctx, "DELETE FROM user_volume WHERE vid = ?", vid)
-	if err != nil {
-		return fmt.Errorf("failed to delete user volume: %w", err)
-	}
-
-	return nil
-}
-
-func updateUserVolume(ctx context.Context, db *sql.DB, uv ut.UserVolume) error {
-	query := `
-		UPDATE user_volume
-		SET usage = ?, quota = ?, updatedAt = ?
-		WHERE vid = ? AND uid = ?
-	`
-	_, err := db.ExecContext(ctx, query, uv.Usage, uv.Quota, ut.CurrentTime(), uv.VID, uv.UID)
-	if err != nil {
-		return fmt.Errorf("failed to update user volume: %w", err)
-	}
-
-	return nil
-}
-
-func updateUserVolumeQuotaByUID(ctx context.Context, db *sql.DB, quota float32, uid int) error {
-	query := `UPDATE user_volume SET quota = ? WHERE uid = ?`
-	res, err := db.ExecContext(ctx, query, quota, uid)
-	if err != nil {
-		log.Printf("[FSL_DB_updateUvQuotaByUid] failed to exec query: %v", err)
-
-		return fmt.Errorf("[fsl] failed to execute query %w", err)
-	}
-	_, err = res.RowsAffected()
-	if err != nil {
-		log.Printf("[FSL_DB_updateUvQuotaByUid] failed to retrieve info about rows affected")
-
-		return fmt.Errorf("[fsl] failed to retrieve rows affected %w", err)
-	}
-
-	return nil
-}
-
-func updateUserVolumeUsageByUID(ctx context.Context, db *sql.DB, usage float32, uid int) error {
-	query := `UPDATE user_volume SET usage = ? WHERE uid = ?`
-	res, err := db.ExecContext(ctx, query, usage, uid)
-	if err != nil {
-		log.Printf("[FSL_DB_updateUvUsageByUid] failed to exec query: %v", err)
-
-		return fmt.Errorf("[fsl] failed to execute query %w", err)
-	}
-	_, err = res.RowsAffected()
-	if err != nil {
-		log.Printf("[FSL_DB_updateUvUsageByUid] failed to retrieve info about rows affected")
-
-		return fmt.Errorf("[fsl] failed to retrieve rows affected %w", err)
-	}
-
-	return nil
-}
-
-func updateUserVolumeQuotaAndUsageByUID(ctx context.Context, db *sql.DB, usage, quota float32, uid int) error {
-	query := `UPDATE user_volume SET usage = ?, quota = ? WHERE uid = ?`
-	res, err := db.ExecContext(ctx, query, usage, quota, uid)
-	if err != nil {
-		log.Printf("[FSL_DB_updateUvQuotaUsageByUid] failed to exec query: %v", err)
-
-		return fmt.Errorf("[fsl] failed to execute query %w", err)
-	}
-	_, err = res.RowsAffected()
-	if err != nil {
-		log.Printf("[FSL_DB_updateUvQuotaUsageByUid] failed to retrieve info about rows affected")
-
-		return fmt.Errorf("[fsl] failed to retrieve rows affected %w", err)
-	}
-
-	return nil
-}
-
 func getAllUserVolumes(ctx context.Context, db *sql.DB) (any, error) {
-	query := `SELECT * FROM user_volume`
+	query := `SELECT * FROM user_volume_usage`
 	rows, err := db.QueryContext(ctx, query, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query user volumes: %w", err)
@@ -432,21 +244,10 @@ func getAllUserVolumes(ctx context.Context, db *sql.DB) (any, error) {
 	return userVolumes, nil
 }
 
-func getUserVolumeByUID(ctx context.Context, db *sql.DB, uid int64) (ut.UserVolume, error) {
-	query := `SELECT * FROM user_volume WHERE uid = ?`
-	var userVolume ut.UserVolume
-	err := db.QueryRowContext(ctx, query, uid).Scan(userVolume.PtrFields()...)
-	if err != nil {
-		return ut.UserVolume{}, fmt.Errorf("failed to query user volume: %w", err)
-	}
-
-	return userVolume, nil
-}
-
 func getUserVolumesByUserIDs(ctx context.Context, db *sql.DB, uids []string) (any, error) {
-	query := `SELECT * FROM user_volume WHERE uid IN (?` + strings.Repeat(",?", len(uids)-1) + `)`
+	query := `SELECT * FROM user_volume_usage WHERE uid IN (?` + strings.Repeat(",?", len(uids)-1) + `)`
 	if len(uids) == 1 && uids[0] == "*" {
-		query = `SELECT * FROM user_volume;`
+		query = `SELECT * FROM user_volume_usage;`
 	}
 	args := make([]any, len(uids))
 	for i, uid := range uids {
@@ -479,9 +280,9 @@ func getUserVolumesByUserIDs(ctx context.Context, db *sql.DB, uids []string) (an
 }
 
 func getUserVolumesByVolumeIDs(ctx context.Context, db *sql.DB, vids []string) (any, error) {
-	query := `SELECT * FROM user_volume WHERE vid IN (?` + strings.Repeat(",?", len(vids)-1) + `)`
+	query := `SELECT * FROM user_volume_usage WHERE vid IN (?` + strings.Repeat(",?", len(vids)-1) + `)`
 	if len(vids) == 1 && vids[0] == "*" {
-		query = `SELECT * FROM user_volume;`
+		query = `SELECT * FROM user_volume_usage;`
 	}
 	args := make([]any, len(vids))
 	for i, uid := range vids {
@@ -514,8 +315,7 @@ func getUserVolumesByVolumeIDs(ctx context.Context, db *sql.DB, vids []string) (
 }
 
 func getUserVolumesByUidsAndVids(ctx context.Context, db *sql.DB, uids, vids []string) (any, error) {
-	query := `SELECT * FROM 
-      userVolume 
+	query := `SELECT * FROM user_volume_usage
     WHERE 
       vid IN (?` + strings.Repeat(",?", len(vids)-1) + `)
     AND 

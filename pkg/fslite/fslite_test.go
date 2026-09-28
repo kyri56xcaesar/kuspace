@@ -74,50 +74,104 @@ const gb = int64(1_000_000_000)
 
 var ctx = context.Background()
 
-func TestClaimSpace(t *testing.T) {
+// file is a resource of size bytes owned by uid on volume.
+func file(name, volume string, uid, size int64) ut.Resource {
+	now := ut.CurrentTime()
+
+	return ut.Resource{Name: name, Vname: volume, UID: uid, GID: uid, Size: size, Type: "file",
+		Perms: ut.DefaultFilePerms, CreatedAt: now, UpdatedAt: now, AccessedAt: now}
+}
+
+// Usage is the sum of the records: inserting charges, deleting frees, and
+// there is no counter to fall out of step.
+func TestQuotaFollowsRecords(t *testing.T) {
 	fsl := newTestFsl(t)
 	mustVolume(t, fsl, "volume1", 0) // capacity 0 = unlimited
 
 	// no claim yet: one is created with the default quota (2 GB)
-	if err := fsl.ClaimSpace(ctx, 1001, "volume1", gb, 2, true); err != nil {
-		t.Fatalf("first claim: %v", err)
+	for _, name := range []string{"a", "b"} {
+		if err := fsl.InsertResource(ctx, file(name, "volume1", 1001, gb), 2, true); err != nil {
+			t.Fatalf("insert %s: %v", name, err)
+		}
 	}
-	if err := fsl.ClaimSpace(ctx, 1001, "volume1", gb, 2, true); err != nil {
-		t.Fatalf("up to the quota: %v", err)
+	if err := fsl.InsertResource(ctx, file("c", "volume1", 1001, 1), 2, true); !errors.Is(err, ErrQuotaExceeded) {
+		t.Fatalf("past the quota: %v, want ErrQuotaExceeded", err)
 	}
-	if err := fsl.ClaimSpace(ctx, 1001, "volume1", 1, 2, true); !errors.Is(err, ErrQuotaExceeded) {
-		t.Fatalf("past the quota: got %v, want ErrQuotaExceeded", err)
+	if _, ok := lookup(t, fsl, "c", "volume1"); ok {
+		t.Fatal("a refused file was recorded")
 	}
-	// recording without enforcement (e.g. a finished job's output) still works
-	if err := fsl.ClaimSpace(ctx, 1001, "volume1", gb, 2, false); err != nil {
-		t.Fatalf("unenforced claim: %v", err)
+	if err := fsl.CheckSpace(ctx, 1001, "volume1", 1, 2); !errors.Is(err, ErrQuotaExceeded) {
+		t.Errorf("pre-check: %v", err)
 	}
-	// releases give space back, never below zero
-	if err := fsl.ReleaseSpace(ctx, 1001, "volume1", 10*gb); err != nil {
-		t.Fatalf("release: %v", err)
+	// without enforcement (e.g. a finished job's output) it is recorded anyway
+	if err := fsl.InsertResource(ctx, file("d", "volume1", 1001, gb), 2, false); err != nil {
+		t.Fatalf("unenforced insert: %v", err)
 	}
-	if err := fsl.ClaimSpace(ctx, 1001, "volume1", 2*gb, 2, true); err != nil {
-		t.Fatalf("after release: %v", err)
+	uvs, _ := fsl.selectUserVolumes(ctx, map[string]any{"uids": "1001"})
+	if u := uvs.([]ut.UserVolume); len(u) != 1 || u[0].Usage != 3 || u[0].Quota != 2 {
+		t.Errorf("user volume = %+v, want usage 3 GB, quota 2", u)
+	}
+	// deleting frees space - nothing to release by hand
+	for _, name := range []string{"a", "b", "d"} {
+		if err := fsl.Remove(ctx, ut.Resource{Name: name, Vname: "volume1"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := fsl.InsertResource(ctx, file("c", "volume1", 1001, 2*gb), 2, true); err != nil {
+		t.Fatalf("after deletes: %v", err)
 	}
 	// root is never limited
-	if err := fsl.ClaimSpace(ctx, 0, "volume1", 1000*gb, 2, true); err != nil {
+	if err := fsl.InsertResource(ctx, file("big", "volume1", 0, 1000*gb), 2, true); err != nil {
 		t.Fatalf("root: %v", err)
 	}
-	// unknown volume
-	if err := fsl.ClaimSpace(ctx, 1001, "nope", 1, 2, true); err == nil {
-		t.Fatal("claim on a missing volume succeeded")
+	v, _ := fsl.SelectVolumes(ctx, map[string]any{"name": "volume1"})
+	if got := v.(ut.Volume).Usage; got != 1002 {
+		t.Errorf("volume usage = %v GB, want 1002", got)
+	}
+	if err := fsl.InsertResource(ctx, file("x", "nope", 1001, 1), 2, true); err == nil {
+		t.Fatal("insert on a missing volume succeeded")
 	}
 }
 
-func TestClaimSpaceVolumeCapacity(t *testing.T) {
+func TestVolumeCapacity(t *testing.T) {
 	fsl := newTestFsl(t)
 	mustVolume(t, fsl, "small", 1) // 1 GB volume
 
-	if err := fsl.ClaimSpace(ctx, 1001, "small", gb, 0, true); err != nil { // quota 0 = unlimited
+	if err := fsl.InsertResource(ctx, file("a", "small", 1001, gb), 0, true); err != nil { // quota 0 = unlimited
 		t.Fatalf("fill the volume: %v", err)
 	}
-	if err := fsl.ClaimSpace(ctx, 1002, "small", 1, 0, true); !errors.Is(err, ErrVolumeFull) {
-		t.Fatalf("past capacity: got %v, want ErrVolumeFull", err)
+	if err := fsl.InsertResource(ctx, file("b", "small", 1002, 1), 0, true); !errors.Is(err, ErrVolumeFull) {
+		t.Fatalf("past capacity: %v, want ErrVolumeFull", err)
+	}
+}
+
+// The check and the insert are one transaction holding the write lock:
+// concurrent uploads can't all see the same free space.
+func TestConcurrentInsertsRespectQuota(t *testing.T) {
+	fsl := newTestFsl(t)
+	mustVolume(t, fsl, "volume1", 0)
+	const n = 20
+	errs := make(chan error, n)
+	var start sync.WaitGroup
+	start.Add(1)
+	for i := range n {
+		go func() {
+			start.Wait()
+			errs <- fsl.InsertResource(ctx, file("f"+strconv.Itoa(i), "volume1", 1001, gb/5), 1, true) // 0.2 GB of 1 GB
+		}()
+	}
+	start.Done()
+	ok := 0
+	for range n {
+		switch err := <-errs; {
+		case err == nil:
+			ok++
+		case !errors.Is(err, ErrQuotaExceeded):
+			t.Errorf("unexpected error: %v", err)
+		}
+	}
+	if ok != 5 {
+		t.Fatalf("%d concurrent 0.2 GB inserts fit a 1 GB quota, want exactly 5", ok)
 	}
 }
 
