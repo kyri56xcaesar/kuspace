@@ -18,7 +18,9 @@ func securityMiddleWare(c *gin.Context) {
 	// 'unsafe-inline' scripts are still required by the inline onclick handlers
 	// in the templates; drop it once the frontend no longer uses them.
 	c.Header("Content-Security-Policy",
-		"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "+
+		// no 'unsafe-inline': pages carry no inline scripts, handlers or style
+		// attributes, so injected markup can't run code
+		"default-src 'self'; script-src 'self'; style-src 'self'; "+
 			"img-src 'self' data:; font-src 'self'; connect-src 'self' ws: wss:; "+
 			"object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'")
 	// HSTS only means something over HTTPS; sent on plain-HTTP localhost it

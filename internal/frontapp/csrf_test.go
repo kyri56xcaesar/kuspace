@@ -81,3 +81,11 @@ func TestLogoutClearsOnlyTheSession(t *testing.T) {
 		}
 	}
 }
+
+func TestStrictCSP(t *testing.T) {
+	h := newFrontHarness(t)
+	csp := h.do(http.MethodGet, "/api/v1/login", nil, nil, nil).Header().Get("Content-Security-Policy")
+	if strings.Contains(csp, "unsafe-inline") || strings.Contains(csp, "unsafe-eval") || !strings.Contains(csp, "script-src 'self';") {
+		t.Errorf("CSP = %q", csp)
+	}
+}
