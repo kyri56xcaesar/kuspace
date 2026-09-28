@@ -301,6 +301,8 @@ func (srv *HTTPService) routes() {
 
 			admin.POST("/volumeadd", srv.handleVolumeadd)
 			admin.DELETE("/volumedel", srv.handleVolumedel)
+			admin.Match([]string{"GET", "PATCH", "DELETE"}, "/user-volumes", srv.handleUserVolumesAdmin)
+			admin.Match([]string{"GET", "POST", "DELETE"}, "/group-volumes", srv.handleGroupVolumesAdmin)
 
 			admin.POST("/hasher", srv.handleHasher)
 		}

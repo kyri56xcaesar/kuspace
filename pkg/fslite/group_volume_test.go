@@ -117,3 +117,43 @@ func TestGroupVolumeAssignmentRules(t *testing.T) {
 		t.Errorf("assignment outlived its volume: %+v", gvs)
 	}
 }
+
+func TestPersonalQuotas(t *testing.T) {
+	fsl := newTestFsl(t)
+	mustVolume(t, fsl, "data", 0)
+	mustVolume(t, fsl, "team", 0)
+	if _, err := fsl.AssignGroupVolume(ctx, "team", 500, 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := fsl.InsertResource(ctx, file("a", "data", 1001, gb/2), 1, true); err != nil {
+		t.Fatal(err)
+	}
+
+	uv, err := fsl.SetUserQuota(ctx, "data", 1001, 3)
+	if err != nil || uv.Quota != 3 || uv.Usage != 0.5 || uv.Vname != "data" {
+		t.Fatalf("set quota: %+v, %v", uv, err)
+	}
+	if err := fsl.InsertResource(ctx, file("b", "data", 1001, 2*gb), 1, true); err != nil {
+		t.Errorf("2 GB more should fit a 3 GB quota: %v", err)
+	}
+	if _, err := fsl.SetUserQuota(ctx, "team", 1001, 3); !errors.Is(err, ErrSharedVolume) || ut.HTTPStatus(err) != 400 {
+		t.Errorf("personal quota on a group volume: %v", err)
+	}
+	if _, err := fsl.SetUserQuota(ctx, "nope", 1001, 3); !errors.Is(err, ut.ErrNotFound) {
+		t.Errorf("missing volume: %v", err)
+	}
+	uvs, err := fsl.UserVolumes(ctx, nil, "data")
+	if err != nil || len(uvs) != 1 || uvs[0].UID != 1001 {
+		t.Errorf("list: %+v, %v", uvs, err)
+	}
+	if err := fsl.ResetUserQuota(ctx, "data", 1001); err != nil {
+		t.Fatal(err)
+	}
+	if err := fsl.ResetUserQuota(ctx, "data", 1001); !errors.Is(err, ut.ErrNotFound) {
+		t.Errorf("second reset: %v", err)
+	}
+	// the default quota (1 GB) applies again: 2.5 GB used, nothing more fits
+	if err := fsl.InsertResource(ctx, file("c", "data", 1001, 1), 1, true); !errors.Is(err, ErrQuotaExceeded) {
+		t.Errorf("after reset: %v", err)
+	}
+}

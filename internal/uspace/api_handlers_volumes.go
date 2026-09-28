@@ -177,6 +177,7 @@ func (srv *UService) createVolume(ctx context.Context, v ut.Volume) error {
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Failure 405 {object} map[string]string "Method not allowed"
 //
+// @Router /admin/user/volume [get]
 // @Router /admin/user/volume [post]
 // @Router /admin/user/volume [patch]
 // @Router /admin/user/volume [delete]
@@ -238,8 +239,50 @@ func (srv *UService) handleUserVolumes(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusCreated, gin.H{"status": "inserted user volumes"})
-	case http.MethodDelete:
+	case http.MethodGet:
+		// ?uids=1,2 &volume=name: claims with their computed usage
+		var uids []int64
+		if raw := c.Query("uids"); raw != "" {
+			uids = callerGroups(ut.AccessClaim{Gids: raw}) // same "1,2,3" parsing
+		}
+		uvs, err := srv.fsl.UserVolumes(c.Request.Context(), uids, c.Query("volume"))
+		if err != nil {
+			respondErr(c, "list user quotas", err)
+
+			return
+		}
+		c.JSON(http.StatusOK, uvs)
 	case http.MethodPatch:
+		var req struct {
+			Vname string  `json:"vname" binding:"required"`
+			UID   int64   `json:"uid"   binding:"required"`
+			Quota float64 `json:"quota"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "need vname, uid and quota: " + err.Error()})
+
+			return
+		}
+		uv, err := srv.fsl.SetUserQuota(c.Request.Context(), req.Vname, req.UID, req.Quota)
+		if err != nil {
+			respondErr(c, "set the quota", err)
+
+			return
+		}
+		c.JSON(http.StatusOK, uv)
+	case http.MethodDelete:
+		uid, err := strconv.ParseInt(c.Query("uid"), 10, 64)
+		if err != nil || c.Query("volume") == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "need ?volume= and ?uid="})
+
+			return
+		}
+		if err := srv.fsl.ResetUserQuota(c.Request.Context(), c.Query("volume"), uid); err != nil {
+			respondErr(c, "reset the quota", err)
+
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "quota reset to the default"})
 
 	default:
 		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "method not allowed"})

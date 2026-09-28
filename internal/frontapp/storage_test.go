@@ -95,3 +95,30 @@ func TestUpstreamDown(t *testing.T) {
 		t.Errorf("readyz: %d %s", rec.Code, rec.Body)
 	}
 }
+
+func TestQuotaAdminRoutes(t *testing.T) {
+	h := newFrontHarness(t)
+	h.uspace.on("PATCH /api/v1/admin/user/volume", http.StatusOK, `{"vname":"vol1","uid":1001,"quota":5}`)
+	h.uspace.on("POST /api/v1/admin/group/volume", http.StatusOK, `{"vname":"team","gid":500,"quota":2}`)
+	h.uspace.on("DELETE /api/v1/admin/group/volume", http.StatusConflict, `{"error":"volume holds files (not empty)"}`)
+	admin := login(t, "1", "admin")
+	form := map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
+
+	rec := h.do(http.MethodPatch, "/api/v1/verified/admin/user-volumes", admin, strings.NewReader("vname=vol1&uid=1001&quota=5"), form)
+	if rec.Code != http.StatusOK || h.uspace.last(t).body != `{"quota":5,"uid":1001,"vname":"vol1"}` {
+		t.Errorf("set quota: %d, sent %s", rec.Code, h.uspace.last(t).body)
+	}
+	rec = h.do(http.MethodPost, "/api/v1/verified/admin/group-volumes", admin, strings.NewReader("vname=team&gid=500&quota=2"), form)
+	if rec.Code != http.StatusOK || !strings.Contains(h.uspace.last(t).body, `"gid":500`) {
+		t.Errorf("share: %d, sent %s", rec.Code, h.uspace.last(t).body)
+	}
+	if rec := h.do(http.MethodDelete, "/api/v1/verified/admin/group-volumes?volume=team", admin, nil, nil); rec.Code != http.StatusConflict {
+		t.Errorf("stop sharing a volume with files: %d", rec.Code)
+	}
+	if rec := h.do(http.MethodPost, "/api/v1/verified/admin/group-volumes", admin, strings.NewReader("vname=team"), form); rec.Code != http.StatusBadRequest {
+		t.Errorf("missing gid: %d", rec.Code)
+	}
+	if rec := h.do(http.MethodGet, "/api/v1/verified/admin/user-volumes", login(t, "1001", "user"), nil, nil); rec.Code != http.StatusForbidden {
+		t.Errorf("plain user: %d", rec.Code)
+	}
+}

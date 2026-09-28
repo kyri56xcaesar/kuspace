@@ -416,6 +416,7 @@ func (v *Volume) Validate(maxCapacity, fallbackCapacity float64, plusChars strin
 type UserVolume struct {
 	UpdatedAt string  `json:"updatedAt"`
 	VID       int64   `json:"vid"`
+	Vname     string  `json:"vname,omitempty"` // filled by listings, not stored
 	UID       int64   `json:"uid"`
 	Usage     float64 `json:"usage"`
 	Quota     float64 `json:"quota"`

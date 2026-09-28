@@ -335,3 +335,66 @@ func isAdmin(c *gin.Context) bool {
 
 	return false
 }
+
+// quotaForm is an admin's quota or sharing form (form fields or JSON).
+type quotaForm struct {
+	Vname string  `form:"vname" json:"vname"`
+	UID   int64   `form:"uid"   json:"uid"`
+	GID   int64   `form:"gid"   json:"gid"`
+	Quota float64 `form:"quota" json:"quota"`
+}
+
+// handleUserVolumesAdmin: users' personal quotas per volume (admins).
+//
+//	GET    ?uids=&volume=         list, with computed usage
+//	PATCH  vname, uid, quota(GB)  set a quota
+//	DELETE ?volume=&uid=          back to the default quota
+func (srv *HTTPService) handleUserVolumesAdmin(c *gin.Context) {
+	r := request{path: "/api/v1/admin/user/volume", method: c.Request.Method}
+	switch c.Request.Method {
+	case http.MethodGet:
+		r.query = url.Values{"uids": {c.Query("uids")}, "volume": {c.Query("volume")}}
+	case http.MethodPatch:
+		var f quotaForm
+		if err := c.ShouldBind(&f); err != nil || f.Vname == "" || f.UID <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "need vname, uid and quota"})
+
+			return
+		}
+		r.json = gin.H{"vname": f.Vname, "uid": f.UID, "quota": f.Quota}
+	case http.MethodDelete:
+		r.query = url.Values{"volume": {c.Query("volume")}, "uid": {c.Query("uid")}}
+	default:
+		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "method not supported"})
+
+		return
+	}
+	srv.relayCall(c, "user quotas", r)
+}
+
+// handleGroupVolumesAdmin: volumes shared by a group (admins).
+//
+//	GET                          list, with the group's usage and quota
+//	POST   vname, gid, quota(GB) share a volume with a group / change its quota
+//	DELETE ?volume=              stop sharing (only while empty)
+func (srv *HTTPService) handleGroupVolumesAdmin(c *gin.Context) {
+	r := request{path: "/api/v1/admin/group/volume", method: c.Request.Method}
+	switch c.Request.Method {
+	case http.MethodGet:
+	case http.MethodPost:
+		var f quotaForm
+		if err := c.ShouldBind(&f); err != nil || f.Vname == "" || f.GID <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "need vname, gid and quota"})
+
+			return
+		}
+		r.json = gin.H{"vname": f.Vname, "gid": f.GID, "quota": f.Quota}
+	case http.MethodDelete:
+		r.query = url.Values{"volume": {c.Query("volume")}}
+	default:
+		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "method not supported"})
+
+		return
+	}
+	srv.relayCall(c, "group volumes", r)
+}

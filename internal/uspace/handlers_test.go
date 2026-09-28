@@ -422,3 +422,40 @@ func TestSystemMetricsWithoutKubernetes(t *testing.T) {
 		t.Errorf("metrics: %d %s", rec.Code, rec.Body)
 	}
 }
+
+func TestUserQuotaAdmin(t *testing.T) {
+	a := newAPIHarness(t, 0.000001) // 1 kB default quota
+	admin := func(method, path, body string) *httptest.ResponseRecorder {
+		return a.do(method, path, "::/", "0:0", strings.NewReader(body), "application/json")
+	}
+	if rec := a.upload("vol1", "big.bin", strings.Repeat("x", 2000), "1001:1001"); rec.Code != http.StatusInsufficientStorage {
+		t.Fatalf("over the default quota: %d", rec.Code)
+	}
+	if rec := admin(http.MethodPatch, "/api/v1/admin/user/volume", `{"vname":"vol1","uid":1001,"quota":0.00001}`); rec.Code != http.StatusOK {
+		t.Fatalf("raise quota: %d %s", rec.Code, rec.Body)
+	}
+	if rec := a.upload("vol1", "big.bin", strings.Repeat("x", 2000), "1001:1001"); rec.Code != http.StatusOK {
+		t.Errorf("after raising the quota: %d %s", rec.Code, rec.Body)
+	}
+	rec := admin(http.MethodGet, "/api/v1/admin/user/volume?uids=1001", "")
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"vname":"vol1"`) || !strings.Contains(rec.Body.String(), `"quota":0.00001`) {
+		t.Errorf("list: %d %s", rec.Code, rec.Body)
+	}
+	if rec := admin(http.MethodPatch, "/api/v1/admin/user/volume", `{"vname":"vol1","uid":1001,"quota":-1}`); rec.Code != http.StatusBadRequest {
+		t.Errorf("negative quota: %d", rec.Code)
+	}
+	if rec := admin(http.MethodDelete, "/api/v1/admin/user/volume?volume=vol1&uid=1001", ""); rec.Code != http.StatusOK {
+		t.Errorf("reset: %d %s", rec.Code, rec.Body)
+	}
+	if rec := admin(http.MethodDelete, "/api/v1/admin/user/volume?volume=vol1&uid=1001", ""); rec.Code != http.StatusNotFound {
+		t.Errorf("second reset: %d", rec.Code)
+	}
+	// a plain user can't manage quotas
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/admin/user/volume", nil)
+	req.Header.Set("Authorization", "Bearer not-a-token")
+	rec = httptest.NewRecorder()
+	a.h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("unauthenticated: %d", rec.Code)
+	}
+}
