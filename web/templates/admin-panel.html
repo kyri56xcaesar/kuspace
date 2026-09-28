@@ -2,34 +2,24 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>kuSpace Admin Panel</title>
-  <!-- my styles , will be deduced to css.min-->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- htmx without eval / inline script execution, and without the <style> it would inject (strict CSP) -->
+  <meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"includeIndicatorStyles":false}'>
+  <title>kuSpace</title>
   <link rel="icon" href="../assets/logos/cropped.png">
+
+  <!-- styles -->
+  <link rel="stylesheet" href="../assets/fontawesome/css/all.min.css">
+  <link rel="stylesheet" href="../css/codemirror/codemirror.min.css">
+  <link rel="stylesheet" href="../css/codemirror/monokai.css">
   <link href="../css/styles.css" rel="stylesheet">
   <link href="../css/admin-panel.css" rel="stylesheet">
   <link href="../css/kuspace-ui.css" rel="stylesheet">
-  <script>
-    // apply the saved theme before first paint (no light flash in dark mode)
-    try { if (localStorage.getItem("darkMode") === "true") document.documentElement.classList.add("theme-dark"); } catch (e) {}
-  </script>
-  <!-- general use js -->
-  <script src="../js/index.js"></script>
-  <script src="../js/gshell.js"></script>
-  <script src="../js/fileUploadModule.js"></script>
-  <script src="../js/jobCodeInput.js"></script>
-  <script src="../js/admin-panel.js"></script>
-  <script src="../js/dashboard.js" defer></script>
 
-
-  <!-- font awesome icons (free)-->
-  <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"> -->
-  <link rel="stylesheet" href="../assets/fontawesome/css/all.min.css">
-  <!-- htmx-->
+  <!-- scripts: every script this page uses is included here (csrf.js must stay first) -->
+  <script src="/api/v1/js/csrf.js"></script>
+  <script src="../js/theme-boot.js"></script>
   <script src="../js/htmx/htmx.min.js"></script>
-  
-  <!-- Code Mirror -->
-  <link rel="stylesheet" href="../css/codemirror/codemirror.min.css">
-  <link rel="stylesheet" href="../css/codemirror/monokai.css">
   <script src="../js/codemirror/codemirror.min.js"></script>
   <script src="../js/codemirror/mode/python/python.js"></script>
   <script src="../js/codemirror/mode/sql/sql.js"></script>
@@ -37,465 +27,395 @@
   <script src="../js/codemirror/addon/edit/matchbrackets.js"></script>
   <script src="../js/codemirror/addon/edit/matchtags.js"></script>
   <script src="../js/codemirror/addon/edit/trailingspace.js"></script>
-
-
-  <!-- vfs render -->
+  <script src="../js/index.js"></script>
+  <script src="../js/gshell.js"></script>
+  <script src="../js/fileUploadModule.js"></script>
+  <script src="../js/jobCodeInput.js"></script>
+  <script src="../js/admin-panel.js"></script>
   <script src="../js/vfs.js"></script>
-
-
+  <script src="../js/ui-actions.js"></script>
+  <script src="../js/dashboard.js" defer></script>
 </head>
-<body class="darkened">
-  <!-- Sidebar -->
+<body class="darkened k-app">
   <div id="gshell-spawner">
     <div class="gshell-container" id="gshell-container"></div>
   </div>
-  
-  <div id="sidebar" class="sidebar">
+
+  <!-- Sidebar -->
+  <nav id="sidebar" class="sidebar" aria-label="Main">
     <div class="toggle-wrapper">
-      <button id="toggle-sidebar" class="sidebar-toggle">☰</button>
+      <button type="button" class="k-brand" data-show-section="dashboard" title="Dashboard">
+        <img src="../assets/logos/cropped.png" alt="">
+        <span class="k-brand-name nav-label">kuSpace</span>
+      </button>
+      <button id="toggle-sidebar" class="sidebar-toggle" type="button" aria-label="Collapse sidebar" title="Collapse sidebar">
+        <i class="fa-solid fa-angles-left" aria-hidden="true"></i>
+      </button>
     </div>
-    <!-- MAIN MENU -->
+
     <div class="sidebar-content-wrapper">
       <ul class="menu collapsing">
-        <!-- Execution Section (Empty for Now) -->
         <li class="menu-section">
-          <div class="section-title">KuSpace Hub</div>
-          <hr>
-          <div class="submenu-wrapper">
-            <ul class="submenu">
-              <li>
-                <div class="submenu-item-wrapper">
-                  <a href="#" onclick="showSection('dashboard')">
-                    <i class="fa-solid fa-chart-line"></i> Dashboard
-                  </a>
-                </div>
-              </li>
-
-              <li>
-                <div class="submenu-item-wrapper">
-                  <a href="#" onclick="showSection('job-browser')">
-                    <i class="fa-solid fa-list-check"></i> Job Browser
-                  </a>
-                </div>
-              </li>
-
-              <li>
-                <div class="submenu-item-wrapper">
-                  <a href="#" onclick="showSection('access-profile')">
-                    <i class="fa-solid fa-id-badge"></i> Access Profile
-                  </a>
-                </div>
-              </li>
-
-                {{ if not .elevated }}
-              <li>
-                <div class="submenu-item-wrapper">
-                  <a href="#" onclick="showSection('volumes')">
-                    <i class="fa-solid fa-bucket"></i>Volumes
-                  </a>
-                </div>
-              </li>
-              {{ end }}
-            </ul>
-          </div>
+          <div class="section-title">Workspace</div>
+          <ul class="submenu">
+            <li><button type="button" class="k-nav is-active" data-show-section="dashboard" title="Dashboard"><i class="fa-solid fa-chart-line" aria-hidden="true"></i><span class="nav-label">Dashboard</span></button></li>
+            <li><button type="button" class="k-nav" data-show-section="job-browser" title="Job Browser"><i class="fa-solid fa-list-check" aria-hidden="true"></i><span class="nav-label">Job Browser</span></button></li>
+            <li><button type="button" class="k-nav" data-show-section="access-profile" title="Access Profile"><i class="fa-solid fa-id-badge" aria-hidden="true"></i><span class="nav-label">Access Profile</span></button></li>
+            {{ if not .elevated }}
+            <li><button type="button" class="k-nav" data-show-section="volumes" title="Volumes"><i class="fa-solid fa-bucket" aria-hidden="true"></i><span class="nav-label">Volumes</span></button></li>
+            {{ end }}
+          </ul>
         </li>
-        <hr>
-        <!-- Administration Section -->
+
         {{ if .elevated }}
         <li class="menu-section">
-          <div class="section-title">Admin Hub</div>
-          <hr>
-          <div class="submenu-wrapper">
-            <ul class="submenu">
-              <li>
-                <div class="submenu-item-wrapper">
-                  <div class="submenu-title">
-                    <i class="fa-solid fa-user-shield"></i> Auth
-                  </div>
-                  <ul class="subsubmenu"> 
-                    <li><a href="#" onclick="showSection('users')">Manage Users</a></li>
-                    <li><a href="#" onclick="showSection('groups')">Manage Groups</a></li>
-                  </ul>
-
-                </div>
-              </li>
-
-              <li>
-                <div class="submenu-item-wrapper">
-                  <div class="submenu-title">
-                    <i class="fa-solid fa-database"></i> Storage
-                  </div>
-                  <ul class="subsubmenu">
-                    <li><a href="#" onclick="showSection('volumes')">Manage Volumes</a></li>
-                    <li><a href="#" onclick="showSection('resources')">Manage Resources</a></li>
-                  </ul>
-                </div>
-              </li>
-
-              <li>
-                <div class="submenu-item-wrapper">
-                  <div class="submenu-title">
-                    <i class="fa-solid fa-calculator"></i> Execution
-                  </div>
-                  <ul class="subsubmenu">
-                    <li><a href="#" onclick="showSection('jobs-manage')">Manage Jobs</a></li>
-                  </ul>
-                </div>
-              </li>
-
-              <li>
-                <div class="submenu-item-wrapper">
-                  <div class="submenu-title">
-                    <i class="fa-solid fa-gears"></i> Configuration
-                  </div>
-                  <ul class="subsubmenu">
-                    <li><a href="#" onclick="showSection('settings')">System</a></li>
-                    <li><a href="https://github.com/kyri56xcaesar/kuspace" tabindex="" target="_blank" rel="noopener">Contact</a></li>
-                  </ul>
-                </div>
-              </li>
-            </ul>
-          </div>
+          <div class="section-title">Administration</div>
+          <div class="submenu-title"><span class="nav-label">Auth</span></div>
+          <ul class="submenu">
+            <li><button type="button" class="k-nav" data-show-section="users" title="Users"><i class="fa-solid fa-user-shield" aria-hidden="true"></i><span class="nav-label">Users</span></button></li>
+            <li><button type="button" class="k-nav" data-show-section="groups" title="Groups"><i class="fa-solid fa-users" aria-hidden="true"></i><span class="nav-label">Groups</span></button></li>
+          </ul>
+          <div class="submenu-title"><span class="nav-label">Storage</span></div>
+          <ul class="submenu">
+            <li><button type="button" class="k-nav" data-show-section="volumes" title="Volumes"><i class="fa-solid fa-database" aria-hidden="true"></i><span class="nav-label">Volumes</span></button></li>
+            <li><button type="button" class="k-nav" data-show-section="resources" title="Resources"><i class="fa-solid fa-folder-tree" aria-hidden="true"></i><span class="nav-label">Resources</span></button></li>
+          </ul>
+          <div class="submenu-title"><span class="nav-label">Execution</span></div>
+          <ul class="submenu">
+            <li><button type="button" class="k-nav" data-show-section="jobs-manage" title="Jobs"><i class="fa-solid fa-microchip" aria-hidden="true"></i><span class="nav-label">Jobs</span></button></li>
+          </ul>
+          <div class="submenu-title"><span class="nav-label">Configuration</span></div>
+          <ul class="submenu">
+            <li><button type="button" class="k-nav" data-show-section="settings" title="System"><i class="fa-solid fa-gears" aria-hidden="true"></i><span class="nav-label">System</span></button></li>
+            <li><a class="k-nav" href="https://github.com/kyri56xcaesar/kuspace" target="_blank" rel="noopener" title="Contact"><i class="fa-brands fa-github" aria-hidden="true"></i><span class="nav-label">Contact</span><i class="fa-solid fa-arrow-up-right-from-square k-nav-ext" aria-hidden="true"></i></a></li>
+          </ul>
         </li>
         {{ end }}
-        <hr>
-        <!-- tools -->
+
         <li class="menu-section">
-          <div class="section-title">Tools
-            <hr>
-            <div class="submenu-wrapper">
-              <ul class="submenu">
-                <li>
-                  <a 
-                    id="fetch-shell"
-                    href="#"
-                    hx-get="/api/v1/verified/gshell"
-                    hx-target="#gshell-spawner"
-                    hx-swap="innerHTML"
-                    hx-trigger="click"
-                  > <i class="fa-solid fa-terminal"></i></a>
-                </li>
-              </ul>
-            </div>
-          </div>  
+          <div class="section-title">Tools</div>
+          <ul class="submenu">
+            <li>
+              <a
+                id="fetch-shell"
+                class="k-nav"
+                href="#"
+                title="Open gShell"
+                hx-get="/api/v1/verified/gshell"
+                hx-target="#gshell-spawner"
+                hx-swap="innerHTML"
+                hx-trigger="click"
+              ><i class="fa-solid fa-terminal" aria-hidden="true"></i><span class="nav-label">gShell</span></a>
+            </li>
+          </ul>
         </li>
       </ul>
     </div>
 
     <div class="logout-wrapper">
-      <button  
-        class="logout-button"
+      <button
+        type="button"
+        class="logout-button k-nav"
         id="logout-a"
-        hx-delete="/api/v1/logout?accessToken" 
-        hx-swap="none" 
-        hx-trigger="click" 
-        >
-        <i class="fa fa-power-off"></i>
-      </button>
+        title="Sign out"
+        hx-delete="/api/v1/logout"
+        hx-swap="none"
+        hx-trigger="click"
+      ><i class="fa fa-power-off" aria-hidden="true"></i><span class="nav-label">Sign out</span></button>
     </div>
-  </div>
-  
+  </nav>
+
   <!-- main Content -->
   <div id="main-content-wrapper">
     <header class="admin-header">
-      <h1>{{ .message }}, <i>"{{ .username }}"!</i></h1>
+      <div class="k-head-left">
+        <p class="k-crumb"><span>{{ if .elevated }}admin{{ else }}workspace{{ end }}</span><span class="k-crumb-sep">/</span><span id="k-crumb-current">Dashboard</span></p>
+        <h1 class="k-greeting">{{ .message }}, <strong>{{ .username }}</strong></h1>
+      </div>
       <div id="header-options">
-        <!-- From Uiverse.io by andrew-demchenk0 --> 
-        <div id="dark-mode-switch">
-          <label class="switch">
-            <input id="dark-mode-toggle" onclick="toggleDarkMode()" class="toggle" type="checkbox">
-            <span class="slider"></span>
-            <span class="card-side"></span>
-          </label>
-        </div>
-        <div id="tips-switch">
-          <label class="switch">
-            <input id="tips-mode-toggle" class="toggle" onclick="toggleCollapses()" type="checkbox">
-            <span class="slider"></span>
-            <span class="card-side"></span>
-          </label>
+        <label id="tips-switch" class="k-switch" title="Hide the tips and section descriptions">
+          <input id="tips-mode-toggle" class="toggle" type="checkbox">
+          <span class="k-switch-track" aria-hidden="true"><span class="k-switch-thumb"></span></span>
+          <span class="k-switch-text"><i class="fa-regular fa-lightbulb" aria-hidden="true"></i> Hide tips</span>
+        </label>
+        <label id="dark-mode-switch" class="k-switch" title="Dark theme">
+          <input id="dark-mode-toggle" class="toggle" type="checkbox">
+          <span class="k-switch-track" aria-hidden="true"><span class="k-switch-thumb"></span></span>
+          <span class="k-switch-text"><i class="fa-solid fa-moon" aria-hidden="true"></i> Dark</span>
+        </label>
+        <div class="k-user" title="{{ .username }}">
+          <span class="k-avatar" aria-hidden="true"><i class="fa-solid fa-user"></i></span>
+          <span class="k-user-name">{{ .username }}</span>
+          {{ if .elevated }}<span class="k-role">admin</span>{{ end }}
         </div>
       </div>
     </header>
-    <main id="main-content">
-      <!-- admin authorization -->
-      {{ if .elevated }}
-      <section id="users" class="content-section hidden">
-        <h2>Manage Users </h2>
-        <p class="fading">Perform CRUD operations on users.</p>
-        <hr>
-        <div 
-          id="fetch-users-results" 
-          hx-trigger="load" 
-          hx-get="/api/v1/verified/admin/fetch-users" 
-          hx-target="this" 
-          hx-swap="innerHTML"
-        ></div>
-        <hr>
-        <div id="add-user-div" class="admin-panel">
-          <h3>Add a new user</h3>
-          <div class="collapsible info">
-            <div>
-              <p class="target"><strong>Info!</strong> Keep in mind the password inserted from here will be hashed internally </p>
-              <button class="toggle-button-collapse collapsible">
-                <svg class="arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="arrow">
-                  <line x1="19" y1="12" x2="5" y2="12"></line>
-                  <polyline points="12 19 5 12 12 5"></polyline>
-                </svg>
-              </button>
-            </div>
-            <span class="feedback"></span>
-          </div>
-          <div id="user-add-feedback" class="feedback"></div>
-          <form 
-            class="darkened"
-            id="add-user-form"
-            hx-post="/api/v1/verified/admin/useradd"
-            hx-swap="none" 
-            hx-trigger="submit" 
-          >
 
-            <div class="form-group">
-              <label for="username">Username:</label>
-              <input type="text" id="username" name="username" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
-            </div>
-            <div class="form-group">
-              <label for="password">Password:</label>
-              <input type="text" id="password" name="password" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
-            </div>
-            <div class="form-group">
-              <label for="email">Email:</label>
-              <input type="text" id="email" name="email" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
-            </div>
-            <div class="form-group">
-              <label for="home">Home:</label>
-              <input type="text" id="home" name="home" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
-            </div>
-            <div class="c-group">                  
-              <button type="submit">
-                Add User
-              </button>
-            </div>
-          </form>
-        </div>
-        <hr>
-        <div id="hasher-body" class="darkened">
+    <main id="main-content">
+      {{ if .elevated }}
+      <!-- ===================================================== Users -->
+      <section id="users" class="content-section hidden" data-title="Users">
+        <header class="k-page-head">
           <div>
-            <h3>Hashing Tool</h3>
+            <p class="k-eyebrow">Auth</p>
+            <h2>Users</h2>
+            <p class="fading">Every account minioth knows about. Edit a row in place or remove it.</p>
+          </div>
+        </header>
+
+        <div class="k-panel k-panel-flush">
+          <div
+            id="fetch-users-results"
+            hx-trigger="load"
+            hx-get="/api/v1/verified/admin/fetch-users"
+            hx-target="this"
+            hx-swap="innerHTML"
+          ><div class="k-loading">Loading users…</div></div>
+        </div>
+
+        <div class="k-cols">
+          <div id="add-user-div" class="admin-panel k-panel">
+            <h3 class="k-panel-title"><i class="fa-solid fa-user-plus" aria-hidden="true"></i> Add a user</h3>
+            <div id="user-add-feedback" class="feedback"></div>
             <div class="collapsible info">
               <div>
-                <p class="target"><strong>Tip!</strong> Create and verify hashes for passwords. </p>
-                <button class="toggle-button-collapse collapsible">
-                  <svg class="arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="arrow">
-                    <line x1="19" y1="12" x2="5" y2="12"></line>
-                    <polyline points="12 19 5 12 12 5"></polyline>
-                  </svg>  
+                <p class="target"><strong>Info</strong> The password entered here is hashed before it is stored.</p>
+                <button type="button" class="toggle-button-collapse collapsible" aria-label="Toggle tip">
+                  <svg class="arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
                 </button>
               </div>
               <span class="feedback"></span>
             </div>
+            <form
+              class="darkened k-form-grid"
+              id="add-user-form"
+              hx-post="/api/v1/verified/admin/useradd"
+              hx-swap="none"
+              hx-trigger="submit"
+            >
+              <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" autocomplete="off" readonly data-autofill-guard>
+              </div>
+              <div class="form-group">
+                <label for="password">Password</label>
+                <input type="text" id="password" name="password" autocomplete="off" readonly data-autofill-guard>
+              </div>
+              <div class="form-group">
+                <label for="email">Email</label>
+                <input type="text" id="email" name="email" autocomplete="off" readonly data-autofill-guard>
+              </div>
+              <div class="form-group">
+                <label for="home">Home</label>
+                <input type="text" id="home" name="home" autocomplete="off" readonly data-autofill-guard placeholder="/home/&lt;username&gt;">
+              </div>
+              <div class="c-group">
+                <button type="submit" class="k-btn k-btn-primary">Add user</button>
+              </div>
+            </form>
           </div>
-          <div id="hasher-content">
-            <div class="hasher-content darkened">
-              <div class="hasher-content-header">
-                <h5>Generate hash</h5>
+
+          <div id="hasher-body" class="darkened k-panel">
+            <h3 class="k-panel-title"><i class="fa-solid fa-hashtag" aria-hidden="true"></i> Hashing tool</h3>
+            <div class="collapsible info">
+              <div>
+                <p class="target"><strong>Tip</strong> Create and verify bcrypt hashes for passwords.</p>
+                <button type="button" class="toggle-button-collapse collapsible" aria-label="Toggle tip">
+                  <svg class="arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                </button>
               </div>
-              <hr>
-              <form class="hasher-content-inside">
-                <div class="hasher-content-r" id="hasher-content-gen-left">
-                  <div class="hasher-inp">
-                    <label for="inp-text">Text:</label>
-                    <input 
-                      type="text" 
-                      id="inp-text" 
-                      name="text" 
-                      placeholder="Type..."
+              <span class="feedback"></span>
+            </div>
+            <div id="hasher-content">
+              <div class="hasher-content darkened">
+                <h4 class="hasher-content-header">Generate</h4>
+                <form class="hasher-content-inside">
+                  <div class="hasher-content-r" id="hasher-content-gen-left">
+                    <div class="hasher-inp">
+                      <label for="inp-text">Text</label>
+                      <input
+                        type="text"
+                        id="inp-text"
+                        name="text"
+                        placeholder="Type to hash…"
+                        autocomplete="off"
+                        hx-post="/api/v1/verified/admin/hasher"
+                        hx-target="#generated-hash"
+                        hx-swap="innerHTML"
+                        hx-trigger="keyup changed delay:300ms"
+                      >
+                    </div>
+                    <div class="hasher-inp">
+                      <label for="inp-hashalg">Algorithm</label>
+                      <select id="inp-hashalg" name="hashalg">
+                        <option value="bcrypt">bcrypt</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="hasher-out">
+                    <span id="result"><span id="generated-hash"></span></span>
+                    <button id="copy-btn" type="button" class="copy-btn k-btn k-btn-ghost k-btn-sm" data-copy="#generated-hash"><i class="fa-regular fa-copy" aria-hidden="true"></i> Copy</button>
+                  </div>
+                </form>
+              </div>
+              <div class="hasher-content darkened">
+                <h4 class="hasher-content-header">Verify</h4>
+                <form id="vhash" class="hasher-content-inside">
+                  <div class="hasher-content-v" id="hasher-content-v-left">
+                    <div class="hasher-inp">
+                      <label for="inp-text-2">Text</label>
+                      <input type="text" id="inp-text-2" name="text" placeholder="Plain text" autocomplete="off">
+                    </div>
+                    <div class="hasher-inp">
+                      <label for="inp-hash">Hash</label>
+                      <input type="text" id="inp-hash" name="hash" placeholder="$2a$…" autocomplete="off">
+                    </div>
+                  </div>
+                  <div class="hasher-content-v" id="hasher-content-v-right">
+                    <span id="result-2"><span id="verify-result" class=""></span></span>
+                    <button
+                      id="hasher-verify-btn"
+                      class="k-btn"
+                      type="submit"
                       hx-post="/api/v1/verified/admin/hasher"
-                      hx-target="#generated-hash"
+                      hx-target="#verify-result"
                       hx-swap="innerHTML"
-                      hx-trigger="keyup changed delay:300ms"
-                    >
+                      hx-trigger="click"
+                    >Verify</button>
                   </div>
-                  <div class="hasher-inp">
-                    <span id="result">
-                      Hash: <span id="generated-hash">
-                      </span>
-                    </span>
-                    <button 
-                      id="copy-btn" 
-                      onclick="copyToClipboard('#generated-hash', 'copy-btn')"
-                      type="button"
-                      class="copy-btn"
-                    >Copy</button>
-                  </div>
-                </div>
-                <div class="hasher-inp">
-                  <label style="margin-left: 15px;" for="inp-hashalg">Algo:</label>
-                  <select id="inp-hashalg" name="hashalg">
-                    <!--<option value="sha256">SHA-256</option>
-                    <option value="sha512">SHA-512</option>-->
-                    <option value="bcrypt">Bcrypt</option>
-                  </select>
-                </div>
-              </form>
-            </div> 
-            <div class="hasher-content darkened">
-              <div class="hasher-content-header">
-                <h5>Verify hash</h5>
+                </form>
               </div>
-              <hr>
-              <form id="vhash" class="hasher-content-inside">
-                <div class="hasher-content-v" id="hasher-content-v-left">
-                  <div class="hasher-inp">  
-                    <label for="inp-text-2">Text: </label>
-                    <input type="text" id="inp-text-2" name="text" placeholder="Text to verify...">
-                  </div>
-                  <div class="hasher-inp">
-                    <label for="inp-hash">Hash:</label>
-                    <input type="text" id="inp-hash" name="hash" placeholder="Hash to verify...">
-                  </div>
-                </div>
-                <div class="hasher-content-v" id="hasher-content-v-right">
-                  <span id="result-2"><span id="verify-result" class=""></span></span>
-                  <button 
-                    id="hasher-verify-btn"
-                    type="submit"
-                    hx-post="/api/v1/verified/admin/hasher"
-                    hx-target="#verify-result"
-                    hx-swap="innerHTML"
-                    hx-trigger="click"
-                  >Verify</button>
-                </div>  
-              </form>
             </div>
           </div>
         </div>
       </section>
-      <section id="groups" class="content-section hidden">
-        <h2>Manage Groups </h2>
-        <p class="fading">Perform CRUD operations on groups.</p>
-        <hr>
-        <div 
-          id="fetch-groups-results" 
-          hx-trigger="load" 
-          hx-get="/api/v1/verified/admin/fetch-groups" 
-          hx-target="this" 
-          hx-swap="innerHTML"
-        ></div>
-        <hr>
-        <div id="add-group-div" class="admin-panel">
-          <h3>Add a new group</h3>
+
+      <!-- ===================================================== Groups -->
+      <section id="groups" class="content-section hidden" data-title="Groups">
+        <header class="k-page-head">
+          <div>
+            <p class="k-eyebrow">Auth</p>
+            <h2>Groups</h2>
+            <p class="fading">Groups and their members. The built-in groups (0, 100, 1000) cannot be removed.</p>
+          </div>
+        </header>
+
+        <div class="k-panel k-panel-flush">
+          <div
+            id="fetch-groups-results"
+            hx-trigger="load"
+            hx-get="/api/v1/verified/admin/fetch-groups"
+            hx-target="this"
+            hx-swap="innerHTML"
+          ><div class="k-loading">Loading groups…</div></div>
+        </div>
+
+        <div id="add-group-div" class="admin-panel k-panel k-panel-narrow">
+          <h3 class="k-panel-title"><i class="fa-solid fa-user-group" aria-hidden="true"></i> Add a group</h3>
           <div class="collapsible info">
             <div>
-              <p class="target"><strong>Info!</strong> Simply add a new group. </p>
-              <button class="toggle-button-collapse collapsible">
-                <svg class="arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="arrow">
-                  <line x1="19" y1="12" x2="5" y2="12"></line>
-                  <polyline points="12 19 5 12 12 5"></polyline>
-                </svg>  
+              <p class="target"><strong>Info</strong> A new group starts empty; add users to it by editing them.</p>
+              <button type="button" class="toggle-button-collapse collapsible" aria-label="Toggle tip">
+                <svg class="arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
               </button>
             </div>
             <span id="groupadd-error-feedback" class="feedback"></span>
           </div>
-
-          <form 
-            class="darkened"
+          <form
+            class="darkened k-inline-form"
             id="add-group-form"
             hx-post="/api/v1/verified/admin/groupadd"
-            hx-swap="none" 
-            hx-trigger="submit" 
+            hx-swap="none"
+            hx-trigger="submit"
             hx-target=""
           >
             <div class="form-group">
-              <label for="groupname">Groupname:</label>
-              <input type="text" id="groupname" name="groupname" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
+              <label for="groupname">Group name</label>
+              <input type="text" id="groupname" name="groupname" autocomplete="off" readonly data-autofill-guard>
             </div>
-            <div class="c-group">                  
-              <button type="submit">
-                Add Group
-              </button>
+            <div class="c-group">
+              <button type="submit" class="k-btn k-btn-primary">Add group</button>
             </div>
           </form>
         </div>
       </section>
-      <section id="jobs-manage" class="content-section hidden">
-        <h2>Manage Jobs</h2>
-        <p class="fading">Monitor, view, and manage jobs.</p>
-        <hr>
-        <div style="padding: 1rem;">
-          <div id="existing-jobs-container">
-            <div>
-              <div class="search-bar">
-                <input id="job-search" type="text" placeholder="Search by 'jid'">
-                <button type="submit">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                    <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z">
-                  </svg>
-                </button>
-                <select id="search-by"> 
-                  <option value="jid" selected>job id</option>
-                  <option value="uid">user id</option>
-                  <option value="status">status</option>
-                  <option value="createdAt">created at</option>
-                  <option value="completed_at">completed at</option>
-                  <option value="output">output</option>
-                  <option value="input">input</option>
-                </select>
-              </div>                        
-              <button
-                id="fetch-jobs-button"
-                hx-trigger="click"
-                hx-target="#fetch-jobs-div"
-                hx-swap="innerHTML"
-                hx-get="/api/v1/verified/fetch-jobs"
-                hx-vals='js:{sort: document.getElementById("existing-jobs-container").querySelector("#search-by").value}' 
-              ><i class="fas fa-redo"></i></button>
+
+      <!-- ===================================================== Jobs (admin) -->
+      <section id="jobs-manage" class="content-section hidden" data-title="Jobs">
+        <header class="k-page-head">
+          <div>
+            <p class="k-eyebrow">Execution</p>
+            <h2>Jobs</h2>
+            <p class="fading">Every job on the platform. Modify its owner or status, or delete it.</p>
+          </div>
+        </header>
+        <div id="existing-jobs-container" class="k-panel">
+          <div class="k-toolbar">
+            <div class="search-bar">
+              <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
+              <input id="job-search" type="search" placeholder="Search by 'jid'" aria-label="Search jobs">
+              <select id="search-by" aria-label="Search by">
+                <option value="jid" selected>job id</option>
+                <option value="uid">user id</option>
+                <option value="status">status</option>
+                <option value="createdAt">created at</option>
+                <option value="completed_at">completed at</option>
+                <option value="output">output</option>
+                <option value="input">input</option>
+              </select>
             </div>
-            <div 
-              id="fetch-jobs-div"
-              hx-trigger="load"
-              hx-target="this"
+            <button
+              id="fetch-jobs-button"
+              class="k-btn k-btn-icon"
+              title="Reload"
+              aria-label="Reload jobs"
+              hx-trigger="click"
+              hx-target="#fetch-jobs-div"
               hx-swap="innerHTML"
               hx-get="/api/v1/verified/fetch-jobs"
-            ></div>
+            ><i class="fas fa-redo" aria-hidden="true"></i></button>
           </div>
+          <div
+            id="fetch-jobs-div"
+            hx-trigger="load"
+            hx-target="this"
+            hx-swap="innerHTML"
+            hx-get="/api/v1/verified/fetch-jobs"
+          ><div class="k-loading">Loading jobs…</div></div>
         </div>
       </section>
-      <section id="resources" class="content-section hidden">      
-        <h2>Manage Resources</h2>
-        <p class="fading">View and manage file resources.</p>
+
+      <!-- ===================================================== Resources -->
+      <section id="resources" class="content-section hidden" data-title="Resources">
+        <header class="k-page-head">
+          <div>
+            <p class="k-eyebrow">Storage</p>
+            <h2>Resources</h2>
+            <p class="fading">Every file stored on every volume. Select a row for details, preview and permissions.</p>
+          </div>
+        </header>
         <div class="collapsible info">
           <div>
-            <p class="target"><strong>Info!</strong> By <q>Resource</q>, defined a File/Object, storable and usable by the system.</p>
-            <button class="toggle-button-collapse collapsible">
-              <svg class="arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="arrow">
-                <line x1="19" y1="12" x2="5" y2="12"></line>
-                <polyline points="12 19 5 12 12 5"></polyline>
-              </svg>
+            <p class="target"><strong>Info</strong> A <q>resource</q> is a file (object) the system stores and jobs can read or write.</p>
+            <button type="button" class="toggle-button-collapse collapsible" aria-label="Toggle tip">
+              <svg class="arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
             </button>
           </div>
           <span class="feedback"></span>
-        </div>              
-        <hr>
-        <div>
         </div>
-        <div 
+        <div
           id="fetch-resources-display"
-          hx-trigger="load" 
-          hx-get="/api/v1/verified/fetch-resources" 
-          hx-target="#resources-main" 
+          hx-trigger="load"
+          hx-get="/api/v1/verified/fetch-resources"
+          hx-target="#resources-main"
           hx-swap="innerHTML"
         >
-          <div id="resources-display-container">
-            <div id="resources-header">
+          <div id="resources-display-container" class="k-panel">
+            <div id="resources-header" class="k-toolbar">
               <div class="search-bar">
-                <input id="resource-search" type="text" placeholder="Search by 'name'">
-                <button type="submit">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                    <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z">
-                  </svg>
-                </button>
-                <select id="search-by">
+                <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
+                <input id="resource-search" type="search" placeholder="Search by 'name'" aria-label="Search resources">
+                <select id="search-by" aria-label="Search by">
                   <option value="name" selected>Name</option>
                   <option value="volume">Volume</option>
                   <option value="owner">Owner</option>
@@ -503,143 +423,137 @@
                   <option value="createdat">CreatedAt</option>
                   <option value="updateddat">UpdatedAt</option>
                   <option value="accessedat">AccessedAt</option>
-              </select>
+                </select>
               </div>
-              <div>
-                <form id="fetch-resources-form"
+              <form id="fetch-resources-form"
+                class="k-toolbar-group"
                 hx-get="/api/v1/verified/fetch-resources"
                 hx-target="#resources-main"
-                hx-swap="innerHTML"   
-                >
-                  <select type="resources-format-select" name="struct">
-                    <option value="list" selected>list</option>
-                    <option value="tree">tree</option>
-                  </select>
-                  <button id="view-resources-btn" type="submit"><i class="fas fa-redo"></i></button>
-                </form>
-              </div>
+                hx-swap="innerHTML"
+              >
+                <select type="resources-format-select" name="struct" aria-label="View as">
+                  <option value="list" selected>list</option>
+                  <option value="tree">tree</option>
+                </select>
+                <button id="view-resources-btn" class="k-btn k-btn-icon" type="submit" title="Reload" aria-label="Reload resources"><i class="fas fa-redo" aria-hidden="true"></i></button>
+              </form>
             </div>
-            <div id="resources-main"></div>
-            <div id="resource-details"></div>
-            <div id="resources-feedback" class="feedback hidden">
+            <div id="resources-main"><div class="k-loading">Loading resources…</div></div>
           </div>
+          <div id="resource-details" class="k-panel"></div>
+          <div id="resources-feedback" class="feedback hidden"></div>
         </div>
       </section>
-      <section id="settings" class="content-section hidden">
-        <div class="sys-head">
+
+      <!-- ===================================================== System -->
+      <section id="settings" class="content-section hidden" data-title="System">
+        <header class="k-page-head sys-head">
           <div>
+            <p class="k-eyebrow">Configuration</p>
             <h2>System</h2>
             <p class="fading">Whether each kuspace service is answering, and how fast.</p>
           </div>
-          <button
-            type="button"
-            class="sys-refresh"
-            hx-get="/api/v1/verified/admin/system-status"
-            hx-target="#sys-status-loader"
-            hx-swap="innerHTML"
-          ><i class="fas fa-redo" aria-hidden="true"></i> Check again</button>
-        </div>
-        <hr>
+          <div class="k-page-actions">
+            <button
+              type="button"
+              class="sys-refresh k-btn"
+              hx-get="/api/v1/verified/admin/system-status"
+              hx-target="#sys-status-loader"
+              hx-swap="innerHTML"
+            ><i class="fas fa-redo" aria-hidden="true"></i> Check again</button>
+          </div>
+        </header>
         <div
           id="sys-status-loader"
           hx-get="/api/v1/verified/admin/system-status"
           hx-trigger="load"
           hx-target="this"
           hx-swap="innerHTML"
-        ><p class="sys-config-empty">Checking services…</p></div>
+        ><p class="k-loading">Checking services…</p></div>
       </section>
-      <section id="volumes" class="content-section hidden">
-        <h2>Manage Volumes</h2>
-        <p class="fading">View and manage existing volumes</p>
-        <hr>
-        <div>
-        </div>
-        <div 
+
+      <!-- ===================================================== Volumes (admin) -->
+      <section id="volumes" class="content-section hidden" data-title="Volumes">
+        <header class="k-page-head">
+          <div>
+            <p class="k-eyebrow">Storage</p>
+            <h2>Volumes</h2>
+            <p class="fading">Buckets that hold resources. Usage is summed from the files on each volume.</p>
+          </div>
+        </header>
+        <div
           id="fetch-volumes-display"
-          hx-trigger="load" 
-          hx-get="/api/v1/verified/fetch-volumes" 
-          hx-target="#volumes-target" 
+          hx-trigger="load"
+          hx-get="/api/v1/verified/fetch-volumes"
+          hx-target="#volumes-target"
           hx-swap="innerHTML"
-        >
-        </div>
+        ></div>
         <div class="v-content">
-          <div class="v-header">
+          <div class="v-header k-toolbar">
             <div class="search-bar">
-              <input id="volume-search" type="text" placeholder="Search by 'name'">
-              <button type="submit">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                  <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z">
-                </svg>
-              </button>
-              <select id="search-by">
+              <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
+              <input id="volume-search" type="search" placeholder="Search by 'name'" aria-label="Search volumes">
+              <select id="search-by" aria-label="Search by">
                 <option value="name" selected>Name</option>
                 <option value="createdat">CreatedAt</option>
               </select>
             </div>
-            <div>
+            <div class="k-toolbar-group">
               <button
                 id="fetch-volumes-btn"
+                class="k-btn k-btn-icon"
+                title="Reload"
+                aria-label="Reload volumes"
                 hx-get="/api/v1/verified/fetch-volumes"
                 hx-target="#volumes-target"
                 hx-swap="innerHTML"
                 hx-trigger="click"
-              ><i class="fas fa-redo"></i>
+              ><i class="fas fa-redo" aria-hidden="true"></i></button>
+              <button id="create-volume-btn" type="button" class="k-btn k-btn-primary" data-show="#create-volume-modal">
+                <i class="fa fa-plus" aria-hidden="true"></i> New volume
               </button>
-              <button
-                id="create-volume-btn"
-                onclick="show(document.getElementById('create-volume-modal'))"
-              ><i class="fa fa-plus" aria-hidden="true"></i>
-              New Volume
-              </button>
-            </div>     
+            </div>
           </div>
-          <hr>                   
-          <div id="volumes-target" class="subsection"></div>
-          
+          <div id="volumes-target" class="subsection"><div class="k-loading">Loading volumes…</div></div>
+
           <div id="create-volume-modal" class="subsection modal hidden">
-            <div class="modal-content">
-              <h2>Create Volume</h2>
-              <form 
+            <div class="modal-content" role="dialog" aria-labelledby="create-volume-title">
+              <h2 id="create-volume-title">New volume</h2>
+              <form
                 id="create-volume-form"
                 hx-post="/api/v1/verified/admin/volumeadd"
                 hx-swap="none"
                 hx-trigger="submit"
               >
-                <div>
-                  Name <span style="color:red;">*</span><br>
-                  <input type="text" name="name" required>
-                </div><br>
-              
-                <div>
-                  Capacity (GB)<br>
-                  <input type="number" name="capacity" placeholder="Optional" min="0">
-                </div><br>
-              
-                <div>
-                  Path (autogenerated)<br>
-                  <input type="text" name="path" disabled value="autogenerated" />
-                </div><br>
-              
-                <div>
-                  Dynamic<input type="checkbox" name="dynamic" disabled checked />
-                </div><br>
-              
+                <div class="k-field">
+                  <label for="cv-name">Name <span class="k-req" aria-hidden="true">*</span></label>
+                  <input id="cv-name" type="text" name="name" required autocomplete="off">
+                </div>
+                <div class="k-field">
+                  <label for="cv-capacity">Capacity (GB)</label>
+                  <input id="cv-capacity" type="number" name="capacity" placeholder="Unlimited" min="0">
+                </div>
+                <div class="k-field">
+                  <label for="cv-path">Path</label>
+                  <input id="cv-path" type="text" name="path" disabled value="autogenerated">
+                </div>
+                <label class="k-check">
+                  <input type="checkbox" name="dynamic" disabled checked> Dynamic
+                </label>
                 <div class="modal-actions">
-                  <button type="submit">Create</button>
-                  <button type="button" id="cancel-modal-btn">Cancel</button>
+                  <button type="button" id="cancel-modal-btn" class="k-btn">Cancel</button>
+                  <button type="submit" class="k-btn k-btn-primary">Create</button>
                 </div>
               </form>
             </div>
-            <div class="feedback hidden modal-feedback">
-            </div>
+            <div class="feedback hidden modal-feedback"></div>
           </div>
-
-        </div>  
+        </div>
       </section>
       {{ end }}
 
-      <!-- general authorization -->
-      <section id="dashboard" class="content-section">
+      <!-- ===================================================== Dashboard -->
+      <section id="dashboard" class="content-section" data-title="Dashboard">
         <div
           class="dash"
           id="dash"
@@ -647,9 +561,12 @@
           data-quota-gb="{{ .quotaGB }}"
           data-elevated="{{ .elevated }}"
         >
-          <header class="dash-head">
-            <h2>Dashboard</h2>
-            <p class="dash-summary" id="dash-summary" aria-live="polite">Loading your workspace…</p>
+          <header class="dash-head k-page-head">
+            <div>
+              <p class="k-eyebrow">Overview</p>
+              <h2>Dashboard</h2>
+              <p class="dash-summary" id="dash-summary" aria-live="polite">Loading your workspace…</p>
+            </div>
           </header>
 
           <div class="dash-grid">
@@ -697,240 +614,212 @@
           </div>
         </div>
       </section>
-      <section id="job-browser" class="content-section hidden">
+
+      <!-- ===================================================== Job browser -->
+      <section id="job-browser" class="content-section hidden" data-title="Job Browser">
         <div class="job-browser-content">
-          <h2>Job Browser</h2>
-          <div class="row-flex-sb">
-            <p class="fading">
-              - A display of the <q><i>applications</i></q> available<br>
-              - A new Job (App/Custom) panel<br>
-              - A Job results  display
-            </p>
-            
-            <div id="job-browser-options" class="">
-              <a href="#" onclick="showSubSection('job-browser', 'application-display')">Apps</a>
-              <a href="#" onclick="showSubSection('job-browser', 'job-feedback-view')">Jobs</a>
-              <a href="#" onclick="showSubSection('job-browser', 'new-job');">New</a>
+          <header class="k-page-head row-flex-sb">
+            <div>
+              <p class="k-eyebrow">Execution</p>
+              <h2>Job Browser</h2>
+              <p class="fading">Pick an application, write the logic, point it at a file and run it. Results land in the output volume.</p>
             </div>
-          </div>
-          <hr>
+            <div id="job-browser-options" class="k-tabs" role="tablist" aria-label="Job browser views">
+              <button type="button" role="tab" aria-selected="true" data-show-subsection="job-browser:application-display"><i class="fa-solid fa-cubes" aria-hidden="true"></i> Apps</button>
+              <button type="button" role="tab" aria-selected="false" data-show-subsection="job-browser:job-feedback-view"><i class="fa-solid fa-list-ul" aria-hidden="true"></i> Jobs</button>
+              <button type="button" role="tab" aria-selected="false" data-show-subsection="job-browser:new-job"><i class="fa-solid fa-plus" aria-hidden="true"></i> New job</button>
+            </div>
+          </header>
 
           <div class="subsection" id="application-display">
-              <div
-                id="fetch-applications-display"
-                hx-trigger="load"
-                hx-get="/api/v1/verified/fetch-apps"
-                hx-target="this"
-                hx-swap="innerHTML"
-              >
-              </div>
-
+            <div
+              id="fetch-applications-display"
+              hx-trigger="load"
+              hx-get="/api/v1/verified/fetch-apps"
+              hx-target="this"
+              hx-swap="innerHTML"
+            ><div class="k-loading">Loading applications…</div></div>
           </div>
 
           <div class="subsection hidden" id="new-job">
-            <div>
-              <h4>Job Submitter</h4>
-              <hr>
-              <!-- job-optional-inputs minimizer -->
-              <div class="minimizer">
-                <i title="Minimize" id="resource-options-dropdown-button" onclick="toggle_job_optionals(document.getElementById('job-create-form'))" class="fa-solid fa-compress"></i>
-              </div>
-              <div class="reset">
-                <i class="fa-solid fa-rotate-left" id="form-reset" onclick="document.querySelector('#job-create-form').reset()"></i>
-              </div>
-              <form 
+            <div class="k-panel k-submitter">
+              <header class="k-panel-head">
+                <h3 class="k-panel-title"><i class="fa-solid fa-play" aria-hidden="true"></i> Job submitter</h3>
+                <div class="k-panel-tools">
+                  <div class="reset">
+                    <button type="button" id="form-reset" class="k-btn k-btn-icon k-btn-ghost" title="Reset the form" aria-label="Reset the form" data-reset-form="#job-create-form"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>
+                  </div>
+                  <div class="minimizer">
+                    <button type="button" id="resource-options-dropdown-button" class="k-btn k-btn-icon k-btn-ghost" title="Show or hide the optional settings" aria-label="Show or hide the optional settings" data-toggle-job-optionals="#job-create-form"><i class="fa-solid fa-sliders" aria-hidden="true"></i></button>
+                  </div>
+                </div>
+              </header>
+              <form
                 id="job-create-form"
                 hx-post="/api/v1/verified/jobs"
                 hx-swap="none"
                 hx-trigger="submit"
               >
-                <div class="form-grid-wrapper">
-                  <div class="form-grid">
-                    <!-- i/o div -->
-                    <div>
-                      <div class="form-group">
-                        <label for="job-input">Input</label><span style="color:red;">*</span>
-                        <div id="select-resource">
-                          <div id="resource-modal" class="modal hidden">
-                            <div class="modal-content">
-                              <h3>Select a Resource</h3>
-                              <div id="resource-list">
-                                <!-- resource options will be populated dynamically -->
-                              </div>
-                              <button type="button" id="cancel-select">Cancel</button>
-                            </div>
-                          </div>
-                          <button type="button" class="icon-button" id="select-resource-btn-job" title="Select Resource"><i class="fa-solid fa-cube"></i></button>
-                        </div>
-                        <input id="job-input" name="input" type="text" title="Input" placeholder="default-bucket/input.in">
-                      </div>
-                      <div class="form-group">
-                        <label for="job-output">Output</label><span style="color:red;">*</span>
-                        <div id="select-volume">
-                          <div id="volume-modal" class="modal hidden">
-                            <div class="modal-content">
-                              <h3>Select a Volume</h3>
-                              <div id="volume-list">
-                                <!-- Volume options will be populated dynamically -->
-                              </div>
-                              <button type="button" id="cancel-select">Cancel</button>
-                            </div>
-                          </div>
-                          <button type="button" class="icon-button" id="select-volume-btn-job" title="Select Volume"><i class="fa-solid fa-database"></i></button>
-                        </div>
-                        <input id="job-output" name="output" type="text" placeholder="default-bucket/output.out">
-                      </div>
-                    </div>
-                    <!-- semantics -->
-                    <div class="job-optional">
-                      <div class="form-group">
-                        <label for="parallelism">Parallelism</label>
-                        <input type="number" id="parallelism" name="parallelism" class="text-input" min="1" max="8" value="1" />                  
-                      </div>
-                      <div class="form-group">
-                        <label for="j-timeout">Timeout (m)</label>
-                        <input type="number" id="j-timeout" name="timeout" class="text-input" min="0" max="120" />                  
-                      </div>
-                    </div>
-  
-                    <div class="job-optional" id="j-description">
-                      <textarea id="description" name="description" class="text-input" rows="2" placeholder="Description (optional)" maxlength="150"></textarea>
-                    </div>
-                  </div>
-              
-                  <!-- quotas -->
-                  <div class="form-grid job-optional">
-                    <!-- memory -->
-                    <div>
-                      <div class="form-group">
-                        <label for="memory_request">Memory Request</label>
-                        <input type="text" id="memory_request" name="memoryRequest" class="text-input small" placeholder="e.g., 512Mi" />
-                      </div>
-                      <div class="form-group">
-                        <label for="memory_limit">Memory Limit</label>
-                        <input type="text" id="memory_limit" name="memoryLimit" class="text-input small" placeholder="1024Mi" />
-                      </div>
-                    </div>
-                    <!-- cpu -->
-                    <div>
-                      <div class="form-group">
-                        <label for="cpu_request">CPU Request</label>
-                        <input type="text" id="cpu_request" name="cpuRequest" class="text-input small" placeholder="e.g., 0.5" />
-                      </div>
-                      <div class="form-group">
-                        <label for="cpu_limit">CPU Limit</label>
-                        <input type="text" id="cpu_limit" name="cpuLimit" class="text-input small" placeholder="1"/>
-                      </div>
-                    </div>
-                    <!-- storage -->
-                    <div>
-                      <div class="form-group">
-                        <label for="ephemeral_storage_request">Ephemeral Storage Request</label>
-                        <input type="text" id="ephemeral_storage_request" name="ephemeralStorageRequest" class="text-input small" placeholder="e.g., 1Gi" />
-                      </div>
-                      <div class="form-group">
-                        <label for="ephemeral_storage_limit">Ephemeral Storage Limit</label>
-                        <input type="text" id="ephemeral_storage_limit" name="ephemeralStorageLimit" class="text-input small" placeholder="1Gi" />
-                      </div>
-                    </div>
-                  </div>
-  
-                  <div class="collapsible info">
-                    <div>
-                      <p class="target"><strong>Info!</strong> the '{input}' FROM clause is required as a 'placeholder' to specify an input!</p>
-                      <button type="button" class="toggle-button-collapse collapsible">
-                        <svg class="arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="arrow">
-                          <line x1="19" y1="12" x2="5" y2="12"></line>
-                          <polyline points="12 19 5 12 12 5"></polyline>
-                        </svg>
-                      </button>
-                    </div>
-                    <span class="feedback-message"></span>
-                  </div> 
+                <div class="form-grid-wrapper k-job-layout">
                   <!-- logic -->
-                  <div id="job-create-form-editor">
-                    <div id="header">
-                        <i class="fa-solid fa-code"></i>
-                        
+                  <div class="k-job-main">
+                    <div class="collapsible info">
+                      <div>
+                        <p class="target"><strong>Info</strong> Use the <code>{input}</code> placeholder (e.g. in the FROM clause) where the input file goes; <code>{output}</code> works the same for the output.</p>
+                        <button type="button" class="toggle-button-collapse collapsible" aria-label="Toggle tip">
+                          <svg class="arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                        </button>
+                      </div>
+                      <span class="feedback-message"></span>
+                    </div>
+                    <div id="job-create-form-editor">
+                      <div id="header">
+                        <i class="fa-solid fa-code" aria-hidden="true"></i>
                         <label for="language-selector" class="form-label-group">
-                          Application:
+                          Application
                           <select id="language-selector" name="logic">
                             <option value="duckdb" selected>duckdb</option>
                           </select>
                         </label>
-  
-                        <div>
-                          <label for="code-file-upload" class="custom-file-label"><i class="fa-solid fa-arrow-up"></i></label>
-                          <input type="file" id="code-file-upload" style="display: none;"/>
+                        <div class="k-upload-code">
+                          <label for="code-file-upload" class="custom-file-label" title="Load code from a file"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> Load file</label>
+                          <input type="file" id="code-file-upload" hidden>
                         </div>
-                    </div>
-                    
-                    <div id="j-editor">
-                      <textarea class="code-editor" name="logicBody"></textarea>
+                      </div>
+                      <div id="j-editor">
+                        <textarea class="code-editor" name="logicBody"></textarea>
+                      </div>
                     </div>
                   </div>
-  
-                  <!-- submit -->
-                  <div class="form-group submit-button-wrapper">
-                    <button type="submit" id="submit-job-button">Submit Job</button>
+
+                  <!-- i/o + semantics + quotas -->
+                  <div class="k-job-side">
+                    <fieldset class="form-grid k-fieldset">
+                      <legend>Data</legend>
+                      <div class="form-group">
+                        <label for="job-input">Input <span class="k-req" aria-hidden="true">*</span></label>
+                        <div class="k-picker">
+                          <input id="job-input" name="input" type="text" title="Input" placeholder="default-bucket/input.in">
+                          <div id="select-resource">
+                            <div id="resource-modal" class="modal hidden">
+                              <div class="modal-content">
+                                <h3>Select a resource</h3>
+                                <div id="resource-list"></div>
+                                <div class="modal-actions">
+                                  <button type="button" id="cancel-select" class="k-btn">Cancel</button>
+                                </div>
+                              </div>
+                            </div>
+                            <button type="button" class="icon-button k-btn k-btn-icon" id="select-resource-btn-job" title="Select resource" aria-label="Select resource"><i class="fa-solid fa-file" aria-hidden="true"></i></button>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-group">
+                        <label for="job-output">Output <span class="k-req" aria-hidden="true">*</span></label>
+                        <div class="k-picker">
+                          <input id="job-output" name="output" type="text" placeholder="default-bucket/output.out">
+                          <div id="select-volume">
+                            <div id="volume-modal" class="modal hidden">
+                              <div class="modal-content">
+                                <h3>Select a volume</h3>
+                                <div id="volume-list"></div>
+                                <div class="modal-actions">
+                                  <button type="button" id="cancel-select" class="k-btn">Cancel</button>
+                                </div>
+                              </div>
+                            </div>
+                            <button type="button" class="icon-button k-btn k-btn-icon" id="select-volume-btn-job" title="Select volume" aria-label="Select volume"><i class="fa-solid fa-database" aria-hidden="true"></i></button>
+                          </div>
+                        </div>
+                      </div>
+                    </fieldset>
+
+                    <fieldset class="job-optional k-fieldset k-fieldset-2">
+                      <legend>Run</legend>
+                      <div class="form-group">
+                        <label for="parallelism">Parallelism</label>
+                        <input type="number" id="parallelism" name="parallelism" class="text-input" min="1" max="8" value="1">
+                      </div>
+                      <div class="form-group">
+                        <label for="j-timeout">Timeout (min)</label>
+                        <input type="number" id="j-timeout" name="timeout" class="text-input" min="0" max="120">
+                      </div>
+                    </fieldset>
+
+                    <div class="job-optional form-group" id="j-description">
+                      <label for="description">Description</label>
+                      <textarea id="description" name="description" class="text-input" rows="2" placeholder="Optional, up to 150 characters" maxlength="150"></textarea>
+                    </div>
+
+                    <fieldset class="form-grid job-optional k-fieldset k-fieldset-2">
+                      <legend>Resources</legend>
+                      <div class="form-group">
+                        <label for="memory_request">Memory request</label>
+                        <input type="text" id="memory_request" name="memoryRequest" class="text-input small" placeholder="512Mi">
+                      </div>
+                      <div class="form-group">
+                        <label for="memory_limit">Memory limit</label>
+                        <input type="text" id="memory_limit" name="memoryLimit" class="text-input small" placeholder="1024Mi">
+                      </div>
+                      <div class="form-group">
+                        <label for="cpu_request">CPU request</label>
+                        <input type="text" id="cpu_request" name="cpuRequest" class="text-input small" placeholder="0.5">
+                      </div>
+                      <div class="form-group">
+                        <label for="cpu_limit">CPU limit</label>
+                        <input type="text" id="cpu_limit" name="cpuLimit" class="text-input small" placeholder="1">
+                      </div>
+                      <div class="form-group">
+                        <label for="ephemeral_storage_request">Scratch request</label>
+                        <input type="text" id="ephemeral_storage_request" name="ephemeralStorageRequest" class="text-input small" placeholder="1Gi" title="Ephemeral storage request">
+                      </div>
+                      <div class="form-group">
+                        <label for="ephemeral_storage_limit">Scratch limit</label>
+                        <input type="text" id="ephemeral_storage_limit" name="ephemeralStorageLimit" class="text-input small" placeholder="1Gi" title="Ephemeral storage limit">
+                      </div>
+                    </fieldset>
+
+                    <div class="form-group submit-button-wrapper">
+                      <button type="submit" id="submit-job-button" class="k-btn k-btn-primary k-btn-block"><i class="fa-solid fa-play" aria-hidden="true"></i> Submit job</button>
+                    </div>
+                    <div id="job-submit-feedback" class="feedback"></div>
                   </div>
-                  <div id="job-submit-feedback" class="feedback"></div>
-                  
                 </div>
               </form>
-              <div id="job-submit-loader" class="hidden loader-heartbeat">
-                <!-- From Uiverse.io by ilkhoeri --> 
-                <svg
-                  xmlns:xlink="https://www.w3.org/1999/xlink"
-                  xmlns="https://www.w3.org/2000/svg"
-                  width="550"
-                  height="210"
-                  viewBox="0 0 550 210"
-                >
+              <div id="job-submit-loader" class="hidden loader-heartbeat" aria-label="Submitting">
+                <svg xmlns="http://www.w3.org/2000/svg" width="550" height="210" viewBox="0 0 550 210">
                   <path
-                    d="m0,130.08h44.51c7.08-3.45,11.54-24.65,19.42-24.81s13.23,22.54,21.03,24.81c10.03,2.92,29.69-14.6,39.91-12.4,4.58.98,9.34,12.36,14.02,12.4,3.54.03,7.25-9.31,10.79-9.17,3.24.13,6.17,7.93,9.17,9.17s9.68-1.48,12.4,0c2.4,1.3,3.45,10.3,5.93,9.17,3.23-1.48,2.82-103.01,8.09-103.01,6.96,0,12.35,137.53,16.72,137.53,3.9,0-.09-36.61,8.49-43.69,3.41-2.81,13.69,1.93,17.66,0,7.17-3.49,11.72-24.71,19.69-25.08,8.62-.4,15.39,22.86,23.73,25.08,8.99,2.38,26.51-12.76,35.6-10.79,5.58,1.21,11.46,15.82,17.12,15.1,3.88-.49,4.87-12.59,8.76-12.94,3.01-.28,5.7,7.46,8.49,8.63s9.75-1.43,12.54,0,4.03,9.39,7.01,9.71c4.98.54,2.64-103.55,8.63-103.55,5.16,0,8.8,111.51,12.94,111.64,5.02.16,5.01-15.2,9.3-17.8s15.02,2.06,19.42,0c7.39-3.46,12.74-25.17,20.9-25.08,8.97.09,13.68,25.85,22.38,28.04,9.17,2.31,25.4-15.93,34.79-14.83,4.95.58,11.31,10.3,16.04,11.87h44.51"
+                    d="m0,130.08h44.51c7.080-3.45,11.54-24.65,19.42-24.81s13.23,22.54,21.03,24.81c10.03,2.920,29.69-14.6,39.91-12.4,4.58.98,9.34,12.36,14.02,12.4,3.54.03,7.25-9.31,10.79-9.17,3.24.13,6.17,7.93,9.17,9.17s9.68-1.48,12.4,0c2.4,1.3,3.45,10.3,5.93,9.17,3.23-1.48,2.82-103.01,8.09-103.01,6.96,0,12.35,137.53,16.72,137.53,3.9,0-.09-36.61,8.49-43.69,3.41-2.81,13.69,1.93,17.66,0,7.17-3.49,11.72-24.71,19.690-25.08,8.62-.4,15.39,22.86,23.73,25.08,8.99,2.38,26.51-12.76,35.6-10.79,5.58,1.21,11.46,15.82,17.12,15.1,3.88-.49,4.87-12.59,8.76-12.94,3.01-.28,5.7,7.46,8.49,8.63s9.75-1.43,12.54,0,4.03,9.39,7.01,9.71c4.98.54,2.64-103.55,8.63-103.55,5.16,0,8.8,111.51,12.94,111.64,5.02.16,5.01-15.2,9.3-17.8s15.02,2.06,19.42,0c7.39-3.46,12.74-25.17,20.9-25.08,8.97.09,13.68,25.85,22.38,28.04,9.17,2.31,25.4-15.93,34.79-14.83,4.95.58,11.31,10.3,16.04,11.87h44.51"
                     stroke-linejoin="round"
                     stroke-width="2"
                     fill="none"
-                    stroke="#DE6262"
                   ></path>
                 </svg>
               </div>
             </div>
 
-            <div id="job-feedback" class="hidden">
+            <div id="job-feedback" class="hidden k-console">
               <div class="feedback-header">
                 <div class="feedback-title">
-                  <h3>Job Feedback</h3>
+                  <h3><i class="fa-solid fa-terminal" aria-hidden="true"></i> Job output</h3>
                 </div>
                 <div class="feedback-options">
-                  <div class="feedback-copy">
-                    <i title="Copy feedback" class="fa-solid fa-copy" id="feedback-copy" onclick="copyToClipboard('#job-feedback .feedback-messages', 'feedback-copy')"></i>
-                  </div>
-                  <div class="feedback-reset">
-                    <i title="Reset feedback" class="fa-solid fa-rotate-left" id="feedback-reset" onclick="document.querySelector('#job-feedback').querySelector('.feedback-messages').textContent=''"></i>
-                  </div>
-                  <div class="feedback-minimizer">
-                    <i title="Minimize" id="resource-options-dropdown-button" onclick="document.querySelector('#job-feedback').classList.toggle('minimized')" class="fa-solid fa-compress"></i>
-                  </div>
+                  <button type="button" class="feedback-copy k-btn k-btn-icon k-btn-ghost" id="feedback-copy" title="Copy output" aria-label="Copy output" data-copy="#job-feedback .feedback-messages"><i class="fa-solid fa-copy" aria-hidden="true"></i></button>
+                  <button type="button" class="feedback-reset k-btn k-btn-icon k-btn-ghost" id="feedback-reset" title="Clear output" aria-label="Clear output" data-clear="#job-feedback .feedback-messages"><i class="fa-solid fa-eraser" aria-hidden="true"></i></button>
+                  <button type="button" class="feedback-minimizer k-btn k-btn-icon k-btn-ghost" title="Minimize" aria-label="Minimize" data-toggle-class="minimized" data-target="#job-feedback"><i class="fa-solid fa-compress" aria-hidden="true"></i></button>
                 </div>
-
               </div>
               <div class="feedback-messages"></div>
             </div>
           </div>
 
           <div class="subsection hidden" id="job-feedback-view">
-          <div id="existing-jobs-container-2">
-            <div>
-              <div class="search-bar">
-                <input id="job-search" type="text" placeholder="Search by 'jid'">
-                <button type="submit">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                    <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z">
-                  </svg>
-                </button>
-                <select id="search-by"> 
+            <div id="existing-jobs-container-2" class="k-panel">
+              <div class="k-toolbar">
+                <div class="search-bar">
+                  <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
+                  <input id="job-search" type="search" placeholder="Search by 'jid'" aria-label="Search jobs">
+                  <select id="search-by" aria-label="Search by">
                     <option value="jid" selected>job id</option>
                     <option value="uid">user id</option>
                     <option value="status">status</option>
@@ -938,100 +827,108 @@
                     <option value="completed_at">completed at</option>
                     <option value="input">input</option>
                     <option value="output">output</option>
-                </select>
-              </div>                        
-              <button
-                id="fetch-jobs-button-2"
-                hx-trigger="click"
-                hx-target="#fetch-jobs-div-2"
+                  </select>
+                </div>
+                <button
+                  id="fetch-jobs-button-2"
+                  class="k-btn k-btn-icon"
+                  title="Reload"
+                  aria-label="Reload jobs"
+                  hx-trigger="click"
+                  hx-target="#fetch-jobs-div-2"
+                  hx-swap="innerHTML"
+                  hx-get="/api/v1/verified/fetch-jobs"
+                ><i class="fas fa-redo" aria-hidden="true"></i></button>
+              </div>
+              <div
+                id="fetch-jobs-div-2"
+                hx-trigger="load"
+                hx-target="this"
                 hx-swap="innerHTML"
                 hx-get="/api/v1/verified/fetch-jobs"
-                hx-vals='js:{sort: document.getElementById("existing-jobs-container-2").querySelector("#search-by").value}' 
-              ><i class="fas fa-redo"></i></button>
+              ><div class="k-loading">Loading jobs…</div></div>
             </div>
-            <div 
-              id="fetch-jobs-div-2"
-              hx-trigger="load"
-              hx-target="this"
-              hx-swap="innerHTML"
-              hx-get="/api/v1/verified/fetch-jobs"
-            ></div>
-          </div>
           </div>
         </div>
       </section>
-      <section id="access-profile" class="content-section hidden">
-        <h2>Access-Profile</h2>
-        <p class="fading">User information, management</p>
-        <hr>  
+
+      <!-- ===================================================== Access profile -->
+      <section id="access-profile" class="content-section hidden" data-title="Access Profile">
+        <header class="k-page-head">
+          <div>
+            <p class="k-eyebrow">Account</p>
+            <h2>Access Profile</h2>
+            <p class="fading">Your identity, credentials, files and uploads.</p>
+          </div>
+        </header>
         <div id="profile-settings-section">
-          <div id="user-profile" >
-            <div id="user-info" class="user-info-container darkened">
-              <div class="user-summary">
-                <div class="info-row">
-                  <label>Username:</label>
-                  <span class="info-display" id="username">{{ .username }}</span>
+          <div id="user-profile" class="k-profile-grid">
+            <div id="user-info" class="user-info-container darkened k-panel">
+              <div class="k-profile-id">
+                <span class="k-avatar k-avatar-lg" aria-hidden="true"><i class="fa-solid fa-user"></i></span>
+                <div>
+                  <p class="k-profile-name">{{ .username }}</p>
+                  <p class="k-profile-sub">{{ if .elevated }}administrator{{ else }}user{{ end }}</p>
                 </div>
-              
+              </div>
+              <dl class="user-summary">
                 <div class="info-row">
-                  <label>Password: </label>
-                  <div class="info-display">
-                    <span id="password">*******</span>
-                    <i onclick="toggleHidden('#change-password-form', '.settings-action')" class="fas fa-edit edit-icon" title="Change password"></i>
-                  </div>
+                  <dt>Username</dt>
+                  <dd class="info-display" id="username">{{ .username }}</dd>
                 </div>
-              
                 <div class="info-row">
-                  <label>Email:</label>
-                  <div class="info-display">
+                  <dt>Password</dt>
+                  <dd class="info-display">
+                    <span id="password">••••••••</span>
+                    <button type="button" class="edit-icon k-btn k-btn-sm k-btn-ghost" title="Change password" data-toggle-hidden="#change-password-form" data-toggle-group=".settings-action"><i class="fas fa-pen" aria-hidden="true"></i> Change</button>
+                  </dd>
+                </div>
+                <div class="info-row">
+                  <dt>Email</dt>
+                  <dd class="info-display">
                     <span id="email">{{ .info }}</span>
-                    <i onclick="toggleHidden('#email-change-form', '.settings-action')" class="fas fa-edit edit-icon" title="Change email"></i>
-                  </div>
+                    <button type="button" class="edit-icon k-btn k-btn-sm k-btn-ghost" title="Change email" data-toggle-hidden="#email-change-form" data-toggle-group=".settings-action"><i class="fas fa-pen" aria-hidden="true"></i> Change</button>
+                  </dd>
                 </div>
-              
                 <div class="info-row">
-                  <label>Groups:</label>
-                  <span class="info-display" id="groups">{{ .groups }}</span>
+                  <dt>Groups</dt>
+                  <dd class="info-display k-mono" id="groups">{{ .groups }}</dd>
                 </div>
-              
                 <div class="info-row">
-                  <label>Home:</label>
-                  <span id="home"> {{ .home }}</span>
+                  <dt>Home</dt>
+                  <dd class="info-display k-mono" id="home">{{ .home }}</dd>
                 </div>
-              
                 <div class="info-row">
-                  <label>Total Jobs:</label>
-                  <span id="total-jobs">{{ .total_jobs }}</span>
+                  <dt>Total jobs</dt>
+                  <dd class="info-display" id="total-jobs">{{ .total_jobs }}</dd>
                 </div>
-              
                 <div class="info-row">
-                  <label>Total Files:</label>
-                  <span id="total-files">{{ .total_files }}</span>
+                  <dt>Total files</dt>
+                  <dd class="info-display" id="total-files">{{ .total_files }}</dd>
                 </div>
-              </div>            
+              </dl>
               <div class="user-actions">
                 <form class="settings-action hidden" id="change-password-form"
                   hx-post="/api/v1/verified/passwd"
                   hx-swap="none"
                   hx-trigger="submit"
                 >
-                  <div>
-                    <div class="label-input">
-                      <label for="newPassword">New password:</label>
-                      <input required type="password" name="newPassword" id="newPassword">
-                    </div>
-                    <div class="label-input">
-                      <label for="newPasswordRepeat">Repeat new password:</label>
-                      <input required type="password" name="newPasswordRepeat" id="newPasswordRepeat">
-                    </div>
+                  <h4>Change password</h4>
+                  <div class="label-input">
+                    <label for="currentPassword">Current password</label>
+                    <input required type="password" name="currentPassword" id="currentPassword" autocomplete="current-password">
                   </div>
-                  <div>
-                    <div class="label-input">
-                      <label for="currentPassword">Current password:</label>
-                      <input required type="password" name="currentPassword" id="currentPassword">
-                    </div>
-                    <button type="submit">Update Password</button>
-                    <button type="button" class="cancel-btn" onclick="hide(this.parentNode.parentNode)"><i class="fa fa-times"></i></button>
+                  <div class="label-input">
+                    <label for="newPassword">New password</label>
+                    <input required type="password" name="newPassword" id="newPassword" autocomplete="new-password">
+                  </div>
+                  <div class="label-input">
+                    <label for="newPasswordRepeat">Repeat new password</label>
+                    <input required type="password" name="newPasswordRepeat" id="newPasswordRepeat" autocomplete="new-password">
+                  </div>
+                  <div class="k-form-actions">
+                    <button type="button" class="cancel-btn k-btn" data-hide-closest="form">Cancel</button>
+                    <button type="submit" class="k-btn k-btn-primary">Update password</button>
                   </div>
                 </form>
                 <form
@@ -1042,150 +939,149 @@
                   hx-swap="none"
                   hx-headers='{"Content-Type":"multipart/form-data"}'
                 >
+                  <h4>Change email</h4>
                   <div class="label-input">
-                    <label for="new-email-change">New email:</label>
-                    <input id="new-email-change" name="new-email-change" type="email">
+                    <label for="new-email-change">New email</label>
+                    <input id="new-email-change" name="new-email-change" type="email" autocomplete="email">
                   </div>
-                  <button type="submit">Update Email</button>
-                  <button type="button" class="cancel-btn" onclick="hide(this.parentNode)"><i class="fa fa-times"></i></button>
+                  <div class="k-form-actions">
+                    <button type="button" class="cancel-btn k-btn" data-hide-closest="form">Cancel</button>
+                    <button type="submit" class="k-btn k-btn-primary">Update email</button>
+                  </div>
                 </form>
               </div>
-              <div class="feedback hidden" id="user-actions-feedback"></div>
+              <div class="feedback hidden" id="user-actions-feedback" role="status"></div>
             </div>
-            <div id="vfs-display" class="darkened">
-              <h3>Files</h3>
-              <div>
-                <div 
+
+            <div id="vfs-display" class="darkened k-panel">
+              <header class="k-panel-head">
+                <h3 class="k-panel-title"><i class="fa-solid fa-folder-open" aria-hidden="true"></i> Files</h3>
+                <div class="reset">
+                  <button
+                    type="button"
+                    class="k-btn k-btn-icon k-btn-ghost"
+                    id="vfs-reload"
+                    title="Reload"
+                    aria-label="Reload files"
+                    hx-get="/api/v1/verified/fetch-resources?format=json"
+                    hx-swap="none"
+                    hx-target="#vfs"
+                    hx-trigger="click"
+                  ><i class="fa-solid fa-rotate-right" aria-hidden="true"></i></button>
+                </div>
+              </header>
+              <div class="k-vfs-wrap">
+                <div
                   id="vfs"
-                  hx-get="/api/v1/verified/fetch-resources?format=json" 
+                  hx-get="/api/v1/verified/fetch-resources?format=json"
                   hx-swap="none"
                   hx-target="this"
                   hx-trigger="load"
-                >
-                </div>
-                <div id="selected-resource-display" class="hidden">
-                </div>
+                ><div class="k-loading">Loading files…</div></div>
+                <div id="selected-resource-display" class="hidden"></div>
               </div>
               <div id="vfs-feedback" class="feedback hidden"></div>
-              <div class="reset">
-                <i 
-                  class="fa-solid fa-rotate-left" 
-                  id="vfs-reload" 
-                  hx-get="/api/v1/verified/fetch-resources?format=json"
-                  hx-swap="none"
-                  hx-target="#vfs"
-                  hx-trigger="click"
-                  ></i>
-              </div>
             </div>
-            <div class="fupload darkened">
-              <div class="fupload-container" id="drop-zone"> 
-                <div class="fupload-header" id="file-boxes"> 
-                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M7 10V9C7 6.23858 9.23858 4 12 4C14.7614 4 17 6.23858 17 9V10C19.2091 10 21 11.7909 21 14C21 15.4806 20.1956 16.8084 19 17.5M7 10C4.79086 10 3 11.7909 3 14C3 15.4806 3.8044 16.8084 5 17.5M7 10C7.43285 10 7.84965 10.0688 8.24006 10.1959M12 12V21M12 12L15 15M12 12L9 15" 
-                      stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    </path>
-                  </svg> 
-                  <p>Browse File to upload or drag & drop!</p>
+
+            <div class="fupload darkened k-panel">
+              <header class="k-panel-head">
+                <h3 class="k-panel-title"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i> Upload</h3>
+              </header>
+              <div class="fupload-container" id="drop-zone">
+                <div class="fupload-header" id="file-boxes">
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M7 10V9C7 6.23858 9.23858 4 12 4C14.7614 4 17 6.23858 17 9V10C19.2091 10 21 11.7909 21 14C21 15.4806 20.1956 16.8084 19 17.5M7 10C4.79086 10 3 11.7909 3 14C3 15.4806 3.8044 16.8084 5 17.5M7 10C7.43285 10 7.84965 10.0688 8.24006 10.1959M12 12V21M12 12L15 15M12 12L9 15"
+                      stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                  </svg>
+                  <p>Browse File to upload or drag &amp; drop!</p>
                 </div>
                 <form
                   id="upload-files-form-dash"
                   hx-post="/api/v1/verified/upload"
-                  hx-swap="none" 
+                  hx-swap="none"
                   hx-trigger="submit"
                   hx-indicator="#progress-container"
                   hx-encoding="multipart/form-data"
-                  hx-on::before-request="show(document.getElementById('progress-container'))" 
                 >
-                  <label for="file" class="fupload-footer"> 
+                  <div class="fupload-footer">
                     <div id="select-volume">
                       <div id="volume-modal" class="modal hidden">
                         <div class="modal-content">
-                          <h3>Select a Volume</h3>
-                          <div id="volume-list">
-                            <!-- Volume options will be populated dynamically -->
+                          <h3>Select a volume</h3>
+                          <p class="k-modal-hint">Shared volumes belong to one of your groups; uploads there count against the group's quota.</p>
+                          <div id="volume-list"></div>
+                          <div class="modal-actions">
+                            <button type="button" id="cancel-select" class="k-btn">Cancel</button>
                           </div>
-                          <button type="button" id="cancel-select">Cancel</button>
                         </div>
                       </div>
-                      <p><strong>Volume:</strong> <span id="selected-volume">None</span></p>
-                      <button type="button" id="select-volume-btn">Choose Volume</button>
+                      <p class="k-selected-volume"><span>Volume</span> <strong id="selected-volume">None</strong></p>
+                      <button type="button" id="select-volume-btn" class="k-btn k-btn-sm"><i class="fa-solid fa-database" aria-hidden="true"></i> Choose volume</button>
                     </div>
-                    <div class="display-files">
-                      <svg fill="#000000" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M15.331 6H8.5v20h15V14.154h-8.169z"></path>
-                        <path d="M18.153 6h-.009v5.342H23.5v-.002z"></path>
-                      </svg> 
-                      <p id="file-name">No file selected</p> 
-                    </div>
+                    <label for="file" class="display-files">
+                      <i class="fa-regular fa-file" aria-hidden="true"></i>
+                      <span id="file-name">No file selected</span>
+                    </label>
                     <div id="upload-file">
-                      <button 
-                        id="upload-button"
-                        type="submit"
-                        disabled
-                      >Upload Files
-                      </button>
+                      <button id="upload-button" class="k-btn k-btn-primary" type="submit" disabled><i class="fa-solid fa-upload" aria-hidden="true"></i> Upload files</button>
                     </div>
-                  </label> 
+                  </div>
                   <input id="file" type="file" name="files" multiple hidden>
                 </form>
               </div>
               <div id="progress-container" class="hidden"></div>
             </div>
           </div>
-
         </div>
       </section>
 
       {{ if not .elevated }}
-      <section id="volumes" class="content-section hidden">
-        <h2>View Volumes</h2>
-        <p class="fading">View and manage existing volumes</p>
-        <hr>
-        <div>
-        </div>
-        <div 
+      <!-- ===================================================== Volumes (user) -->
+      <section id="volumes" class="content-section hidden" data-title="Volumes">
+        <header class="k-page-head">
+          <div>
+            <p class="k-eyebrow">Storage</p>
+            <h2>Volumes</h2>
+            <p class="fading">The volumes you can write to: the default volume and the ones your groups share.</p>
+          </div>
+        </header>
+        <div
           id="fetch-volumes-display"
-          hx-trigger="load" 
-          hx-get="/api/v1/verified/fetch-volumes" 
-          hx-target="#volumes-target" 
+          hx-trigger="load"
+          hx-get="/api/v1/verified/fetch-volumes"
+          hx-target="#volumes-target"
           hx-swap="innerHTML"
-        >
-        </div>
+        ></div>
         <div class="v-content">
-          <div class="v-header">
+          <div class="v-header k-toolbar">
             <div class="search-bar">
-              <input id="volume-search" type="text" placeholder="Search by 'name'">
-              <button type="submit">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                  <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z">
-                </svg>
-              </button>
-              <select id="search-by">
+              <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
+              <input id="volume-search" type="search" placeholder="Search by 'name'" aria-label="Search volumes">
+              <select id="search-by" aria-label="Search by">
                 <option value="name" selected>Name</option>
                 <option value="createdat">CreatedAt</option>
               </select>
             </div>
-            <div>
+            <div class="k-toolbar-group">
               <button
                 id="fetch-volumes-btn"
+                class="k-btn k-btn-icon"
+                title="Reload"
+                aria-label="Reload volumes"
                 hx-get="/api/v1/verified/fetch-volumes"
                 hx-target="#volumes-target"
                 hx-swap="innerHTML"
                 hx-trigger="click"
-              ><i class="fas fa-redo"></i>
-              </button>
-            </div>     
+              ><i class="fas fa-redo" aria-hidden="true"></i></button>
+            </div>
           </div>
-          <hr>                   
-          <div id="volumes-target" class="subsection"></div>
+          <div id="volumes-target" class="subsection"><div class="k-loading">Loading volumes…</div></div>
         </div>
       </section>
       {{ end }}
-
     </main>
   </div>
 
+  <div id="k-toasts" class="k-toasts" aria-live="polite"></div>
 </body>
 </html>
-
