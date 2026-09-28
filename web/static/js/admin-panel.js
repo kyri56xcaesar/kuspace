@@ -3,9 +3,9 @@
 /**************************************************************************/
 // global variables/constants
 /**************************************************************************/
-cachedUsers = [];
-cachedGroups = [];
-cachedResources = [];
+var cachedUsers = [];
+var cachedGroups = [];
+var cachedResources = [];
 var cacheVolumeResults = [];
 var cacheResourceResults = [];
 
@@ -77,7 +77,7 @@ function editUser(uid, index) {
     original.html[i] = cell.innerHTML;
     original.text[i] = cell.textContent.trim();
 
-    if (i == 0 || i == 5) {
+    if (i === 0 || i === 5) {
       continue;
     }
 
@@ -505,7 +505,7 @@ function resourceDetailsHTML(r, opts) {
 const fmtWhen = (v) => (typeof kFmtWhen === "function" ? kFmtWhen(v) : v);
 
 function parseAndInjectRTableRowdata(tr, injectTarget) {
-  if (!tr || tr.cells.length != 13 || !injectTarget) {
+  if (!tr || tr.cells.length !== 13 || !injectTarget) {
     return
   }
   const cell = (i) => (tr.cells[i].dataset.ts || tr.cells[i].innerText).trim();

@@ -41,7 +41,7 @@
       usage: "help",
       about: "list the commands",
       run: async (_, out) => {
-        for (const [name, c] of Object.entries(commands)) out(`${pad(c.usage, 28)} ${c.about}`);
+        for (const c of Object.values(commands)) out(`${pad(c.usage, 28)} ${c.about}`);
         out(`${pad("say <message>", 28)} talk to everyone in the gShell room`);
         out(`${pad("clear", 28)} clear the screen`);
       },

@@ -67,3 +67,6 @@ thesis/
 
 # Claude Code local state (agent worktrees)
 .claude/
+
+# web dev tools (web/package.json)
+node_modules/

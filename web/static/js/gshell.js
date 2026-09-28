@@ -110,19 +110,10 @@ function giveFunctionality(element) {
     return line;
   }
 
-  function prependLine(text, prompt) {
-    terminalBody.insertBefore(makeLine(text, prompt), terminalInput.parentNode);
-  }
-
   function appendLine(text, prompt) {
     terminalBody.appendChild(makeLine(text, prompt));
   }
 
-  function moveToLast(child, parent) {
-    if (parent && child) {
-      parent.appendChild(child);
-    }
-  }
   // ===== DRAGGING =====
   const terminal = element.querySelector('.terminal');
   const terminalHeader = element.querySelector('.terminal-header > .draggable-bar');

@@ -18,12 +18,6 @@ function fileUploadContainerFunctionality(dropZone, fileInput, fileBoxContainer,
       toggleSubmitButton();
     }
 
-    function updateFileNameDisplay() {
-        fileNameDisplay.textContent = 
-          filesList.length > 0 
-            ? `${filesList.length} file(s) selected` 
-            : "No files selected";
-    }
   
     function isDuplicate(file) {
       return filesList.some(

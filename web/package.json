@@ -1,0 +1,15 @@
+{
+  "name": "kuspace-web",
+  "private": true,
+  "description": "Dev tools for the browser code in static/js: lint (ESLint) and DOM tests (jsdom). Nothing here is shipped.",
+  "scripts": {
+    "lint": "eslint static/js tests",
+    "test": "node --test tests/"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.11.0",
+    "globals": "17.12.0",
+    "jsdom": "30.1.1"
+  }
+}

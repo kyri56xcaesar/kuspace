@@ -82,9 +82,15 @@ function Fmt {
 function Vet  { Invoke-Checked "go" (@("vet") + $Pkgs) }
 function Test { Invoke-Checked "go" (@("test") + $Pkgs) }
 function Lint { Invoke-Checked "golangci-lint" (@("run", "-c", ".golangci-lint.yaml") + $Pkgs) }
-function TestJs {
-    if (-not (Get-Command node -ErrorAction SilentlyContinue)) { throw "test-js needs node" }
-    Invoke-Checked "node" @("--test", "web/tests/")
+function WebDeps {
+    if (-not (Get-Command npm -ErrorAction SilentlyContinue)) { throw "the JS tools need node and npm" }
+    if (-not (Test-Path "web/node_modules")) { Invoke-Checked "npm" @("ci", "--prefix", "web", "--no-audit", "--no-fund") }
+}
+function TestJs { WebDeps; Invoke-Checked "node" @("--test", "web/tests/") }
+function LintJs {
+    WebDeps
+    Push-Location web
+    try { Invoke-Checked "npx" @("--no-install", "eslint", "static/js", "tests") } finally { Pop-Location }
 }
 function Check { Fmt; Vet; Test }
 
@@ -114,6 +120,7 @@ $tasks = [ordered]@{
     "vet"           = { Vet }
     "test"          = { Test }
     "test-js"       = { TestJs }
+    "lint-js"       = { LintJs }
     "lint"          = { Lint }
     "check"         = { Check }
     "images"        = { Images }

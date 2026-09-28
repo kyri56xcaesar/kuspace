@@ -4,3 +4,10 @@ thesis/
 third_party/
 data/db/
 data/logs/
+# web dev tools and tests (web/package.json): not served
+web/node_modules/
+web/tests/
+web/package.json
+web/package-lock.json
+web/eslint.config.mjs
+web/go.mod

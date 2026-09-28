@@ -26,7 +26,7 @@ MINIOTH_DIR  := third_party/minioth
 
 .PHONY: help setup submodule secrets \
         build $(addprefix build-,$(SERVICES)) build-minioth run-% \
-        fmt vet lint test test-race test-js fuzz check ci tidy \
+        fmt vet lint lint-js test test-race test-js fuzz check ci tidy \
         up down restart logs ps smoke images \
         k8s-build k8s-push k8s-deploy k8s-destroy \
         api-docs code-docs clean
@@ -90,12 +90,19 @@ fuzz: ## run every fuzz target for FUZZTIME (default 20s); failures are saved un
 	  done; \
 	done
 
-test-js: ## browser JS tests (node:test; languages without an interpreter are skipped)
+web/node_modules: web/package.json web/package-lock.json
+	npm ci --prefix web --no-audit --no-fund
+	@touch $@
+
+test-js: web/node_modules ## browser JS tests: DOM (jsdom) and editor starters (languages without an interpreter are skipped)
 	node --test web/tests/
+
+lint-js: web/node_modules ## ESLint for web/static/js (config: web/eslint.config.mjs)
+	cd web && npx --no-install eslint static/js tests
 
 check: fmt vet test ## fmt + vet + unit tests
 
-ci: fmt vet test-race test-js ## what CI runs (.github/workflows/ci.yml)
+ci: fmt vet test-race lint-js test-js ## what CI runs (.github/workflows/ci.yml)
 
 tidy: ## go mod tidy
 	go mod tidy
@@ -141,9 +148,12 @@ k8s-destroy: ## delete the kuspace namespace
 # --------------------------------------------------------------- docs
 # go install github.com/swaggo/swag/cmd/swag@latest
 # go install github.com/go101/golds@latest
-api-docs: ## regenerate swagger docs (uspace, fslite)
-	swag init -g internal/uspace/api.go -o api/uspace --instanceName uspacedocs --exclude pkg/fslite --parseDependency --parseInternal
-	swag init -g pkg/fslite/fslite_server.go -o api/fslite --instanceName fslitedocs --exclude internal/uspace --parseDependency --parseInternal
+# swag at go.mod's version, without a global install
+SWAG ?= go run github.com/swaggo/swag/cmd/swag@v1.16.4
+
+api-docs: ## regenerate swagger docs (uspace, fslite); tests keep the annotations in step with the routes
+	$(SWAG) init -g internal/uspace/api.go -o api/uspace --instanceName uspacedocs --exclude pkg/fslite --parseDependency --parseInternal
+	$(SWAG) init -g pkg/fslite/fslite_server.go -o api/fslite --instanceName fslitedocs --exclude internal/uspace --parseDependency --parseInternal
 
 code-docs: ## generate browsable code docs into docs/
 	golds -gen -dir docs/fslite -compact -wdpkgs-listing solo ./pkg/fslite/

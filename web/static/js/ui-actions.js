@@ -163,7 +163,6 @@ function kMarkSubSection(parentId, id) {
 // nav highlight, the breadcrumb and the job-browser tabs
 if (typeof showSection === "function") {
   const baseShowSection = showSection;
-  // eslint-disable-next-line no-global-assign
   showSection = function (sectionId) {
     baseShowSection(sectionId);
     kMarkSection(sectionId);
@@ -171,7 +170,6 @@ if (typeof showSection === "function") {
 }
 if (typeof showSubSection === "function") {
   const baseShowSubSection = showSubSection;
-  // eslint-disable-next-line no-global-assign
   showSubSection = function (divId, sectionId) {
     baseShowSubSection(divId, sectionId);
     kMarkSubSection(divId, sectionId);

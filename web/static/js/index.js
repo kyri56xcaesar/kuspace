@@ -169,7 +169,7 @@ function hide(container) {
 function toggleHidden(targetId, className) {
   let targetDiv = document.querySelector(targetId);
   document.querySelectorAll(className).forEach((element) => {
-    if (element.id == targetDiv.id) { 
+    if (element.id === targetDiv.id) { 
       element.classList.remove('hidden');
     } else {
       element.classList.add('hidden');
@@ -251,7 +251,7 @@ function getPreviewWindow(inc) {
   }
 
   // reset
-  if (inc == 0) {
+  if (inc === 0) {
     previewIndex = 0;
   }
 
@@ -338,14 +338,12 @@ document.addEventListener('htmx:afterSwap', function (event) {
     // Grab that specific shell and give it the terminal features
     giveFunctionality(triggeringElement); 
   } else if (triggeringElementId === "fetch-jobs-div") {
-    cacheResultsLi = document.getElementById("fetch-jobs-div").querySelectorAll("li");
+    const cacheResultsLi = document.getElementById("fetch-jobs-div").querySelectorAll("li");
     setupSearchBar(document.querySelector("#existing-jobs-container .search-bar"), cacheResultsLi);
     // console.log(cacheJobResultsLi);
   } else if (triggeringElementId === "fetch-jobs-div-2") {
-    cacheResultsLi = document.getElementById("fetch-jobs-div-2").querySelectorAll("li");
+    const cacheResultsLi = document.getElementById("fetch-jobs-div-2").querySelectorAll("li");
     setupSearchBar(document.querySelector("#existing-jobs-container-2 .search-bar"), cacheResultsLi);
-  } else if (triggeringElementId === "fetch-jobs-button") {
-
   } else if (triggeringElementId === "volumes-target") {
     cacheVolumeResults = document.getElementById("volumes-target").querySelectorAll(".v-body");
     // console.log(cacheVolumeResults);
@@ -385,7 +383,7 @@ document.addEventListener('htmx:afterSwap', function (event) {
         } catch (err) {
           console.error("Upload error:", err);
           const feedback = volume.querySelector(".feedback");
-          feedback.textContent = result;
+          feedback.textContent = "Upload failed: " + err.message;
         }
       });
 
@@ -401,7 +399,7 @@ document.addEventListener('htmx:afterSwap', function (event) {
     // populte eventListeners and edit logic
     addResourceListListeners()
   } else if (triggeringElementId === "fetch-groups-results") {
-    cacheGroupResults = triggeringElement.querySelector("tbody").querySelectorAll("tr");
+    const cacheGroupResults = triggeringElement.querySelector("tbody").querySelectorAll("tr");
     // Groups search
     const gSearch = triggeringElement.querySelector("#group-search");
     let gSearchBy = "name";
@@ -414,10 +412,10 @@ document.addEventListener('htmx:afterSwap', function (event) {
 
     gSearch.value = "";
     gSearch.addEventListener("input", function() {
-      if (cacheGroupResults.length == 0) {// empty cache, must fetch 
+      if (cacheGroupResults.length === 0) {// empty cache, must fetch 
 
       }
-      searchValue = gSearch.value;
+      const searchValue = gSearch.value;
       // console.log("searching by " + searchBy + " at " + searchValue);
       // do search and display
       cacheGroupResults.forEach((li) => {
@@ -449,7 +447,7 @@ document.addEventListener('htmx:afterSwap', function (event) {
     });
 
   } else if (triggeringElementId === "fetch-users-results") {
-    cacheUserResults = triggeringElement.querySelector("tbody").querySelectorAll("tr");
+    const cacheUserResults = triggeringElement.querySelector("tbody").querySelectorAll("tr");
     // console.log(cacheUserResults);
     // Users search 
     let uSearchBy = "name";
@@ -463,10 +461,10 @@ document.addEventListener('htmx:afterSwap', function (event) {
 
     uSearch.value = "";
     uSearch.addEventListener("input", function() {
-      if (cacheUserResults.length == 0) {// empty cache, must fetch 
+      if (cacheUserResults.length === 0) {// empty cache, must fetch 
 
       }
-      searchValue = uSearch.value;
+      const searchValue = uSearch.value;
       // console.log("searching by " + searchBy + " at " + searchValue);
       // do search and display
       cacheUserResults.forEach((li) => {
@@ -521,8 +519,6 @@ document.addEventListener('htmx:beforeRequest', function(event) {
   if (triggeringElement.id === 'inp-text' && triggeringElement.value === '') {
     event.preventDefault();
     document.getElementById("generated-hash").innerText = '';
-  } else if (triggeringElement.id === 'job-create-form') {
-    
   }
 });
 
@@ -541,20 +537,15 @@ document.addEventListener('htmx:afterRequest', function (event) {
       if (redirectLocation) {
         window.location.href = redirectLocation;
       } else if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
-
+        // done, no redirect to follow
       } else {
         console.error("Redirect location not found in the response."); 
       }  
     }
     // reload users fetch
   
-  } else if (triggeringElement.id === 'fetch-groups-results') {
-    if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
-
-    }
-  
   } else if (triggeringElement.id === 'fetch-resources-form') {
-    if (event.detail.xhr.status == 404) {
+    if (event.detail.xhr.status === 404) {
       const rtbl = document.getElementById("resource-list-table");
       if (rtbl) {
         rtbl.innerHTML = "";
@@ -568,7 +559,6 @@ document.addEventListener('htmx:afterRequest', function (event) {
         feedback.textContent = '';
       }, 4000);
     }
-  } else if (triggeringElement.id === 'reload-btn') { 
   } else if (triggeringElement.id === 'add-user-form') {
     // new user creation (from admin)
     const feedback = triggeringElement.parentNode?.querySelector('.feedback');
@@ -584,6 +574,7 @@ document.addEventListener('htmx:afterRequest', function (event) {
       }, 4000);
 
     } else if (event.detail.xhr.status < 400) {
+      // 3xx: nothing to show
     } else if (event.detail.xhr.status < 500) {
       triggeringElement.classList.add('error-highlight');
       feedback.textContent = event.detail.xhr.responseText.replace(/[{}]/g, '');
@@ -646,7 +637,7 @@ document.addEventListener('htmx:afterRequest', function (event) {
         }, 2000);
       }
       document.getElementById('reload-btn').dispatchEvent(new Event('click'));
-    } else if (event.detail.xhr.status >= 500 || event.detail.xhr.status == 400){
+    } else if (event.detail.xhr.status >= 500 || event.detail.xhr.status === 400){
       const row = triggeringElement.closest('tr');
       if (row) {
         row.classList.add('error-highlight');
@@ -654,7 +645,7 @@ document.addEventListener('htmx:afterRequest', function (event) {
           row.classList.remove('error-highlight');
         }, 2000);
       }
-    } else if (event.detail.xhr.status == 404) {
+    } else if (event.detail.xhr.status === 404) {
         const row = triggeringElement.closest('tr');
         if (row) {
           row.classList.add('warning-highlight');
@@ -734,13 +725,8 @@ document.addEventListener('htmx:afterRequest', function (event) {
       document.getElementById("fetch-resources-form").scrollTo({ top: 0, behavior: "smooth"});
       feedback.classList.add('green');
       // remove the selected 
-      tableRows = document.querySelectorAll("#resource-list-table tbody tr");
-      resourceDetails = document.getElementById("resource-details");
-      tableRows.forEach((row) => {
-          // Remove 'selected' class from all rows
-          tableRows.forEach((r) => r.classList.remove("selected"));
-      });
-      resourceDetails.innerHTML ="";
+      document.querySelectorAll("#resource-list-table tbody tr").forEach((r) => r.classList.remove("selected"));
+      document.getElementById("resource-details").innerHTML = "";
     } else {
       feedback.classList.add('red');
     }
@@ -761,20 +747,10 @@ document.addEventListener('htmx:afterRequest', function (event) {
           }
         });
       }
-  } else if (triggeringElement.id === 'permissionsInput' || triggeringElement.id === 'resource-path-select' || triggeringElement.id === 'resource-owner-select' || triggeringElement.id === 'resource-group-select') {
-      if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
-        
-      } else {
-
-      }
   } else if (triggeringElement.id === 'preview-resource-btn') {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
       const host = triggeringElement.closest("#resource-details, #selected-resource-display") || document;
       host.querySelector(".resource-preview-main")?.classList.remove("blurred");
-    }
-  } else if (triggeringElement.id === 'register-form') {
-    if (event.detail.xhr.status < 300) {
-      
     }
   } else if (triggeringElement.id === 'load-users-to-cache') {
     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
@@ -818,7 +794,6 @@ document.addEventListener('htmx:afterRequest', function (event) {
       } catch (error) {
         console.error("Could not parse JSON:", error, rawResponse);
       }
-    } else {
     }
 
   } else if (triggeringElement.id === 'change-password-form') {
@@ -943,6 +918,7 @@ document.addEventListener('htmx:afterRequest', function (event) {
         }, 10000);
       }, 2000);
     } else if (event.detail.xhr.status < 400) {
+      // 3xx: nothing to show
     } else if (event.detail.xhr.status < 500) {
       setTimeout(() => {
         button.classList.add('error-highlight');
@@ -1017,23 +993,6 @@ document.addEventListener('htmx:afterRequest', function (event) {
   }
 });
 
-document.addEventListener('htmx:confirm', function(evt) {
-  if (evt.target.matches("[confirm-with-sweet-alert='true']")) {
-    evt.preventDefault();
-    swal({
-      title: "Are you sure?",
-      text: "Are you sure you are sure?",
-      icon: "warning",
-      buttons: true,
-      dangerMode: true,
-    }).then((confirmed) => {
-      if (confirmed) {
-        evt.detail.issueRequest();
-      }
-    });
-  }
-});
-
 document.addEventListener('htmx:responseError', function(event) {
   if (event.detail.xhr.status === 401) { // token expired
      // Prevent HTMX from replacing content
@@ -1056,7 +1015,7 @@ document.addEventListener("htmx:configRequest", function(evt) {
     const form = document.querySelector("#job-create-form");
     loader.classList.remove("hidden");
     form.classList.add("disabled");
-    loaderTimeout = setTimeout(() => {
+    setTimeout(() => {
       loader.classList.add("hidden");
       form.classList.remove("disabled");
     }, 2000);

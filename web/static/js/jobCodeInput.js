@@ -30,7 +30,6 @@ const extMap = {
 };
 
 const defaultMap = {
-  sql:"-- SELECT * FROM #% WHERE ;\n",
   javascript:"function run(data) {return data}\n",
   python:`
 def run(data):\n\treturn data

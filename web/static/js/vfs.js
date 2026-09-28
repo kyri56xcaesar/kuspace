@@ -1,5 +1,5 @@
-vfsRoot = {};
-currentPath = [];
+var vfsRoot = {};
+var currentPath = [];
 // Build the VFS tree from paths
 // function buildTree(resources) {
 //   // console.log(paths);
@@ -95,14 +95,14 @@ function renderVFS(pathParts, container) {
     const isFile = entry.__isFile;
     const item = document.createElement("button");
     item.type = "button";
-    item.textContent = (isFile || key == ".") ? key : key + "/";
+    item.textContent = (isFile || key === ".") ? key : key + "/";
     item.classList.add(isFile ? "file" : "directory");
     item.addEventListener("click", () => {
       container.querySelectorAll(".is-selected").forEach((el) => el.classList.remove("is-selected"));
       if (isFile) {
         item.classList.add("is-selected");
         displaySelectedResource([...currentPath, key].join("/"));
-      } else if (key != ".") {
+      } else if (key !== ".") {
         currentPath.push(key);
         renderVFS(currentPath, container);
       }
