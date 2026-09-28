@@ -153,6 +153,15 @@ func (fsl *FsLite) InsertResource(ctx context.Context, r ut.Resource, defaultQuo
 		if r.Vname == "" {
 			r.Vname = defaultVolumeName
 		}
+		r.Name = NormalizeName(r.Name)
+		// a taken name is the more useful refusal than a quota
+		var taken int
+		if err := q.QueryRowContext(ctx, `SELECT COUNT(*) FROM resources WHERE vname = ? AND name = ?`, r.Vname, r.Name).Scan(&taken); err != nil {
+			return err
+		}
+		if taken > 0 {
+			return fmt.Errorf("%w: %s in %s", ErrResourceExists, r.Name, r.Vname)
+		}
 		if enforce {
 			vid, err := checkSpace(ctx, q, r.UID, r.Vname, r.Size, defaultQuota)
 			if err != nil {

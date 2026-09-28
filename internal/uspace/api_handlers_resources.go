@@ -296,23 +296,18 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 		return
 	}
 
-	if err := srv.storage.Remove(c.Request.Context(),
-		ut.Resource{
-			Name:  ac.Target,
-			Vname: ac.Vname,
-		},
-	); err != nil {
-		respondErr(c, "move", err)
-
-		return
-	}
-
 	// database
 	err = srv.fsl.Update(c.Request.Context(), map[string]string{"newname": parts[1], "volume": parts[0], "name": ac.Target, "oldvolume": ac.Vname})
 	if err != nil {
 		respondErr(c, "move", err)
 
 		return
+	}
+	// the old object goes last: a failure here leaves an orphan (invisible,
+	// collectable), never a record whose object is gone (the removal used to
+	// come before the record update)
+	if err := srv.storage.Remove(c.Request.Context(), ut.Resource{Name: ac.Target, Vname: ac.Vname}); err != nil {
+		log.Printf("moved %s/%s but its old object stays behind (orphan): %v", ac.Vname, ac.Target, err)
 	}
 	// moved onto a group volume: it joins the group
 	if gv, gerr := srv.fsl.GroupVolume(c.Request.Context(), parts[0]); gerr == nil && gv.GID == destGroup {
