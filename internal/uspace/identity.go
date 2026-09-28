@@ -60,7 +60,10 @@ func identify(srv *UService, c *gin.Context) (*authn.Claims, bool, error) {
 		}
 		what := "0::/"
 		if cur := c.GetHeader("Access-Target"); cur != "" {
-			what, _, _ = strings.Cut(cur, " ")
+			what = cur // a bare "what", or "what who" (the target may contain spaces)
+			if i := strings.LastIndex(cur, " "); i >= 0 && whoPattern.MatchString(cur[i+1:]) {
+				what = cur[:i]
+			}
 		}
 		c.Request.Header.Set("Access-Target", what+" "+claims.Who())
 

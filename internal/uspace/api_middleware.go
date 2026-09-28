@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 
 	ut "kyri56xcaesar/kuspace/internal/utils"
@@ -30,6 +31,9 @@ import (
 *
 *
 * */
+// whoPattern is Access-Target's identity part: "uid:gid[,gid...]".
+var whoPattern = regexp.MustCompile(`^[0-9]+:[0-9]+(,[0-9]+)*$`)
+
 func BindAccessTarget(httpHeader string) (ut.AccessClaim, error) {
 	var (
 		ac                              ut.AccessClaim = ut.AccessClaim{}
@@ -37,13 +41,19 @@ func BindAccessTarget(httpHeader string) (ut.AccessClaim, error) {
 		target                          string
 	)
 
-	parts := strings.SplitN(httpHeader, " ", 2)
-	if len(parts) != 2 {
+	// Split at the LAST space: the identity never contains one, the target
+	// may. Splitting at the first one let a target like "/f.txt 0:0" (from
+	// a download link) become the identity - uid 0, root.
+	i := strings.LastIndex(httpHeader, " ")
+	if i < 0 {
 		return ac, errors.New("invalid header format:all")
 	}
+	what, who := httpHeader[:i], httpHeader[i+1:]
+	if !whoPattern.MatchString(who) {
+		return ac, errors.New("invalid header format:who")
+	}
 
-	what := parts[0]
-	who := parts[1]
+	var parts []string
 
 	// parse the who
 	parts = strings.SplitN(who, ":", 2)

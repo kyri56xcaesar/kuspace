@@ -67,3 +67,35 @@ func TestBindingFalse(t *testing.T) {
 	// 	HasKeyword: true,
 	// })
 }
+
+// A target is user input (download links, file names); it must never be
+// able to supply the identity. The parser used to split at the first space,
+// so "/f.txt 0:0" made the caller root.
+func TestTargetCannotSmuggleIdentity(t *testing.T) {
+	ac, err := u.BindAccessTarget(":vol:/victim.txt 0:0 1001:1002")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ac.UID != "1001" || ac.Gids != "1002" || ac.Target != "/victim.txt 0:0" {
+		t.Errorf("parsed %+v: want uid 1001 and the whole target", ac)
+	}
+
+	ac, err = u.BindAccessTarget(":vol:/my report.pdf 1001:1002")
+	if err != nil || ac.Target != "/my report.pdf" || ac.UID != "1001" {
+		t.Errorf("file name with a space: %+v, %v", ac, err)
+	}
+
+	for _, bad := range []string{
+		":vol:/f.txt 0:0 x",
+		":vol:/f.txt root:0",
+		":vol:/f.txt 1001:",
+		":vol:/f.txt 1001:1002,",
+		":vol:/f.txt :1002",
+		":vol:/f.txt 1001:10 02",
+		":vol:/f.txt",
+	} {
+		if ac, err := u.BindAccessTarget(bad); err == nil {
+			t.Errorf("%q accepted as %+v", bad, ac)
+		}
+	}
+}
