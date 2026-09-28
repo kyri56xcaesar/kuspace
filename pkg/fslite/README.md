@@ -18,7 +18,7 @@ user_volume   vid, uid, quota (GB)   one row per user per volume (usage: compute
 user_admin    the standalone server's admin accounts (bcrypt)
 ```
 
-Names are stored normalized (`NormalizeName`: no leading `/`). Foreign keys are on,
+Names are stored normalized (`NormalizeName`: one leading `/`). Foreign keys are on,
 so a resource must point at an existing volume.
 
 ## Go API
@@ -79,8 +79,7 @@ All variables are listed with their defaults in `internal/utils/config.go` (`Fsl
 
 ## Known quirks
 
-- Prefix lookups (`SelectObjects` with `prefix`) match names with `LIKE` across all
-  volumes.
-- Group volumes have query code but no table and no route yet (BACKLOG).
+- Group volumes (`group_volume.go`): a volume can belong to one group; its members
+  share it and the group's quota applies there instead of personal ones.
 - Schema changes are ad-hoc `ALTER TABLE`s at startup until the migration framework
   in BACKLOG lands.

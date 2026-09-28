@@ -185,6 +185,19 @@ checks and logs only its sections (Tokens and Storage split out).
 | MED | csrf.js | htmx goes through XHR, so the header was sent twice ("tok, tok"): every htmx write refused. | Set once. |
 | - | web | Refurbish merged (`a1f1164`): new design in both themes, no inline code, 8 XSS spots fixed; CSP is now `script-src 'self'; style-src 'self'`. | |
 
+### Round 8 (2026-09-28: LOW items, quotas & sharing UI, languages as apps)
+
+| Sev | Where | Problem | Fix |
+|---|---|---|---|
+| LOW | fslite | Prefix listings matched "%name%" across every volume; "_"/"%" were wildcards. | Path prefix within the volume, wildcards escaped. |
+| LOW | uspace | `system-metrics` panicked (500) without kubernetes. | Says so (`available: false`) and reports uspace's own process; dashboard shows the note. |
+| LOW | web | Duplicate element ids (search-by x7, ...), add-user password in plain text, job sort ignored two columns. | Classes, a password field, every column sorts. |
+| LOW | minioth | `/admin/users` reported pgroup = uid. | The group's gid is recorded; old users repaired at start (branch `next`, `254d20f`). |
+| LOW | minioth plain store | Truncating rewrites, one-process lock, unchecked writes, ':' in values. | Atomic rename, flock, ordered/checked writes, values refused (`da09dba`). |
+| - | gShell | An echo room. | A shell over the APIs: ls, cat, rm, volumes, jobs, log, cancel, whoami; `say` for the room. |
+| - | UI | No way to manage personal quotas or group volumes. | Admin > Storage > Quotas & sharing (uspace `/admin/user/volume` GET/PATCH/DELETE, frontapp routes). |
+| - | languages | Code languages had no UI and defaulted to `:latest` images. | Catalogue apps with pinned small images and working starters (all nine run against presigned URLs). |
+
 ---
 
 ## Open
@@ -200,20 +213,9 @@ checks and logs only its sections (Tokens and Storage split out).
 - `HIGH` **jobs across restarts**: queued jobs stay "queued" and running ones
   "running" after a restart (drain now leaves them so) - re-queue / re-attach
   or fail them at start, plus a timeout watchdog.
-- `LOW` minioth: `/admin/users` reports `pgroup` = the uid (e.g. 1032) while
-  the token and the user's group list say the user's own group (1033). Fix in
-  minioth (next release); kuspace reads the gid from the token.
-- `LOW` `admin/system-metrics` answers 500 without kubernetes.
-- `LOW` job-list "sort" sends the search column; duplicate element ids the JS
-  depends on; admin add-user password field is `type=text`.
-- `LOW` fslite `SelectObjects` by prefix uses `LIKE` across all volumes.
-- `LOW` group volumes have no admin UI yet (API only: `/admin/group/volume`);
-  users see them in the volume list.
-- `LOW` (decision pending) minioth's plain-file store (`MINIOTH_HANDLER=plain`): colon-separated
-  files rewritten whole and non-atomically, a process-local lock only,
-  multi-file changes not transactional, `:` in values not rejected. Fine for
-  a single dev instance; production uses the database handler.
-- `LOW` gshell works again (tickets) but is still an echo room, not a shell.
+- `PENDING` minioth branch `next` (primary-group fix, plain-store hardening)
+  is committed locally only: push it and tag v1.0.7, then bump kuspace's
+  submodule to it.
 
 ### Code health
 - `MED` tests: unit suites for utils (incl. config), uspace (identity, executor,
