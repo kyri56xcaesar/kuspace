@@ -254,11 +254,6 @@ func (fsl *FsLite) getResourceHandler(c *gin.Context) {
 
 	resources, err := fsl.SelectObjects(c.Request.Context(), map[string]any{"prefix": name, "rids": rids})
 	if err != nil {
-		if strings.Contains(err.Error(), "empty") {
-			c.JSON(http.StatusNotFound, gin.H{"status": "empty"})
-
-			return
-		}
 		log.Printf("[FSL_API_getResource] failed to get resource: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),

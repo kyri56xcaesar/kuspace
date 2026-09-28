@@ -21,11 +21,11 @@ import (
 
 var (
 	// ErrVolumeInUse is returned when a volume holds files, so it can't change hands.
-	ErrVolumeInUse = errors.New("volume holds files")
+	ErrVolumeInUse = fmt.Errorf("volume holds files (%w)", ut.ErrNotEmpty)
 	// ErrDefaultVolume is returned for the default volume: it is every user's, never a group's.
-	ErrDefaultVolume = errors.New("the default volume can't be a group volume")
+	ErrDefaultVolume = fmt.Errorf("the default volume can't be a group volume (%w)", ut.ErrForbidden)
 	// ErrNotGroupVolume is returned when the volume belongs to no group.
-	ErrNotGroupVolume = errors.New("not a group volume")
+	ErrNotGroupVolume = fmt.Errorf("not a group volume (%w)", ut.ErrNotFound)
 )
 
 const groupVolumeSchema = `

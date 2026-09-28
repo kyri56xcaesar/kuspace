@@ -10,6 +10,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -64,7 +65,7 @@ func (m *memStorage) Download(_ context.Context, t *any) (context.CancelFunc, er
 	b, ok := m.objects[key(r.Vname, r.Name)]
 	m.mu.Unlock()
 	if !ok {
-		return nil, errors.New("no such object")
+		return nil, fmt.Errorf("%w: no such object", ut.ErrNotFound) // as the MinIO client maps NoSuchKey
 	}
 	r.Reader, r.Size = bytes.NewReader(b), int64(len(b))
 
@@ -200,8 +201,8 @@ func TestGroupVolumeHandlers(t *testing.T) {
 	a := newAPIHarness(t, 0.000001) // members' personal quota: 1 kB
 
 	const member, member2, stranger = "1001:1001,500", "3003:3003,500", "2002:2002"
-	if rec := a.assignGroup("vol1", 500, 1); rec.Code != http.StatusConflict {
-		t.Errorf("default volume as a group volume: %d, want 409", rec.Code)
+	if rec := a.assignGroup("vol1", 500, 1); rec.Code != http.StatusForbidden {
+		t.Errorf("default volume as a group volume: %d, want 403", rec.Code)
 	}
 	if rec := a.assignGroup("team", 500, 0.00001); rec.Code != http.StatusOK { // 10 kB for the group
 		t.Fatalf("assign: %d %s", rec.Code, rec.Body)
@@ -272,7 +273,7 @@ func (a *apiHarness) withJobsDB(uids ...int64) {
 	}
 	for _, uid := range uids {
 		if _, err := a.srv.insertJob(a.t.Context(), ut.Job{UID: uid, Input: "vol1/in.csv", Output: "vol1/out.csv",
-			Logic: "bash", LogicBody: "secret code of " + fmt.Sprint(uid), Status: "completed", CreatedAt: ut.CurrentTime()}); err != nil {
+			Logic: "bash", LogicBody: "secret code of " + strconv.FormatInt(uid, 10), Status: "completed", CreatedAt: ut.CurrentTime()}); err != nil {
 			a.t.Fatal(err)
 		}
 	}
@@ -359,5 +360,27 @@ func TestAdminVolumesAreUsable(t *testing.T) {
 	}
 	if rec := a.do(http.MethodGet, "/api/v1/admin/volumes", "::/", "0:0", nil, ""); strings.Contains(rec.Body.String(), `"team"`) {
 		t.Errorf("deleted volume still listed: %s", rec.Body)
+	}
+}
+
+// Errors answer with the status their kind maps to, whatever their text.
+func TestErrorsAnswerByKind(t *testing.T) {
+	a := newAPIHarness(t, 1)
+	// a record whose object is gone (the kind of drift fsck reports)
+	now := ut.CurrentTime()
+	if err := a.srv.fsl.Insert(t.Context(), ut.Resource{Name: "/ghost.txt", Vname: "vol1", VID: a.srv.volumeID(t.Context(), "vol1"),
+		UID: 1001, GID: 1001, Perms: ut.DefaultFilePerms, Type: "file", CreatedAt: now, UpdatedAt: now, AccessedAt: now}); err != nil {
+		t.Fatal(err)
+	}
+	if rec := a.do(http.MethodGet, "/api/v1/resource/download", "vol1:/ghost.txt", "1001:1001", nil, ""); rec.Code != http.StatusNotFound {
+		t.Errorf("missing object: %d, want 404 (was 400)", rec.Code)
+	}
+	// no files is an empty list (was 404)
+	rec := a.do(http.MethodGet, "/api/v1/resources", "team:/", "2002:2002", nil, "")
+	if rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != "[]" {
+		t.Errorf("empty listing: %d %s", rec.Code, rec.Body)
+	}
+	if rec := a.upload("vol1", "ghost.txt", "x", "1001:1001"); rec.Code != http.StatusConflict {
+		t.Errorf("taken name: %d, want 409", rec.Code)
 	}
 }

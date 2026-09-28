@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 	"log"
 	"net/url"
 	"os"
@@ -25,12 +26,12 @@ func (mc *Client) createBucket(ctx context.Context, bucketname string) error {
 	if err != nil {
 		log.Printf("failed to check if bucket exists: %v", err)
 
-		return err
+		return mapErr(err)
 	}
 	if exists {
 		log.Printf("bucket %s already exists", bucketname)
 
-		return fmt.Errorf("bucket %s already exists", bucketname)
+		return fmt.Errorf("bucket %s %w", bucketname, ut.ErrExists)
 	}
 	err = mc.client.MakeBucket(ctx, bucketname, minio.MakeBucketOptions{
 		Region:        region,
@@ -39,7 +40,7 @@ func (mc *Client) createBucket(ctx context.Context, bucketname string) error {
 	if err != nil {
 		log.Printf("error making bucket: %v", err)
 
-		return err
+		return mapErr(err)
 	}
 
 	return nil
@@ -52,7 +53,7 @@ func (mc *Client) listBuckets(ctx context.Context) ([]minio.BucketInfo, error) {
 	buckets, err := mc.client.ListBuckets(ctx)
 	if err != nil {
 		// log.Printf("error listing buckets: %v", err)
-		return nil, err
+		return nil, mapErr(err)
 	}
 
 	// log.Printf("buckets: %v", buckets)
@@ -75,7 +76,7 @@ func (mc *Client) bucketExists(ctx context.Context, bucketname string) (bool, er
 	if err != nil {
 		log.Printf("failed to check if bucket exists: %v", err)
 
-		return false, err
+		return false, mapErr(err)
 	}
 
 	return exists, nil
@@ -90,7 +91,7 @@ func (mc *Client) removeBucket(ctx context.Context, bucketname string) error {
 		log.Printf("error removing bucket: %v", err)
 	}
 
-	return err
+	return mapErr(err)
 }
 
 func (mc *Client) listObjects(ctx context.Context, bucketname, prefix string) (<-chan minio.ObjectInfo, context.CancelFunc) {
@@ -152,7 +153,7 @@ func (mc *Client) fGetObject(ctx context.Context, bucketname, objectname, filepa
 		log.Printf("failed to get object from minio and save it locally")
 		cancel()
 
-		return nil, err
+		return nil, mapErr(err)
 	}
 
 	return cancel, nil
@@ -168,7 +169,7 @@ func (mc *Client) getObject(ctx context.Context, bucketname, objectname string) 
 		log.Printf("failed to retrieve object stream from minio")
 		cancel()
 
-		return nil, nil, err
+		return nil, nil, mapErr(err)
 	}
 
 	return object, cancel, nil
@@ -181,7 +182,7 @@ func (mc *Client) putObject(ctx context.Context, bucketname, objectname string, 
 	if err != nil {
 		log.Printf("failed to put object to minio: %v", err)
 
-		return err
+		return mapErr(err)
 	}
 	log.Printf("upload info: %+v", uploadInfo)
 
@@ -196,7 +197,7 @@ func (mc *Client) statObject(ctx context.Context, bucketname, objectname string)
 	if err != nil {
 		log.Println("failed to stat object on minio: ", err)
 
-		return objInfo, err
+		return objInfo, mapErr(err)
 	}
 
 	return objInfo, nil
@@ -211,7 +212,7 @@ func (mc *Client) copyObject(ctx context.Context, origin minio.CopySrcOptions, o
 		log.Print("failed to initiate copy on minio: ", err)
 	}
 
-	return uploadInfo, err
+	return uploadInfo, mapErr(err)
 }
 
 func (mc *Client) removeObject(ctx context.Context, bucketname, objectname string) error {
@@ -223,7 +224,7 @@ func (mc *Client) removeObject(ctx context.Context, bucketname, objectname strin
 		log.Print("failed to remove object from minio: ", err)
 	}
 
-	return err
+	return mapErr(err)
 }
 
 func (mc *Client) removeObjects(ctx context.Context, bucketname string, objects <-chan minio.ObjectInfo) {
@@ -311,7 +312,7 @@ func (mc *Client) getPresignedObject(ctx context.Context, bucketname, objectname
 	if err != nil {
 		log.Println(err)
 
-		return nil, err
+		return nil, mapErr(err)
 	}
 
 	return presignedURL, nil
@@ -325,7 +326,7 @@ func (mc *Client) putPresignedObject(ctx context.Context, bucketname, objectname
 	if err != nil {
 		log.Println(err)
 
-		return nil, err
+		return nil, mapErr(err)
 	}
 
 	return presignedURL, nil

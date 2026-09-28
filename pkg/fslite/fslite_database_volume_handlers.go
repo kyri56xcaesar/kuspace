@@ -57,7 +57,9 @@ func getAllVolumes(ctx context.Context, db *sql.DB) ([]ut.Volume, error) {
 func getVolumeByVid(ctx context.Context, db *sql.DB, vid int) (ut.Volume, error) {
 	var volume ut.Volume
 	err := db.QueryRowContext(ctx, `SELECT * FROM volume_usage WHERE vid = ?`, vid).Scan(volume.PtrFields()...)
-	if err != nil {
+	if errors.Is(err, sql.ErrNoRows) {
+		return ut.Volume{}, fmt.Errorf("%w: id %d", ErrVolumeNotFound, vid)
+	} else if err != nil {
 		log.Printf("[FSL_DB_getVolumeByVid] failed to scan result query: %v", err)
 
 		return ut.Volume{}, fmt.Errorf("[fsl] failed to scan row: %w", err)
@@ -70,7 +72,7 @@ func getVolumeByName(ctx context.Context, db *sql.DB, name string) (ut.Volume, e
 	var volume ut.Volume
 	err := db.QueryRowContext(ctx, `SELECT * FROM volume_usage WHERE name = ?`, name).Scan(volume.PtrFields()...)
 	if errors.Is(err, sql.ErrNoRows) {
-		return ut.Volume{}, errors.New("empty") // or return a custom error
+		return ut.Volume{}, fmt.Errorf("%w: %s", ErrVolumeNotFound, name)
 	} else if err != nil {
 		log.Printf("failed to scan result query: %v", err)
 
@@ -150,7 +152,7 @@ func insertUserVolume(ctx context.Context, db *sql.DB, uv ut.UserVolume) error {
 	err := db.QueryRowContext(ctx, `SELECT 1 FROM user_volume WHERE vid = ? AND uid = ? LIMIT 1;`, uv.VID, uv.UID).Scan(&exists)
 	if exists {
 		if err == nil {
-			return errors.New("already exists")
+			return fmt.Errorf("user %d's claim on volume %d %w", uv.UID, uv.VID, ut.ErrExists)
 		}
 		log.Printf("[FSL_DB_insUv] error checking for uniqunes or not unique: %v", err)
 

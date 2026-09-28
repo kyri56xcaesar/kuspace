@@ -27,9 +27,9 @@ import (
 var (
 	// ErrQuotaExceeded is returned when a write would take the owner (or
 	// the group, on a group volume) past its quota.
-	ErrQuotaExceeded = errors.New("storage quota exceeded")
+	ErrQuotaExceeded = fmt.Errorf("storage quota exceeded (%w)", ut.ErrNoSpace)
 	// ErrVolumeFull is returned when a write would take the volume past its capacity.
-	ErrVolumeFull = errors.New("volume is full")
+	ErrVolumeFull = fmt.Errorf("volume is full (%w)", ut.ErrNoSpace)
 )
 
 // usageSchema: the views the read queries use, and the index the sums use.

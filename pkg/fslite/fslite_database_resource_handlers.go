@@ -40,6 +40,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/mattn/go-sqlite3"
 	"log"
 	"strings"
 
@@ -47,6 +48,7 @@ import (
 )
 
 /* database call handlers regarding the Resource table */
+
 // NormalizeName returns a resource name in its one stored form: a single
 // leading "/" (object storage treats "/x" and "x" as the same object, so the
 // metadata must not keep both).
@@ -101,18 +103,30 @@ func insertResource(ctx context.Context, db querier, resource ut.Resource) error
 	return nil
 }
 
-// ErrResourceExists is returned when a resource with that name already exists in the volume
-// (enforced by the unique (vname, name) index).
-var ErrResourceExists = errors.New("resource already exists")
+// Errors fslite returns; each wraps one of the shared kinds in internal/utils
+// (ut.ErrExists, ut.ErrNotFound, ...), so callers can match either.
+var (
+	// ErrResourceExists is returned when a resource with that name already
+	// exists in the volume (enforced by the unique (vname, name) index).
+	ErrResourceExists = fmt.Errorf("resource %w", ut.ErrExists)
+	// ErrResourceNotFound is returned when no resource has that name in the volume.
+	ErrResourceNotFound = fmt.Errorf("resource %w", ut.ErrNotFound)
+	// ErrVolumeExists is returned when a volume with that name already exists.
+	ErrVolumeExists = fmt.Errorf("volume %w", ut.ErrExists)
+	// ErrVolumeNotFound is returned when no volume has that name or id.
+	ErrVolumeNotFound = fmt.Errorf("volume %w", ut.ErrNotFound)
+)
 
-// ErrResourceNotFound is returned when no resource has that name in the volume.
-var ErrResourceNotFound = errors.New("resource not found")
-
-// ErrVolumeExists is returned when a volume with that name already exists.
-var ErrVolumeExists = errors.New("volume already exists")
-
+// isUniqueViolation reports a unique/primary-key conflict: by SQLite's
+// error code, or - for the DuckDB driver, which has no typed error - its
+// message.
 func isUniqueViolation(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
+	var se sqlite3.Error
+	if errors.As(err, &se) {
+		return se.ExtendedCode == sqlite3.ErrConstraintUnique || se.ExtendedCode == sqlite3.ErrConstraintPrimaryKey
+	}
+
+	return err != nil && strings.Contains(err.Error(), "Duplicate key")
 }
 
 // ensureUniqueNames adds the unique (vname, name) index that makes duplicate
@@ -381,8 +395,8 @@ func getAllResources(ctx context.Context, db *sql.DB) ([]ut.Resource, error) {
 		return nil, fmt.Errorf("iteration error: %w", err)
 	}
 
-	if ut.IsEmpty(resources) {
-		return nil, ut.NewInfo("empty")
+	if resources == nil {
+		resources = []ut.Resource{}
 	}
 
 	return resources, nil
@@ -428,8 +442,8 @@ func getResourcesByIDs(ctx context.Context, db *sql.DB, rids []int) ([]ut.Resour
 		return nil, fmt.Errorf("iteration error: %w", err)
 	}
 
-	if ut.IsEmpty(resources) {
-		return nil, ut.NewInfo("empty")
+	if resources == nil {
+		resources = []ut.Resource{}
 	}
 
 	return resources, nil
@@ -469,8 +483,8 @@ func getResourcesByName(ctx context.Context, db *sql.DB, name string) ([]ut.Reso
 		return nil, fmt.Errorf("iteration error: %w", err)
 	}
 
-	if ut.IsEmpty(resources) {
-		return nil, ut.NewInfo("empty")
+	if resources == nil {
+		resources = []ut.Resource{}
 	}
 
 	return resources, nil
@@ -546,8 +560,8 @@ func getResourcesByNameLike(ctx context.Context, db *sql.DB, name string) ([]ut.
 
 		return nil, fmt.Errorf("iteration error: %w", err)
 	}
-	if ut.IsEmpty(resources) {
-		return nil, ut.NewInfo("empty")
+	if resources == nil {
+		resources = []ut.Resource{}
 	}
 
 	return resources, nil

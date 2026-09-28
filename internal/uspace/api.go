@@ -143,7 +143,7 @@ func NewUService(conf string) UService {
 	defaultVolume := ut.Volume{Name: cfg.MinioDefaultBucket, CreatedAt: ut.CurrentTime()}
 	err = storage.CreateVolume(context.Background(), defaultVolume)
 	if err != nil {
-		if strings.Contains(err.Error(), "already exists") {
+		if errors.Is(err, ut.ErrExists) {
 			log.Printf("[USPACE_init] default volume already exists... continuing")
 		} else {
 			log.Fatal("[USPACE_init] failed to create the default volume: ", err)
@@ -157,7 +157,7 @@ func NewUService(conf string) UService {
 	// store it in local db as well
 	err = srv.fsl.CreateVolume(context.Background(), defaultVolume)
 	if err != nil {
-		if strings.Contains(err.Error(), "already exists") {
+		if errors.Is(err, ut.ErrExists) {
 			log.Printf("[USPACE_init] default volume already exists in database... continuing")
 		} else {
 			log.Fatalf("[USPACE_init] failed to save to local fsl db: %v", err)
@@ -373,7 +373,7 @@ func syncUsers(srv *UService) error {
 			switch {
 			case err == nil:
 				claimed++
-			case strings.Contains(err.Error(), "already exists"):
+			case errors.Is(err, ut.ErrExists):
 			default:
 				log.Printf("[USPACE_sync] failed to claim volume for uid %d: %v", user.UID, err)
 			}

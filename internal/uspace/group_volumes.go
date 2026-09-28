@@ -161,19 +161,17 @@ func (srv *UService) handleGroupVolumes(c *gin.Context) {
 			return
 		}
 		if req.Vname == srv.config.MinioDefaultBucket {
-			c.JSON(http.StatusConflict, gin.H{"error": fslite.ErrDefaultVolume.Error()})
+			respondErr(c, "assign the volume", fslite.ErrDefaultVolume)
 
 			return
 		}
 		gv, err := srv.fsl.AssignGroupVolume(ctx, req.Vname, req.GID, req.Quota)
-		switch {
-		case err == nil:
-			c.JSON(http.StatusOK, gv)
-		case errors.Is(err, fslite.ErrVolumeInUse), errors.Is(err, fslite.ErrDefaultVolume):
-			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
-		default:
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if err != nil {
+			respondErr(c, "assign the volume", err)
+
+			return
 		}
+		c.JSON(http.StatusOK, gv)
 
 	case http.MethodDelete:
 		volume := c.Query("volume")
@@ -182,18 +180,12 @@ func (srv *UService) handleGroupVolumes(c *gin.Context) {
 
 			return
 		}
-		err := srv.fsl.ReleaseGroupVolume(ctx, volume)
-		switch {
-		case err == nil:
-			c.JSON(http.StatusOK, gin.H{"status": volume + " is no longer a group volume"})
-		case errors.Is(err, fslite.ErrNotGroupVolume):
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-		case errors.Is(err, fslite.ErrVolumeInUse):
-			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
-		default:
-			log.Printf("failed to release group volume: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to release the group volume"})
+		if err := srv.fsl.ReleaseGroupVolume(ctx, volume); err != nil {
+			respondErr(c, "release the group volume", err)
+
+			return
 		}
+		c.JSON(http.StatusOK, gin.H{"status": volume + " is no longer a group volume"})
 
 	default:
 		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "method not allowed"})

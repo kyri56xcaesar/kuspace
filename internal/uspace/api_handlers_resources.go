@@ -70,13 +70,8 @@ func (srv *UService) getResourcesHandler(c *gin.Context) {
 			"limit":  limit,
 		},
 	)
-	if err != nil {
-		if strings.Contains(err.Error(), "scan") || strings.Contains(err.Error(), "empty") {
-			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
-		} else {
-			log.Printf("failed to retrieve objects from storage system: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "fatal"})
-		}
+	if err != nil { // no files is an empty list, not an error (it used to be a 404)
+		respondErr(c, "list files", err)
 
 		return
 	}
@@ -98,10 +93,8 @@ func (srv *UService) getResourcesHandler(c *gin.Context) {
 		}
 		resources = visible
 	}
-	if len(resources) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"status": "no objects found"})
-
-		return
+	if resources == nil { // no files: an empty list (it was a 404, which the pages showed as an error)
+		resources = []ut.Resource{}
 	}
 
 	// we should determine the structure to be returned.
@@ -159,8 +152,7 @@ func (srv *UService) rmResourceHandler(c *gin.Context) {
 	// record first, object last: a failure in between leaves an orphan
 	// object (invisible, collectable), never a listed file without data
 	if err := srv.fsl.Remove(c.Request.Context(), ut.Resource{Name: ac.Target, Vname: ac.Vname}); err != nil {
-		log.Printf("error when removing the record: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete obj"})
+		respondErr(c, "delete", err)
 
 		return
 	}
@@ -299,8 +291,7 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 			Vname: parts[0],
 		},
 	); err != nil {
-		log.Printf("failed to make actual copy: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to copy object"})
+		respondErr(c, "move", err)
 
 		return
 	}
@@ -311,8 +302,7 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 			Vname: ac.Vname,
 		},
 	); err != nil {
-		log.Printf("failed to delete the actual old file: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete original"})
+		respondErr(c, "move", err)
 
 		return
 	}
@@ -320,8 +310,7 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 	// database
 	err = srv.fsl.Update(c.Request.Context(), map[string]string{"newname": parts[1], "volume": parts[0], "name": ac.Target, "oldvolume": ac.Vname})
 	if err != nil {
-		log.Printf("failed to update inner fsl: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update file in local db"})
+		respondErr(c, "move", err)
 
 		return
 	}
@@ -413,13 +402,13 @@ func (srv *UService) cpResourceHandler(c *gin.Context) {
 	}
 
 	if err := srv.storage.Copy(c.Request.Context(), ut.Resource{Name: ac.Target, Vname: ac.Vname}, dst); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to copy object"})
+		respondErr(c, "copy", err)
 
 		return
 	}
 	// database
 	if err := srv.fsl.Copy(c.Request.Context(), ut.Resource{Name: ac.Target, Vname: ac.Vname}, dst); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to record the copy"})
+		respondErr(c, "copy", err)
 
 		return
 	}
@@ -482,8 +471,7 @@ func (srv *UService) handleDownload(c *gin.Context) {
 
 	cancelFn, err := srv.storage.Download(c.Request.Context(), &aR)
 	if err != nil {
-		log.Printf("failed to retrieve resource: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to retrieve resource"})
+		respondErr(c, "download", err)
 
 		return
 	}
@@ -657,8 +645,7 @@ func (srv *UService) handleUpload(c *gin.Context) {
 		// orphan object (invisible, collectable), never a record without data
 		err = srv.storage.Insert(c.Request.Context(), resource)
 		if err != nil {
-			log.Printf("failed to insert resources: %v", err)
-			c.JSON(422, gin.H{"error": "failed to insert resources"})
+			respondErr(c, "upload", err)
 
 			return
 		}
@@ -669,13 +656,7 @@ func (srv *UService) handleUpload(c *gin.Context) {
 			if rmErr := srv.storage.Remove(context.WithoutCancel(c.Request.Context()), resource); rmErr != nil {
 				log.Printf("failed to remove the object of a refused upload: %v", rmErr)
 			}
-			if errors.Is(err, fslite.ErrQuotaExceeded) || errors.Is(err, fslite.ErrVolumeFull) {
-				c.JSON(http.StatusInsufficientStorage, gin.H{"error": err.Error()})
-
-				return
-			}
-			log.Printf("failed to insert resources to db: %v", err)
-			c.JSON(422, gin.H{"error": "failed to insert resources"})
+			respondErr(c, "upload", err) // 507 for quota/capacity, 409 for a taken name, ...
 
 			return
 		}
@@ -723,8 +704,7 @@ func (srv *UService) handlePreview(c *gin.Context) {
 	var ar any = resource
 	cancel, err := srv.storage.Download(c.Request.Context(), &ar)
 	if err != nil {
-		log.Printf("error getting the download stream: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get download stream"})
+		respondErr(c, "preview", err)
 
 		return
 	}
@@ -963,18 +943,13 @@ func primaryGID(ac ut.AccessClaim, fallback int64) int64 {
 // answering 507 (and returning false) when they don't.
 func (srv *UService) checkQuota(c *gin.Context, uid int64, volume string, size int64) bool {
 	quota := min(srv.config.LocalVolumesDefaultCapacity, maxDefaultVolumeCapacity)
-	err := srv.fsl.CheckSpace(c.Request.Context(), uid, volume, size, quota)
-	switch {
-	case err == nil:
-		return true
-	case errors.Is(err, fslite.ErrQuotaExceeded), errors.Is(err, fslite.ErrVolumeFull):
-		c.JSON(http.StatusInsufficientStorage, gin.H{"error": err.Error()})
-	default:
-		log.Printf("failed to claim storage: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to check storage quota"})
+	if err := srv.fsl.CheckSpace(c.Request.Context(), uid, volume, size, quota); err != nil {
+		respondErr(c, "check the quota", err)
+
+		return false
 	}
 
-	return false
+	return true
 }
 
 // volumeID resolves a volume name to its id (0 if unknown).

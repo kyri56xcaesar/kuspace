@@ -151,7 +151,7 @@ func NewFsLite(cfg ut.EnvConfig) FsLite {
 	}
 	fsl.dbh.Init(initSQL+groupVolumeSchema+usageSchema, cfg.FslDBMaxOpenConns, cfg.FslDBMaxIdleConns, cfg.FslDBMaxLifetime)
 	_, err := fsl.insertAdmin(cfg.FslAccessKey, cfg.FslSecretKey)
-	if err != nil && strings.Contains(strings.ToLower(err.Error()), "unique") {
+	if isUniqueViolation(err) {
 		log.Printf("[FSL_init] admin user already exists")
 	} else if err != nil {
 		log.Fatalf("[FSL_init] error inserting main user, fatal...: %v", err)
@@ -245,7 +245,7 @@ func (fsl *FsLite) CreateVolume(ctx context.Context, v any) error {
 	// should check if name exists.
 	if _, err = getVolumeByName(ctx, db, volume.Name); err == nil { // if err is nil, it exists
 		return fmt.Errorf("%w: %s", ErrVolumeExists, volume.Name)
-	} else if err.Error() != "empty" {
+	} else if !errors.Is(err, ErrVolumeNotFound) {
 		return err
 	}
 

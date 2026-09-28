@@ -13,10 +13,8 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 
 	ut "kyri56xcaesar/kuspace/internal/utils"
-	"kyri56xcaesar/kuspace/pkg/fslite"
 
 	"github.com/gin-gonic/gin"
 )
@@ -90,13 +88,7 @@ func (srv *UService) handleVolumes(c *gin.Context) {
 				return
 			}
 			if err := srv.createVolume(ctx, v); err != nil {
-				if errors.Is(err, fslite.ErrVolumeExists) {
-					c.JSON(http.StatusConflict, gin.H{"error": "volume " + v.Name + " exists"})
-
-					return
-				}
-				log.Printf("[USPACE_API] failed to create volume %s: %v", v.Name, err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "couldn't create volume " + v.Name})
+				respondErr(c, "create volume "+v.Name, err)
 
 				return
 			}
@@ -116,13 +108,7 @@ func (srv *UService) handleVolumes(c *gin.Context) {
 			return
 		}
 		if err := srv.storage.RemoveVolume(ctx, name); err != nil {
-			if strings.Contains(err.Error(), "not empty") {
-				c.JSON(http.StatusConflict, gin.H{"error": "the volume still holds files"})
-
-				return
-			}
-			log.Printf("[USPACE_API] failed to delete bucket %s: %v", name, err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete the volume"})
+			respondErr(c, "delete the volume", err) // 409 while it holds files
 
 			return
 		}
@@ -145,7 +131,7 @@ func (srv *UService) createVolume(ctx context.Context, v ut.Volume) error {
 	if err := srv.fsl.CreateVolume(ctx, v); err != nil {
 		return err
 	}
-	if err := srv.storage.CreateVolume(ctx, v); err != nil && !strings.Contains(err.Error(), "already exists") {
+	if err := srv.storage.CreateVolume(ctx, v); err != nil && !errors.Is(err, ut.ErrExists) {
 		if rbErr := srv.fsl.RemoveVolume(context.WithoutCancel(ctx), v); rbErr != nil {
 			log.Printf("[USPACE_API] failed to roll back volume record %s: %v", v.Name, rbErr)
 		}

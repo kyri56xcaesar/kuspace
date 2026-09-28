@@ -291,8 +291,9 @@ func (mc *Client) Download(ctx context.Context, t *any) (context.CancelFunc, err
 		return nil, err
 	}
 
-	s, err := minioObj.Stat()
+	s, err := minioObj.Stat() // GetObject is lazy: a missing object shows up here
 	if err != nil {
+		err = mapErr(err)
 		log.Printf("failed to stat the minio object: %v", err)
 
 		return nil, err
