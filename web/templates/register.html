@@ -3,136 +3,86 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>kuSpace</title>
+    <title>Create account · kuSpace</title>
     <link rel="icon" href="assets/logos/cropped.png">
+    <!-- styles -->
+    <link href="assets/fontawesome/css/all.min.css" rel="stylesheet">
     <link href="css/styles.css" rel="stylesheet">
+    <!-- scripts: every script this page uses is included here -->
+    <script src="js/theme-boot.js"></script>
     <script src="js/index.js"></script>
+    <script src="js/auth.js" defer></script>
   </head>
-  <body style="visibility: hidden;">
-    <script>0</script>
-    <div class="main-register">
-      <form 
-        id="register-form"
-        hx-post="/api/v1/register"
-        hx-trigger="submit"
-        hx-swap="none"
-      >
-        <div class="register-logo">
-          <a href="/api/v1/login">
-            <img class="selectDisable" src=assets/logos/cropped.png>
-          </a>
+  <body>
+    <div class="k-auth">
+      <aside class="k-auth-brand">
+        <a class="k-auth-mark" href="/api/v1/login" tabindex="-1">
+          <img class="selectDisable" src="assets/logos/cropped.png" alt="">
+          <span>kuSpace</span>
+        </a>
+        <div class="k-auth-pitch">
+          <h1>Get a workspace in a minute.</h1>
+          <p>Your account comes with a home, a group of your own and a share of the default volume.</p>
         </div>
-        <div class="form-inputs">
-          <input type="text" required name="username" placeholder="Username" autocomplete="off"  onfocus="this.removeAttribute('readonly')">
-          <input type="password" required name="password" placeholder="Password" autocomplete="off"  onfocus="this.removeAttribute('readonly')">
-          <input type="password" required name="repeatPassword" placeholder="Repeat Password" autocomplete="off" onfocus="this.removeAttribute('readonly')">
-          <input type="email" name="email" placeholder="foo@bar.k">
-        </div>
-        <div class=form-sub-div>
-          <input type="submit" name="Submit" value="Register">
-        </div>
-        <div class="sso-register">
-          <button id="google-button" type="button" class="sso-button">
-            <a href="/api/v1/auth/google" tabindex="-1">
-              <img src="assets/icons/google-icon.png" alt="Google Icon">
+        <ul class="k-auth-caps" aria-label="What you get">
+          <li><i class="fa-solid fa-house" aria-hidden="true"></i><span><b>home</b> /home/&lt;username&gt;</span></li>
+          <li><i class="fa-solid fa-users" aria-hidden="true"></i><span><b>groups</b> user + your own group</span></li>
+          <li><i class="fa-solid fa-cubes" aria-hidden="true"></i><span><b>apps</b> every installed application</span></li>
+        </ul>
+      </aside>
+
+      <main class="k-auth-main main-register">
+        <form
+          id="register-form"
+          action="/api/v1/register"
+          method="post"
+          hx-post="/api/v1/register"
+          hx-trigger="submit"
+          hx-swap="none"
+        >
+          <div class="k-auth-head">
+            <h2>Create account</h2>
+            <p>Pick a username and a password. Email is optional.</p>
+          </div>
+          <div class="form-inputs">
+            <div class="k-auth-field">
+              <label for="register-username">Username</label>
+              <input id="register-username" type="text" required name="username" autocomplete="username" autocapitalize="off" spellcheck="false">
+            </div>
+            <div class="k-auth-field">
+              <label for="register-password">Password</label>
+              <input id="register-password" type="password" required name="password" autocomplete="new-password">
+            </div>
+            <div class="k-auth-field">
+              <label for="register-password-2">Repeat password</label>
+              <input id="register-password-2" type="password" required name="repeatPassword" autocomplete="new-password">
+            </div>
+            <div class="k-auth-field">
+              <label for="register-email">Email <span class="k-optional">(optional)</span></label>
+              <input id="register-email" type="email" name="email" placeholder="foo@bar.k" autocomplete="email">
+            </div>
+          </div>
+          <div class="form-sub-div">
+            <button class="k-auth-submit" type="submit" name="Submit" value="Register">Create account</button>
+          </div>
+          <span class="loader hidden" id="register-loader" aria-label="Creating account"></span>
+          <div id="register-error" class="hidden" role="alert"></div>
+
+          <div class="k-auth-divider">or sign up with</div>
+          <div class="sso-register">
+            <a id="google-button" class="sso-button" href="/api/v1/auth/google">
+              <img src="assets/icons/google-icon.png" alt=""> Google
             </a>
-          </button>
-          <button id="github-button" type="button" class="sso-button">
-            <a href="/api/v1/auth/github" tabindex="-1">
-              <img src="assets/icons/github-icon.png" alt="Github Icon">
+            <a id="github-button" class="sso-button" href="/api/v1/auth/github">
+              <img src="assets/icons/github-icon.png" alt=""> GitHub
             </a>
-          </button>
-        </div>
-        <div id="login-prompt">
-          <p> Already registered?</p>
-          <a href="/api/v1/login">Login</a>
-        </div>
-        <span class="loader" id="register-loader" style="display: none;"></span>
-        <div id="register-error" style="display: none; color: red; font-size:15px;"></div>
-      </form>
+          </div>
+          <div id="login-prompt">
+            <p>Already registered?</p>
+            <a href="/api/v1/login">Sign in</a>
+          </div>
+        </form>
+      </main>
     </div>
   </body>
 </html>
-
-<script>
-
-document.addEventListener('DOMContentLoaded', () => {
-  const form = document.getElementById('register-form');
-  const loaderDiv = document.getElementById('register-loader');
-  const errorDiv = document.getElementById('register-error');
-  const submitButton = form.querySelector('input[type="submit"]');
-
-  if (form) {
-    form.addEventListener('submit', function (event) {
-      // Show the loader and disable the submit button
-      if (loaderDiv) {
-        loaderDiv.style.display = 'block';
-      }
-      if (submitButton) {
-        submitButton.disabled = true;
-      }
-
-      // Allow the form to submit as normal, but monitor its progress
-      event.preventDefault();
-      const formData = new FormData(form);
-
-      let resp;
-
-      fetch(form.action, {
-        method: 'POST',
-        body: formData,
-      })
-        .then(response => {
-          resp = response;
-          if (!response.ok) {
-            return response.json().then(data => {
-              throw { status: response.status, message: data.error || 'An error occurred.' };
-            });
-          }
-
-          // If the request is successful, allow the browser to handle the redirect
-          window.location.href = response.url; // Let the redirect happen naturally
-        })
-        .catch(err => {
-          console.error('Error:', err);
-
-          // Display error message
-          if (errorDiv) {
-            errorDiv.innerHTML = `<span>${'Register error: ' + err.message || 'Err^2'}</span>`;
-            errorDiv.style.display = 'flex';
-          }
-
-          if (resp && resp.status == "403") {
-            regRef = document.createElement("button");
-            regRef.appendChild(document.createTextNode("Is it you?"));
-            regRef.addEventListener("click", function(event){
-              window.location.href = "http://"+IP+":"+PORT+"/api/v1/login";
-              return;
-            });
-            errorDiv.appendChild(regRef);
-          }
-
-          form.reset();
-          setTimeout(() => {
-            if (errorDiv) {
-              errorDiv.style.display = 'none';
-              if (regRef) {
-                regRef.remove();
-              }
-            }
-          }, 15000);
-        })
-        .finally(() => {
-          // Hide the loader and re-enable the submit button
-          if (loaderDiv) {
-            loaderDiv.style.display = 'none';
-          }
-          if (submitButton) {
-            submitButton.disabled = false;
-          }
-        });
-    });
-  }
-});
-</script>
-

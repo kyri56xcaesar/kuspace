@@ -3,129 +3,78 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>kuSpace</title>
+    <title>Sign in · kuSpace</title>
     <link rel="icon" href="assets/logos/cropped.png">
+    <!-- styles -->
+    <link href="assets/fontawesome/css/all.min.css" rel="stylesheet">
     <link href="css/styles.css" rel="stylesheet">
+    <!-- scripts: every script this page uses is included here -->
+    <script src="js/theme-boot.js"></script>
     <script src="js/index.js"></script>
+    <script src="js/auth.js" defer></script>
   </head>
-  <body style="visibility: hidden;">
-    <script>0</script>
-    <div class="main-login">
-      <form 
-        id="login-form"   
-        hx-post="/api/1v/login" 
-        hx-trigger="submit"
-        hx-swap="none"
-      >
-        <div class="login-logo">
-          <a tabindex="-1" href="/">
-            <img class="selectDisable" src=assets/logos/cropped.png>
-          </a>
+  <body>
+    <div class="k-auth">
+      <aside class="k-auth-brand">
+        <a class="k-auth-mark" href="/" tabindex="-1">
+          <img class="selectDisable" src="assets/logos/cropped.png" alt="">
+          <span>kuSpace</span>
+        </a>
+        <div class="k-auth-pitch">
+          <h1>Storage and compute, one workspace.</h1>
+          <p>Keep your data in volumes, run jobs against it, and read the results in place.</p>
         </div>
-        <div class="form-inputs">
-          <input type="text" required name="username" placeholder="Username" autocomplete="off" onfocus="this.removeAttribute('readonly')">
-          <input type="password" required name="password" placeholder="Password" autocomplete="off" onfocus="this.removeAttribute('readonly')">
-        </div>
-        <div class=form-sub-div>
-          <input type="submit" name="Submit" value="Login">
-        </div>
-        <div class="sso-login">
-          <button id="google-button" type="button" class="sso-button">
-            <a href="/api/v1/auth/google" tabindex="-1">
-              <img src="assets/icons/google-icon.png" alt="Google Icon">
+        <ul class="k-auth-caps" aria-label="What kuSpace does">
+          <li><i class="fa-solid fa-database" aria-hidden="true"></i><span><b>volumes</b> object storage per user and group</span></li>
+          <li><i class="fa-solid fa-play" aria-hidden="true"></i><span><b>jobs</b> duckdb, pandas, octave, bash, ffmpeg</span></li>
+          <li><i class="fa-solid fa-shield-halved" aria-hidden="true"></i><span><b>access</b> unix-style users, groups, rwx</span></li>
+        </ul>
+      </aside>
+
+      <main class="k-auth-main main-login">
+        <form
+          id="login-form"
+          action="/api/v1/login"
+          method="post"
+          hx-post="/api/1v/login"
+          hx-trigger="submit"
+          hx-swap="none"
+        >
+          <div class="k-auth-head">
+            <h2>Sign in</h2>
+            <p>Welcome back. Use your kuSpace account or a linked provider.</p>
+          </div>
+          <div class="form-inputs">
+            <div class="k-auth-field">
+              <label for="login-username">Username</label>
+              <input id="login-username" type="text" required name="username" autocomplete="username" autocapitalize="off" spellcheck="false">
+            </div>
+            <div class="k-auth-field">
+              <label for="login-password">Password</label>
+              <input id="login-password" type="password" required name="password" autocomplete="current-password">
+            </div>
+          </div>
+          <div class="form-sub-div">
+            <button class="k-auth-submit" type="submit" name="Submit" value="Login">Sign in</button>
+          </div>
+          <span class="loader hidden" id="login-loader" aria-label="Signing in"></span>
+          <div id="login-error" class="hidden" role="alert"></div>
+
+          <div class="k-auth-divider">or continue with</div>
+          <div class="sso-login">
+            <a id="google-button" class="sso-button" href="/api/v1/auth/google">
+              <img src="assets/icons/google-icon.png" alt=""> Google
             </a>
-          </button>
-          <button id="github-button" type="button" class="sso-button">
-            <a href="/api/v1/auth/github" tabindex="-1">
-              <img src="assets/icons/github-icon.png" alt="Github Icon">
+            <a id="github-button" class="sso-button" href="/api/v1/auth/github">
+              <img src="assets/icons/github-icon.png" alt=""> GitHub
             </a>
-          </button>
-        </div>
-        <div id="register-prompt">
-          <p> Don't have an account?</p>
-          <a href="/api/v1/register">Register</a>
-        </div>
-        <span class="loader" id="login-loader" style="display: none;"></span>
-        <div id="login-error" style="display: none; color: red; font-size: 15px;"></div>
-      </form>
+          </div>
+          <div id="register-prompt">
+            <p>Don't have an account?</p>
+            <a href="/api/v1/register">Register</a>
+          </div>
+        </form>
+      </main>
     </div>
   </body>
 </html>
-
-<script>
-
-document.addEventListener('DOMContentLoaded', () => {
-  const loginForm = document.getElementById('login-form');
-  const loaderDiv = document.getElementById('login-loader');
-  const errorDiv = document.getElementById('login-error');
-  const submitButton = loginForm.querySelector('input[type="submit"]');
-
-  if (loginForm) {
-    loginForm.addEventListener('submit', function (event) {
-      // Show the loader and disable the submit button
-      if (loaderDiv) {
-        loaderDiv.style.display = 'block';
-      }
-      if (submitButton) {
-        submitButton.disabled = true;
-      }
-
-      // Allow the form to submit as normal, but monitor its progress
-      event.preventDefault();
-      const formData = new FormData(loginForm);
-
-      let resp;
-
-      fetch(loginForm.action, {
-        method: 'POST',
-        body: formData,
-      })
-        .then(response => {
-          resp = response;
-          if (!response.ok) {
-            return response.json().then(data => {
-              // Throw structured error for handling
-              throw { status: response.status, message: data.error || 'An error occurred.' };
-            });
-          }
-
-          // If the request is successful, allow the browser to handle the redirect
-          window.location.href = response.url; // Let the redirect happen naturally
-        })
-        .catch(err => {
-          // Handle errors for 4xx and 5xx status codes
-          console.error('Error:', err);
-
-          // Display error message
-          if (errorDiv) {
-            errorDiv.innerHTML = `<span>${'Login error: ' + err.message || 'Err^2'}</span>`;
-            errorDiv.style.display = 'flex';
-          }
-
-          // reset form
-          loginForm.reset();
-          // hide the error message after 15 seconds
-          setTimeout(() => {
-            if (errorDiv) {
-              errorDiv.style.display = 'none';
-              if (regRef) {
-                regRef.remove();
-              }
-            }
-          }, 15000);
-        })
-        .finally(() => {
-          // Hide the loader and re-enable the submit button
-          if (loaderDiv) {
-            loaderDiv.style.display = 'none';
-          }
-          if (submitButton) {
-            submitButton.disabled = false;
-          }
-        });
-    });
-  }
-});
-</script>
-
-
