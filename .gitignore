@@ -23,6 +23,8 @@ configs/*.env
 tmp/*
 ^tmp/
 data/volumes/*
+# data/ is runtime data; its go.mod keeps it out of `go build ./...`
+!data/go.mod
 
 # docs
 docs/uspace/*

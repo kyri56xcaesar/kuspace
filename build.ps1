@@ -13,7 +13,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$Pkgs       = @("./cmd/...", "./internal/...", "./pkg/...")
+$Pkgs       = @("./...")  # data/ has its own go.mod, so ./... skips it
 $Services   = @("uspace", "frontapp", "wss")
 $Bin        = "bin"
 $ComposeDir = "deployments/docker-compose"

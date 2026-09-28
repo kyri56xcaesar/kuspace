@@ -1,0 +1,42 @@
+# Unit tests, vet and lint on every push and pull request.
+# The end-to-end smoke test (make up && make smoke) needs the compose stack
+# and runs locally; see BACKLOG.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: gofmt, go vet, unit tests with the race detector
+        run: make ci
+      - name: minioth unit tests (pinned submodule)
+        run: cd third_party/minioth && go test ./...
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      # existing style findings are backlogged; fail only on new ones
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.13
+          args: -c .golangci-lint.yaml
+          only-new-issues: true

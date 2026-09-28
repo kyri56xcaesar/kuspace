@@ -202,8 +202,7 @@ func MakeMapFrom(names []string, values []any) map[string]any {
 
 	m := make(map[string]any)
 	for i, arg := range values {
-		reflectV := reflect.ValueOf(arg)
-		if !IsEmpty(reflectV) {
+		if !IsEmpty(arg) { // IsEmpty(reflect.ValueOf(arg)) tested the wrapper: never empty
 			m[names[i]] = arg
 		}
 	}

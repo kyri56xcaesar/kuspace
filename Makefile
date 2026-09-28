@@ -5,7 +5,7 @@
 #  make setup      first-time setup (submodule, secrets, compose .env)    #
 #  make up         build + start the docker-compose stack                 #
 #  make smoke      end-to-end test against the running stack              #
-#  make check      fmt + vet + unit tests (what CI should run)            #
+#  make check      fmt + vet + unit tests (CI: make ci, with -race)       #
 #                                                                         #
 #  Kubernetes deployment lives in scripts/kuspacectl.go (make k8s-*).     #
 # ###################################################################### #
@@ -13,9 +13,9 @@
 SHELL        := /bin/bash
 .DEFAULT_GOAL := help
 
-# go packages that make up kuspace (not ./... : data/ is written by the
-# containers, may hold root-owned dirs, and would break package discovery)
-PKGS         := ./cmd/... ./internal/... ./pkg/...
+# data/ (runtime data, root-owned dirs from containers) has its own go.mod,
+# so ./... never walks into it; third_party/minioth is its own module too
+PKGS         := ./...
 SERVICES     := uspace frontapp wss
 BIN          := bin
 
@@ -26,7 +26,7 @@ MINIOTH_DIR  := third_party/minioth
 
 .PHONY: help setup submodule secrets \
         build $(addprefix build-,$(SERVICES)) build-minioth run-% \
-        fmt vet lint test test-race check tidy \
+        fmt vet lint test test-race check ci tidy \
         up down restart logs ps smoke images \
         k8s-build k8s-push k8s-deploy k8s-destroy \
         api-docs code-docs clean
@@ -83,6 +83,8 @@ test-race: ## unit tests with the race detector
 	go test -race $(PKGS)
 
 check: fmt vet test ## fmt + vet + unit tests
+
+ci: fmt vet test-race ## what CI runs (.github/workflows/ci.yml)
 
 tidy: ## go mod tidy
 	go mod tidy

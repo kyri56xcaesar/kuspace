@@ -1,6 +1,9 @@
 package utils
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestIsValidPath(t *testing.T) {
 	cases := map[string]bool{
@@ -18,5 +21,16 @@ func TestIsValidPath(t *testing.T) {
 		if got := IsValidPath(in); got != want {
 			t.Errorf("IsValidPath(%q) = %v, want %v", in, got, want)
 		}
+	}
+}
+
+func TestMakeMapFromSkipsEmptyValues(t *testing.T) {
+	got := MakeMapFrom([]string{"id", "name", "address", "no"}, []any{1, "", "johanes", 0})
+	want := map[string]any{"id": 1, "address": "johanes"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("MakeMapFrom = %v, want %v", got, want)
+	}
+	if MakeMapFrom([]string{"a"}, nil) != nil {
+		t.Error("mismatched lengths accepted")
 	}
 }
