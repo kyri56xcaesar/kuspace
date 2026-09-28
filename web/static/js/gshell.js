@@ -65,18 +65,33 @@ function giveFunctionality(element) {
 
 
 
-  // Listen for the Enter key to process commands
-  terminalInput.addEventListener('keypress', (event) => {
+  // Enter runs a command (gshell-commands.js); "say ..." talks to the room.
+  // Up/down walk the command history.
+  const history = [];
+  let hpos = 0;
+  const scrollDown = () => setTimeout(() => { terminalBody.scrollTop = terminalBody.scrollHeight; }, 50);
+  terminalInput.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowUp' && hpos > 0) { terminalInput.value = history[--hpos]; event.preventDefault(); }
+    if (event.key === 'ArrowDown') { hpos = Math.min(hpos + 1, history.length); terminalInput.value = history[hpos] || ""; event.preventDefault(); }
+  });
+  terminalInput.addEventListener('keypress', async (event) => {
     if (event.key === 'Enter') {
-      let command = terminalInput.value;
-      appendLine(command, "k>");
-      if (socket && socket.readyState === WebSocket.OPEN) socket.send(command);
+      const command = terminalInput.value;
       terminalInput.value = "";
-
-      setTimeout(() => {
-        terminalBody.scrollTop = terminalBody.scrollHeight;
-      }, 100);
-
+      if (!command.trim()) return;
+      history.push(command);
+      hpos = history.length;
+      appendLine(command, "k>");
+      const verb = command.trim().split(/\s+/)[0];
+      if (verb === "clear") {
+        terminalBody.querySelectorAll(".line").forEach((l) => l.remove());
+      } else if (verb === "say") {
+        if (socket && socket.readyState === WebSocket.OPEN) socket.send(command.trim().slice(4));
+        else appendLine("not connected to the room");
+      } else if (typeof window.gshellRun === "function") {
+        await window.gshellRun(command, (text) => appendLine(text));
+      }
+      scrollDown();
     }
   });
 
