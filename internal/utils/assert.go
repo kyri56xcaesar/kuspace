@@ -23,7 +23,7 @@ func AssertStructNotEmptyUpon(strct any, assertm map[any]bool) bool {
 	v := reflect.ValueOf(strct)
 	t := reflect.TypeOf(strct)
 
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		v = v.Elem()
 		t = t.Elem()
 	}

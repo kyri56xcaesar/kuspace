@@ -64,3 +64,6 @@ cmd/*/fslite
 
 # the thesis lives on the thesis branch
 thesis/
+
+# Claude Code local state (agent worktrees)
+.claude/

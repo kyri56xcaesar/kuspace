@@ -34,9 +34,11 @@ import (
 // whoPattern is Access-Target's identity part: "uid:gid[,gid...]".
 var whoPattern = regexp.MustCompile(`^[0-9]+:[0-9]+(,[0-9]+)*$`)
 
+// BindAccessTarget parses an Access-Target header, "vid:vname:target
+// uid:gid[,gid...]" (see above), into an AccessClaim.
 func BindAccessTarget(httpHeader string) (ut.AccessClaim, error) {
 	var (
-		ac                              ut.AccessClaim = ut.AccessClaim{}
+		ac                              = ut.AccessClaim{}
 		vid, vname, resource, uid, gids string
 		target                          string
 	)

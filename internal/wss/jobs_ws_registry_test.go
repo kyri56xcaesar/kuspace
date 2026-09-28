@@ -33,7 +33,10 @@ func newTestWSS(t *testing.T) *httptest.Server {
 func dial(t *testing.T, ts *httptest.Server, query url.Values, header http.Header) (*websocket.Conn, int) {
 	t.Helper()
 	u := "ws" + strings.TrimPrefix(ts.URL, "http") + "/get-session?" + query.Encode()
-	conn, resp, err := websocket.DefaultDialer.Dial(u, header)
+	conn, resp, err := websocket.DefaultDialer.DialContext(t.Context(), u, header)
+	if resp != nil && resp.Body != nil {
+		defer func() { _ = resp.Body.Close() }()
+	}
 	if err != nil {
 		if resp == nil {
 			t.Fatalf("dial: %v", err)
@@ -80,7 +83,7 @@ func TestSessionAuthorization(t *testing.T) {
 		})
 	}
 
-	req, _ := http.NewRequest(http.MethodDelete, ts.URL+"/delete-session?jid=1", nil)
+	req, _ := http.NewRequestWithContext(t.Context(), http.MethodDelete, ts.URL+"/delete-session?jid=1", nil)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)

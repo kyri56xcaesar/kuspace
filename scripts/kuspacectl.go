@@ -6,6 +6,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"flag"
@@ -294,8 +295,8 @@ func main() {
 					}
 					lines := strings.Split(string(content), "\n")
 					for i, line := range lines {
-						if strings.HasPrefix(strings.TrimSpace(line), fmt.Sprintf("namespace: %s", ns)) {
-							lines[i] = fmt.Sprintf("  namespace: %s", ns)
+						if strings.HasPrefix(strings.TrimSpace(line), "namespace: "+ns) {
+							lines[i] = "  namespace: " + ns
 						}
 					}
 					content = []byte(strings.Join(lines, "\n"))
@@ -307,7 +308,7 @@ func main() {
 						fmt.Println("⚠️ failed to overwrite manifest")
 					}
 
-					apply := exec.Command("kubectl", "apply", "-f", "-")
+					apply := exec.CommandContext(context.Background(), "kubectl", "apply", "-f", "-")
 					apply.Stdin = strings.NewReader(yamlStr)
 
 					apply.Stdout = os.Stdout
@@ -351,6 +352,7 @@ func main() {
 						}
 					}
 				}
+
 				return nil
 			})
 			if err != nil {
@@ -384,8 +386,8 @@ func main() {
 					}
 					lines := strings.Split(string(content), "\n")
 					for i, line := range lines {
-						if strings.HasPrefix(strings.TrimSpace(line), fmt.Sprintf("namespace: %s", ns)) {
-							lines[i] = fmt.Sprintf("  namespace: %s", ns)
+						if strings.HasPrefix(strings.TrimSpace(line), "namespace: "+ns) {
+							lines[i] = "  namespace: " + ns
 						}
 					}
 					content = []byte(strings.Join(lines, "\n"))
@@ -397,7 +399,7 @@ func main() {
 						fmt.Println("⚠️ failed to overwrite manifest")
 					}
 
-					apply := exec.Command("kubectl", "apply", "-f", "-")
+					apply := exec.CommandContext(context.Background(), "kubectl", "apply", "-f", "-")
 					apply.Stdin = strings.NewReader(yamlStr)
 
 					apply.Stdout = os.Stdout
@@ -418,7 +420,6 @@ func main() {
 				os.Exit(1)
 			}
 		}
-
 	} else {
 		usage()
 	}
@@ -426,7 +427,7 @@ func main() {
 
 func run(cmd string, args ...string) error {
 	fmt.Printf("🔹 Running: %s %s\n", cmd, strings.Join(args, " "))
-	c := exec.Command(cmd, args...)
+	c := exec.CommandContext(context.Background(), cmd, args...)
 
 	var out bytes.Buffer
 	var stderr bytes.Buffer
@@ -443,7 +444,7 @@ func run(cmd string, args ...string) error {
 	}
 
 	if err != nil {
-		return fmt.Errorf("%v: %s", err, stderr.String())
+		return fmt.Errorf("%w: %s", err, stderr.String())
 	}
 
 	return nil
@@ -506,13 +507,13 @@ func buildConfigMapYAML(name, namespace string, data map[string]string) string {
 	buf.WriteString("apiVersion: v1\n")
 	buf.WriteString("kind: ConfigMap\n")
 	buf.WriteString("metadata:\n")
-	buf.WriteString(fmt.Sprintf("  name: %s-config\n", name))
-	buf.WriteString(fmt.Sprintf("  namespace: %s\n", namespace))
+	fmt.Fprintf(&buf, "  name: %s-config\n", name)
+	fmt.Fprintf(&buf, "  namespace: %s\n", namespace)
 	buf.WriteString("data:\n")
-	buf.WriteString(fmt.Sprintf("  %s.conf: |\n", name))
+	fmt.Fprintf(&buf, "  %s.conf: |\n", name)
 
 	for k, v := range data {
-		buf.WriteString(fmt.Sprintf("    %s=%s\n", k, v))
+		fmt.Fprintf(&buf, "    %s=%s\n", k, v)
 	}
 
 	return buf.String()
@@ -531,11 +532,11 @@ func buildSecretsYAML(namespace string, data map[string]string) string {
 		buf.WriteString("apiVersion: v1\n")
 		buf.WriteString("kind: Secret\n")
 		buf.WriteString("metadata:\n")
-		buf.WriteString(fmt.Sprintf("  name: %s\n", strings.ReplaceAll(strings.TrimSuffix(strings.ToLower(key), "_key"), "_", "-")))
-		buf.WriteString(fmt.Sprintf("  namespace: %s\n", namespace))
+		fmt.Fprintf(&buf, "  name: %s\n", strings.ReplaceAll(strings.TrimSuffix(strings.ToLower(key), "_key"), "_", "-"))
+		fmt.Fprintf(&buf, "  namespace: %s\n", namespace)
 		buf.WriteString("type: Opaque\n")
 		buf.WriteString("data:\n")
-		buf.WriteString(fmt.Sprintf("  %s: %s\n", key, encodedValue))
+		fmt.Fprintf(&buf, "  %s: %s\n", key, encodedValue)
 
 		if index < len(data) {
 			buf.WriteString("---\n")
@@ -553,18 +554,20 @@ func extractPVName(yaml string) string {
 			return strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "name:"))
 		}
 	}
+
 	return ""
 }
 
 func waitForPV(pvName string) {
 	for {
-		cmd := exec.Command("kubectl", "get", "pv", pvName, "-o", "json")
+		cmd := exec.CommandContext(context.Background(), "kubectl", "get", "pv", pvName, "-o", "json")
 		var out bytes.Buffer
 		cmd.Stdout = &out
 		err := cmd.Run()
 		if err != nil {
 			fmt.Printf("⚠️ Failed to get PV %s, retrying...\n", pvName)
 			time.Sleep(2 * time.Second)
+
 			continue
 		}
 
@@ -578,6 +581,7 @@ func waitForPV(pvName string) {
 		if err != nil {
 			fmt.Printf("⚠️ Failed to parse PV status, retrying...\n")
 			time.Sleep(2 * time.Second)
+
 			continue
 		}
 
@@ -591,24 +595,27 @@ func waitForPV(pvName string) {
 }
 
 func getPVStatus(pvName string) string {
-	cmd := exec.Command("kubectl", "get", "pv", pvName, "-o", "jsonpath={.status.phase}")
+	cmd := exec.CommandContext(context.Background(), "kubectl", "get", "pv", pvName, "-o", "jsonpath={.status.phase}")
 	out, err := cmd.Output()
 	if err != nil {
 		fmt.Printf("⚠️ Failed to get PV status for %s: %v\n", pvName, err)
+
 		return ""
 	}
+
 	return string(out)
 }
 
 func patchPVClaimRef(pvName string) error {
-	cmd := exec.Command("kubectl", "patch", "pv", pvName, "-p", `{"spec":{"claimRef": null}}`)
+	cmd := exec.CommandContext(context.Background(), "kubectl", "patch", "pv", pvName, "-p", `{"spec":{"claimRef": null}}`)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	cmd.Stdout = os.Stdout
 
 	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("%v: %s", err, stderr.String())
+		return fmt.Errorf("%w: %s", err, stderr.String())
 	}
+
 	return nil
 }

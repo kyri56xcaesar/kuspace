@@ -124,10 +124,12 @@ func (m *DBHandler) GetConn() (*sql.DB, error) {
 		db, err := sql.Open(m.dbDriver, dsn)
 		if err != nil {
 			log.Printf("Failed to connect to %s: %v", m.dbDriver, err)
+
 			return nil, err
 		}
 		m.db = db
 	}
+
 	return m.db, nil
 }
 

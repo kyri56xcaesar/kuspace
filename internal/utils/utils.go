@@ -166,7 +166,7 @@ func isZeroValue(v reflect.Value) bool {
 	case reflect.Bool:
 
 		return !v.Bool()
-	case reflect.Ptr, reflect.Interface:
+	case reflect.Pointer, reflect.Interface:
 
 		return v.IsNil()
 	case reflect.Struct:
@@ -250,6 +250,7 @@ func SplitToInt(input, separator string) ([]int, error) {
 	return result, nil
 }
 
+// SplitToInt64 splits input at seperator and parses each part as an int64.
 func SplitToInt64(input, seperator string) ([]int64, error) {
 	// split the input by the seperator
 	parts := strings.Split(input, seperator)
@@ -421,6 +422,8 @@ func IsNumeric(s string) bool {
 // IsValidPath function checks if a given string is a valid "path" string
 var validPathRe = regexp.MustCompile(`^[a-zA-Z0-9._\-/]+$`)
 
+// IsValidPath reports whether s is a safe object path: letters, digits,
+// "._-/", and no ".." segment.
 func IsValidPath(s string) bool {
 	if !validPathRe.MatchString(s) {
 		return false
@@ -625,6 +628,8 @@ func parseCPU(s string) (float64, error) {
 	return strconv.ParseFloat(s, 64)
 }
 
+// GenerateRandomStringAll returns length random characters (crypto/rand)
+// from letters, digits and symbols.
 func GenerateRandomStringAll(length int) (string, error) {
 	byteLength := (length * 6 / 8) + 1 // because base64 encodes 6 bits per character
 	bytes := make([]byte, byteLength)
@@ -637,6 +642,7 @@ func GenerateRandomStringAll(length int) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(bytes)[:length], nil
 }
 
+// GenerateRandomString returns length random letters and digits (crypto/rand).
 func GenerateRandomString(length int) (string, error) {
 	const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	bytes := make([]byte, length)
@@ -648,5 +654,6 @@ func GenerateRandomString(length int) (string, error) {
 	for i := 0; i < length; i++ {
 		bytes[i] = chars[int(random[i])%len(chars)]
 	}
+
 	return string(bytes), nil
 }

@@ -463,8 +463,8 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	}
 }
 
-func (je *JKubernetesExecutor) markFailed(jid int64, d time.Duration) {
-	if err := je.jm.srv.markJobStatus(context.Background(), jid, "failed", d); err != nil {
+func (jke JKubernetesExecutor) markFailed(jid int64, d time.Duration) {
+	if err := jke.jm.srv.markJobStatus(context.Background(), jid, "failed", d); err != nil {
 		log.Printf("failed to mark job %d failed: %v", jid, err)
 	}
 }

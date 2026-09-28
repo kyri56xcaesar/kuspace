@@ -29,14 +29,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      # existing style findings are backlogged; fail only on new ones
+      # the code is at zero findings: any finding fails the build
       - uses: golangci/golangci-lint-action@v8
         with:
           version: v2.13
           args: -c .golangci-lint.yaml
-          only-new-issues: true

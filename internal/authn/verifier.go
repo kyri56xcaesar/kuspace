@@ -58,7 +58,7 @@ func NewVerifier(cfg ut.EnvConfig) *Verifier {
 	}
 }
 
-// verify validates raw as a minioth access token: the configured algorithm,
+// Verify validates raw as a minioth access token: the configured algorithm,
 // issuer "minioth", an expiry, and a user id.
 func (v *Verifier) Verify(raw string) (*Claims, error) {
 	claims := &Claims{}

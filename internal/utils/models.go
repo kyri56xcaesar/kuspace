@@ -134,7 +134,7 @@ func (r *Resource) PtrFieldsNoID() []any {
 const DefaultFilePerms = "rw-r-----"
 
 // HasAccess method checks whether the given AccessClaim applies Read authorization upon the Resource Object
-func (r Resource) HasAccess(userInfo AccessClaim) bool {
+func (r *Resource) HasAccess(userInfo AccessClaim) bool {
 	/* parse permissions
 	*  rwx     644, (unix inode metadata)
 	*   |
@@ -179,7 +179,7 @@ func (r Resource) HasAccess(userInfo AccessClaim) bool {
 
 // HasWriteAccess method checks whether the given AccessClaim applies Write authorization upon the Resource object
 /* similar as above just for write access*/
-func (r Resource) HasWriteAccess(userInfo AccessClaim) bool {
+func (r *Resource) HasWriteAccess(userInfo AccessClaim) bool {
 	/* parse permissions
 	*  rwx     644, (unix inode metadata)
 	*   |
@@ -223,13 +223,13 @@ func (r Resource) HasWriteAccess(userInfo AccessClaim) bool {
 
 // HasExecutionAccess method checks the given AccessClaim applies Execution authorization upon the Resource object
 /* execution access is somewhat trivial at this point, perhaps it can be used in the future*/
-func (r Resource) HasExecutionAccess(_ AccessClaim) bool {
+func (r *Resource) HasExecutionAccess(_ AccessClaim) bool {
 	return false
 }
 
 // IsOwner method will check the given AccessClaim applies Ownership authorization upon the Resource object
 // this shall check if the resource owner is of the claim OR if the resource group ownership is included in the claim groups
-func (r Resource) IsOwner(ac AccessClaim) bool {
+func (r *Resource) IsOwner(ac AccessClaim) bool {
 	// Only the owning user owns a resource (root is handled by the callers).
 	// Group members used to count as owners too, so anyone in a shared group
 	// (every user is in "user") could chmod/chown a file shared with it.
@@ -663,7 +663,7 @@ func GroupsToString(groups []Group) string {
 func GidsToString(groups []Group) string {
 	res := make([]string, 0, len(groups))
 	for _, group := range groups {
-		res = append(res, fmt.Sprintf("%v", group.GID))
+		res = append(res, strconv.FormatInt(group.GID, 10))
 	}
 
 	return strings.Join(res, ",")

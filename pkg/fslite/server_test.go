@@ -50,8 +50,11 @@ func do(t *testing.T, h http.Handler, req *http.Request) *httptest.ResponseRecor
 
 func login(t *testing.T, h http.Handler, user, password string) (int, string) {
 	t.Helper()
-	body, _ := json.Marshal(map[string]string{"username": user, "password": password})
-	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(body))
+	body, err := json.Marshal(map[string]string{"username": user, "password": password})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/login", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := do(t, h, req)
 	var out struct{ Token string }
@@ -70,7 +73,7 @@ func uploadReq(t *testing.T, volume, name, content, token string) *http.Request 
 	}
 	_, _ = fw.Write([]byte(content))
 	_ = mw.Close()
-	req := httptest.NewRequest(http.MethodPost, "/admin/resource/upload?volume="+volume, &buf)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/admin/resource/upload?volume="+volume, &buf)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
 	req.Header.Set("Authorization", "Bearer "+token)
 
@@ -80,7 +83,7 @@ func uploadReq(t *testing.T, volume, name, content, token string) *http.Request 
 func TestServerAuthentication(t *testing.T) {
 	_, h := newTestServer(t)
 
-	if rec := do(t, h, httptest.NewRequest(http.MethodGet, "/health", nil)); rec.Code != http.StatusOK {
+	if rec := do(t, h, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/health", nil)); rec.Code != http.StatusOK {
 		t.Errorf("health = %d", rec.Code)
 	}
 
@@ -94,14 +97,14 @@ func TestServerAuthentication(t *testing.T) {
 		},
 	}
 	for name, set := range cases {
-		req := httptest.NewRequest(http.MethodGet, "/admin/volume/get", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/admin/volume/get", nil)
 		set(req)
 		if rec := do(t, h, req); rec.Code != http.StatusUnauthorized {
 			t.Errorf("%s: %d, want 401", name, rec.Code)
 		}
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/volume/get", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/admin/volume/get", nil)
 	req.Header.Set("X-Service-Secret", testServiceSecret)
 	if rec := do(t, h, req); rec.Code != http.StatusOK {
 		t.Errorf("service secret: %d, want 200", rec.Code)
@@ -114,7 +117,7 @@ func TestServerAuthentication(t *testing.T) {
 	if code != http.StatusOK || token == "" {
 		t.Fatalf("login: %d %q", code, token)
 	}
-	req = httptest.NewRequest(http.MethodGet, "/admin/volume/get", nil)
+	req = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/admin/volume/get", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	if rec := do(t, h, req); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "volume1") {
 		t.Errorf("token: %d %s", rec.Code, rec.Body)
@@ -137,7 +140,7 @@ func TestServerUploadDownload(t *testing.T) {
 		t.Errorf("upload to a missing volume: %d, want 404", rec.Code)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/resource/download?resource=volume1/notes.txt", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/admin/resource/download?resource=volume1/notes.txt", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	if rec := do(t, h, req); rec.Code != http.StatusOK || rec.Body.String() != "hello fslite" {
 		t.Errorf("download: %d %q", rec.Code, rec.Body)
