@@ -278,7 +278,7 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 		}
 		volumes = append(volumes, ut.Volume{Name: srv.Config.MinioDefaultBucket})
 		for _, gv := range shared {
-			volumes = append(volumes, ut.Volume{VID: gv.VID, Name: gv.Vname, Capacity: gv.Quota, Usage: gv.Usage})
+			volumes = append(volumes, ut.Volume{VID: gv.VID, Name: gv.Vname, Capacity: gv.Quota, Usage: gv.Usage, Shared: true, GID: gv.GID})
 		}
 	}
 	elevated := 0

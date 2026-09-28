@@ -59,10 +59,28 @@ func (srv *UService) handleVolumes(c *gin.Context) {
 
 			return
 		}
+		list, ok := volumes.([]ut.Volume)
 		if v, single := volumes.(ut.Volume); single {
-			volumes = []ut.Volume{v}
+			list, ok = []ut.Volume{v}, true
 		}
-		c.JSON(http.StatusOK, gin.H{"content": volumes})
+		if !ok {
+			c.JSON(http.StatusOK, gin.H{"content": volumes})
+
+			return
+		}
+		// mark group volumes
+		if gvs, err := srv.fsl.GroupVolumes(ctx, nil); err == nil {
+			byVID := map[int64]int64{}
+			for _, gv := range gvs {
+				byVID[gv.VID] = gv.GID
+			}
+			for i := range list {
+				if gid, shared := byVID[list[i].VID]; shared {
+					list[i].Shared, list[i].GID = true, gid
+				}
+			}
+		}
+		c.JSON(http.StatusOK, gin.H{"content": list})
 
 	case http.MethodPost:
 		body, err := io.ReadAll(c.Request.Body)

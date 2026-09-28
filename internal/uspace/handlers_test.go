@@ -352,6 +352,12 @@ func TestAdminVolumesAreUsable(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), `"lab-data"`) || !strings.Contains(rec.Body.String(), `"vid"`) {
 		t.Errorf("list: %s", rec.Body)
 	}
+	if _, err := a.srv.fsl.AssignGroupVolume(t.Context(), "other", 500, 1); err != nil {
+		t.Fatal(err)
+	}
+	if rec := a.do(http.MethodGet, "/api/v1/admin/volumes", "::/", "0:0", nil, ""); !strings.Contains(rec.Body.String(), `"shared":true,"gid":500`) {
+		t.Errorf("group volume not marked: %s", rec.Body)
+	}
 	if rec := a.do(http.MethodDelete, "/api/v1/admin/volumes?volume=vol1", "::/", "0:0", nil, ""); rec.Code != http.StatusForbidden {
 		t.Errorf("deleting the default volume: %d, want 403", rec.Code)
 	}

@@ -348,6 +348,10 @@ type Volume struct {
 	Usage       float64 `json:"usage,omitempty" form:"usage,omitempty"`
 	CreatedAt   string  `json:"createdAt,omitempty" form:"createdAt,omitempty"`
 	ObjectCount int64   `json:"objectCount,omitempty" form:"objectCount,omitempty"`
+	// Shared marks a group volume; GID is its group (neither is stored in
+	// the volumes table: they come from the group assignment).
+	Shared bool  `json:"shared,omitempty" form:"-"`
+	GID    int64 `json:"gid,omitempty" form:"-"`
 }
 
 /* fields and ptr fields for "volume" struct helper methods*/
