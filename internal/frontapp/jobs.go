@@ -34,6 +34,10 @@ func sortJobs(jobs []ut.Job, by string) {
 		"uid":    func(a, b ut.Job) bool { return a.UID > b.UID },
 		"jid":    func(a, b ut.Job) bool { return a.JID > b.JID },
 		"status": func(a, b ut.Job) bool { return compareStatus(a.Status, b.Status) },
+		"input":  func(a, b ut.Job) bool { return a.Input > b.Input },
+		// the job list's "search by" column is sent as the sort key
+		"completed_at": func(a, b ut.Job) bool { return newestFirst(a.CompletedAt, b.CompletedAt) },
+		"completedAt":  func(a, b ut.Job) bool { return newestFirst(a.CompletedAt, b.CompletedAt) },
 	}[by]
 	if less == nil { // "createdAt", "time" and the default
 		less = func(a, b ut.Job) bool { return newestFirst(a.CreatedAt, b.CreatedAt) }

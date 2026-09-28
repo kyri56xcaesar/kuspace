@@ -99,3 +99,19 @@ func TestGshellTickets(t *testing.T) {
 		t.Errorf("producer ticket: %d, want 400", rec.Code)
 	}
 }
+
+// Every "search by" column of the job list is a sort key.
+func TestSortJobsByEveryColumn(t *testing.T) {
+	jobs := []ut.Job{
+		{JID: 1, UID: 5, Input: "a", Output: "z", Status: "failed", CreatedAt: "2026-09-01 10:00:00+00:00", CompletedAt: "2026-09-03 10:00:00+00:00"},
+		{JID: 2, UID: 9, Input: "b", Output: "y", Status: "completed", CreatedAt: "2026-09-02 10:00:00+00:00", CompletedAt: "2026-09-02 11:00:00+00:00"},
+	}
+	first := map[string]int64{"jid": 2, "uid": 2, "input": 2, "output": 1, "status": 2, "createdAt": 2, "completed_at": 1, "": 2}
+	for by, want := range first {
+		js := append([]ut.Job(nil), jobs...)
+		sortJobs(js, by)
+		if js[0].JID != want {
+			t.Errorf("sort by %q: job %d first, want %d", by, js[0].JID, want)
+		}
+	}
+}

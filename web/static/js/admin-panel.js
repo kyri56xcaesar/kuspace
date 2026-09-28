@@ -316,7 +316,7 @@ document.addEventListener("DOMContentLoaded", () => {
   job_output.value = "";
   document.getElementById("select-volume-btn-job").addEventListener("click", async () => {
     const modal = document.getElementById("select-volume-btn-job").parentNode.querySelector(".modal");
-    const volumeList = modal.querySelector("#volume-list");
+    const volumeList = modal.querySelector(".k-volume-list");
     fillPicker(volumeList, (await listedVolumes()).map((v) => ({ label: v.name, meta: v.usage, kind: v.kind })), (it) => {
       job_output.value = it.label + "/";
       modal.classList.add("hidden");
@@ -331,7 +331,7 @@ document.addEventListener("DOMContentLoaded", () => {
   /**************************************************************************/
   const vSearch = document.getElementById("volume-search");
   let vSearchBy = "name";
-  const vSearchSelector = document.querySelector(".v-header").querySelector("#search-by");
+  const vSearchSelector = document.querySelector(".v-header").querySelector(".k-search-by");
   vSearchSelector.value = vSearchBy;
   vSearchSelector.addEventListener("input", () => {
     vSearchBy = vSearchSelector.value;
@@ -348,7 +348,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  const cancelModalbtn = document.getElementById("cancel-modal-btn");
+  const cancelModalbtn = document.getElementById("cancel-create-volume");
   if (cancelModalbtn) {
     cancelModalbtn.addEventListener("click", () => {
       document.getElementById("create-volume-modal").classList.add("hidden");
@@ -358,7 +358,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // for choosing a volume when upload
   document.getElementById("select-volume-btn").addEventListener("click", async () => {
     const modal = document.getElementById("select-volume-btn").parentNode.querySelector(".modal");
-    const volumeList = modal.querySelector("#volume-list");
+    const volumeList = modal.querySelector(".k-volume-list");
     fillPicker(volumeList, (await listedVolumes()).map((v) => ({ label: v.name, meta: v.usage, kind: v.kind })), (it) => {
       const sel = document.getElementById("selected-volume");
       sel.textContent = it.label;
@@ -369,7 +369,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
 
-  document.querySelectorAll("#cancel-select").forEach((cancel_btn) => {
+  document.querySelectorAll(".k-cancel-select").forEach((cancel_btn) => {
     cancel_btn.addEventListener("click", () => {
       cancel_btn.closest(".modal").classList.add("hidden");
     });
@@ -382,7 +382,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const rSearch = document.getElementById("resource-search");
   if (rSearch) {
     let rSearchBy = "name";
-    const rSearchBySelector = document.getElementById("resources-header").querySelector("#search-by");
+    const rSearchBySelector = document.getElementById("resources-header").querySelector(".k-search-by");
     rSearchBySelector.value = rSearchBy;
     rSearchBySelector.addEventListener("input", () => {
       rSearchBy = rSearchBySelector.value;
@@ -542,8 +542,8 @@ function parseAndInjectRTableRowdata(tr, injectTarget) {
 
 function setupSearchBar(jobSearchDiv, cacheJobResults) {
   let searchBy = "jid";
-  const jobSearch = jobSearchDiv.querySelector("#job-search");
-  const jobSearchSelector = jobSearchDiv.querySelector("#search-by");
+  const jobSearch = jobSearchDiv.querySelector(".k-job-search");
+  const jobSearchSelector = jobSearchDiv.querySelector(".k-search-by");
   jobSearchSelector.value = searchBy;
   jobSearchSelector.addEventListener("input", () => {
     searchBy = jobSearchSelector.value;
@@ -639,7 +639,7 @@ function modJobModal(div, parentDiv) {
         <input type="checkbox" name="completed" value="true" ${completed === "true" ? "checked" : ""}> Completed
       </label>
       <div class="modal-actions">
-        <button type="button" id="cancel-modal-btn" class="k-btn" data-hide-closest=".modal">Cancel</button>
+        <button type="button" class="k-btn" data-hide-closest=".modal">Cancel</button>
         <button type="submit" class="k-btn k-btn-primary">Save</button>
       </div>
     </form>
@@ -686,7 +686,7 @@ function modAppModal(div, parentDiv) {
         <textarea id="ma-description" name="description" maxlength="150">${f('app-description')}</textarea>
       </div>
       <div class="modal-actions">
-        <button type="button" id="cancel-modal-btn" class="k-btn" data-hide-closest=".modal">Cancel</button>
+        <button type="button" class="k-btn" data-hide-closest=".modal">Cancel</button>
         <button type="submit" class="k-btn k-btn-primary">Save</button>
       </div>
     </form>

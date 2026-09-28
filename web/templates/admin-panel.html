@@ -34,6 +34,7 @@
   <script src="../js/admin-panel.js"></script>
   <script src="../js/vfs.js"></script>
   <script src="../js/ui-actions.js"></script>
+  <script src="../js/quotas.js"></script>
   <script src="../js/dashboard.js" defer></script>
 </head>
 <body class="darkened k-app">
@@ -78,6 +79,7 @@
           <div class="submenu-title"><span class="nav-label">Storage</span></div>
           <ul class="submenu">
             <li><button type="button" class="k-nav" data-show-section="volumes" title="Volumes"><i class="fa-solid fa-database" aria-hidden="true"></i><span class="nav-label">Volumes</span></button></li>
+            <li><button type="button" class="k-nav" data-show-section="quotas" title="Quotas &amp; sharing"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i><span class="nav-label">Quotas &amp; sharing</span></button></li>
             <li><button type="button" class="k-nav" data-show-section="resources" title="Resources"><i class="fa-solid fa-folder-tree" aria-hidden="true"></i><span class="nav-label">Resources</span></button></li>
           </ul>
           <div class="submenu-title"><span class="nav-label">Execution</span></div>
@@ -194,20 +196,20 @@
               hx-trigger="submit"
             >
               <div class="form-group">
-                <label for="username">Username</label>
-                <input type="text" id="username" name="username" autocomplete="off" readonly data-autofill-guard>
+                <label for="au-username">Username</label>
+                <input type="text" id="au-username" name="username" autocomplete="off" readonly data-autofill-guard>
               </div>
               <div class="form-group">
-                <label for="password">Password</label>
-                <input type="text" id="password" name="password" autocomplete="off" readonly data-autofill-guard>
+                <label for="au-password">Password</label>
+                <input type="password" id="au-password" name="password" autocomplete="new-password" minlength="8" readonly data-autofill-guard>
               </div>
               <div class="form-group">
-                <label for="email">Email</label>
-                <input type="text" id="email" name="email" autocomplete="off" readonly data-autofill-guard>
+                <label for="au-email">Email</label>
+                <input type="text" id="au-email" name="email" autocomplete="off" readonly data-autofill-guard>
               </div>
               <div class="form-group">
-                <label for="home">Home</label>
-                <input type="text" id="home" name="home" autocomplete="off" readonly data-autofill-guard placeholder="/home/&lt;username&gt;">
+                <label for="au-home">Home</label>
+                <input type="text" id="au-home" name="home" autocomplete="off" readonly data-autofill-guard placeholder="/home/&lt;username&gt;">
               </div>
               <div class="c-group">
                 <button type="submit" class="k-btn k-btn-primary">Add user</button>
@@ -353,8 +355,8 @@
           <div class="k-toolbar">
             <div class="search-bar">
               <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
-              <input id="job-search" type="search" placeholder="Search by 'jid'" aria-label="Search jobs">
-              <select id="search-by" aria-label="Search by">
+              <input class="k-job-search" type="search" placeholder="Search by 'jid'" aria-label="Search jobs">
+              <select class="k-search-by" aria-label="Search by">
                 <option value="jid" selected>job id</option>
                 <option value="uid">user id</option>
                 <option value="status">status</option>
@@ -415,7 +417,7 @@
               <div class="search-bar">
                 <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
                 <input id="resource-search" type="search" placeholder="Search by 'name'" aria-label="Search resources">
-                <select id="search-by" aria-label="Search by">
+                <select class="k-search-by" aria-label="Search by">
                   <option value="name" selected>Name</option>
                   <option value="volume">Volume</option>
                   <option value="owner">Owner</option>
@@ -493,7 +495,7 @@
             <div class="search-bar">
               <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
               <input id="volume-search" type="search" placeholder="Search by 'name'" aria-label="Search volumes">
-              <select id="search-by" aria-label="Search by">
+              <select class="k-search-by" aria-label="Search by">
                 <option value="name" selected>Name</option>
                 <option value="createdat">CreatedAt</option>
               </select>
@@ -541,13 +543,85 @@
                   <input type="checkbox" name="dynamic" disabled checked> Dynamic
                 </label>
                 <div class="modal-actions">
-                  <button type="button" id="cancel-modal-btn" class="k-btn">Cancel</button>
+                  <button type="button" id="cancel-create-volume" class="k-btn">Cancel</button>
                   <button type="submit" class="k-btn k-btn-primary">Create</button>
                 </div>
               </form>
             </div>
             <div class="feedback hidden modal-feedback"></div>
           </div>
+        </div>
+      </section>
+
+      <!-- ================================================= Quotas & sharing -->
+      <section id="quotas" class="content-section hidden" data-title="Quotas &amp; sharing">
+        <header class="k-page-head">
+          <div>
+            <p class="k-eyebrow">Storage</p>
+            <h2>Quotas &amp; sharing</h2>
+            <p class="fading">Who may store how much, where. A shared volume belongs to one group: its members write there and the group's quota applies. On every other volume each user has a personal quota - the default unless you set one here.</p>
+          </div>
+          <div class="k-page-actions">
+            <button type="button" id="quotas-reload" class="k-btn k-btn-icon" title="Reload" aria-label="Reload quotas and sharing"><i class="fas fa-redo" aria-hidden="true"></i></button>
+          </div>
+        </header>
+
+        <div class="k-panel k-panel-flush">
+          <div class="k-panel-head">
+            <h3 class="k-panel-title"><i class="fa-solid fa-people-roof" aria-hidden="true"></i> Shared volumes</h3>
+          </div>
+          <div id="gv-target"><div class="k-loading">Loading shared volumes…</div></div>
+        </div>
+
+        <div class="k-panel k-panel-narrow">
+          <h3 class="k-panel-title"><i class="fa-solid fa-share-nodes" aria-hidden="true"></i> Share a volume with a group</h3>
+          <form id="gv-form" class="k-inline-form">
+            <div class="k-field">
+              <label for="gv-volume">Volume</label>
+              <select id="gv-volume" name="vname" required></select>
+            </div>
+            <div class="k-field">
+              <label for="gv-group">Group</label>
+              <select id="gv-group" name="gid" required></select>
+            </div>
+            <div class="k-field">
+              <label for="gv-quota">Group quota (GB)</label>
+              <input id="gv-quota" name="quota" type="number" min="0" step="0.1" placeholder="0 = the volume's capacity">
+            </div>
+            <div class="k-form-actions"><button type="submit" class="k-btn k-btn-primary">Share</button></div>
+          </form>
+          <p class="k-muted-note">Only empty volumes can be shared or handed to another group; the default volume is everyone's.</p>
+        </div>
+
+        <div class="k-panel k-panel-flush">
+          <div class="k-panel-head">
+            <h3 class="k-panel-title"><i class="fa-solid fa-user-gear" aria-hidden="true"></i> Personal quotas</h3>
+            <div class="k-panel-tools">
+              <label class="sr-only" for="uq-filter">Volume</label>
+              <select id="uq-filter" aria-label="Show quotas on volume"></select>
+            </div>
+          </div>
+          <div id="uq-target"><div class="k-loading">Loading quotas…</div></div>
+        </div>
+
+        <div class="k-panel k-panel-narrow">
+          <h3 class="k-panel-title"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Set a personal quota</h3>
+          <form id="uq-form" class="k-inline-form">
+            <div class="k-field">
+              <label for="uq-user">User</label>
+              <select id="uq-user" name="uid" required></select>
+            </div>
+            <div class="k-field">
+              <label for="uq-volume">Volume</label>
+              <select id="uq-volume" name="vname" required></select>
+            </div>
+            <div class="k-field">
+              <label for="uq-quota">Quota (GB)</label>
+              <input id="uq-quota" name="quota" type="number" min="0" step="0.1" required placeholder="0 = unlimited">
+            </div>
+            <div class="k-form-actions"><button type="submit" class="k-btn k-btn-primary">Set quota</button></div>
+          </form>
+          <p class="k-muted-note">Users without a quota on a volume get the default ({{ .quotaGB }} GB) on their first upload there.</p>
         </div>
       </section>
       {{ end }}
@@ -706,7 +780,7 @@
                                 <h3>Select a resource</h3>
                                 <div id="resource-list"></div>
                                 <div class="modal-actions">
-                                  <button type="button" id="cancel-select" class="k-btn">Cancel</button>
+                                  <button type="button" class="k-btn k-cancel-select">Cancel</button>
                                 </div>
                               </div>
                             </div>
@@ -718,13 +792,13 @@
                         <label for="job-output">Output <span class="k-req" aria-hidden="true">*</span></label>
                         <div class="k-picker">
                           <input id="job-output" name="output" type="text" placeholder="default-bucket/output.out">
-                          <div id="select-volume">
-                            <div id="volume-modal" class="modal hidden">
+                          <div class="k-select-volume">
+                            <div class="modal hidden k-volume-modal">
                               <div class="modal-content">
                                 <h3>Select a volume</h3>
-                                <div id="volume-list"></div>
+                                <div class="k-volume-list"></div>
                                 <div class="modal-actions">
-                                  <button type="button" id="cancel-select" class="k-btn">Cancel</button>
+                                  <button type="button" class="k-btn k-cancel-select">Cancel</button>
                                 </div>
                               </div>
                             </div>
@@ -818,8 +892,8 @@
               <div class="k-toolbar">
                 <div class="search-bar">
                   <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
-                  <input id="job-search" type="search" placeholder="Search by 'jid'" aria-label="Search jobs">
-                  <select id="search-by" aria-label="Search by">
+                  <input class="k-job-search" type="search" placeholder="Search by 'jid'" aria-label="Search jobs">
+                  <select class="k-search-by" aria-label="Search by">
                     <option value="jid" selected>job id</option>
                     <option value="uid">user id</option>
                     <option value="status">status</option>
@@ -892,7 +966,7 @@
                 </div>
                 <div class="info-row">
                   <dt>Groups</dt>
-                  <dd class="info-display k-mono" id="groups">{{ .groups }}</dd>
+                  <dd class="info-display k-mono" id="profile-groups">{{ .groups }}</dd>
                 </div>
                 <div class="info-row">
                   <dt>Home</dt>
@@ -1004,14 +1078,14 @@
                   hx-encoding="multipart/form-data"
                 >
                   <div class="fupload-footer">
-                    <div id="select-volume">
-                      <div id="volume-modal" class="modal hidden">
+                    <div class="k-select-volume">
+                      <div class="modal hidden k-volume-modal">
                         <div class="modal-content">
                           <h3>Select a volume</h3>
                           <p class="k-modal-hint">Shared volumes belong to one of your groups; uploads there count against the group's quota.</p>
-                          <div id="volume-list"></div>
+                          <div class="k-volume-list"></div>
                           <div class="modal-actions">
-                            <button type="button" id="cancel-select" class="k-btn">Cancel</button>
+                            <button type="button" class="k-btn k-cancel-select">Cancel</button>
                           </div>
                         </div>
                       </div>
@@ -1057,7 +1131,7 @@
             <div class="search-bar">
               <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
               <input id="volume-search" type="search" placeholder="Search by 'name'" aria-label="Search volumes">
-              <select id="search-by" aria-label="Search by">
+              <select class="k-search-by" aria-label="Search by">
                 <option value="name" selected>Name</option>
                 <option value="createdat">CreatedAt</option>
               </select>

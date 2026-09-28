@@ -144,7 +144,7 @@
 
           {{ if $.Admin }}
           <div class="options" id="job-options">
-            <button type="button" id="modButton" class="k-btn k-btn-sm k-btn-ghost" data-mod-job>Modify</button>
+            <button type="button" class="k-btn k-btn-sm k-btn-ghost" data-mod-job>Modify</button>
             <button
               type="button"
               id="delete-job-btn"
@@ -236,7 +236,7 @@
         <button type="button" class="k-btn k-btn-sm k-btn-primary" data-run-app="{{ .Name }}"><i class="fa-solid fa-play" aria-hidden="true"></i> Use</button>
         {{ if $.Admin }}
         <div class="options" id="app-options">
-          <button type="button" id="modButton" class="k-btn k-btn-sm k-btn-ghost" data-mod-app>Modify</button>
+          <button type="button" class="k-btn k-btn-sm k-btn-ghost" data-mod-app>Modify</button>
           <button
             type="button"
             id="delete-app-btn"
@@ -315,11 +315,11 @@
 
 {{ define "groups_template.html"}}
 <div id="groups-result-container">
-  <div id="view-table-header" class="k-toolbar">
+  <div class="k-toolbar k-view-table-header">
     <div class="search-bar">
       <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
       <input id="group-search" type="search" placeholder="Search by 'name'" aria-label="Search groups">
-      <select id="search-by" aria-label="Search by">
+      <select class="k-search-by" aria-label="Search by">
         <option value="name" selected>Name</option>
         <option value="gid">gid</option>
         <option value="users">Users</option>
@@ -336,7 +336,7 @@
       hx-swap="innerHTML"
     ><i class="fas fa-redo" aria-hidden="true"></i></button>
   </div>
-  <div id="table-container" class="k-table-wrap">
+  <div class="k-table-wrap">
     <table class="darkened k-table" id="all-groups-table">
       <thead>
         <tr>
@@ -356,7 +356,7 @@
             <span class="users k-chips">{{ range $i, $user := $group.Users }}<span class="k-chip">{{ .Username }}</span>{{ if lt $i (sub $total 1) }}<span class="k-sep">, </span>{{ end }}{{ else }}<span class="k-dim">no members</span>{{ end }}</span>
           </td>
           <td class="k-actions-col">
-            <div id="actions-btns">
+            <div class="k-actions-btns">
               {{ if and (ne $group.GID 0) (ne $group.GID 100) (ne $group.GID 1000)}}
               <button
                 type="button"
@@ -384,11 +384,11 @@
 
 {{ define "users_template.html"}}
 <div id="users-result-container">
-  <div id="view-table-header" class="k-toolbar">
+  <div class="k-toolbar k-view-table-header">
     <div class="search-bar">
       <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
       <input id="user-search" type="search" placeholder="Search by 'name'" aria-label="Search users">
-      <select id="search-by" aria-label="Search by">
+      <select class="k-search-by" aria-label="Search by">
         <option value="name" selected>Name</option>
         <option value="groups">Groups</option>
         <option value="email">Email</option>
@@ -407,7 +407,7 @@
       hx-swap="innerHTML"
     ><i class="fas fa-redo" aria-hidden="true"></i></button>
   </div>
-  <div id="table-container" class="k-table-wrap">
+  <div class="k-table-wrap">
     <table class="darkened k-table" id="all-users-table">
       <thead>
         <tr>
@@ -421,7 +421,7 @@
           <th class="k-actions-col"><span class="sr-only">Actions</span></th>
         </tr>
       </thead>
-      <tbody id="users-body">
+      <tbody class="k-users-body">
         {{ range $index, $user := . }}
         <tr id="table-{{ $index }}">
           <td class="uid k-num k-mono">{{ $user.UID }}</td>
@@ -435,7 +435,7 @@
             <span class="groups k-chips">{{ range $i, $group := $user.Groups }}<span class="k-chip">{{ .Groupname }}</span>{{ if lt $i (sub $total 1) }}<span class="k-sep">, </span>{{ end }}{{ end }}</span>
           </td>
           <td class="k-actions-col">
-            <div id="actions-btns">
+            <div class="k-actions-btns">
               <button type="button" class="k-btn k-btn-sm k-btn-ghost" id="edit-btn-{{ $index }}" data-edit-user data-uid="{{ $user.UID }}" data-index="{{ $index }}">Edit</button>
               {{ if ne $user.UID 0 }}
               <button
@@ -529,7 +529,7 @@
           <th>Status</th>
         </tr>
       </thead>
-      <tbody id="users-body">
+      <tbody class="k-users-body">
         {{ range $index, $app := . }}
 
         {{ end }}

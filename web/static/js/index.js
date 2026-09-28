@@ -405,7 +405,7 @@ document.addEventListener('htmx:afterSwap', function (event) {
     // Groups search
     const gSearch = triggeringElement.querySelector("#group-search");
     let gSearchBy = "name";
-    const gSearchSelector = triggeringElement.querySelector("#view-table-header").querySelector("#search-by");
+    const gSearchSelector = triggeringElement.querySelector(".k-view-table-header").querySelector(".k-search-by");
     gSearchSelector.value = gSearchBy;
     gSearchSelector.addEventListener("input", (event) => {
       gSearchBy = gSearchSelector.value;
@@ -453,7 +453,7 @@ document.addEventListener('htmx:afterSwap', function (event) {
     // console.log(cacheUserResults);
     // Users search 
     let uSearchBy = "name";
-    const uSearchSelector = triggeringElement.querySelector("#view-table-header").querySelector("#search-by");
+    const uSearchSelector = triggeringElement.querySelector(".k-view-table-header").querySelector(".k-search-by");
     const uSearch = triggeringElement.querySelector("#user-search");
     uSearchSelector.value = uSearchBy;
     uSearchSelector.addEventListener("input", (event) => {

@@ -517,7 +517,7 @@ body.k-app {
 .k-table td.k-mono { font-size: 0.82rem; }
 .k-table .k-hash { max-width: 180px; overflow: hidden; text-overflow: ellipsis; color: var(--k-muted); }
 .k-table .k-actions-col { text-align: right; width: 1%; }
-.k-table #actions-btns { display: inline-flex; gap: 6px; justify-content: flex-end; }
+.k-table .k-actions-btns { display: inline-flex; gap: 6px; justify-content: flex-end; }
 .k-table tr.hidden { display: none; }
 .k-table tr.is-editing td { background: var(--k-cyan-soft); }
 .k-app .table-input { height: 28px; width: 100%; min-width: 90px; font-size: var(--fs-sm); }
@@ -649,7 +649,7 @@ body.k-app {
 @keyframes k-pop { from { opacity: 0; transform: translateY(6px) scale(0.99); } }
 
 /* resource / volume pickers */
-#resource-list, #volume-list { display: grid; gap: 6px; max-height: 50vh; overflow: auto; }
+#resource-list, .k-volume-list { display: grid; gap: 6px; max-height: 50vh; overflow: auto; }
 .k-pick {
   display: flex; align-items: center; gap: var(--sp-2); width: 100%;
   padding: 9px 12px; border-radius: var(--r-sm);
@@ -1105,7 +1105,7 @@ progress.k-meter::-moz-progress-bar { background: var(--c-series, var(--k-cyan))
 .file-box .close-btn { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; color: var(--k-muted); cursor: pointer; font-size: 10px; }
 .file-box .close-btn:hover { background: var(--st-crit-soft); color: var(--st-crit-ink); }
 .fupload-footer { display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap; }
-#select-volume { display: flex; align-items: center; gap: var(--sp-2); }
+.k-select-volume { display: flex; align-items: center; gap: var(--sp-2); }
 .k-selected-volume { margin: 0; font-size: var(--fs-sm); color: var(--k-muted); display: flex; gap: 6px; }
 #selected-volume { font-family: var(--font-mono); color: var(--k-ink); }
 #selected-volume[data-kind="shared"]::after { content: "shared"; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--st-run-soft); color: var(--st-run-ink); font-family: var(--font-ui); font-size: 0.66rem; font-weight: 700; text-transform: uppercase; }
@@ -1218,3 +1218,12 @@ progress.k-meter::-moz-progress-bar { background: var(--c-series, var(--k-cyan))
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
 }
+
+/* ---------- quotas & sharing ---------- */
+#quotas .k-quota-cell { min-width: 12rem; }
+#quotas .k-quota-cell .k-vol-numbers { margin: 0 0 var(--sp-2); font-size: var(--fs-sm); }
+#quotas .k-quota-edit { display: flex; gap: var(--sp-2); align-items: center; }
+#quotas .k-quota-input { width: 6.5rem; font-family: var(--font-mono); }
+#quotas progress.k-meter.is-over::-webkit-progress-value { background: var(--st-crit); }
+#quotas progress.k-meter.is-over::-moz-progress-bar { background: var(--st-crit); }
+#quotas .k-panel-tools select { min-width: 12rem; }

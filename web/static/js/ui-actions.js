@@ -349,7 +349,7 @@ document.addEventListener("htmx:configRequest", (evt) => {
   // job list reload sends the "search by" column as sort
   if (elt.id === "fetch-jobs-button" || elt.id === "fetch-jobs-button-2") {
     const box = document.getElementById(elt.id === "fetch-jobs-button" ? "existing-jobs-container" : "existing-jobs-container-2");
-    const sel = box && box.querySelector("#search-by");
+    const sel = box && box.querySelector(".k-search-by");
     if (sel) evt.detail.parameters.sort = sel.value;
   }
 
