@@ -1,55 +1,30 @@
 /*
- * kuspace-ui.css - dashboard, System page, and dark-mode fixes for the job page.
- * Tokens extend the existing identity (navy -> teal gradient, cyan accent).
+ * kuspace-ui.css - dashboard and System page.
+ * Uses the tokens from styles.css; only the chart tokens are defined here.
  * Chart colors are the validated series/status steps (see dashboard.js).
  * Everything is scoped under an id so it wins over the legacy
  * `.darkened.dark-mode div { color: white }` cascade without fighting it.
  */
 
 :root {
-  --k-navy: #12111d;
-  --k-teal: #1c3b41;
-  --k-cyan: #00c8ff;
-  --k-cyan-ink: #006e96;       /* cyan dark enough for text/lines on white */
-  --k-surface: #ffffff;
-  --k-surface-2: #f2f7fc;
-  --k-line: #d8e3ee;
-  --k-ink: #16202a;
-  --k-ink-2: #45525f;
-  --k-muted: #6b7885;
-
+  /* chart tokens (base tokens live in styles.css) */
   --c-series: #2a78d6;
   --c-series-track: #cde2fb;
   --c-grid: #e6edf4;
   --c-base: #b9c7d6;
 
-  --st-good: #0ca30c;
-  --st-run: #2a78d6;
-  --st-warn: #fab219;
-  --st-crit: #d03b3b;
-
   --helm-wood: #1c3b41;
   --helm-knob: #ffffff;
-  --k-shadow: 0 1px 2px rgba(18, 17, 29, 0.06), 0 4px 16px rgba(18, 17, 29, 0.06);
 }
 
 html.theme-dark {
-  --k-surface: #17212b;
-  --k-surface-2: #1d2a36;
-  --k-line: rgba(255, 255, 255, 0.10);
-  --k-ink: #f2f6fa;
-  --k-ink-2: #b8c4cf;
-  --k-muted: #8b98a5;
-
   --c-series: #3987e5;
   --c-series-track: #1f3550;
   --c-grid: #26323d;
   --c-base: #3a4855;
-  --st-run: #3987e5;
 
   --helm-wood: #8fd9ef;
   --helm-knob: #17212b;
-  --k-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
 .sr-only {
@@ -395,42 +370,3 @@ html.theme-dark #settings .sys-role { margin: 4px 0 12px; font-size: 0.85rem; co
 html.theme-dark #settings .sys-config-empty,
 #settings .sys-details-none,
 html.theme-dark #settings .sys-details-none { color: var(--k-muted) !important; font-size: 0.8rem; margin: 6px 0 0; }
-
-/* ================================================== job page: dark mode */
-
-html.theme-dark #job-browser-options > * {
-  background-color: rgba(255, 255, 255, 0.06);
-  color: #e8eef4;
-  border-color: rgba(255, 255, 255, 0.18);
-}
-html.theme-dark #job-browser-options > *:hover {
-  background-color: rgba(0, 200, 255, 0.16);
-  border-color: var(--k-cyan);
-  color: #ffffff;
-}
-
-html.theme-dark #new-job > div { box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45); }
-
-html.theme-dark #new-job textarea,
-html.theme-dark #new-job .text-input {
-  background-color: #2d3b48 !important;
-  color: #f2f6fa !important;
-  border: 1px solid #555 !important;
-}
-html.theme-dark #new-job textarea::placeholder,
-html.theme-dark #new-job input::placeholder { color: #93a3b1; }
-html.theme-dark #new-job input { color: #f2f6fa; }
-
-/* tips arrow and toolbar icons were dark-on-dark */
-html.theme-dark #new-job .toggle-button-collapse { color: #cfe7f5; }
-html.theme-dark #new-job .minimizer i,
-html.theme-dark #new-job .reset i { color: #e8eef4; }
-html.theme-dark #job-create-form #job-create-form-editor #header { border-color: rgba(255, 255, 255, 0.18); }
-html.theme-dark #job-create-form #job-create-form-editor #header i { color: var(--k-cyan); }
-html.theme-dark #job-create-form #job-create-form-editor .custom-file-label { border-color: rgba(255, 255, 255, 0.5); }
-html.theme-dark #job-create-form #job-create-form-editor .custom-file-label i { color: #e8eef4; }
-
-/* resource / volume picker modals */
-html.theme-dark #new-job .modal-content { background-color: #1d2a36; color: #f2f6fa; }
-html.theme-dark #resource-list > button,
-html.theme-dark #volume-list > button { background-color: #2d3b48; color: #f2f6fa; border: 1px solid #555; }

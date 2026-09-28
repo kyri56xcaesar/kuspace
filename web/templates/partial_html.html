@@ -1,161 +1,94 @@
-{{ define "edit-form.html"}} 
-<div id="resource-edit-modal">
+{{ define "edit-form.html"}}
+<div id="resource-edit-modal" class="modal-content k-modal-wide" role="dialog" aria-labelledby="edit-resource-title">
   <div class="close-btn-div">
-    <button onclick="hide(this.parentNode.parentNode.parentNode)" class="button-close"></button>
+    <button type="button" class="button-close k-btn k-btn-icon k-btn-ghost" data-hide-closest=".modal" title="Close" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
   </div>
-	<div
-    id="edit-resource-form"
-    class="modal-content"
-  >   
-    <h3>Edit Resource</h3>
-    <p>Auto save on key release (or change)</p>
-    <hr> 
-    <div>
-      <div>
-        <div>
-          <label for="resourcename">Name</label>
-  	      <input 
-            id="resource-path-select"
-		        name="resourcename" 
-            value="{{ .resourcename }}"
-            hx-patch="/api/v1/verified/mv?rid={{ .rid }}&resourcename={{ .resourcename }}&volume={{.volume }}"
-		  	    hx-trigger="keyup changed delay:3000ms"
-            hx-swap="none"
-		    >
-        </div>
-        <hr>
-        <div>
-  	  	  <div id="permissions-container">
-            <div>
-              <h4>Owner:</h4>
-                <div class="perm-display-div"> 
-                  <label>
-                    r
-                    <input type="checkbox" name="owner-r" value="r"
-                    {{if .perms.Owner.Read}}checked{{end}}
-                    onchange="updatePermissionString()"
-                    >
-                  </label>
-                  <label>
-                    w
-                    <input type="checkbox" name="owner-w" value="w"
-                      {{if .perms.Owner.Write}}checked{{end}}
-                      onchange="updatePermissionString()"
-                    >
-                  </label>
-                  <label>
-                    x
-                    <input type="checkbox" name="owner-x" value="x"
-                      {{if .perms.Owner.Execute}}checked{{end}}
-                      onchange="updatePermissionString()"
-                    >
-                  </label>
-                </div>
+  <div id="edit-resource-form">
+    <h3 id="edit-resource-title">Edit resource</h3>
+    <p class="k-muted-note">Changes save on their own a moment after you stop typing or clicking.</p>
+    <div class="k-edit-body">
+      <div class="k-field">
+        <label for="resource-path-select">Name</label>
+        <input
+          id="resource-path-select"
+          name="resourcename"
+          value="{{ .resourcename }}"
+          class="k-mono"
+          autocomplete="off"
+          hx-patch="/api/v1/verified/mv?rid={{ .rid }}&resourcename={{ .resourcename }}&volume={{.volume }}"
+          hx-trigger="keyup changed delay:3000ms"
+          hx-swap="none"
+        >
+      </div>
+      <div class="k-field">
+        <span class="k-field-label">Permissions</span>
+        <div id="permissions-container" class="k-perms">
+          <div class="k-perm-row">
+            <h4>Owner</h4>
+            <div class="perm-display-div">
+              <label class="k-bit"><input type="checkbox" name="owner-r" value="r" {{if .perms.Owner.Read}}checked{{end}}><span>r</span></label>
+              <label class="k-bit"><input type="checkbox" name="owner-w" value="w" {{if .perms.Owner.Write}}checked{{end}}><span>w</span></label>
+              <label class="k-bit"><input type="checkbox" name="owner-x" value="x" {{if .perms.Owner.Execute}}checked{{end}}><span>x</span></label>
             </div>
-            <div>
-              <h4>Group:</h4>
-              <div class="perm-display-div">
-                <label>
-                  r
-                  <input type="checkbox" name="group-r" value="r"
-                    {{if .perms.Group.Read}}checked{{end}}
-                    onchange="updatePermissionString()"
-                  >
-                </label>
-                <label>
-                  w
-                  <input type="checkbox" name="group-w" value="w"
-                    {{if .perms.Group.Write}}checked{{end}}
-                    onchange="updatePermissionString()"
-                  >
-                </label>
-                <label>
-                  x
-                  <input type="checkbox" name="group-x" value="x"
-                    {{if .perms.Group.Execute}}checked{{end}}
-                    onchange="updatePermissionString()"
-                  >
-                </label>
-              </div>
-            </div>
-            <div>
-              <h4>Others:</h4>
-              <div class="perm-display-div">
-                <label>
-                  r
-                  <input type="checkbox" name="other-r" value="r"
-                    {{if .perms.Other.Read}}checked{{end}}
-                    onchange="updatePermissionString()"
-                  > 
-                </label>
-                <label>
-                  w
-                  <input type="checkbox" name="other-w" value="w"
-                    {{if .perms.Other.Write}}checked{{end}}
-                    onchange="updatePermissionString()"
-                  >
-                </label>
-                <label>
-                  x
-                  <input type="checkbox" name="other-x" value="x"
-                    {{if .perms.Other.Execute}}checked{{end}}
-                    onchange="updatePermissionString()"
-                  > 
-                </label>
-              </div>
-            </div>
-            <input
-              type="hidden"
-              name="permissions"
-              id="permissionsInput"
-              value="" 
-              hx-patch="/api/v1/verified/admin/chmod?rid={{ .rid }}"
-              hx-trigger="change delay:1000ms"
-              hx-headers='{"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache"}'
-              hx-swap="none"
-            >
           </div>
+          <div class="k-perm-row">
+            <h4>Group</h4>
+            <div class="perm-display-div">
+              <label class="k-bit"><input type="checkbox" name="group-r" value="r" {{if .perms.Group.Read}}checked{{end}}><span>r</span></label>
+              <label class="k-bit"><input type="checkbox" name="group-w" value="w" {{if .perms.Group.Write}}checked{{end}}><span>w</span></label>
+              <label class="k-bit"><input type="checkbox" name="group-x" value="x" {{if .perms.Group.Execute}}checked{{end}}><span>x</span></label>
+            </div>
+          </div>
+          <div class="k-perm-row">
+            <h4>Others</h4>
+            <div class="perm-display-div">
+              <label class="k-bit"><input type="checkbox" name="other-r" value="r" {{if .perms.Other.Read}}checked{{end}}><span>r</span></label>
+              <label class="k-bit"><input type="checkbox" name="other-w" value="w" {{if .perms.Other.Write}}checked{{end}}><span>w</span></label>
+              <label class="k-bit"><input type="checkbox" name="other-x" value="x" {{if .perms.Other.Execute}}checked{{end}}><span>x</span></label>
+            </div>
+          </div>
+          <input
+            type="hidden"
+            name="permissions"
+            id="permissionsInput"
+            value=""
+            hx-patch="/api/v1/verified/admin/chmod?rid={{ .rid }}"
+            hx-trigger="change delay:1000ms"
+            hx-headers='{"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache"}'
+            hx-swap="none"
+          >
         </div>
-	    </div>
+      </div>
       {{ if .admin }}
-      <div>
-        <div>
-	        <label for="owner">Owner</label>
-          <select
-            id="resource-owner-select" 
-            name="owner"
-            hx-patch="/api/v1/verified/admin/chown?rid={{ .rid }}"
-            hx-trigger="change delay:1000ms"
-            hx-headers='{"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache"}'
-            hx-swap="none"
-          >
-            {{range .users}}
-              <option
-                value="{{.UID}}"
-                {{if eq .UID $.owner}}selected{{end}}
-              >uid:{{.UID}} - username:{{ .Username }}</option>
-            {{end}}
-          </select>  
-        </div>
-        <hr>
-        <div>
-          <label for="group">Group</label>
-          <select
-            id="resource-group-select"
-            name="group"
-            hx-patch="/api/v1/verified/admin/chgroup?rid={{ .rid }}"
-            hx-trigger="change delay:1000ms"
-            hx-headers='{"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache"}'
-            hx-swap="none"
-          >
-          {{range .groups}}
-            <option
-              value="{{.GID}}"
-              {{if eq .GID $.group}}selected{{end}}
-            >gid:{{.GID}} - groupname:{{.Groupname}}</option>
+      <div class="k-field">
+        <label for="resource-owner-select">Owner</label>
+        <select
+          id="resource-owner-select"
+          name="owner"
+          hx-patch="/api/v1/verified/admin/chown?rid={{ .rid }}"
+          hx-trigger="change delay:1000ms"
+          hx-headers='{"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache"}'
+          hx-swap="none"
+        >
+          {{range .users}}
+            <option value="{{.UID}}" {{if eq .UID $.owner}}selected{{end}}>{{ .Username }} (uid {{.UID}})</option>
           {{end}}
-          </select>
-        </div>
+        </select>
+      </div>
+      <div class="k-field">
+        <label for="resource-group-select">Group</label>
+        <select
+          id="resource-group-select"
+          name="group"
+          hx-patch="/api/v1/verified/admin/chgroup?rid={{ .rid }}"
+          hx-trigger="change delay:1000ms"
+          hx-headers='{"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache"}'
+          hx-swap="none"
+        >
+        {{range .groups}}
+          <option value="{{.GID}}" {{if eq .GID $.group}}selected{{end}}>{{.Groupname}} (gid {{.GID}})</option>
+        {{end}}
+        </select>
       </div>
       {{ end }}
     </div>
@@ -172,28 +105,24 @@
 
 {{ define "gshell-display.html"}}
 <div class="terminal">
-  <!-- Header (fake traffic lights) -->
   <div class="terminal-header">
     <div class="main-headers">
-      <i class="fa-solid fa-gear"></i>
-      <h4></h4>
+      <i class="fa-solid fa-terminal" aria-hidden="true"></i>
+      <h4>gShell</h4>
     </div>
     <div class="draggable-bar"></div>
     <div class="traffic-lights">
       <i class="minimize fa fa-window-minimize" aria-hidden="true"></i>
-      <i class="pin fas fa-expand"></i>
-      <i class="close fa fa-close"></i>
+      <i class="pin fas fa-expand" aria-hidden="true"></i>
+      <i class="close fa fa-close" aria-hidden="true"></i>
     </div>
   </div>
-  <!-- Body (where lines and input go) -->
   <div class="terminal-body" id="terminal-body">
     <div class="line">Welcome to gShell!</div>
-
   </div>
   <div class="line terminal-input">
-    <hr>
-    <span id="prompt">{{ .whoami }}-k></span>
-    <input type="text" id="terminal-input" autocomplete="off" autofocus />
+    <span id="prompt">{{ .whoami }}-k&gt;</span>
+    <input type="text" id="terminal-input" autocomplete="off" autofocus>
   </div>
   <div id="resizer"></div>
 </div>
@@ -201,20 +130,25 @@
 
 
 {{ define "jobs_list_template.html" }}
-  <ul>  
+  {{ if .Content }}
+  <ul class="k-job-list">
   {{ range .Content }}
-  {{ $j := . }} 
+  {{ $j := . }}
     <li>
-      <div class="job-display-entry darkened fade-out">
-        <div>
-          <span class="jid"> #JobId: {{ $j.JID }}</span>
-          <span class="uid"> by {{ $j.UID }} </span>
+      <article class="job-display-entry darkened fade-out is-{{ $j.Status | lower }}">
+        <div class="job-row-head">
+          <span class="status {{ if eq $j.Status "completed" }}success{{ else if eq $j.Status "pending" }}pending{{ else if eq $j.Status "failed" }}fail{{ end }} is-{{ $j.Status | lower }}" data-v="{{ $j.Status }}">{{ $j.Status }}</span>
+          <span class="jid" data-v="{{ $j.JID }}">#{{ $j.JID }}</span>
+          <span class="k-job-app">{{ $j.Logic }}</span>
+          <span class="uid" data-v="{{ $j.UID }}">uid {{ $j.UID }}</span>
 
           {{ if $.Admin }}
           <div class="options" id="job-options">
-            <button type="button" id="modButton" onclick="modJobModal(this.parentNode.parentNode.parentNode, this.parentNode.parentNode.parentNode.parentNode.parentNode.parentNode)">Modify</button>
-            <button 
+            <button type="button" id="modButton" class="k-btn k-btn-sm k-btn-ghost" data-mod-job>Modify</button>
+            <button
+              type="button"
               id="delete-job-btn"
+              class="k-btn k-btn-sm k-btn-danger"
               hx-delete="/api/v1/verified/admin/jobs?jid={{ .JID }}"
               hx-swap="none"
               hx-confirm="Are you sure you want to delete job {{ .JID }}"
@@ -222,23 +156,19 @@
           </div>
           {{ end }}
         </div>
-        <div>
-          <div>
-            <span class="status {{ if eq $j.Status "completed" }}success{{ else if eq $j.Status "pending" }}pending{{ else if eq $j.Status "failed" }}fail{{ end }}">
-              Status: {{ $j.Status }}
-            </span>            
-            <span class="duration"> Duration: {{ $j.Duration }} </span>
+        <div class="job-row-body">
+          <div class="k-job-io">
+            <span class="input" data-v="{{ $j.Input }}" title="Input">{{ $j.Input }}</span>
+            <i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i>
+            <span class="output" data-v="{{ $j.Output }}" title="Output">{{ $j.Output }}</span>
           </div>
-          <div>
-            <span class="input"> Input: {{ $j.Input }} </span>
-            <span class="output"> Output: {{ $j.Output }} </span>
-            <span class="description"> Description: {{ $j.Description }} </span>
-          </div>
-          <div>
-            <span class="createdAt"> CreatedAt: {{ $j.CreatedAt }} </span>
-            <span class="completedAt"> CompletedAt: {{ $j.CompletedAt }} </span>
-            <span class="completed"> Completed: {{ $j.Completed }} </span>
-          </div>
+          {{ if $j.Description }}<p class="description" data-v="{{ $j.Description }}">{{ $j.Description }}</p>{{ else }}<p class="description k-hidden-empty" data-v=""></p>{{ end }}
+          <dl class="k-job-meta">
+            <div><dt>Created</dt><dd class="createdAt k-when" data-v="{{ $j.CreatedAt }}" data-ts="{{ $j.CreatedAt }}">{{ $j.CreatedAt }}</dd></div>
+            <div><dt>Completed</dt><dd class="completedAt k-when" data-v="{{ $j.CompletedAt }}" data-ts="{{ $j.CompletedAt }}">{{ $j.CompletedAt }}</dd></div>
+            <div><dt>Duration</dt><dd class="duration" data-v="{{ $j.Duration }}" data-duration="{{ $j.Duration }}">{{ $j.Duration }}</dd></div>
+            <div><dt>Done</dt><dd class="completed" data-v="{{ $j.Completed }}">{{ if $j.Completed }}yes{{ else }}no{{ end }}</dd></div>
+          </dl>
           <div class="hidden">
             <span class="parallelism">{{ $j.Parallelism }}</span>
             <span class="priority">{{ $j.Priority }}</span>
@@ -254,163 +184,193 @@
             <span class="timeout">{{ $j.Timeout }}</span>
           </div>
         </div>
-      </div>
+      </article>
     </li>
   {{ end }}
   </ul>
+  {{ else }}
+  <div class="k-empty">
+    <i class="fa-solid fa-inbox" aria-hidden="true"></i>
+    <p><strong>No jobs yet.</strong> Submitted jobs show up here with their status and output location.</p>
+  </div>
+  {{ end }}
 {{ end }}
 
 {{ define "apps_list_template.html" }}
 <div id="apps-list-display">
-  <div class="apps-header">
-    <h2 class="apps-title">Available Applications</h2>
+  <div class="apps-header k-toolbar">
+    <h3 class="apps-title">Available applications</h3>
     <button
       id="reload-applications"
+      class="k-btn k-btn-icon"
+      title="Reload"
+      aria-label="Reload applications"
       hx-trigger="click"
       hx-get="/api/v1/verified/fetch-apps"
       hx-target="#fetch-applications-display"
       hx-swap="innerHTML"
-    ><i class="fas fa-redo"></i>
-    </button>
+    ><i class="fas fa-redo" aria-hidden="true"></i></button>
   </div>
+  {{ if .Content }}
   <div class="apps-list">
     {{ range .Content }}
-    <div class="app-card darkened">
+    <article class="app-card darkened">
       <div class="app-header">
-        <div class="app-name">{{ .Name }} <span class="app-version">{{ .Version }}</span></div>
-        <div class="app-status {{ .Status | lower }} {{ if eq .Status "available" }}green{{ else }}red{{ end }}">{{ .Status }}</div>
+        <div class="app-name" data-v="{{ .Name }}">{{ .Name }} <span class="app-version" data-v="{{ .Version }}">{{ .Version }}</span></div>
+        <div class="app-status {{ .Status | lower }} {{ if eq .Status "available" }}green{{ else }}red{{ end }}" data-v="{{ .Status }}">{{ .Status }}</div>
       </div>
+      <p class="app-description" data-v="{{ .Description }}">{{ .Description }}</p>
       <div class="app-meta">
-        <div><span class="app-id"> app-id: {{ .ID }} </span></div>
-        <div class="image"><strong>Image:</strong> {{ .Image }}</div>
-        <div class="author"><strong>Author:</strong> {{ .Author }}</div>
-        <div class="createdAt"><strong>Created:</strong> {{ .CreatedAt }}</div>
+        <div class="image" data-v="{{ .Image }}"><code>{{ .Image }}</code></div>
+        <dl class="k-app-facts">
+          <div><dt>Author</dt><dd class="author" data-v="{{ .Author }}">{{ .Author }}</dd></div>
+          <div><dt>Created</dt><dd class="createdAt k-when" data-v="{{ .CreatedAt }}" data-ts="{{ .CreatedAt }}">{{ .CreatedAt }}</dd></div>
+          <div><dt>ID</dt><dd><span class="app-id" data-v="{{ .ID }}">{{ .ID }}</span></dd></div>
+        </dl>
       </div>
-      <p class="app-description">{{ .Description }}</p>
       <div class="hidden">
         <span class="authorId">{{ .AuthorID }}</span>
         <span class="insertedAt">{{ .InsertedAt }}</span>
       </div>
-      {{ if $.Admin }}
-      <div class="options" id="app-options">
-        <button id="modButton" onclick="modAppModal(this.parentNode.parentNode, document.getElementById('apps-list-display').parentNode)">Modify</button>
-        <button 
-          id="delete-app-btn"
-          hx-delete="/api/v1/verified/admin/apps?id={{ .ID }}"
-          hx-swap="none"
-          hx-confirm="Are you sure you want to delete the app {{ .Name }}"
-        >Delete</button>
+      <div class="k-app-actions">
+        <button type="button" class="k-btn k-btn-sm k-btn-primary" data-run-app="{{ .Name }}"><i class="fa-solid fa-play" aria-hidden="true"></i> Use</button>
+        {{ if $.Admin }}
+        <div class="options" id="app-options">
+          <button type="button" id="modButton" class="k-btn k-btn-sm k-btn-ghost" data-mod-app>Modify</button>
+          <button
+            type="button"
+            id="delete-app-btn"
+            class="k-btn k-btn-sm k-btn-danger"
+            hx-delete="/api/v1/verified/admin/apps?id={{ .ID }}"
+            hx-swap="none"
+            hx-confirm="Are you sure you want to delete the app {{ .Name }}"
+          >Delete</button>
+        </div>
+        {{ end }}
       </div>
-      {{ end }}
-    </div>
+    </article>
     {{ end }}
   </div>
+  {{ else }}
+  <div class="k-empty">
+    <i class="fa-solid fa-cubes" aria-hidden="true"></i>
+    <p><strong>No applications installed.</strong> Jobs need an application image to run in.</p>
+  </div>
+  {{ end }}
 </div>
 {{ end }}
 
 {{ define "volumes_template.html" }}
-<div>
-  {{range .volumes}} 
-  {{ $v := . }} 
-  <div class="v-body">
-    <div>
+<div class="k-vol-grid">
+  {{range .volumes}}
+  {{ $v := . }}
+  <article class="v-body" data-vid="{{ $v.VID }}">
+    <div class="k-vol-head">
+      <i class="fa-solid fa-database k-vol-icon" aria-hidden="true"></i>
       <h3 class="name">{{$v.Name}}</h3>
-      <p>Path: {{ $v.Path }}</p>
-      <hr>
-      <p>Usage: {{printf "%.2f" $v.Usage}} GB</p>
-      <p>Capacity: 
-        {{if le $v.Capacity 0.0}}
-          &infin;
-        {{else}}
-          {{printf "%.2f" $v.Capacity}} GB
-        {{end}}
+      <span class="k-vol-badge" data-volume-kind="{{ $v.Name }}"></span>
+    </div>
+    <div class="k-vol-usage">
+      <p class="k-vol-numbers">
+        <strong>{{printf "%.2f" $v.Usage}} GB</strong>
+        <span>of {{if le $v.Capacity 0.0}}unlimited{{else}}{{printf "%.2f" $v.Capacity}} GB{{end}}</span>
       </p>
+      {{ if gr $v.Capacity 0.0 }}
+      <progress class="k-meter" value="{{ $v.Usage }}" max="{{ $v.Capacity }}">{{printf "%.2f" $v.Usage}} GB</progress>
+      {{ else }}
+      <div class="k-meter-unbounded" aria-hidden="true"></div>
+      {{ end }}
     </div>
-    <div>
-      <p class="createdat">Created at:<br>{{$v.CreatedAt }}</p>
-    </div>
+    <dl class="k-vol-facts">
+      <div><dt>Path</dt><dd class="k-mono">{{ if $v.Path }}{{ $v.Path }}{{ else }}—{{ end }}</dd></div>
+      <div><dt>Created</dt><dd class="createdat k-when" data-ts="{{ $v.CreatedAt }}">{{$v.CreatedAt }}</dd></div>
+    </dl>
     <div class="options" id="volume-options">
       <div class="volume-container">
-        <button id="uploadButton">Upload Files</button>
-        <input type="file" id="fileInput" multiple style="display:none">
+        <button type="button" id="uploadButton" class="k-btn k-btn-sm"><i class="fa-solid fa-upload" aria-hidden="true"></i> Upload files</button>
+        <input type="file" id="fileInput" multiple hidden>
       </div>
       {{ if $.elevated }}
-      <button 
+      <button
+        type="button"
         id="delete-volume-btn"
+        class="k-btn k-btn-sm k-btn-danger"
         hx-delete="/api/v1/verified/admin/volumedel?volume={{ $v.Name }}"
         hx-swap="none"
         hx-confirm="Are you sure you want to delete volume {{ $v.Name }}"
-      >Delete Volume</button>
+      >Delete</button>
       {{ end }}
     </div>
-    <div class="feedback hidden">
-
-    </div>
+    <div class="feedback hidden"></div>
+  </article>
+  {{else}}
+  <div class="k-empty">
+    <i class="fa-solid fa-database" aria-hidden="true"></i>
+    <p><strong>No volumes.</strong> {{ if $.elevated }}Create one with “New volume”.{{ else }}Ask an administrator for access to a volume.{{ end }}</p>
   </div>
-  {{end}} 
+  {{end}}
 </div>
 {{ end }}
 
 
 {{ define "groups_template.html"}}
-<div id="groups-result-container" style="padding: 1rem;">
-  <div id="view-table-header"> 
+<div id="groups-result-container">
+  <div id="view-table-header" class="k-toolbar">
     <div class="search-bar">
-      <input id="group-search" type="text" placeholder="Search by 'name'">
-      <button type="submit">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-          <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z">
-        </svg>
-      </button>
-      <select id="search-by">
+      <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
+      <input id="group-search" type="search" placeholder="Search by 'name'" aria-label="Search groups">
+      <select id="search-by" aria-label="Search by">
         <option value="name" selected>Name</option>
         <option value="gid">gid</option>
         <option value="users">Users</option>
       </select>
     </div>
-    <button 
+    <button
       id="reload-groups-btn"
-      hx-trigger="click" 
-      hx-get="/api/v1/verified/admin/fetch-groups" 
-      hx-target="#fetch-groups-results" 
+      class="k-btn k-btn-icon"
+      title="Reload"
+      aria-label="Reload groups"
+      hx-trigger="click"
+      hx-get="/api/v1/verified/admin/fetch-groups"
+      hx-target="#fetch-groups-results"
       hx-swap="innerHTML"
-    ><i class="fas fa-redo"></i></button>
+    ><i class="fas fa-redo" aria-hidden="true"></i></button>
   </div>
-  <div id="table-container" style="overflow-x: auto; white-space: nowrap;">
-    <table class="darkened" id="all-groups-table" border="1" style="width: 100%; border-collapse: collapse;">
+  <div id="table-container" class="k-table-wrap">
+    <table class="darkened k-table" id="all-groups-table">
       <thead>
         <tr>
-          <th>Group ID</th>
-          <th>Group Name</th>
-          <th>Users</th>
-          <th>Actions</th>
+          <th class="k-num">GID</th>
+          <th>Group</th>
+          <th>Members</th>
+          <th class="k-actions-col"><span class="sr-only">Actions</span></th>
         </tr>
       </thead>
       <tbody id="groups-body">
         {{ range $index, $group := . }}
         <tr id="groups-table-{{ $index }}">
-          <td class="gid">{{ $group.GID }}</td>
-          <td class="name">{{ $group.Groupname }}</td>
+          <td class="gid k-num k-mono">{{ $group.GID }}</td>
+          <td class="name"><strong>{{ $group.Groupname }}</strong></td>
           <td>
             {{ $total := len $group.Users }}
-            <span class="users">
-            {{ range $i, $user := $group.Users }}
-              {{ .Username }}{{ if lt $i (sub $total 1) }},{{ end }}
-            {{ end }}
-            </span>
+            <span class="users k-chips">{{ range $i, $user := $group.Users }}<span class="k-chip">{{ .Username }}</span>{{ if lt $i (sub $total 1) }}<span class="k-sep">, </span>{{ end }}{{ else }}<span class="k-dim">no members</span>{{ end }}</span>
           </td>
-          <td>
+          <td class="k-actions-col">
             <div id="actions-btns">
               {{ if and (ne $group.GID 0) (ne $group.GID 100) (ne $group.GID 1000)}}
-              <button 
+              <button
+                type="button"
+                class="k-btn k-btn-sm k-btn-danger"
                 id="delete-grp-btn-{{ $index }}"
                 hx-delete="/api/v1/verified/admin/groupdel?gid={{ $group.GID }}"
                 hx-swap="none"
                 hx-trigger="click"
                 hx-target="#groups-table-{{ $index }}"
                 hx-confirm="Are you sure you want to delete group {{ $group.GID }}?"
-                > Delete</button>
-                {{ end }}
+              >Delete</button>
+              {{ else }}
+              <span class="k-dim" title="Built-in group">built-in</span>
+              {{ end }}
             </div>
           </td>
         </tr>
@@ -423,16 +383,12 @@
 
 
 {{ define "users_template.html"}}
-<div id="users-result-container" style="padding: 1rem;">
-  <div id="view-table-header"> 
+<div id="users-result-container">
+  <div id="view-table-header" class="k-toolbar">
     <div class="search-bar">
-      <input id="user-search" type="text" placeholder="Search by 'name'">
-      <button type="submit">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-          <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z">
-        </svg>
-      </button>
-      <select id="search-by">
+      <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
+      <input id="user-search" type="search" placeholder="Search by 'name'" aria-label="Search users">
+      <select id="search-by" aria-label="Search by">
         <option value="name" selected>Name</option>
         <option value="groups">Groups</option>
         <option value="email">Email</option>
@@ -440,57 +396,58 @@
         <option value="uid">uid</option>
       </select>
     </div>
-    <button 
+    <button
       id="reload-btn"
-      hx-trigger="click" 
-      hx-get="/api/v1/verified/admin/fetch-users" 
-      hx-target="#fetch-users-results" 
+      class="k-btn k-btn-icon"
+      title="Reload"
+      aria-label="Reload users"
+      hx-trigger="click"
+      hx-get="/api/v1/verified/admin/fetch-users"
+      hx-target="#fetch-users-results"
       hx-swap="innerHTML"
-    ><i class="fas fa-redo"></i></button>
+    ><i class="fas fa-redo" aria-hidden="true"></i></button>
   </div>
-  <div id="table-container" style="overflow-x: auto; white-space: nowrap;">
-    <table class="darkened" id="all-users-table" border="1" style="width: 100%; border-collapse: collapse;">
+  <div id="table-container" class="k-table-wrap">
+    <table class="darkened k-table" id="all-users-table">
       <thead>
         <tr>
-          <th>User ID</th>
+          <th class="k-num">UID</th>
           <th>Username</th>
-          <th>Password</th>
+          <th>Password hash</th>
           <th>Email</th>
           <th>Home</th>
-          <th>Group ID</th>
+          <th class="k-num">GID</th>
           <th>Groups</th>
-          <th>Actions</th>
+          <th class="k-actions-col"><span class="sr-only">Actions</span></th>
         </tr>
       </thead>
       <tbody id="users-body">
         {{ range $index, $user := . }}
         <tr id="table-{{ $index }}">
-          <td class="uid">{{ $user.UID }}</td>
-          <td class="name">{{ $user.Username }}</td>
-          <td>{{ $user.Password.Hashpass }}</td>
+          <td class="uid k-num k-mono">{{ $user.UID }}</td>
+          <td class="name"><strong>{{ $user.Username }}</strong></td>
+          <td class="k-hash k-mono" title="{{ $user.Password.Hashpass }}">{{ $user.Password.Hashpass }}</td>
           <td class="email">{{ $user.Info}}</td>
-          <td class="home">{{ $user.Home }}</td>
-          <td>{{ $user.Pgroup }}</td>
+          <td class="home k-mono">{{ $user.Home }}</td>
+          <td class="k-num k-mono">{{ $user.Pgroup }}</td>
           <td>
             {{ $total := len $user.Groups }}
-            <span class="groups">
-            {{ range $i, $group := $user.Groups }}
-              {{ .Groupname }}{{ if lt $i (sub $total 1) }},{{ end }}
-            {{ end }}
-            </span>
+            <span class="groups k-chips">{{ range $i, $group := $user.Groups }}<span class="k-chip">{{ .Groupname }}</span>{{ if lt $i (sub $total 1) }}<span class="k-sep">, </span>{{ end }}{{ end }}</span>
           </td>
-          <td>
+          <td class="k-actions-col">
             <div id="actions-btns">
-              <button id="edit-btn-{{ $index }}" onclick="editUser('{{ $user.UID }}', '{{ $index }}')">Edit</button>
+              <button type="button" class="k-btn k-btn-sm k-btn-ghost" id="edit-btn-{{ $index }}" data-edit-user data-uid="{{ $user.UID }}" data-index="{{ $index }}">Edit</button>
               {{ if ne $user.UID 0 }}
-              <button 
+              <button
+                type="button"
+                class="k-btn k-btn-sm k-btn-danger"
                 id="delete-btn-{{ $index }}"
                 hx-delete="/api/v1/verified/admin/userdel?uid={{ .UID }}"
                 hx-swap="none"
                 hx-trigger="click"
                 hx-target="#table-{{ $index }}"
                 hx-confirm="Are you sure you want to delete user {{ .UID }}?"
-              > Delete</button>
+              >Delete</button>
               {{ end }}
             </div>
           </td>
@@ -499,62 +456,68 @@
       </tbody>
     </table>
   </div>
-
 </div>
 {{ end }}
 
 {{ define "list-resources.html"}}
-<h3>List View</h3>
-<table id="resource-list-table">
+{{ if . }}
+<div class="k-table-wrap">
+<table id="resource-list-table" class="k-table k-table-select">
     <thead>
         <tr>
-            <th>RID</th>
+            <th class="k-num">RID</th>
             <th>Name</th>
             <th>Path</th>
             <th>Volume</th>
             <th>Type</th>
-            <th>Size</th>
+            <th class="k-num">Size</th>
             <th>Permissions</th>
-            <th>Created At</th>
-            <th>Updated At</th>
-            <th>Accessed At</th>
-            <th>Owner</th>
-            <th>Group</th>
-            <th>Volume</th>
+            <th>Created</th>
+            <th>Updated</th>
+            <th>Accessed</th>
+            <th class="k-num">Owner</th>
+            <th class="k-num">Group</th>
+            <th class="k-num">VID</th>
         </tr>
     </thead>
     <tbody>
         {{ range . }}
-        <tr>
-            <td>{{ .RID }}</td>
-            <td class="name">{{ .Name }}</td>
-            <td>{{ .Path }}</td>
+        <tr tabindex="0">
+            <td class="k-num k-mono">{{ .RID }}</td>
+            <td class="name k-mono">{{ .Name }}</td>
+            <td class="k-mono">{{ .Path }}</td>
             <td class="volume">{{ .Vname}}</td>
             <td>{{ .Type }}</td>
-            <td>{{ .Size }}</td>
-            <td>{{ .Perms }}</td>
-            <td class="createdat">{{ .CreatedAt }}</td>
-            <td class="updatedat">{{ .UpdatedAt }}</td>
-            <td class="accessedat">{{ .AccessedAt }}</td>
-            <td class="owner">{{ .UID }}</td>
-            <td class="group">{{ .GID }}</td>
-            <td>{{ .VID }}</td>
+            <td class="k-num k-mono" data-bytes="{{ .Size }}">{{ .Size }}</td>
+            <td class="k-mono k-perm-cell">{{ .Perms }}</td>
+            <td class="createdat k-when" data-ts="{{ .CreatedAt }}">{{ .CreatedAt }}</td>
+            <td class="updatedat k-when" data-ts="{{ .UpdatedAt }}">{{ .UpdatedAt }}</td>
+            <td class="accessedat k-when" data-ts="{{ .AccessedAt }}">{{ .AccessedAt }}</td>
+            <td class="owner k-num k-mono">{{ .UID }}</td>
+            <td class="group k-num k-mono">{{ .GID }}</td>
+            <td class="k-num k-mono">{{ .VID }}</td>
         </tr>
         {{ end }}
     </tbody>
 </table>
-<div id="edit-modal" class="modal hidden darkened"></div>
 </div>
+{{ else }}
+<div class="k-empty">
+  <i class="fa-regular fa-folder-open" aria-hidden="true"></i>
+  <p><strong>No resources.</strong> Uploaded files and job outputs appear here.</p>
+</div>
+{{ end }}
+<div id="edit-modal" class="modal hidden darkened"></div>
 {{ end }}
 
 
 {{ define "apps_display_template.html"}}
 <div id="applications-display-container">
-  <div> 
+  <div>
     <h3>Applications</h3>
   </div>
   <div class="table-container">
-    <table class="darkened" id="all-apps-table" border="1">
+    <table class="darkened k-table" id="all-apps-table">
       <thead>
         <tr>
           <th>Application</th>
@@ -573,9 +536,6 @@
       </tbody>
     </table>
   </div>
-
-  
-
 </div>
 {{ end }}
 
@@ -633,7 +593,6 @@
 <h2>System stats</h2>
 <div id="metrics-display" class="dashboard-grid">
 
-  <!-- 🧩 Pod Status -->
   <div class="card darkened">
     <h2 class="section-title">Pod Status</h2>
     {{ range $status, $count := .pods }}
@@ -644,22 +603,16 @@
     {{ end }}
   </div>
 
-  <!-- 🧠 CPU & Memory -->
   <div class="card darkened">
     <h2 class="section-title">Resource Usage</h2>
     <div class="metric">CPU:
-      <span class="mono">
-       {{ .total_cpu_milli }} 
-      </span>
+      <span class="mono">{{ .total_cpu_milli }}</span>
     </div>
     <div class="metric">Memory:
-      <span class="mono">
-        {{ .total_mem_bytes | bytesToMB }} MB
-      </span>
+      <span class="mono">{{ .total_mem_bytes | bytesToMB }} MB</span>
     </div>
   </div>
 
-  <!-- 💾 PVCs -->
   <div class="card wide darkened">
     <h2 class="section-title">Disk Volumes</h2>
     {{ range .disk }}
@@ -670,20 +623,18 @@
     {{ end }}
   </div>
 
-  <!-- 📢 Events -->
   <div class="card full scroll darkened">
     <h2 class="section-title">Recent Events</h2>
     {{ range .recent_events }}
       <div class="event-entry">
         <span class="badge">{{ .type }}</span>
         <span class="event-main"><strong>{{ .reason }}</strong>: {{ .message }}</span><br>
-        <span class="meta">Obj: {{ .involvedKind }}/{{ .involved }}</span> · 
+        <span class="meta">Obj: {{ .involvedKind }}/{{ .involved }}</span> ·
         <span class="meta">Seen {{ .count }}x · {{ .lastSeen | ago }}</span>
       </div>
     {{ end }}
   </div>
 
-  <!-- 🔧 Build Info -->
   <div class="card darkened">
     <h2 class="section-title">System Info</h2>
     <div class="meta"><strong>Version:</strong> {{ .build_info.version }}</div>
@@ -699,4 +650,3 @@
 {{ define "empty_template" }}
 
 {{ end }}
-
