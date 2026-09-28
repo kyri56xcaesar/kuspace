@@ -62,3 +62,29 @@ func TestAuthorizeJobIO(t *testing.T) {
 		})
 	}
 }
+
+func TestAuthorizeJobOutputOnGroupVolume(t *testing.T) {
+	srv := newTestService(t)
+	if err := srv.fsl.CreateVolume(t.Context(), ut.Volume{Name: "team", CreatedAt: ut.CurrentTime()}); err != nil {
+		t.Fatal(err)
+	}
+	now := ut.CurrentTime()
+	in := ut.Resource{Name: "in.csv", Vname: "vol1", VID: srv.volumeID(t.Context(), "vol1"), UID: 1001, GID: 1001, Type: "file",
+		Perms: ut.DefaultFilePerms, CreatedAt: now, UpdatedAt: now, AccessedAt: now}
+	if err := srv.fsl.Insert(t.Context(), in); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := srv.fsl.AssignGroupVolume(t.Context(), "team", 500, 0); err != nil {
+		t.Fatal(err)
+	}
+	job := ut.Job{UID: 1001, Input: "vol1/in.csv", Output: "team/result.csv"}
+	for who, allowed := range map[string]bool{"1001:1001,500": true, "1001:1001": false} {
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/job", nil)
+		c.Request.Header.Set("Access-Target", "0:vol1:/ "+who)
+		err := srv.authorizeJobIO(c, job)
+		if allowed != (err == nil) {
+			t.Errorf("%s: err = %v, allowed = %v", who, err, allowed)
+		}
+	}
+}

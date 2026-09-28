@@ -23,6 +23,8 @@ var (
 //
 // A capacity or quota of 0 means unlimited. uid 0 (root) is never limited or
 // tracked. A user without a claim on the volume gets one with defaultQuota GB.
+// On a group volume the group's quota is charged instead of uid's (see
+// group_volume.go).
 func (fsl *FsLite) ClaimSpace(ctx context.Context, uid int64, volume string, size int64, defaultQuota float64, enforce bool) error {
 	return fsl.adjustSpace(ctx, uid, volume, ut.SizeInGb(size), defaultQuota, enforce)
 }
@@ -54,6 +56,15 @@ func (fsl *FsLite) adjustSpace(ctx context.Context, uid int64, volume string, de
 		return fmt.Errorf("volume %q: %w", volume, err)
 	}
 
+	// a group volume charges its group, never the member's own quota
+	gid, shared, err := groupOf(ctx, tx, vid)
+	if err != nil {
+		return err
+	}
+	if shared {
+		return adjustGroupSpace(ctx, tx, vid, gid, capacity, vusage, deltaGB, enforce)
+	}
+
 	var quota, usage float64
 	err = tx.QueryRowContext(ctx, `SELECT COALESCE(quota, 0), COALESCE(usage, 0) FROM user_volume WHERE vid = ? AND uid = ?`, vid, uid).
 		Scan(&quota, &usage)
@@ -79,6 +90,31 @@ func (fsl *FsLite) adjustSpace(ctx context.Context, uid int64, volume string, de
 	now := ut.CurrentTime()
 	if _, err := tx.ExecContext(ctx, `UPDATE user_volume SET usage = MAX(0, usage + ?), updatedAt = ? WHERE vid = ? AND uid = ?`,
 		deltaGB, now, vid, uid); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE volumes SET usage = MAX(0, COALESCE(usage, 0) + ?) WHERE vid = ?`, deltaGB, vid); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func adjustGroupSpace(ctx context.Context, tx *sql.Tx, vid, gid int64, capacity, vusage, deltaGB float64, enforce bool) error {
+	var quota, usage float64
+	if err := tx.QueryRowContext(ctx, `SELECT quota, usage FROM group_volume WHERE vid = ?`, vid).Scan(&quota, &usage); err != nil {
+		return err
+	}
+	if enforce && deltaGB > 0 {
+		if capacity > 0 && vusage+deltaGB > capacity {
+			return ErrVolumeFull
+		}
+		if quota > 0 && usage+deltaGB > quota {
+			return fmt.Errorf("%w (group %d)", ErrQuotaExceeded, gid)
+		}
+	}
+	now := ut.CurrentTime()
+	if _, err := tx.ExecContext(ctx, `UPDATE group_volume SET usage = MAX(0, usage + ?), updatedAt = ? WHERE vid = ?`,
+		deltaGB, now, vid); err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE volumes SET usage = MAX(0, COALESCE(usage, 0) + ?) WHERE vid = ?`, deltaGB, vid); err != nil {

@@ -433,10 +433,12 @@ func (uv *UserVolume) Fields() []any {
 
 /* a struct to represent a volume claim by a group*/
 
-// GroupVolume struct describes the "chunk" of volume a group inflicts upon it
+// GroupVolume is a volume that belongs to a group: its members share it,
+// and what they store there counts against Quota (GB), not their own quotas.
 type GroupVolume struct {
 	UpdatedAt string  `json:"updatedAt"`
 	VID       int64   `json:"vid"`
+	Vname     string  `json:"vname"`
 	GID       int64   `json:"gid"`
 	Usage     float64 `json:"usage"`
 	Quota     float64 `json:"quota"`

@@ -1,6 +1,7 @@
 package uspace
 
 import (
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"log"
@@ -103,7 +104,8 @@ func identify(srv *UService, c *gin.Context) (*accessClaims, bool, error) {
 
 		return claims, false, nil
 	}
-	if s := c.GetHeader("X-Service-Secret"); s != "" && s == string(srv.config.ServiceSecretKey) {
+	if s := c.GetHeader("X-Service-Secret"); s != "" && len(srv.config.ServiceSecretKey) > 0 &&
+		subtle.ConstantTimeCompare([]byte(s), srv.config.ServiceSecretKey) == 1 {
 		return nil, true, nil
 	}
 

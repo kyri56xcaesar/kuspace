@@ -149,7 +149,7 @@ func NewFsLite(cfg ut.EnvConfig) FsLite {
 		dbh:    ut.NewDBHandler(cfg.FslDB, cfg.FslDBPath, cfg.FslDBDriver),
 		Engine: ginEngine,
 	}
-	fsl.dbh.Init(initSQL, cfg.FslDBMaxOpenConns, cfg.FslDBMaxIdleConns, cfg.FslDBMaxLifetime)
+	fsl.dbh.Init(initSQL+groupVolumeSchema, cfg.FslDBMaxOpenConns, cfg.FslDBMaxIdleConns, cfg.FslDBMaxLifetime)
 	_, err := fsl.insertAdmin(cfg.FslAccessKey, cfg.FslSecretKey)
 	if err != nil && strings.Contains(strings.ToLower(err.Error()), "unique") {
 		log.Printf("[FSL_init] admin user already exists")
@@ -170,7 +170,6 @@ func NewFsLite(cfg ut.EnvConfig) FsLite {
 		if err := ensureUniqueNames(context.Background(), db); err != nil {
 			log.Printf("[FSL_init] WARNING: %v", err)
 		}
-
 	}
 
 	if fsl.config.FslLocality {
@@ -464,7 +463,6 @@ func (fsl *FsLite) SelectObjects(ctx context.Context, how map[string]any) (any, 
 	if ok && rids != "" {
 		rids, err := ut.SplitToInt(rids.(string), ",")
 		if err == nil {
-
 			return getResourcesByIDs(ctx, db, rids)
 		}
 		log.Printf("failed to split to int the given rids: %v", err)

@@ -76,6 +76,11 @@ func (srv *UService) authorizeJobIO(c *gin.Context, job ut.Job) error {
 	if found && !out.HasWriteAccess(ac) {
 		return fmt.Errorf("%w: no write access to output %s", errJobForbidden, job.Output)
 	}
+	if _, err := srv.writeGroup(c.Request.Context(), ac, vol, job.UID); errors.Is(err, errNotGroupMember) {
+		return fmt.Errorf("%w: output %s is on a group volume you're not a member of", errJobForbidden, job.Output)
+	} else if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -313,6 +318,13 @@ func (srv *UService) submitJobs(c *gin.Context, checkIO bool) {
 			job.GID = primaryGID(ac, job.UID)
 		} else if job.GID == 0 {
 			job.GID = job.UID
+		}
+		// an output on a group volume belongs to the group (membership was
+		// checked above for users)
+		if vol, _, ok := strings.Cut(strings.TrimPrefix(job.Output, "/"), "/"); ok {
+			if gv, err := srv.fsl.GroupVolume(c.Request.Context(), vol); err == nil {
+				job.GID = gv.GID
+			}
 		}
 		jid, err := srv.insertJob(c.Request.Context(), job)
 		if err != nil {

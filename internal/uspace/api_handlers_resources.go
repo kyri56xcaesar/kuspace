@@ -271,6 +271,18 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 	if srv.refuseTakenDestination(c, parts[1], parts[0]) {
 		return
 	}
+	mover, err := strconv.ParseInt(ac.UID, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad uid"})
+
+		return
+	}
+	destGroup, err := srv.writeGroup(c.Request.Context(), ac, parts[0], mover)
+	if err != nil {
+		respondWriteGroupError(c, err)
+
+		return
+	}
 	// a move to another volume moves the owner's usage with it
 	var moved ut.Resource
 	crossVolume := parts[0] != ac.Vname
@@ -328,12 +340,20 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 	}
 
 	// database
-	err := srv.fsl.Update(c.Request.Context(), map[string]string{"newname": parts[1], "volume": parts[0], "name": ac.Target, "oldvolume": ac.Vname})
+	err = srv.fsl.Update(c.Request.Context(), map[string]string{"newname": parts[1], "volume": parts[0], "name": ac.Target, "oldvolume": ac.Vname})
 	if err != nil {
 		log.Printf("failed to update inner fsl: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update file in local db"})
 
 		return
+	}
+	// moved onto a group volume: it joins the group
+	if gv, gerr := srv.fsl.GroupVolume(c.Request.Context(), parts[0]); gerr == nil && gv.GID == destGroup {
+		if r, found, lerr := srv.lookupResource(c.Request.Context(), parts[1], parts[0]); lerr == nil && found && r.GID != destGroup {
+			if err := srv.fsl.Update(c.Request.Context(), map[string]string{"rid": strconv.FormatInt(r.RID, 10), "group": strconv.FormatInt(destGroup, 10)}); err != nil {
+				log.Printf("failed to give the moved file its group volume's group: %v", err)
+			}
+		}
 	}
 
 	c.JSON(200, gin.H{
@@ -395,13 +415,19 @@ func (srv *UService) cpResourceHandler(c *gin.Context) {
 
 		return
 	}
+	gid, err := srv.writeGroup(c.Request.Context(), ac, parts[0], caller)
+	if err != nil {
+		respondWriteGroupError(c, err)
+
+		return
+	}
 	// The copy belongs to whoever made it (it used to be recorded with no
 	// owner and no permissions, i.e. readable by nobody but root).
 	now := ut.CurrentTime()
 	dst := ut.Resource{
 		Name: parts[1], Vname: parts[0], VID: srv.volumeID(c.Request.Context(), parts[0]),
 		Path: src.Path, Type: src.Type, Size: src.Size,
-		UID: caller, GID: primaryGID(ac, caller), Perms: ut.DefaultFilePerms,
+		UID: caller, GID: gid, Perms: ut.DefaultFilePerms,
 		CreatedAt: now, UpdatedAt: now, AccessedAt: now,
 	}
 	if !srv.claimSpace(c, caller, dst.Vname, dst.Size) {
@@ -570,16 +596,24 @@ func (srv *UService) handleUpload(c *gin.Context) {
 		totalUploadSize += fileHeader.Size
 	}
 
+	uid, err := strconv.ParseInt(ac.UID, 10, 64)
+	if err != nil {
+		log.Printf("failed to atoi uid: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad uid"})
+
+		return
+	}
+	// on a group volume: members only, and the files get the group's gid
+	gid, err := srv.writeGroup(c.Request.Context(), ac, ac.Vname, uid)
+	if err != nil {
+		respondWriteGroupError(c, err)
+
+		return
+	}
+
 	// 4]: perform the upload stream
 	/* I would like to do this concurrently perpahps*/
 	for _, fileHeader := range c.Request.MultipartForm.File["files"] {
-		uid, err := strconv.ParseInt(ac.UID, 10, 64)
-		if err != nil {
-			log.Printf("failed to atoi uid: %v", err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "bad uid"})
-
-			return
-		}
 		// The caller's vid is not trusted (frontapp always sends 0, which is no
 		// volume at all): resolve the real one from the volume name so the
 		// resource row references an existing volume.
@@ -626,7 +660,7 @@ func (srv *UService) handleUpload(c *gin.Context) {
 			AccessedAt: currentTime,
 			Perms:      ut.DefaultFilePerms,
 			UID:        uid,
-			GID:        primaryGID(ac, uid),
+			GID:        gid,
 			Size:       fileHeader.Size,
 		}
 

@@ -245,6 +245,7 @@ func (srv *UService) RegisterRoutes() {
 		/* equivalent to "ls", will
 		return the resources, from the given path*/
 		apiV1.GET("/resources", srv.getResourcesHandler)
+		apiV1.GET("/volumes/shared", srv.handleSharedVolumes)
 		apiV1.POST("/resource/upload", srv.handleUpload)
 
 		// these endpoints need privileges
@@ -276,6 +277,11 @@ func (srv *UService) RegisterRoutes() {
 			[]string{"GET", "POST", "PATCH", "DELETE"},
 			"/user/volume",
 			srv.handleUserVolumes,
+		)
+		admin.Match(
+			[]string{"GET", "POST", "PATCH", "DELETE"},
+			"/group/volume",
+			srv.handleGroupVolumes,
 		)
 
 		admin.Match(

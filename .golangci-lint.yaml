@@ -52,7 +52,6 @@ linters:
     - tagliatelle
     - testableexamples
     - testifylint
-    - testpackage
     - thelper
     - unconvert
     - usestdlibvars
@@ -62,6 +61,7 @@ linters:
     - zerologlint
   disable:
     - godot
+    - testpackage # tests live in their package and use its internals
     - unused
     - wsl
   exclusions:
