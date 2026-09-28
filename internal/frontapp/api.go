@@ -166,6 +166,8 @@ func (srv *HTTPService) routes() {
 	srv.Engine.Use(cors.New(corsconfig))
 
 	srv.Engine.Use(securityMiddleWare)
+	// login and registration run before a session (and a page with the token) exists
+	srv.Engine.Use(csrf("/api/"+apiVersion+"/login", "/api/"+apiVersion+"/register"))
 
 	root := srv.Engine.Group("/")
 	{
@@ -202,20 +204,10 @@ func (srv *HTTPService) routes() {
 		apiV1.POST("/register", srv.handleRegister)
 
 		apiV1.DELETE("/logout", func(c *gin.Context) {
-			params := c.Request.URL.Query()
-
-			if params == nil {
-				c.JSON(http.StatusBadRequest, gin.H{"status": "no params specified"})
-
-				return
-			}
-
-			for key := range params {
-				// essentially overwrites and eventually gets the cookie deleted.
-				setSessionCookie(c, key, "", -1) // expire it
-			}
-			log.Print("cookies deleted")
-			c.Redirect(http.StatusMultipleChoices, "/api/v1/login")
+			// only the session cookie (it used to delete whatever cookies the query named)
+			setSessionCookie(c, sessionCookie, "", -1)
+			c.Header("HX-Redirect", "/api/v1/login")
+			c.Status(http.StatusNoContent)
 		})
 	}
 

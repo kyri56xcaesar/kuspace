@@ -18,6 +18,8 @@ import (
 
 var testKey = []byte("frontapp-test-key")
 
+var testCSRF = strings.Repeat("ab", 32)
+
 // seen is one request an upstream fake received.
 type seen struct {
 	method, path, query string
@@ -128,6 +130,11 @@ func (h *frontHarness) do(method, path string, cookie *http.Cookie, body io.Read
 	req := httptest.NewRequestWithContext(h.t.Context(), method, path, body)
 	if cookie != nil {
 		req.AddCookie(cookie)
+	}
+	// behave like a page running csrf.js unless the test sets the headers itself
+	if _, own := header[csrfHeader]; !own && method != http.MethodGet {
+		req.AddCookie(&http.Cookie{Name: csrfCookie, Value: testCSRF})
+		req.Header.Set(csrfHeader, testCSRF)
 	}
 	for k, v := range header {
 		req.Header.Set(k, v)
