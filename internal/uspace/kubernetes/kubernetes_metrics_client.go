@@ -47,9 +47,15 @@ func GetSystemMetrics(ns string) (map[string]any, error) {
 		kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "config")
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 		if err != nil {
-			allErrors = append(allErrors, fmt.Sprintf("config error: %v", err))
+			// not in a cluster and no kubeconfig (e.g. docker compose): say so
+			// (building clients from a nil config used to panic: a 500)
+			result["available"] = false
+			result["reason"] = "cluster metrics need kubernetes (uspace is not running in a cluster)"
+
+			return result, nil
 		}
 	}
+	result["available"] = true
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {

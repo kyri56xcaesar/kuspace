@@ -16,6 +16,7 @@ import (
 	"log"
 	"net/http"
 	"os/signal"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -338,6 +339,10 @@ func (srv *UService) RegisterRoutes() {
 				if err != nil {
 					log.Printf("[API] system metrics errors: %v", err)
 				}
+				// uspace's own process, available with or without a cluster
+				var ms runtime.MemStats
+				runtime.ReadMemStats(&ms)
+				kMetrics["process"] = gin.H{"goroutines": runtime.NumGoroutine(), "heap_bytes": ms.HeapAlloc}
 				c.JSON(http.StatusOK, kMetrics)
 			})
 		}

@@ -377,6 +377,16 @@
 
   function cluster(el, m) {
     if (!m || typeof m !== "object" || m.error) { el.innerHTML = ""; return; }
+    if (m.available === false) { // docker compose: no cluster to measure
+      el.innerHTML = `<h4 class="dash-sub">Cluster</h4><p class="dash-note"></p><div class="dash-tiles"></div>`;
+      el.querySelector(".dash-note").textContent = m.reason || "Cluster metrics need kubernetes.";
+      const p = m.process || {};
+      tiles(el.querySelector(".dash-tiles"), [
+        { label: "uspace goroutines", value: fmtInt(p.goroutines || 0) },
+        { label: "uspace heap", value: fmtBytes(Number(p.heap_bytes) || 0) },
+      ]);
+      return;
+    }
     const pods = m.pods || {};
     const podTotal = Object.values(pods).reduce((a, b) => a + (Number(b) || 0), 0);
     el.innerHTML = `<h4 class="dash-sub">Cluster</h4><div class="dash-tiles"></div>`;

@@ -410,3 +410,15 @@ func TestReadiness(t *testing.T) {
 		t.Errorf("storage down: %d %s", rec.Code, rec.Body)
 	}
 }
+
+// Without a cluster the metrics say so (building clients from a nil
+// config used to panic: a 500) and still report uspace's own process.
+func TestSystemMetricsWithoutKubernetes(t *testing.T) {
+	t.Setenv("HOME", t.TempDir()) // no kubeconfig
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+	a := newAPIHarness(t, 1)
+	rec := a.do(http.MethodGet, "/api/v1/admin/system-metrics", "::/", "0:0", nil, "")
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"available":false`) || !strings.Contains(rec.Body.String(), `"goroutines"`) {
+		t.Errorf("metrics: %d %s", rec.Code, rec.Body)
+	}
+}
