@@ -18,15 +18,17 @@ import (
 func newTestFsl(t *testing.T) *FsLite {
 	t.Helper()
 	fsl := NewFsLite(ut.EnvConfig{
-		APIGinMode:        "test",
-		FslDB:             "fsl_test.db",
-		FslDBPath:         t.TempDir() + "/",
-		FslDBDriver:       "sqlite3",
-		FslDBMaxOpenConns: "4",
-		FslDBMaxIdleConns: "2",
-		FslDBMaxLifetime:  "5",
-		FslAccessKey:      "admin",
-		FslSecretKey:      "adminpassword1",
+		ServiceConfig: ut.ServiceConfig{APIGinMode: "test"},
+		FsliteConfig: ut.FsliteConfig{
+			FslDB:             "fsl_test.db",
+			FslDBPath:         t.TempDir() + "/",
+			FslDBDriver:       "sqlite3",
+			FslDBMaxOpenConns: "4",
+			FslDBMaxIdleConns: "2",
+			FslDBMaxLifetime:  "5",
+			FslAccessKey:      "admin",
+			FslSecretKey:      "adminpassword1",
+		},
 	})
 	t.Cleanup(fsl.Close)
 

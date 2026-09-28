@@ -38,7 +38,7 @@ func token(t *testing.T, key []byte, method jwt.SigningMethod, mutate func(*acce
 }
 
 func TestVerifyAccessToken(t *testing.T) {
-	hs := newTokenVerifier(ut.EnvConfig{JwtSecretKey: testJWTKey}) // HS256 is the default
+	hs := newTokenVerifier(ut.EnvConfig{AuthConfig: ut.AuthConfig{JwtSecretKey: testJWTKey}}) // HS256 is the default
 	good := token(t, testJWTKey, jwt.SigningMethodHS256, nil)
 	if c, err := hs.verify(good); err != nil || c.UserID != "1001" {
 		t.Fatalf("valid token rejected: %v", err)
@@ -87,7 +87,7 @@ func probe(t *testing.T, mw gin.HandlerFunc, headers map[string]string) (int, st
 }
 
 func TestAuthenticate(t *testing.T) {
-	srv := &UService{config: ut.EnvConfig{JwtSecretKey: testJWTKey, ServiceSecretKey: []byte("svc")}}
+	srv := &UService{config: ut.EnvConfig{AuthConfig: ut.AuthConfig{JwtSecretKey: testJWTKey, ServiceSecretKey: []byte("svc")}}}
 	user := "Bearer " + token(t, testJWTKey, jwt.SigningMethodHS256, nil)
 
 	// a user claiming root in Access-Target gets their own identity instead

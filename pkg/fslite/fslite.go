@@ -39,7 +39,7 @@
 //
 //	cfg := ut.EnvConfig{...}
 //	fsl := fslite.NewFsLite(cfg)
-//	err := fsl.CreateVolume(ut.Volume{Name: "myvol", Capacity: 10})
+//	err := fsl.CreateVolume(ctx, ut.Volume{Name: "myvol", Capacity: 10})
 //	...
 package fslite
 
