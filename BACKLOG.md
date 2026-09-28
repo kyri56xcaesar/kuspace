@@ -227,7 +227,7 @@ fail on planted bugs. JS dev tools live in `web/package.json` (pinned,
 lockfile; `web/go.mod` keeps Go out of `node_modules`).
 tests/uspace (thesis scaffolding) retired to playground.
 
-minioth v1.1.0 (submodule bumped): frontapp now uses its user-facing
+minioth v1.1.0, then v1.1.1 (retracts v1.0.5/v1.0.6; submodule at v1.1.1): frontapp now uses its user-facing
 endpoints instead of the service secret - password change is `POST
 /v1/passwd {current_password,new_password}` with the user's token (the
 extra admin verify-password call is gone) and ends the session; email is
@@ -253,9 +253,12 @@ once. Smoke checks the old session and password stop working.
 - `HIGH` **jobs across restarts**: queued jobs stay "queued" and running ones
   "running" after a restart (drain now leaves them so) - re-queue / re-attach
   or fail them at start, plus a timeout watchdog.
-- `PENDING` minioth branch `next` (primary-group fix, plain-store hardening)
-  is committed locally only (rebased on v1.1.0): push it and tag v1.1.1,
-  then bump kuspace's submodule to it.
+- `PENDING` minioth v1.1.1 does not include the local branch `next`
+  (primary-group fix - the group-volume smoke checks depend on it -,
+  plain-store hardening, token versions under the store lock; rebased on
+  v1.1.1, tests pass). Push it, tag v1.1.2, bump kuspace's submodule. Until
+  then the checkout stays on `next`, so local image builds carry the fixes
+  while the committed pin is v1.1.1.
 
 ### Code health
 
