@@ -171,19 +171,39 @@ tests (was 4.4k), with httptest suites (sessions, CSRF, storage, jobs,
 accounts). Config: `LoadConfig(path, sections...)` - each service loads,
 checks and logs only its sections (Tokens and Storage split out).
 
+### Round 7 (2026-09-28: consistency, errors, edges, web refurbish)
+
+| Sev | Where | Problem | Fix |
+|---|---|---|---|
+| HIGH | quotas | Usage counters adjusted by separate claim/release calls; any failure or crash between a record change and its counter left usage wrong for good. | Usage is the sum of the record sizes (views `volume_usage`, `user_volume_usage`); `InsertResource` checks the quota and inserts in one `BEGIN IMMEDIATE` transaction (20 concurrent 0.2 GB inserts into 1 GB: exactly 5). |
+| MED | uspace writes | Delete removed the object before the record: a failure left a listed file with no data. | Rule: object first/record last on create, record first/object last on delete - failures leave only invisible orphan objects (for `fsck`, next). |
+| MED | fslite | Deletes matched the raw name ("a.txt" never matched "/a.txt") and reported success; a query read a table that doesn't exist. | Normalized; a delete that matches nothing is `ErrResourceNotFound`. |
+| MED | errors | Ten places decided what happened by reading error text ("already exists", "not empty", "empty", "unique"). | Shared kinds (`ut.ErrNotFound`, `ErrExists`, `ErrNotEmpty`, `ErrNoSpace`, `ErrUnavailable`, ...), fslite and the MinIO client wrap them, one `HTTPStatus` mapping; missing object 404 (was 400), taken name 409 (was 422), MinIO down 503. |
+| MED | uspace listing | A user with no files got 404 (shown as an error). | Empty list. |
+| MED | shutdown | uspace closed its databases before draining requests; running jobs lost their status. | Requests (10s), then jobs (15s), then databases; new jobs 503 while draining; compose grace 30s. |
+| MED | edges | A flat 5-minute client timeout (cut big downloads, let a dead service hang a page); no readiness; unreachable services answered 502 JSON on page loads. | Per-phase timeouts, `/readyz` everywhere (+ k8s probes), 503 + Retry-After and the error page. |
+| MED | csrf.js | htmx goes through XHR, so the header was sent twice ("tok, tok"): every htmx write refused. | Set once. |
+| - | web | Refurbish merged (`a1f1164`): new design in both themes, no inline code, 8 XSS spots fixed; CSP is now `script-src 'self'; style-src 'self'`. | |
+
 ---
 
 ## Open
 
 ### Security
-- `MED` CSP still allows `'unsafe-inline'` scripts: the web refurbish (branch
-  `worktree-agent-a9f58b178c34afdba`, in progress) removes the inline handlers,
-  the htmx `js:`/`hx-on` uses and the unescaped template strings (XSS) in
-  admin-panel.js / vfs.js / tree-resources.html; then set `script-src 'self'`.
-  Until that branch is merged the pages on main don't load `csrf.js`, so their
-  state-changing requests are refused (403) - merge before rebuilding images.
 
 ### Correctness and robustness
+- `HIGH` **consistency checker (`fsck`)** - steps 3-4 of the plan: compare
+  buckets with records (orphan objects older than 1h, records without
+  objects, size drift, volume halves), report periodically, repair on
+  `--repair`/admin call; fault-injecting storage fake + property tests; fsck
+  in smoke. Also: move/copy ordering audit.
+- `HIGH` **jobs across restarts**: queued jobs stay "queued" and running ones
+  "running" after a restart (drain now leaves them so) - re-queue / re-attach
+  or fail them at start, plus a timeout watchdog.
+- `LOW` preview answered 500 for existing files on the (stale) dev stack;
+  re-check after the rebuild. `admin/system-metrics` 500 without kubernetes.
+- `LOW` job-list "sort" sends the search column; duplicate element ids the JS
+  depends on; admin add-user password field is `type=text`.
 - `LOW` fslite `SelectObjects` by prefix uses `LIKE` across all volumes.
 - `LOW` group volumes have no admin UI yet (API only: `/admin/group/volume`);
   users see them in the volume list.
@@ -220,13 +240,12 @@ checks and logs only its sections (Tokens and Storage split out).
   commits).
 
 ### Next up
-1. Finish and merge the web refurbish; then strict CSP (`script-src 'self'`),
-   rebuild the images and run `make smoke` (extended with the job-output gid,
-   quoted code, group volume and CSRF checks).
-2. **Schema migrations** (see Design notes below).
-3. Group volume admin UI; show a job's engine and a Cancel button.
-4. minioth plain store: harden or drop (decision pending).
-5. Nightly `make smoke` in CI; run the kubernetes executor in kind/minikube.
+1. Rebuild the images and run `make smoke` (extended: job-output gid,
+   quoted code, CSRF, identity smuggling, group volumes) - needs the owner's go.
+2. `fsck` + fault-injection property tests (consistency steps 3-4).
+3. Jobs across restarts.
+4. Schema migrations (see Design notes below).
+5. minioth plain store: harden or drop (decision pending).
 
 ### Design notes: schema migrations
 Today schema changes are applied by start-up code scattered across the
