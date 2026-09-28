@@ -200,8 +200,10 @@ checks and logs only its sections (Tokens and Storage split out).
 - `HIGH` **jobs across restarts**: queued jobs stay "queued" and running ones
   "running" after a restart (drain now leaves them so) - re-queue / re-attach
   or fail them at start, plus a timeout watchdog.
-- `LOW` preview answered 500 for existing files on the (stale) dev stack;
-  re-check after the rebuild. `admin/system-metrics` 500 without kubernetes.
+- `LOW` minioth: `/admin/users` reports `pgroup` = the uid (e.g. 1032) while
+  the token and the user's group list say the user's own group (1033). Fix in
+  minioth (next release); kuspace reads the gid from the token.
+- `LOW` `admin/system-metrics` answers 500 without kubernetes.
 - `LOW` job-list "sort" sends the search column; duplicate element ids the JS
   depends on; admin add-user password field is `type=text`.
 - `LOW` fslite `SelectObjects` by prefix uses `LIKE` across all volumes.
@@ -240,9 +242,8 @@ checks and logs only its sections (Tokens and Storage split out).
   commits).
 
 ### Next up
-1. Rebuild the images and run `make smoke` (extended: job-output gid,
-   quoted code, CSRF, identity smuggling, group volumes) - needs the owner's go.
-2. `fsck` + fault-injection property tests (consistency steps 3-4).
+1. Fuzz and property tests (parsers, quota accounting, write ordering under
+   injected failures), then `fsck` (consistency steps 3-4).
 3. Jobs across restarts.
 4. Schema migrations (see Design notes below).
 5. minioth plain store: harden or drop (decision pending).

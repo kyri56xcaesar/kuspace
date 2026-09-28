@@ -3,6 +3,7 @@ FROM golang:1.26-bookworm AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 COPY ./internal/utils/ ./internal/utils/
+COPY ./internal/authn/ ./internal/authn/
 COPY ./internal/frontapp/ ./internal/frontapp/
 COPY ./cmd/frontapp/ ./cmd/frontapp/ 
 RUN GOOS=linux go build -o ./cmd/frontapp/frontapp ./cmd/frontapp/main.go 

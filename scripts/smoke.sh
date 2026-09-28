@@ -24,10 +24,22 @@ COMPOSE_DIR=${COMPOSE_DIR:-$ROOT/deployments/docker-compose}
 [ -r "$SECRETS" ] || { echo "cannot read $SECRETS (see configs/secrets.env.example)"; exit 1; }
 J=$(mktemp -d); trap 'rm -rf "$J"' EXIT
 ROOTPW=$(sed -n 's/^MINIOTH_SECRET_KEY=//p' "$SECRETS")
+SVC=$(sed -n 's/^SERVICE_SECRET_KEY=//p' "$SECRETS")
 # every secret value (service-map entries split out); the public MinIO
 # default "minioadmin" is also a username, so it can't count as a leak
 grep -v '^#' "$SECRETS" | cut -d= -f2- | tr ',' '\n' | sed 's/^.*://' |
   grep -v -x -e '' -e minioadmin | sort -u > "$J/secrets"
+
+# CSRF (double-submit): every jar carries a known csrf_token and every curl
+# call sends it back as X-Csrf-Token, like csrf.js does in the browser
+CSRF=$(printf 'ab%.0s' $(seq 32))
+export CURL_HOME=$J
+printf 'header = "X-Csrf-Token: %s"\n' "$CSRF" > "$J/.curlrc"
+FRONT_HOST=$(python3 -c "import urllib.parse,sys; print(urllib.parse.urlparse(sys.argv[1]).hostname)" "$FRONT")
+fixjar() { # set the jar's csrf_token to $CSRF
+  sed -i '/\tcsrf_token\t/d' "$1" 2>/dev/null
+  printf '%s\tFALSE\t/\tFALSE\t0\tcsrf_token\t%s\n' "$FRONT_HOST" "$CSRF" >> "$1"
+}
 
 U=smoke$RANDOM; PASS=0; FAIL=0
 check() { # name expected(glob) actual
@@ -38,7 +50,7 @@ yes_if() { if "$@"; then echo yes; else echo no; fi; }
 code() { curl -s -o "$J/body" -w '%{http_code}' "$@"; }
 json() { python3 -c "import json,sys; d=json.load(sys.stdin); $1"; }
 register() { curl -s -o /dev/null -X POST "$F/register" -d "username=$1&password=smokepass123&repeatPassword=smokepass123${2:-}"; }
-login() { curl -s -o /dev/null -c "$J/$1.jar" -X POST "$F/login" -d "username=$1&password=smokepass123"; }
+login() { curl -s -o /dev/null -c "$J/$1.jar" -X POST "$F/login" -d "username=$1&password=smokepass123"; fixjar "$J/$1.jar"; }
 
 echo "--- health"
 check "minioth well-known"          200 "$(code "$M/.well-known/minioth")"
@@ -51,6 +63,7 @@ check "register duplicate refused"  "4??" "$(code -X POST "$F/register" -d "user
 check "wrong password refused"      "4??" "$(code -X POST "$F/login" -d "username=$U&password=wrongpass999")"
 check "login -> redirect"           303 "$(code -D "$J/login.hdr" -c "$J/user.jar" -X POST "$F/login" -d "username=$U&password=smokepass123")"
 check "session cookie set"          yes "$(yes_if grep -q accessToken "$J/user.jar")"
+fixjar "$J/user.jar"
 check "cookie is SameSite=Strict"   yes "$(yes_if grep -qi 'set-cookie: accessToken=.*samesite=strict' "$J/login.hdr")"
 check "panel for user"              200 "$(code -b "$J/user.jar" "$F/verified/admin-panel")"
 check "panel shows username"        yes "$(yes_if grep -q "$U" "$J/body")"
@@ -71,6 +84,7 @@ check "no HSTS over plain http"     no  "$(yes_if grep -qi '^strict-transport-se
 
 echo "--- admin"
 check "admin login"                 303 "$(code -c "$J/admin.jar" -X POST "$F/login" -d "username=kuspaceadmin&password=$ROOTPW")"
+fixjar "$J/admin.jar"
 check "admin lists users"           200 "$(code -b "$J/admin.jar" "$F/verified/admin/fetch-users?format=json")"
 check "new user listed"             yes "$(yes_if grep -q "$U" "$J/body")"
 check "no bcrypt hash in response"  no  "$(yes_if grep -q '\$2[aby]\$' "$J/body")"
@@ -103,6 +117,24 @@ check "same-name upload refused"    409 "$(code -b "$J/$O.jar" -F "files=@$J/o/$
 OWN=o_$U.txt; echo "mine" > "$J/$OWN"; curl -s -o /dev/null -b "$J/$O.jar" -F "files=@$J/$OWN" "$F/verified/upload"
 check "copy onto other's file refused" 409 "$(code -b "$J/$O.jar" -X POST "$F/verified/cp?resource=/$OWN&dest=uspace-default/$FN")"
 check "owner's content intact"      yes "$(curl -s -b "$J/user.jar" "$F/verified/download?target=/$FN&volume=uspace-default" | yes_if grep -q "hello kuspace $U")"
+
+echo "--- identity and request forgery"
+check "identity smuggled in a target" "40?" "$(code -b "$J/$O.jar" "$F/verified/download?target=/$FN%200:0&volume=uspace-default")"
+check "write without CSRF token"    403 "$(curl -q -s -o "$J/body" -w '%{http_code}' -b "$J/$O.jar" -X DELETE "$F/verified/rm?name=/$OWN")"
+check "cross-site write refused"    403 "$(code -b "$J/$O.jar" -H 'Origin: https://evil.example' -X DELETE "$F/verified/rm?name=/$OWN")"
+
+echo "--- group volumes"
+GV=team$(echo "$U" | tr -dc 'a-z0-9')
+check "admin creates a volume"      "20?" "$(code -b "$J/admin.jar" -H 'Content-Type: application/json' -X POST "$F/verified/admin/volumeadd" -d "{\"name\":\"$GV\",\"capacity\":1}")"
+# the user's own group (minioth's /admin/users reports pgroup = uid; the token and the group list agree on the real gid)
+PG=$(curl -s -b "$J/admin.jar" "$F/verified/admin/fetch-users?format=json" | json "print(next(g['gid'] for u in d if u['username']=='$U' for g in u.get('groups') or [] if g['groupname']=='$U'))")
+check "volume given to the user's group" 200 "$(code -X POST "$USPACE/api/v1/admin/group/volume" -H "X-Service-Secret: $SVC" -H 'Access-Target: 0::/ 0:0' -H 'Content-Type: application/json' -d "{\"vname\":\"$GV\",\"gid\":${PG:-0},\"quota\":1}")"
+check "member sees the shared volume" yes "$(curl -s -b "$J/user.jar" "$F/verified/fetch-volumes?format=json" | yes_if grep -q "\"$GV\"")"
+check "member uploads to it"        "20?" "$(code -b "$J/user.jar" -H "X-Volume-Target: $GV" -F "files=@$J/$FN" "$F/verified/upload")"
+check "non-member upload refused"   403 "$(code -b "$J/$O.jar" -H "X-Volume-Target: $GV" -F "files=@$J/$OWN" "$F/verified/upload")"
+check "file belongs to the group"   "${PG:-none}" "$(curl -s -b "$J/user.jar" "$F/verified/fetch-resources?format=json&volume=$GV" | json "print(next((r.get('gid','') for r in d if r['name']=='/$FN'),''))")"
+check "member deletes the file"     200 "$(code -b "$J/user.jar" -X DELETE "$F/verified/rm?name=/$FN&volume=$GV")"
+check "admin deletes the volume"    "20?" "$(code -b "$J/admin.jar" -X DELETE "$F/verified/admin/volumedel?volume=$GV")"
 
 echo "--- jobs authorization"
 job() { code -b "$J/$1.jar" -X POST "$F/verified/jobs" --data-urlencode "input=uspace-default/$2" \
@@ -158,6 +190,16 @@ if [ "${SMOKE_JOBS:-1}" != "0" ]; then
   check "engine recorded"             "?*" "$(job_field "$RJ" engine)"
   check "job output content"          "bob,7" "$(curl -s -b "$J/user.jar" "$F/verified/download?target=/sorted_$U.csv&volume=uspace-default" | head -1)"
   check "job log saved"               yes "$(curl -s -b "$J/user.jar" "$F/verified/job-log?jid=$RJ" | yes_if grep -q 'finished with status: completed')"
+  res_field() { curl -s -b "$J/user.jar" "$F/verified/fetch-resources?format=json" | json "d=d.get('content',d) if isinstance(d,dict) else d; r=[x for x in d if x.get('name','').lstrip('/')=='$1']; print(r[0].get('$2','') if r else '')"; }
+  IG=$(res_field "in_$U.csv" gid)
+  check "job output gets the owner's primary group" "${IG:-no-input-gid}" "$(res_field "sorted_$U.csv" gid)"
+  # code runs from $LOGIC, never pasted into the shell: quotes and $ survive
+  CJ=$(curl -s -b "$J/user.jar" -X POST "$F/verified/jobs" --data-urlencode "input=uspace-default/in_$U.csv" \
+    --data-urlencode "output=uspace-default/code_$U.txt" --data-urlencode "logic=py:3.12-alpine" \
+    --data-urlencode 'logicBody=print("it'"'"'s \"quoted\" $HOME")' \
+    --data-urlencode "parallelism=1" --data-urlencode "timeout=5" | json 'print(d.get("jid",""))')
+  check "python code job completed"   completed "$(wait_job "$CJ" 'completed failed cancelled')"
+  check "code with quotes ran verbatim" yes "$(curl -s -b "$J/user.jar" "$F/verified/job-log?jid=$CJ" | yes_if grep -qF "it's \"quoted\" \$HOME")"
   SJ=$(run_job "slow_$U.csv" 'sleep 60; cp {input} {output}')
   check "slow job running"            running "$(wait_job "$SJ" 'running completed failed')"
   check "cancel accepted"             200 "$(code -b "$J/user.jar" -X POST "$F/verified/job-cancel?jid=$SJ")"

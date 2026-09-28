@@ -6,6 +6,7 @@ COPY ./api/uspace/ ./api/uspace/
 COPY ./pkg/fslite/ ./pkg/fslite/
 COPY ./cmd/uspace/ ./cmd/uspace/ 
 COPY ./internal/utils/ ./internal/utils/
+COPY ./internal/authn/ ./internal/authn/
 COPY ./internal/uspace/ ./internal/uspace/
 
 RUN GOOS=linux go build -o ./cmd/uspace/uspace ./cmd/uspace/main.go 
