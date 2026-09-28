@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"kyri56xcaesar/kuspace/internal/authn"
 	"log"
 	"net/http"
 	"os/signal"
@@ -52,7 +53,7 @@ type UService struct {
 	config ut.EnvConfig
 
 	// tokens verifies minioth access tokens (identity.go, tokens.go)
-	tokens *tokenVerifier
+	tokens *authn.Verifier
 
 	/* server engine */
 	Engine *gin.Engine
@@ -98,7 +99,7 @@ func NewUService(conf string) UService {
 	srv := UService{
 		Engine: gin.Default(),
 		config: cfg,
-		tokens: newTokenVerifier(cfg),
+		tokens: authn.NewVerifier(cfg),
 		// dbh:     NewDBHandler(cfg.DB_RV, cfg.DB_RV_DRIVER),
 	}
 

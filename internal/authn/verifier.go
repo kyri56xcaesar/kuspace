@@ -1,4 +1,4 @@
-package uspace
+package authn
 
 import (
 	"context"
@@ -22,7 +22,7 @@ import (
 // fetch (key rotation), so forged tokens can't hammer minioth.
 const jwksRefetchInterval = 30 * time.Second
 
-// tokenVerifier checks minioth access tokens with the algorithm uspace is
+// Verifier checks minioth access tokens with the algorithm uspace is
 // configured for - never the one a token names in its header (accepting
 // the header's choice lets an attacker sign HS256 tokens with the RS256
 // public key as the "secret").
@@ -30,7 +30,7 @@ const jwksRefetchInterval = 30 * time.Second
 //	HS256: the shared JWT_SECRET_KEY (refresh and purpose tokens use
 //	       another key, so they fail here)
 //	RS256: minioth's public keys from its JWKS, cached by key id
-type tokenVerifier struct {
+type Verifier struct {
 	alg     string
 	hmacKey []byte
 	jwksURL string
@@ -41,13 +41,13 @@ type tokenVerifier struct {
 	lastFetch time.Time
 }
 
-func newTokenVerifier(cfg ut.EnvConfig) *tokenVerifier {
+func NewVerifier(cfg ut.EnvConfig) *Verifier {
 	alg := strings.ToUpper(strings.TrimSpace(cfg.JwtSigningAlg))
 	if alg == "" {
 		alg = jwt.SigningMethodHS256.Alg()
 	}
 
-	return &tokenVerifier{
+	return &Verifier{
 		alg:     alg,
 		hmacKey: cfg.JwtSecretKey,
 		jwksURL: "http://" + cfg.AuthAddress + ":" + cfg.AuthPort + "/v1/.well-known/jwks.json",
@@ -58,8 +58,8 @@ func newTokenVerifier(cfg ut.EnvConfig) *tokenVerifier {
 
 // verify validates raw as a minioth access token: the configured algorithm,
 // issuer "minioth", an expiry, and a user id.
-func (v *tokenVerifier) verify(raw string) (*accessClaims, error) {
-	claims := &accessClaims{}
+func (v *Verifier) Verify(raw string) (*Claims, error) {
+	claims := &Claims{}
 	_, err := jwt.ParseWithClaims(raw, claims, v.key,
 		jwt.WithValidMethods([]string{v.alg}),
 		jwt.WithIssuer("minioth"),
@@ -75,7 +75,7 @@ func (v *tokenVerifier) verify(raw string) (*accessClaims, error) {
 	return claims, nil
 }
 
-func (v *tokenVerifier) key(t *jwt.Token) (any, error) {
+func (v *Verifier) key(t *jwt.Token) (any, error) {
 	switch v.alg {
 	case "HS256":
 		if len(v.hmacKey) == 0 {
@@ -94,7 +94,7 @@ func (v *tokenVerifier) key(t *jwt.Token) (any, error) {
 
 // rsaKey returns minioth's public key kid, fetching the JWKS when the key
 // isn't cached yet (at most every jwksRefetchInterval).
-func (v *tokenVerifier) rsaKey(kid string) (*rsa.PublicKey, error) {
+func (v *Verifier) rsaKey(kid string) (*rsa.PublicKey, error) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 	if k, ok := v.keys[kid]; ok {
@@ -116,7 +116,7 @@ func (v *tokenVerifier) rsaKey(kid string) (*rsa.PublicKey, error) {
 	return nil, fmt.Errorf("unknown signing key %q", kid)
 }
 
-func (v *tokenVerifier) fetchJWKS() (map[string]*rsa.PublicKey, error) {
+func (v *Verifier) fetchJWKS() (map[string]*rsa.PublicKey, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, v.jwksURL, nil)

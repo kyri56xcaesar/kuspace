@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"kyri56xcaesar/kuspace/internal/authn"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"github.com/gin-gonic/gin"
@@ -17,9 +18,9 @@ var (
 	testRefreshKey = []byte("test-refresh-key")
 )
 
-func token(t *testing.T, key []byte, method jwt.SigningMethod, mutate func(*accessClaims)) string {
+func token(t *testing.T, key []byte, method jwt.SigningMethod, mutate func(*authn.Claims)) string {
 	t.Helper()
-	c := &accessClaims{
+	c := &authn.Claims{
 		UserID: "1001", Username: "alice", Groups: "user,alice", GroupIDs: "1000,1002", PGroup: "1002",
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "minioth",
@@ -35,38 +36,6 @@ func token(t *testing.T, key []byte, method jwt.SigningMethod, mutate func(*acce
 	}
 
 	return s
-}
-
-func TestVerifyAccessToken(t *testing.T) {
-	hs := newTokenVerifier(ut.EnvConfig{AuthConfig: ut.AuthConfig{JwtSecretKey: testJWTKey}}) // HS256 is the default
-	good := token(t, testJWTKey, jwt.SigningMethodHS256, nil)
-	if c, err := hs.verify(good); err != nil || c.UserID != "1001" {
-		t.Fatalf("valid token rejected: %v", err)
-	}
-	none, _ := jwt.NewWithClaims(jwt.SigningMethodNone, &accessClaims{UserID: "0"}).SignedString(jwt.UnsafeAllowNoneSignatureType)
-	for name, raw := range map[string]string{
-		"refresh-key token": token(t, testRefreshKey, jwt.SigningMethodHS256, nil),
-		"alg none":          none,
-		"expired":           token(t, testJWTKey, jwt.SigningMethodHS256, func(c *accessClaims) { c.ExpiresAt = jwt.NewNumericDate(time.Now().Add(-time.Minute)) }),
-		"no expiry":         token(t, testJWTKey, jwt.SigningMethodHS256, func(c *accessClaims) { c.ExpiresAt = nil }),
-		"wrong issuer":      token(t, testJWTKey, jwt.SigningMethodHS256, func(c *accessClaims) { c.Issuer = "someone" }),
-		"no user":           token(t, testJWTKey, jwt.SigningMethodHS256, func(c *accessClaims) { c.UserID = "" }),
-		"garbage":           "not.a.jwt",
-	} {
-		if _, err := hs.verify(raw); err == nil {
-			t.Errorf("%s accepted", name)
-		}
-	}
-}
-
-func TestWhoPutsPrimaryGroupFirst(t *testing.T) {
-	c := &accessClaims{UserID: "1001", GroupIDs: "1000,1002", PGroup: "1002"}
-	if got := c.who(); got != "1001:1002,1000" {
-		t.Errorf("who() = %q", got)
-	}
-	if got := (&accessClaims{UserID: "7"}).who(); got != "7:7" {
-		t.Errorf("who() without groups = %q", got)
-	}
 }
 
 // probe runs mw and returns the status and the Access-Target the handler saw.
@@ -115,7 +84,7 @@ func TestAuthenticate(t *testing.T) {
 	if code, _ := probe(t, authenticateAdmin(srv), map[string]string{"Authorization": user}); code != http.StatusForbidden {
 		t.Errorf("non-admin on admin route: %d", code)
 	}
-	admin := "Bearer " + token(t, testJWTKey, jwt.SigningMethodHS256, func(c *accessClaims) { c.Groups = "admin,user" })
+	admin := "Bearer " + token(t, testJWTKey, jwt.SigningMethodHS256, func(c *authn.Claims) { c.Groups = "admin,user" })
 	if code, _ := probe(t, authenticateAdmin(srv), map[string]string{"Authorization": admin}); code != http.StatusOK {
 		t.Errorf("admin token on admin route: %d", code)
 	}

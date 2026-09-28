@@ -8,8 +8,9 @@ import (
 	"net/http"
 	"strings"
 
+	"kyri56xcaesar/kuspace/internal/authn"
+
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 /*
@@ -28,55 +29,16 @@ import (
 	Anything else is refused.
 */
 
-// accessClaims are the minioth access-token claims uspace relies on.
-type accessClaims struct {
-	UserID   string `json:"user_id"` //nolint:tagliatelle // minioth wire format (snake_case)
-	Username string `json:"username"`
-	Groups   string `json:"groups"`
-	GroupIDs string `json:"group_ids"` //nolint:tagliatelle // minioth wire format (snake_case)
-	PGroup   string `json:"pgroup"`
-	jwt.RegisteredClaims
-}
-
 var errNoCredentials = errors.New("no credentials")
 
 // tokenVerifier returns the service's verifier (tests build UService
 // without the constructor).
-func (srv *UService) tokenVerifier() *tokenVerifier {
+func (srv *UService) tokenVerifier() *authn.Verifier {
 	if srv.tokens == nil {
-		srv.tokens = newTokenVerifier(srv.config)
+		srv.tokens = authn.NewVerifier(srv.config)
 	}
 
 	return srv.tokens
-}
-
-// who renders the token identity as Access-Target's "uid:gids", primary
-// group first (uspace gives new files the first group).
-func (c *accessClaims) who() string {
-	gids := []string{}
-	if c.PGroup != "" && c.PGroup != "0" {
-		gids = append(gids, c.PGroup)
-	}
-	for _, g := range strings.Split(c.GroupIDs, ",") {
-		if g = strings.TrimSpace(g); g != "" && g != c.PGroup {
-			gids = append(gids, g)
-		}
-	}
-	if len(gids) == 0 {
-		gids = append(gids, c.UserID) // Access-Target needs at least one group
-	}
-
-	return c.UserID + ":" + strings.Join(gids, ",")
-}
-
-func (c *accessClaims) isAdmin() bool {
-	for _, g := range strings.Split(c.Groups, ",") {
-		if strings.TrimSpace(g) == "admin" {
-			return true
-		}
-	}
-
-	return false
 }
 
 func bearerToken(c *gin.Context) string {
@@ -90,9 +52,9 @@ func bearerToken(c *gin.Context) string {
 
 // identify resolves the caller. For a user token it rewrites Access-Target so
 // its identity part is the token's; a service keeps the header as sent.
-func identify(srv *UService, c *gin.Context) (*accessClaims, bool, error) {
+func identify(srv *UService, c *gin.Context) (*authn.Claims, bool, error) {
 	if raw := bearerToken(c); raw != "" {
-		claims, err := srv.tokenVerifier().verify(raw)
+		claims, err := srv.tokenVerifier().Verify(raw)
 		if err != nil {
 			return nil, false, fmt.Errorf("invalid token: %w", err)
 		}
@@ -100,7 +62,7 @@ func identify(srv *UService, c *gin.Context) (*accessClaims, bool, error) {
 		if cur := c.GetHeader("Access-Target"); cur != "" {
 			what, _, _ = strings.Cut(cur, " ")
 		}
-		c.Request.Header.Set("Access-Target", what+" "+claims.who())
+		c.Request.Header.Set("Access-Target", what+" "+claims.Who())
 
 		return claims, false, nil
 	}
@@ -134,7 +96,7 @@ func authenticateAdmin(srv *UService) gin.HandlerFunc {
 		case err != nil:
 			log.Printf("[Middleware-Auth] refused admin call: %v", err)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "send a minioth access token or the service secret"})
-		case !service && !claims.isAdmin():
+		case !service && !claims.IsAdmin():
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "admin only"})
 		default:
 			c.Next()
