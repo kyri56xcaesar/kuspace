@@ -3,13 +3,12 @@ package uspace
 import (
 	"context"
 	"errors"
+	"kyri56xcaesar/kuspace/internal/model"
+	"kyri56xcaesar/kuspace/pkg/fslite"
 	"log"
 	"net/http"
 	"strconv"
 	"strings"
-
-	ut "kyri56xcaesar/kuspace/internal/utils"
-	"kyri56xcaesar/kuspace/pkg/fslite"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,7 +23,7 @@ import (
 var errNotGroupMember = errors.New("only members of the volume's group can write to it")
 
 // isMember reports whether the verified caller is in group gid (root always is).
-func isMember(ac ut.AccessClaim, gid int64) bool {
+func isMember(ac model.AccessClaim, gid int64) bool {
 	if ac.UID == "0" {
 		return true
 	}
@@ -38,7 +37,7 @@ func isMember(ac ut.AccessClaim, gid int64) bool {
 }
 
 // callerGroups is the caller's gids as numbers.
-func callerGroups(ac ut.AccessClaim) []int64 {
+func callerGroups(ac model.AccessClaim) []int64 {
 	var gids []int64
 	for _, g := range strings.Split(ac.Gids, ",") {
 		if n, err := strconv.ParseInt(strings.TrimSpace(g), 10, 64); err == nil {
@@ -52,7 +51,7 @@ func callerGroups(ac ut.AccessClaim) []int64 {
 // writeGroup is the group a file written by ac (as uid) to volume gets: the
 // volume's group on a group volume (members only, else errNotGroupMember),
 // otherwise the caller's primary group.
-func (srv *UService) writeGroup(ctx context.Context, ac ut.AccessClaim, volume string, uid int64) (int64, error) {
+func (srv *UService) writeGroup(ctx context.Context, ac model.AccessClaim, volume string, uid int64) (int64, error) {
 	gv, err := srv.fsl.GroupVolume(ctx, volume)
 	switch {
 	case errors.Is(err, fslite.ErrNotGroupVolume):
@@ -83,7 +82,7 @@ func respondWriteGroupError(c *gin.Context, err error) {
 // @Summary     List my group volumes
 // @Tags        volumes
 // @Produce     json
-// @Success     200 {array} ut.GroupVolume
+// @Success     200 {array} model.GroupVolume
 // @Router      /volumes/shared [get]
 func (srv *UService) handleSharedVolumes(c *gin.Context) {
 	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
@@ -95,7 +94,7 @@ func (srv *UService) handleSharedVolumes(c *gin.Context) {
 	var gids []int64
 	if ac.UID != "0" {
 		if gids = callerGroups(ac); len(gids) == 0 {
-			c.JSON(http.StatusOK, []ut.GroupVolume{})
+			c.JSON(http.StatusOK, []model.GroupVolume{})
 
 			return
 		}
@@ -139,7 +138,7 @@ func (srv *UService) handleGroupVolumes(c *gin.Context) {
 	case http.MethodGet:
 		var gids []int64
 		if raw := c.Query("gids"); raw != "" {
-			gids = callerGroups(ut.AccessClaim{Gids: raw})
+			gids = callerGroups(model.AccessClaim{Gids: raw})
 			if len(gids) == 0 {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "gids must be numbers"})
 

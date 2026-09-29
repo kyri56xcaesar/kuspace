@@ -2,16 +2,14 @@ package authn
 
 import (
 	"errors"
+	"github.com/golang-jwt/jwt/v5"
+	"kyri56xcaesar/kuspace/internal/config"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync/atomic"
 	"testing"
-
-	ut "kyri56xcaesar/kuspace/internal/utils"
-
-	"github.com/golang-jwt/jwt/v5"
 )
 
 // fakeIntrospection answers minioth's GET /v1/user/token: 400 for revoked
@@ -40,9 +38,9 @@ func fakeIntrospection(t *testing.T, revoked *atomic.Value, calls *atomic.Int32)
 }
 
 func verifierFor(addr, port string) *Verifier {
-	return NewVerifier(ut.EnvConfig{
-		TokensConfig: ut.TokensConfig{JwtSecretKey: testJWTKey, JwtRevocationCheck: true},
-		PeersConfig:  ut.PeersConfig{AuthAddress: addr, AuthPort: port},
+	return NewVerifier(config.EnvConfig{
+		TokensConfig: config.TokensConfig{JwtSecretKey: testJWTKey, JwtRevocationCheck: true},
+		PeersConfig:  config.PeersConfig{AuthAddress: addr, AuthPort: port},
 	})
 }
 

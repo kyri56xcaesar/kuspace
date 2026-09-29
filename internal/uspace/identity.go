@@ -8,10 +8,9 @@ import (
 	"net/http"
 	"strings"
 
-	"kyri56xcaesar/kuspace/internal/authn"
-	ut "kyri56xcaesar/kuspace/internal/utils"
-
 	"github.com/gin-gonic/gin"
+	"kyri56xcaesar/kuspace/internal/authn"
+	"kyri56xcaesar/kuspace/internal/model"
 )
 
 /*
@@ -37,7 +36,7 @@ const ctxPrivileged = "privileged"
 
 // privileged reports whether the caller may act on everyone's jobs: a
 // service, an admin, or root.
-func privileged(c *gin.Context, ac ut.AccessClaim) bool {
+func privileged(c *gin.Context, ac model.AccessClaim) bool {
 	return c.GetBool(ctxPrivileged) || ac.UID == "0"
 }
 

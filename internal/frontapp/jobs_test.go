@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"kyri56xcaesar/kuspace/internal/config"
+	"kyri56xcaesar/kuspace/internal/model"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
@@ -33,7 +35,7 @@ func TestJobCallsActAsTheUser(t *testing.T) {
 
 	form := url.Values{"input": {"vol/in.csv"}, "output": {"vol/out.csv"}, "logic": {"bash"}, "logicBody": {"cat {input}"},
 		"parallelism": {"1"}, "timeout": {"5"}, "uid": {"0"}}
-	h.srv.Config.JobsConfig = ut.JobsConfig{UspaceJobMaxCPU: 4, UspaceJobMaxMemory: 4096, UspaceJobMaxStorage: 4,
+	h.srv.Config.JobsConfig = config.JobsConfig{UspaceJobMaxCPU: 4, UspaceJobMaxMemory: 4096, UspaceJobMaxStorage: 4,
 		UspaceJobMaxParallelism: 4, UspaceJobMaxTimeout: 60, UspaceJobMaxLogicSize: 1000}
 	rec = h.do(http.MethodPost, "/api/v1/verified/jobs", user, strings.NewReader(form.Encode()),
 		map[string]string{"Content-Type": "application/x-www-form-urlencoded"})
@@ -102,13 +104,13 @@ func TestGshellTickets(t *testing.T) {
 
 // Every "search by" column of the job list is a sort key.
 func TestSortJobsByEveryColumn(t *testing.T) {
-	jobs := []ut.Job{
+	jobs := []model.Job{
 		{JID: 1, UID: 5, Input: "a", Output: "z", Status: "failed", CreatedAt: "2026-09-01 10:00:00+00:00", CompletedAt: "2026-09-03 10:00:00+00:00"},
 		{JID: 2, UID: 9, Input: "b", Output: "y", Status: "completed", CreatedAt: "2026-09-02 10:00:00+00:00", CompletedAt: "2026-09-02 11:00:00+00:00"},
 	}
 	first := map[string]int64{"jid": 2, "uid": 2, "input": 2, "output": 1, "status": 2, "createdAt": 2, "completed_at": 1, "": 2}
 	for by, want := range first {
-		js := append([]ut.Job(nil), jobs...)
+		js := append([]model.Job(nil), jobs...)
 		sortJobs(js, by)
 		if js[0].JID != want {
 			t.Errorf("sort by %q: job %d first, want %d", by, js[0].JID, want)

@@ -2,10 +2,9 @@ package fslite
 
 import (
 	"database/sql"
+	"kyri56xcaesar/kuspace/internal/config"
 	"path/filepath"
 	"testing"
-
-	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
 // A database from before migrations, holding the damage the start-up fixes
@@ -29,10 +28,10 @@ func TestMigratingAnOldDatabase(t *testing.T) {
 	}
 	_ = old.Close()
 
-	cfg := ut.EnvConfig{
-		AuthConfig:   ut.AuthConfig{ServiceSecretKey: []byte("s")},
-		TokensConfig: ut.TokensConfig{JwtSecretKey: []byte("k")},
-		FsliteConfig: ut.FsliteConfig{
+	cfg := config.EnvConfig{
+		AuthConfig:   config.AuthConfig{ServiceSecretKey: []byte("s")},
+		TokensConfig: config.TokensConfig{JwtSecretKey: []byte("k")},
+		FsliteConfig: config.FsliteConfig{
 			FslDB: "fsl.db", FslDBPath: dir, FslDBDriver: "sqlite3",
 			FslDBMaxOpenConns: "4", FslDBMaxIdleConns: "2", FslDBMaxLifetime: "5",
 			FslAccessKey: "admin", FslSecretKey: "adminpassword1",

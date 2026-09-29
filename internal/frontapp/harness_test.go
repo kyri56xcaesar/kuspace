@@ -9,11 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"kyri56xcaesar/kuspace/internal/authn"
-	ut "kyri56xcaesar/kuspace/internal/utils"
-
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"kyri56xcaesar/kuspace/internal/authn"
+	"kyri56xcaesar/kuspace/internal/config"
 )
 
 var testKey = []byte("frontapp-test-key")
@@ -88,11 +87,11 @@ func newFrontHarness(t *testing.T) *frontHarness {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	us, mo := newFakeUpstream(t), newFakeUpstream(t)
-	cfg := ut.EnvConfig{
-		AuthConfig:    ut.AuthConfig{ServiceSecretKey: []byte("svc")},
-		TokensConfig:  ut.TokensConfig{JwtSecretKey: testKey},
-		StorageConfig: ut.StorageConfig{MinioDefaultBucket: "uspace-default"},
-		ServiceConfig: ut.ServiceConfig{AllowedOrigins: []string{"*"}},
+	cfg := config.EnvConfig{
+		AuthConfig:    config.AuthConfig{ServiceSecretKey: []byte("svc")},
+		TokensConfig:  config.TokensConfig{JwtSecretKey: testKey},
+		StorageConfig: config.StorageConfig{MinioDefaultBucket: "uspace-default"},
+		ServiceConfig: config.ServiceConfig{AllowedOrigins: []string{"*"}},
 	}
 	srv := &HTTPService{
 		Engine:   gin.New(),

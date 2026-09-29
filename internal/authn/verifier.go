@@ -7,15 +7,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/golang-jwt/jwt/v5"
+	"kyri56xcaesar/kuspace/internal/config"
 	"math/big"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
-
-	ut "kyri56xcaesar/kuspace/internal/utils"
-
-	"github.com/golang-jwt/jwt/v5"
 )
 
 // jwksRefetchInterval limits how often an unknown key id triggers a JWKS
@@ -45,7 +43,7 @@ type Verifier struct {
 
 // NewVerifier checks tokens with the configured algorithm (JWT_SIGNING_ALG)
 // and key: the shared JWT_SECRET_KEY, or minioth's JWKS for RS256.
-func NewVerifier(cfg ut.EnvConfig) *Verifier {
+func NewVerifier(cfg config.EnvConfig) *Verifier {
 	alg := strings.ToUpper(strings.TrimSpace(cfg.JwtSigningAlg))
 	if alg == "" {
 		alg = jwt.SigningMethodHS256.Alg()

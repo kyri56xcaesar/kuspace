@@ -1,13 +1,11 @@
 package frontendapp
 
 import (
+	"github.com/gin-gonic/gin"
+	"kyri56xcaesar/kuspace/internal/model"
 	"log"
 	"net/http"
 	"strconv"
-
-	ut "kyri56xcaesar/kuspace/internal/utils"
-
-	"github.com/gin-gonic/gin"
 )
 
 /*
@@ -95,9 +93,9 @@ func (srv *HTTPService) handleRegister(c *gin.Context) {
 	var created RegResponse
 	err := srv.minioth.decode(c.Request.Context(), request{
 		method: http.MethodPost, path: "/v1/register",
-		json: gin.H{"user": ut.User{
+		json: gin.H{"user": model.User{
 			Username: reg.Username, Info: reg.Email, Home: "/home/" + reg.Username, Shell: "gshell",
-			Password: ut.Password{Hashpass: reg.Password},
+			Password: model.Password{Hashpass: reg.Password},
 		}},
 	}, &created)
 	if err != nil {
@@ -198,10 +196,10 @@ func (srv *HTTPService) editFormHandler(c *gin.Context) {
 		return
 	}
 	var users struct {
-		Content []ut.User `json:"content"`
+		Content []model.User `json:"content"`
 	}
 	var groups struct {
-		Content []ut.Group `json:"content"`
+		Content []model.Group `json:"content"`
 	}
 	admin := isAdmin(c)
 	if admin {

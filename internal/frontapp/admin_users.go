@@ -2,13 +2,11 @@ package frontendapp
 
 import (
 	"context"
+	"github.com/gin-gonic/gin"
+	"kyri56xcaesar/kuspace/internal/model"
 	"net/http"
 	"net/url"
 	"sort"
-
-	ut "kyri56xcaesar/kuspace/internal/utils"
-
-	"github.com/gin-gonic/gin"
 )
 
 /*
@@ -18,7 +16,7 @@ import (
 
 func (srv *HTTPService) handleFetchUsers(c *gin.Context) {
 	var resp struct {
-		Content []ut.User `json:"content"`
+		Content []model.User `json:"content"`
 	}
 	err := srv.minioth.decode(c.Request.Context(), request{method: http.MethodGet, path: "/v1/admin/users", token: userToken(c)}, &resp)
 	if err != nil {
@@ -46,9 +44,9 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 	var created RegResponse
 	err := srv.minioth.decode(c.Request.Context(), request{
 		method: http.MethodPost, path: "/v1/admin/useradd", token: userToken(c),
-		json: gin.H{"user": ut.User{
+		json: gin.H{"user": model.User{
 			Username: uac.Username, Info: uac.Email, Home: "/home/" + uac.Username, Shell: "gshell",
-			Password: ut.Password{Hashpass: uac.Password},
+			Password: model.Password{Hashpass: uac.Password},
 		}},
 	}, &created)
 	if err != nil {
@@ -70,7 +68,7 @@ func (srv *HTTPService) handleUseradd(c *gin.Context) {
 func (srv *HTTPService) claimStorage(ctx context.Context, uid int64) error {
 	return srv.uspace.decode(ctx, request{
 		method: http.MethodPost, path: "/api/v1/admin/user/volume", svc: true, target: "0::/ 0:0",
-		json: ut.UserVolume{VID: 1, UID: uid}, // uspace maps an unknown vid to the default volume
+		json: model.UserVolume{VID: 1, UID: uid}, // uspace maps an unknown vid to the default volume
 	}, nil)
 }
 
@@ -119,7 +117,7 @@ func (srv *HTTPService) handleUserpatch(c *gin.Context) {
 
 func (srv *HTTPService) handleFetchGroups(c *gin.Context) {
 	var resp struct {
-		Content []ut.Group `json:"content"`
+		Content []model.Group `json:"content"`
 	}
 	err := srv.minioth.decode(c.Request.Context(), request{method: http.MethodGet, path: "/v1/admin/groups", token: userToken(c)}, &resp)
 	if err != nil {

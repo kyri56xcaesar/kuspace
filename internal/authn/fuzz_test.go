@@ -1,11 +1,9 @@
 package authn
 
 import (
-	"testing"
-
-	ut "kyri56xcaesar/kuspace/internal/utils"
-
 	"github.com/golang-jwt/jwt/v5"
+	"kyri56xcaesar/kuspace/internal/config"
+	"testing"
 )
 
 // FuzzVerify: any string is accepted only if it is exactly a token signed
@@ -17,7 +15,7 @@ func FuzzVerify(f *testing.F) {
 	f.Add("not.a.jwt")
 	f.Add("")
 	f.Add("eyJhbGciOiJub25lIn0.e30.")
-	v := NewVerifier(ut.EnvConfig{TokensConfig: ut.TokensConfig{JwtSecretKey: testJWTKey}})
+	v := NewVerifier(config.EnvConfig{TokensConfig: config.TokensConfig{JwtSecretKey: testJWTKey}})
 	f.Fuzz(func(t *testing.T, raw string) {
 		c, err := v.Verify(raw)
 		if err != nil {

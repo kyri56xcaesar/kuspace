@@ -44,6 +44,7 @@ import (
 	"log"
 	"strings"
 
+	"kyri56xcaesar/kuspace/internal/model"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
@@ -79,7 +80,7 @@ func normalizeStoredNames(ctx context.Context, db querier) (int64, error) {
 	return res.RowsAffected()
 }
 
-func insertResource(ctx context.Context, db querier, resource ut.Resource) error {
+func insertResource(ctx context.Context, db querier, resource model.Resource) error {
 	resource.Name = NormalizeName(resource.Name)
 	query := `
     INSERT INTO 
@@ -143,7 +144,7 @@ func ensureUniqueNames(ctx context.Context, db *sql.DB) error {
 	return fmt.Errorf("%d duplicated (volume, name) pair(s) prevent the unique index: %w", dups, err)
 }
 
-func insertResources(ctx context.Context, db *sql.DB, resources []ut.Resource) error {
+func insertResources(ctx context.Context, db *sql.DB, resources []model.Resource) error {
 	for i := range resources {
 		resources[i].Name = NormalizeName(resources[i].Name)
 	}
@@ -196,7 +197,7 @@ func insertResources(ctx context.Context, db *sql.DB, resources []ut.Resource) e
 	return nil
 }
 
-func getAllResources(ctx context.Context, db *sql.DB) ([]ut.Resource, error) {
+func getAllResources(ctx context.Context, db *sql.DB) ([]model.Resource, error) {
 	rows, err := db.QueryContext(ctx, `
     SELECT
       *
@@ -214,9 +215,9 @@ func getAllResources(ctx context.Context, db *sql.DB) ([]ut.Resource, error) {
 		}
 	}()
 
-	var resources []ut.Resource
+	var resources []model.Resource
 	for rows.Next() {
-		var r ut.Resource
+		var r model.Resource
 		err = rows.Scan(r.PtrFields()...)
 		if err != nil {
 			log.Printf("[FSL_DB_getRess] error scanning row: %v", err)
@@ -234,13 +235,13 @@ func getAllResources(ctx context.Context, db *sql.DB) ([]ut.Resource, error) {
 	}
 
 	if resources == nil {
-		resources = []ut.Resource{}
+		resources = []model.Resource{}
 	}
 
 	return resources, nil
 }
 
-func getResourcesByIDs(ctx context.Context, db *sql.DB, rids []int) ([]ut.Resource, error) {
+func getResourcesByIDs(ctx context.Context, db *sql.DB, rids []int) ([]model.Resource, error) {
 	args := make([]any, len(rids))
 	for i, uid := range rids {
 		args[i] = uid
@@ -261,9 +262,9 @@ func getResourcesByIDs(ctx context.Context, db *sql.DB, rids []int) ([]ut.Resour
 		}
 	}()
 
-	var resources []ut.Resource
+	var resources []model.Resource
 	for rows.Next() {
-		var r ut.Resource
+		var r model.Resource
 		err = rows.Scan(r.PtrFields()...)
 		if err != nil {
 			log.Printf("[FSL_DB_getResByIds] error scanning row: %v", err)
@@ -281,14 +282,14 @@ func getResourcesByIDs(ctx context.Context, db *sql.DB, rids []int) ([]ut.Resour
 	}
 
 	if resources == nil {
-		resources = []ut.Resource{}
+		resources = []model.Resource{}
 	}
 
 	return resources, nil
 }
 
-func getResourceByNameAndVolume(ctx context.Context, db *sql.DB, name, volume string) (ut.Resource, error) {
-	var resource ut.Resource
+func getResourceByNameAndVolume(ctx context.Context, db *sql.DB, name, volume string) (model.Resource, error) {
+	var resource model.Resource
 
 	err := db.QueryRowContext(ctx, "SELECT * FROM resources WHERE name = ? AND vname = ? LIMIT 1", name, volume).
 		Scan(resource.PtrFields()...)
@@ -324,7 +325,7 @@ func exists(ctx context.Context, db *sql.DB, name, volume string) (bool, error) 
 // case-sensitive comparison: it used to match "%name%" anywhere in the name
 // across all volumes, and LIKE is case-insensitive (fuzzing found "AB"
 // listing "/ab") and treats "_" and "%" as wildcards.
-func getResourcesByPrefix(ctx context.Context, db *sql.DB, vname, prefix string) ([]ut.Resource, error) {
+func getResourcesByPrefix(ctx context.Context, db *sql.DB, vname, prefix string) ([]model.Resource, error) {
 	rows, err := db.QueryContext(ctx, `
     SELECT * FROM resources
     WHERE substr(name, 1, length(?1)) = ?1 AND (?2 = '' OR vname = ?2)
@@ -341,9 +342,9 @@ func getResourcesByPrefix(ctx context.Context, db *sql.DB, vname, prefix string)
 		}
 	}()
 
-	var resources []ut.Resource
+	var resources []model.Resource
 	for rows.Next() {
-		var r ut.Resource
+		var r model.Resource
 		err = rows.Scan(r.PtrFields()...)
 		if err != nil {
 			log.Printf("[FSL_DB_getResByPrefix] error scanning row: %v", err)
@@ -360,7 +361,7 @@ func getResourcesByPrefix(ctx context.Context, db *sql.DB, vname, prefix string)
 		return nil, fmt.Errorf("iteration error: %w", err)
 	}
 	if resources == nil {
-		resources = []ut.Resource{}
+		resources = []model.Resource{}
 	}
 
 	return resources, nil

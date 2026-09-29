@@ -12,6 +12,7 @@ import (
 	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"github.com/gin-gonic/gin"
+	"kyri56xcaesar/kuspace/internal/model"
 )
 
 /*
@@ -28,35 +29,35 @@ func newestFirst(a, b string) bool {
 	return err1 == nil && err2 == nil && t1.After(t2)
 }
 
-func sortJobs(jobs []ut.Job, by string) {
-	less := map[string]func(a, b ut.Job) bool{
-		"output": func(a, b ut.Job) bool { return a.Output > b.Output },
-		"uid":    func(a, b ut.Job) bool { return a.UID > b.UID },
-		"jid":    func(a, b ut.Job) bool { return a.JID > b.JID },
-		"status": func(a, b ut.Job) bool { return compareStatus(a.Status, b.Status) },
-		"input":  func(a, b ut.Job) bool { return a.Input > b.Input },
+func sortJobs(jobs []model.Job, by string) {
+	less := map[string]func(a, b model.Job) bool{
+		"output": func(a, b model.Job) bool { return a.Output > b.Output },
+		"uid":    func(a, b model.Job) bool { return a.UID > b.UID },
+		"jid":    func(a, b model.Job) bool { return a.JID > b.JID },
+		"status": func(a, b model.Job) bool { return compareStatus(a.Status, b.Status) },
+		"input":  func(a, b model.Job) bool { return a.Input > b.Input },
 		// the job list's "search by" column is sent as the sort key
-		"completed_at": func(a, b ut.Job) bool { return newestFirst(a.CompletedAt, b.CompletedAt) },
-		"completedAt":  func(a, b ut.Job) bool { return newestFirst(a.CompletedAt, b.CompletedAt) },
+		"completed_at": func(a, b model.Job) bool { return newestFirst(a.CompletedAt, b.CompletedAt) },
+		"completedAt":  func(a, b model.Job) bool { return newestFirst(a.CompletedAt, b.CompletedAt) },
 	}[by]
 	if less == nil { // "createdAt", "time" and the default
-		less = func(a, b ut.Job) bool { return newestFirst(a.CreatedAt, b.CreatedAt) }
+		less = func(a, b model.Job) bool { return newestFirst(a.CreatedAt, b.CreatedAt) }
 	}
 	sort.SliceStable(jobs, func(i, j int) bool { return less(jobs[i], jobs[j]) })
 }
 
-func sortApps(apps []ut.Application, by string) {
-	less := map[string]func(a, b ut.Application) bool{
-		"name":       func(a, b ut.Application) bool { return a.Name > b.Name },
-		"image":      func(a, b ut.Application) bool { return a.Image > b.Image },
-		"version":    func(a, b ut.Application) bool { return a.Version > b.Version },
-		"status":     func(a, b ut.Application) bool { return compareStatus(a.Status, b.Status) },
-		"author":     func(a, b ut.Application) bool { return a.Author > b.Author },
-		"author_id":  func(a, b ut.Application) bool { return a.AuthorID > b.AuthorID },
-		"insertedAt": func(a, b ut.Application) bool { return newestFirst(a.InsertedAt, b.InsertedAt) },
+func sortApps(apps []model.Application, by string) {
+	less := map[string]func(a, b model.Application) bool{
+		"name":       func(a, b model.Application) bool { return a.Name > b.Name },
+		"image":      func(a, b model.Application) bool { return a.Image > b.Image },
+		"version":    func(a, b model.Application) bool { return a.Version > b.Version },
+		"status":     func(a, b model.Application) bool { return compareStatus(a.Status, b.Status) },
+		"author":     func(a, b model.Application) bool { return a.Author > b.Author },
+		"author_id":  func(a, b model.Application) bool { return a.AuthorID > b.AuthorID },
+		"insertedAt": func(a, b model.Application) bool { return newestFirst(a.InsertedAt, b.InsertedAt) },
 	}[by]
 	if less == nil {
-		less = func(a, b ut.Application) bool { return newestFirst(a.CreatedAt, b.CreatedAt) }
+		less = func(a, b model.Application) bool { return newestFirst(a.CreatedAt, b.CreatedAt) }
 	}
 	sort.SliceStable(apps, func(i, j int) bool { return less(apps[i], apps[j]) })
 }
@@ -64,8 +65,8 @@ func sortApps(apps []ut.Application, by string) {
 // listJobs renders the jobs the user may see (theirs; everyone's for admins).
 func (srv *HTTPService) listJobs(c *gin.Context, withAdminFlag bool) {
 	var resp struct {
-		Content []ut.Job `json:"content"`
-		Admin   int      `json:"admin"`
+		Content []model.Job `json:"content"`
+		Admin   int         `json:"admin"`
 	}
 	err := srv.uspace.decode(c.Request.Context(), request{
 		method: http.MethodGet, path: "/api/v1/job", token: userToken(c), target: "0::/",
@@ -88,8 +89,8 @@ func (srv *HTTPService) listJobs(c *gin.Context, withAdminFlag bool) {
 }
 
 // bindJob reads and checks a submitted job; the owner is the session user.
-func (srv *HTTPService) bindJob(c *gin.Context) (ut.Job, bool) {
-	var job ut.Job
+func (srv *HTTPService) bindJob(c *gin.Context) (model.Job, bool) {
+	var job model.Job
 	if err := c.ShouldBind(&job); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to bind"})
 
@@ -172,8 +173,8 @@ func (srv *HTTPService) jobAdminHandler(c *gin.Context) {
 
 func (srv *HTTPService) listApps(c *gin.Context, withAdminFlag bool) {
 	var resp struct {
-		Content []ut.Application `json:"content"`
-		Admin   int              `json:"admin"`
+		Content []model.Application `json:"content"`
+		Admin   int                 `json:"admin"`
 	}
 	err := srv.uspace.decode(c.Request.Context(), request{
 		method: http.MethodGet, path: "/api/v1/app", token: userToken(c), target: "0::/",
@@ -209,7 +210,7 @@ func (srv *HTTPService) appAdminHandler(c *gin.Context) {
 	case http.MethodGet:
 		srv.listApps(c, false)
 	case http.MethodPost, http.MethodPut:
-		var app ut.Application
+		var app model.Application
 		if err := c.ShouldBind(&app); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to bind"})
 
@@ -244,7 +245,7 @@ func (srv *HTTPService) relayCall(c *gin.Context, what string, r request) {
 // jobOwner asks uspace, as a service, who owns job jid.
 func (srv *HTTPService) jobOwner(ctx context.Context, jid int) (int64, error) {
 	var resp struct {
-		Content ut.Job `json:"content"`
+		Content model.Job `json:"content"`
 	}
 	err := srv.uspace.decode(ctx, request{
 		method: http.MethodGet, path: "/api/v1/job", query: url.Values{"jids": {strconv.Itoa(jid)}},

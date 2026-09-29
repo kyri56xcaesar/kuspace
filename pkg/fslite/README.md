@@ -75,7 +75,7 @@ bcrypt default cost. `pkg/fslite/server_test.go` exercises the API through `http
 | `FSL_UNLOCKED` | `false` | skip quota and capacity checks on uploads |
 | `LOCAL_VOLUMES_DEFAULT_CAPACITY` | `20` | GB; also the default per-user quota |
 
-All variables are listed with their defaults in `internal/utils/config.go` (`FsliteConfig`).
+All variables are listed with their defaults in `internal/config/config.go` (`FsliteConfig`).
 
 ## Known quirks
 

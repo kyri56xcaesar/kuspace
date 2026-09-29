@@ -4,23 +4,25 @@ import (
 	"context"
 	"testing"
 
+	"kyri56xcaesar/kuspace/internal/config"
+	"kyri56xcaesar/kuspace/internal/model"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 	"kyri56xcaesar/kuspace/pkg/fslite"
 )
 
 func newTestService(t *testing.T) *UService {
 	t.Helper()
-	cfg := ut.EnvConfig{
-		ServiceConfig: ut.ServiceConfig{APIGinMode: "test"},
-		FsliteConfig: ut.FsliteConfig{
+	cfg := config.EnvConfig{
+		ServiceConfig: config.ServiceConfig{APIGinMode: "test"},
+		FsliteConfig: config.FsliteConfig{
 			FslDB: "fsl_test.db", FslDBPath: t.TempDir() + "/", FslDBDriver: "sqlite3",
 			FslDBMaxOpenConns: "4", FslDBMaxIdleConns: "2", FslDBMaxLifetime: "5",
 			FslAccessKey: "admin", FslSecretKey: "adminpassword1",
 		},
-		StorageConfig: ut.StorageConfig{LocalVolumesDefaultCapacity: 1}, // GB: per-user quota in these tests
+		StorageConfig: config.StorageConfig{LocalVolumesDefaultCapacity: 1}, // GB: per-user quota in these tests
 	}
 	srv := &UService{config: cfg, fsl: fslite.NewFsLite(cfg)}
-	if err := srv.fsl.CreateVolume(t.Context(), ut.Volume{Name: "vol1", CreatedAt: ut.CurrentTime()}); err != nil {
+	if err := srv.fsl.CreateVolume(t.Context(), model.Volume{Name: "vol1", CreatedAt: ut.CurrentTime()}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -31,8 +33,8 @@ func TestSaveJobOutputOverwrite(t *testing.T) {
 	srv := newTestService(t)
 	ctx := context.Background()
 	const mb = int64(1_000_000)
-	out := ut.Resource{Name: "result.csv", Vname: "vol1", VID: srv.volumeID(t.Context(), "vol1"), UID: 1001, GID: 1002,
-		Perms: ut.DefaultFilePerms, Type: "file", Size: 600 * mb, CreatedAt: ut.CurrentTime()}
+	out := model.Resource{Name: "result.csv", Vname: "vol1", VID: srv.volumeID(t.Context(), "vol1"), UID: 1001, GID: 1002,
+		Perms: model.DefaultFilePerms, Type: "file", Size: 600 * mb, CreatedAt: ut.CurrentTime()}
 
 	if action, err := srv.saveJobOutput(ctx, out); err != nil || action != "created" {
 		t.Fatalf("first run: %q, %v", action, err)

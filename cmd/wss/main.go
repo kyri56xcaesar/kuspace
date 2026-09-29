@@ -2,12 +2,12 @@
 package main
 
 import (
-	"kyri56xcaesar/kuspace/internal/utils"
+	"kyri56xcaesar/kuspace/internal/config"
 	wsr "kyri56xcaesar/kuspace/internal/wss"
 )
 
 func main() {
-	cfg := utils.LoadConfig("configs/wss.conf", utils.Service, utils.Peers, utils.Auth)
+	cfg := config.LoadConfig("configs/wss.conf", config.Service, config.Peers, config.Auth)
 
 	wsr.Serve(cfg)
 }

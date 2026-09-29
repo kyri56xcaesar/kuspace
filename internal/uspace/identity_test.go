@@ -6,11 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"kyri56xcaesar/kuspace/internal/authn"
-	ut "kyri56xcaesar/kuspace/internal/utils"
-
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"kyri56xcaesar/kuspace/internal/authn"
+	"kyri56xcaesar/kuspace/internal/config"
 )
 
 var (
@@ -56,7 +55,7 @@ func probe(t *testing.T, mw gin.HandlerFunc, headers map[string]string) (int, st
 }
 
 func TestAuthenticate(t *testing.T) {
-	srv := &UService{config: ut.EnvConfig{TokensConfig: ut.TokensConfig{JwtSecretKey: testJWTKey}, AuthConfig: ut.AuthConfig{ServiceSecretKey: []byte("svc")}}}
+	srv := &UService{config: config.EnvConfig{TokensConfig: config.TokensConfig{JwtSecretKey: testJWTKey}, AuthConfig: config.AuthConfig{ServiceSecretKey: []byte("svc")}}}
 	user := "Bearer " + token(t, testJWTKey, jwt.SigningMethodHS256, nil)
 
 	// a user claiming root in Access-Target gets their own identity instead

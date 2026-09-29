@@ -12,6 +12,9 @@ COPY ./api/fslite/ ./api/fslite/
 COPY ./api/uspace/ ./api/uspace/
 COPY ./pkg/fslite/ ./pkg/fslite/
 COPY ./internal/utils/ ./internal/utils/
+COPY ./internal/config/ ./internal/config/
+COPY ./internal/model/ ./internal/model/
+COPY ./internal/sqlite/ ./internal/sqlite/
 COPY ./internal/authn/ ./internal/authn/
 COPY ./internal/uspace/ ./internal/uspace/
 COPY ./cmd/uspace/ ./cmd/uspace/

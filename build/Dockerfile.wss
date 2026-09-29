@@ -9,6 +9,7 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY ./internal/utils/ ./internal/utils/
+COPY ./internal/config/ ./internal/config/
 COPY ./internal/wss/ ./internal/wss/
 COPY ./cmd/wss/ ./cmd/wss/
 # the build the System page shows (make images / kuspacectl pass them)
@@ -16,10 +17,12 @@ ARG GIT_COMMIT=unknown
 ARG BUILD_TIME=
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    GOOS=linux go build -trimpath -ldflags "-s -w -X kyri56xcaesar/kuspace/internal/utils.buildCommit=${GIT_COMMIT} -X kyri56xcaesar/kuspace/internal/utils.buildTime=${BUILD_TIME}" \
+    CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w -X kyri56xcaesar/kuspace/internal/utils.buildCommit=${GIT_COMMIT} -X kyri56xcaesar/kuspace/internal/utils.buildTime=${BUILD_TIME}" \
     -o /out/wss ./cmd/wss
 
-FROM debian:bookworm-slim
+# no C code (no SQLite here): a static binary on a minimal image, with CA
+# certificates and time zones but no shell
+FROM gcr.io/distroless/static-debian12
 WORKDIR /root/
 COPY --from=builder /out/wss .
 CMD ["./wss"]

@@ -17,6 +17,7 @@ import (
 	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"github.com/gin-gonic/gin"
+	"kyri56xcaesar/kuspace/internal/model"
 )
 
 // HandleVolumes manages volume resources (create, read, delete)
@@ -31,8 +32,8 @@ import (
 // @Param       limit  query     string        false  "Limit number of returned volumes"
 // @Param       sort   query     string        false  "Sort order for volumes"
 //
-// @Param       volume body      ut.Volume     true   "Single volume object"
-// @Param       volumes body     []ut.Volume   true   "Array of volume objects"
+// @Param       volume body      model.Volume     true   "Single volume object"
+// @Param       volumes body     []model.Volume   true   "Array of volume objects"
 //
 // @Success     200     {object}  map[string]interface{}  "Success with content"
 // @Success     201     {object}  map[string]string       "Volume(s) created"
@@ -59,9 +60,9 @@ func (srv *UService) handleVolumes(c *gin.Context) {
 
 			return
 		}
-		list, ok := volumes.([]ut.Volume)
-		if v, single := volumes.(ut.Volume); single {
-			list, ok = []ut.Volume{v}, true
+		list, ok := volumes.([]model.Volume)
+		if v, single := volumes.(model.Volume); single {
+			list, ok = []model.Volume{v}, true
 		}
 		if !ok {
 			c.JSON(http.StatusOK, gin.H{"content": volumes})
@@ -89,15 +90,15 @@ func (srv *UService) handleVolumes(c *gin.Context) {
 
 			return
 		}
-		var volumes []ut.Volume
+		var volumes []model.Volume
 		if json.Unmarshal(body, &volumes) != nil {
-			var one ut.Volume
+			var one model.Volume
 			if err := json.Unmarshal(body, &one); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 
 				return
 			}
-			volumes = []ut.Volume{one}
+			volumes = []model.Volume{one}
 		}
 		for _, v := range volumes {
 			if err := v.Validate(srv.config.LocalVolumesDefaultCapacity, srv.config.LocalVolumesDefaultCapacity, "-."); err != nil {
@@ -130,7 +131,7 @@ func (srv *UService) handleVolumes(c *gin.Context) {
 
 			return
 		}
-		if err := srv.fsl.RemoveVolume(ctx, ut.Volume{Name: name}); err != nil {
+		if err := srv.fsl.RemoveVolume(ctx, model.Volume{Name: name}); err != nil {
 			log.Printf("[USPACE_API] bucket %s deleted but its record stays: %v", name, err)
 		}
 		c.JSON(http.StatusAccepted, gin.H{"status": "successfully deleted volume"})
@@ -144,7 +145,7 @@ func (srv *UService) handleVolumes(c *gin.Context) {
 // store. It used to create only the bucket, so the volume had no record
 // and every upload to it failed the resources' foreign key. A bucket that
 // already exists is adopted (volumes made the old way can be re-created).
-func (srv *UService) createVolume(ctx context.Context, v ut.Volume) error {
+func (srv *UService) createVolume(ctx context.Context, v model.Volume) error {
 	v.CreatedAt = ut.CurrentTime()
 	if err := srv.fsl.CreateVolume(ctx, v); err != nil {
 		return err
@@ -169,8 +170,8 @@ func (srv *UService) createVolume(ctx context.Context, v ut.Volume) error {
 // @Accept json
 // @Produce json
 //
-// @Param userVolume body ut.UserVolume true "Single user volume"
-// @Param userVolumes body []ut.UserVolume true "Array of user volumes"
+// @Param userVolume body model.UserVolume true "Single user volume"
+// @Param userVolumes body []model.UserVolume true "Array of user volumes"
 //
 // @Success 201 {object} map[string]string "User volume(s) inserted"
 // @Failure 400 {object} map[string]string "Bad request (binding or decoding error)"
@@ -185,8 +186,8 @@ func (srv *UService) handleUserVolumes(c *gin.Context) {
 	switch c.Request.Method {
 	case http.MethodPost:
 		var (
-			userVolumes []ut.UserVolume
-			userVolume  ut.UserVolume
+			userVolumes []model.UserVolume
+			userVolume  model.UserVolume
 		)
 
 		body, err := io.ReadAll(c.Request.Body)
@@ -217,7 +218,7 @@ func (srv *UService) handleUserVolumes(c *gin.Context) {
 				userVolume.Quota = capacity
 			}
 
-			// fslite's Insert switches on bare ut.UserVolume/[]ut.UserVolume
+			// fslite's Insert switches on bare model.UserVolume/[]model.UserVolume
 			// (not []any) and returns a nil cancel func for them.
 			err := srv.fsl.Insert(c.Request.Context(), userVolume)
 			if errors.Is(err, ut.ErrExists) {
@@ -250,7 +251,7 @@ func (srv *UService) handleUserVolumes(c *gin.Context) {
 		// ?uids=1,2 &volume=name: claims with their computed usage
 		var uids []int64
 		if raw := c.Query("uids"); raw != "" {
-			uids = callerGroups(ut.AccessClaim{Gids: raw}) // same "1,2,3" parsing
+			uids = callerGroups(model.AccessClaim{Gids: raw}) // same "1,2,3" parsing
 		}
 		uvs, err := srv.fsl.UserVolumes(c.Request.Context(), uids, c.Query("volume"))
 		if err != nil {

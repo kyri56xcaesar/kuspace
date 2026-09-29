@@ -6,16 +6,14 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"github.com/golang-jwt/jwt/v5"
+	"kyri56xcaesar/kuspace/internal/config"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
 	"time"
-
-	ut "kyri56xcaesar/kuspace/internal/utils"
-
-	"github.com/golang-jwt/jwt/v5"
 )
 
 func rsaToken(t *testing.T, key *rsa.PrivateKey, kid string) string {
@@ -61,7 +59,7 @@ func TestTokenVerifierRS256(t *testing.T) {
 	keys := map[string]*rsa.PrivateKey{"k1": key}
 	js := jwksServer(t, keys, &hits)
 
-	v := NewVerifier(ut.EnvConfig{TokensConfig: ut.TokensConfig{JwtSigningAlg: "RS256", JwtSecretKey: []byte("hs-key")}})
+	v := NewVerifier(config.EnvConfig{TokensConfig: config.TokensConfig{JwtSigningAlg: "RS256", JwtSecretKey: []byte("hs-key")}})
 	v.jwksURL = js.URL
 
 	if c, err := v.Verify(rsaToken(t, key, "k1")); err != nil || c.UserID != "1001" {
@@ -105,7 +103,7 @@ func TestTokenVerifierRS256(t *testing.T) {
 
 func TestTokenVerifierHS256RejectsRS256(t *testing.T) {
 	key, _ := rsa.GenerateKey(rand.Reader, 2048)
-	v := NewVerifier(ut.EnvConfig{TokensConfig: ut.TokensConfig{JwtSecretKey: testJWTKey}})
+	v := NewVerifier(config.EnvConfig{TokensConfig: config.TokensConfig{JwtSecretKey: testJWTKey}})
 	if _, err := v.Verify(rsaToken(t, key, "k1")); err == nil {
 		t.Error("RS256 token accepted by an HS256 verifier")
 	}

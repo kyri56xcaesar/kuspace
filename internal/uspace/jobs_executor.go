@@ -9,20 +9,19 @@ package uspace
 
 import (
 	"context"
+	"kyri56xcaesar/kuspace/internal/model"
 	"strings"
 	"time"
-
-	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
 // JobExecutor interface defining what a JobExecutor must implement
 type JobExecutor interface {
-	ExecuteJob(job ut.Job) error
-	CancelJob(job ut.Job) error
+	ExecuteJob(job model.Job) error
+	CancelJob(job model.Job) error
 	// Name is the engine's name ("docker", "kubernetes"), as jobs record it.
 	Name() string
 	// Status checks whether the engine answers and can start jobs.
-	Status(ctx context.Context) ut.ExecutorStatus
+	Status(ctx context.Context) model.ExecutorStatus
 	// GetJobStatus(jobID int) (string, error)
 	// GetJobOutput(jobID int) (string, error)
 	// GetJobError(jobID int) (string, error)

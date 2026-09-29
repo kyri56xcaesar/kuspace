@@ -23,6 +23,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"kyri56xcaesar/kuspace/internal/model"
 )
 
 // errJobForbidden marks an authorization failure (403) as opposed to a lookup
@@ -34,7 +35,7 @@ var errJobForbidden = errors.New("forbidden")
 // storage with service credentials, so without this check a job could read
 // another user's private file or overwrite it. The submitter's identity comes
 // from the Access-Target header set by frontapp from the verified token.
-func (srv *UService) authorizeJobIO(c *gin.Context, job ut.Job) error {
+func (srv *UService) authorizeJobIO(c *gin.Context, job model.Job) error {
 	ac, err := BindAccessTarget(c.GetHeader("Access-Target"))
 	if err != nil {
 		return fmt.Errorf("%w: missing submitter identity", errJobForbidden)
@@ -109,8 +110,8 @@ func respondJobAuthError(c *gin.Context, err error) {
 // @Param       uids    query     string  false  "Comma-separated list of user IDs"
 // @Param       jids    query     string  false  "Job ID or '*' for all jobs"
 //
-// @Param       job     body      ut.Job     true  "Single job"      default({"uid":1,"input":"...","meta":"..."})
-// @Param       jobs    body      []ut.Job   true  "Multiple jobs"   default([{"uid":1},{"uid":2}])
+// @Param       job     body      model.Job     true  "Single job"      default({"uid":1,"input":"...","meta":"..."})
+// @Param       jobs    body      []model.Job   true  "Multiple jobs"   default([{"uid":1},{"uid":2}])
 //
 // @Success     200     {object}  map[string]interface{}
 // @Failure     400     {object}  map[string]string
@@ -163,8 +164,8 @@ func (srv *UService) handleJob(c *gin.Context) {
 // @Param limit query string false "Pagination limit for job list"
 // @Param offset query string false "Pagination offset for job list"
 //
-// @Param job body ut.Job true "Job object for POST (single) and PUT"
-// @Param jobs body []ut.Job true "Job array for POST (multiple)"
+// @Param job body model.Job true "Job object for POST (single) and PUT"
+// @Param jobs body []model.Job true "Job array for POST (multiple)"
 //
 // @Success 200 {object} map[string]interface{} "Success with job(s) content or status message"
 // @Failure 400 {object} map[string]string "Bad request (e.g., parse error)"
@@ -183,7 +184,7 @@ func (srv *UService) handleJobAdmin(c *gin.Context) {
 	case http.MethodPost:
 		srv.submitJobs(c, false)
 	case http.MethodPut:
-		var job ut.Job
+		var job model.Job
 		if err := c.BindJSON(&job); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to bind data"})
 
@@ -276,12 +277,12 @@ func (srv *UService) respondJobsQuery(c *gin.Context) {
 }
 
 // parseJobs accepts one job or an array of jobs; single reports which.
-func parseJobs(body []byte) ([]ut.Job, bool, error) {
-	var job ut.Job
+func parseJobs(body []byte) ([]model.Job, bool, error) {
+	var job model.Job
 	if err := json.Unmarshal(body, &job); err == nil {
-		return []ut.Job{job}, true, nil
+		return []model.Job{job}, true, nil
 	}
-	var jobs []ut.Job
+	var jobs []model.Job
 	if err := json.Unmarshal(body, &jobs); err != nil {
 		return nil, false, err
 	}
@@ -398,7 +399,7 @@ func (srv *UService) deleteJobs(c *gin.Context) {
 
 // validateJobQuotas rejects resource values kubernetes can't parse (empty
 // ones get defaults at execution time).
-func validateJobQuotas(j ut.Job) error {
+func validateJobQuotas(j model.Job) error {
 	for name, v := range map[string]string{
 		"memoryRequest": j.MemoryRequest, "memoryLimit": j.MemoryLimit,
 		"cpuRequest": j.CPURequest, "cpuLimit": j.CPULimit,

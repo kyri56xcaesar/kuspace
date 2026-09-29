@@ -11,6 +11,7 @@ import (
 	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"github.com/gin-gonic/gin"
+	"kyri56xcaesar/kuspace/internal/model"
 )
 
 // serviceStatus is one row of the admin "System" page.
@@ -29,8 +30,8 @@ type serviceStatus struct {
 	Info *ut.ServiceInfo `json:"info,omitempty"`
 	// Replicas are its instances as the platform sees them (nil when uspace
 	// can't tell: no platform, or uspace down).
-	Replicas *ut.ServiceReplicas `json:"replicas,omitempty"`
-	Scaling  scaling             `json:"scaling"`
+	Replicas *model.ServiceReplicas `json:"replicas,omitempty"`
+	Scaling  scaling                `json:"scaling"`
 }
 
 // scaling says whether a service can run as more than one instance.
@@ -52,7 +53,7 @@ var scalingOf = map[string]scaling{
 // otherWorkload is a workload of the deployment that isn't a kuspace
 // service (MinIO, ...).
 type otherWorkload struct {
-	Replicas *ut.ServiceReplicas
+	Replicas *model.ServiceReplicas
 	Scaling  scaling
 }
 
@@ -112,14 +113,14 @@ func (srv *HTTPService) handleSysStatus(c *gin.Context) {
 			go func() { defer wg.Done(); out[i].Info = info() }()
 		}
 	}
-	var dep ut.Deployment
+	var dep model.Deployment
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*statusProbeTimeout)
 		defer cancel()
 		if err := srv.uspace.decode(ctx, request{method: http.MethodGet, path: "/api/v1/admin/replicas", token: userToken(c), target: "0::/"}, &dep); err != nil {
-			dep = ut.Deployment{Error: "uspace did not answer, so the replicas can't be shown"}
+			dep = model.Deployment{Error: "uspace did not answer, so the replicas can't be shown"}
 		}
 	}()
 	wg.Wait()
@@ -177,7 +178,7 @@ func (srv *HTTPService) serviceInfo(c *gin.Context, service string) func() *ut.S
 // handleExecutorStatus shows the execution engines (uspace checks them):
 // each one's state, which takes new jobs, and how many jobs ran where.
 func (srv *HTTPService) handleExecutorStatus(c *gin.Context) {
-	var st ut.EnginesStatus
+	var st model.EnginesStatus
 	err := srv.uspace.decode(c.Request.Context(), request{
 		method: http.MethodGet, path: "/api/v1/admin/executor", token: userToken(c), target: "0::/",
 	}, &st)
@@ -193,7 +194,7 @@ func (srv *HTTPService) handleExecutorSwitch(c *gin.Context) {
 
 		return
 	}
-	var st ut.EnginesStatus
+	var st model.EnginesStatus
 	err := srv.uspace.decode(c.Request.Context(), request{
 		method: http.MethodPut, path: "/api/v1/admin/executor", token: userToken(c), target: "0::/",
 		json: gin.H{"engine": engine},
@@ -215,7 +216,7 @@ func (srv *HTTPService) handleExecutorSwitch(c *gin.Context) {
 	srv.renderEngines(c, st, err, notice)
 }
 
-func (srv *HTTPService) renderEngines(c *gin.Context, st ut.EnginesStatus, err error, notice string) {
+func (srv *HTTPService) renderEngines(c *gin.Context, st model.EnginesStatus, err error, notice string) {
 	if err != nil {
 		if c.Query("format") == "json" {
 			fail(c, "check the execution engines", err)

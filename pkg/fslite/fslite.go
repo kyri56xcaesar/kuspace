@@ -37,9 +37,9 @@
 //
 // Example:
 //
-//	cfg := ut.EnvConfig{...}
+//	cfg := config.EnvConfig{...}
 //	fsl := fslite.NewFsLite(cfg)
-//	err := fsl.CreateVolume(ctx, ut.Volume{Name: "myvol", Capacity: 10})
+//	err := fsl.CreateVolume(ctx, model.Volume{Name: "myvol", Capacity: 10})
 //	...
 package fslite
 
@@ -59,6 +59,9 @@ import (
 	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"github.com/gin-gonic/gin"
+	"kyri56xcaesar/kuspace/internal/config"
+	"kyri56xcaesar/kuspace/internal/model"
+	"kyri56xcaesar/kuspace/internal/sqlite"
 )
 
 const (
@@ -69,14 +72,14 @@ const (
 //go:embed migrations/*.sql
 var migrationFiles embed.FS
 
-// migrations are fslite's database migrations (see ut.Migration).
-func migrations() ([]ut.Migration, error) {
-	return ut.LoadMigrations(migrationFiles, "migrations",
+// migrations are fslite's database migrations (see sqlite.Migration).
+func migrations() ([]sqlite.Migration, error) {
+	return sqlite.LoadMigrations(migrationFiles, "migrations",
 		// data fixes that ran at every start before migrations existed
-		ut.Migration{Version: 2, Name: "repair_volume_ids", Func: func(ctx context.Context, tx *sql.Tx) error {
+		sqlite.Migration{Version: 2, Name: "repair_volume_ids", Func: func(ctx context.Context, tx *sql.Tx) error {
 			return logFixed(repairVolumeIDs(ctx, tx))("repaired the volume id of %d resource(s)")
 		}},
-		ut.Migration{Version: 3, Name: "normalize_names", Func: func(ctx context.Context, tx *sql.Tx) error {
+		sqlite.Migration{Version: 3, Name: "normalize_names", Func: func(ctx context.Context, tx *sql.Tx) error {
 			return logFixed(normalizeStoredNames(ctx, tx))("normalized %d resource name(s) to a leading \"/\"")
 		}},
 	)
@@ -98,8 +101,8 @@ func logFixed(n int64, err error) func(format string) error {
 // a server engine (gin)
 // a configuration setup
 type FsLite struct {
-	config ut.EnvConfig
-	dbh    ut.DBHandler
+	config config.EnvConfig
+	dbh    sqlite.DBHandler
 	// per-instance settings (these used to be package variables, so a second
 	// FsLite in one process rewired the first one's data path and token key)
 	dataPath         string  // where volumes keep their files (locality)
@@ -113,7 +116,7 @@ type FsLite struct {
 // It sets up the database schema, creates the admin user, and ensures the default volume exists.
 // If FslLocality is enabled, it also prepares the local storage directory.
 // Returns the initialized FsLite struct.
-func NewFsLite(cfg ut.EnvConfig) FsLite {
+func NewFsLite(cfg config.EnvConfig) FsLite {
 	setGinMode(cfg.APIGinMode)
 	var ginEngine *gin.Engine
 	if cfg.FslServer {
@@ -121,7 +124,7 @@ func NewFsLite(cfg ut.EnvConfig) FsLite {
 	}
 	fsl := FsLite{
 		config: cfg,
-		dbh:    ut.NewDBHandler(cfg.FslDB, cfg.FslDBPath, cfg.FslDBDriver),
+		dbh:    sqlite.NewDBHandler(cfg.FslDB, cfg.FslDBPath, cfg.FslDBDriver),
 		Engine: ginEngine,
 	}
 	fsl.dbh.Init(context.Background(), "", cfg.FslDBMaxOpenConns, cfg.FslDBMaxIdleConns, cfg.FslDBMaxLifetime)
@@ -171,7 +174,7 @@ func NewFsLite(cfg ut.EnvConfig) FsLite {
 	if cfg.FslServer && len(fsl.tokens.key) == 0 {
 		log.Fatal("[FSL_init] the standalone server needs JWT_SECRET_KEY to sign admin tokens")
 	}
-	err = fsl.CreateVolume(context.Background(), ut.Volume{Name: defaultVolumeName, Path: fsl.objectPath(defaultVolumeName, ""), Capacity: fsl.defaultVolumeCap})
+	err = fsl.CreateVolume(context.Background(), model.Volume{Name: defaultVolumeName, Path: fsl.objectPath(defaultVolumeName, ""), Capacity: fsl.defaultVolumeCap})
 	if err != nil {
 		if !errors.Is(err, ErrVolumeExists) {
 			log.Fatalf("[FSL_init] failed to create default volume: %v", err)
@@ -216,10 +219,10 @@ func (fsl *FsLite) Close() {
 	fsl.dbh.Close()
 }
 
-// CreateVolume creates a new storage volume based on the provided ut.Volume struct.
+// CreateVolume creates a new storage volume based on the provided model.Volume struct.
 // It validates the volume, ensures uniqueness, and creates the physical directory if locality is enabled.
 func (fsl *FsLite) CreateVolume(ctx context.Context, v any) error {
-	volume, ok1 := v.(ut.Volume)
+	volume, ok1 := v.(model.Volume)
 	if !ok1 {
 		return errors.New("failed to cast to volume")
 	}
@@ -266,10 +269,10 @@ func (fsl *FsLite) DefaultVolume(_ bool) string {
 	return defaultVolumeName
 }
 
-// RemoveVolume removes a storage volume specified by the ut.Volume struct.
+// RemoveVolume removes a storage volume specified by the model.Volume struct.
 // It deletes the volume from the database and removes the physical directory if locality is enabled.
 func (fsl *FsLite) RemoveVolume(ctx context.Context, t any) error {
-	volume, ok := t.(ut.Volume)
+	volume, ok := t.(model.Volume)
 	if !ok {
 		return errors.New("failed to cast to volume")
 	}
@@ -330,7 +333,7 @@ func (fsl *FsLite) SelectVolumes(ctx context.Context, how map[string]any) (any, 
 // Insert inserts resources (files/objects), user-volume records, or batches thereof into the database.
 // If inserting a resource and locality is enabled, it also writes the file to disk.
 func (fsl *FsLite) Insert(ctx context.Context, t any) error {
-	resource, ok := t.(ut.Resource)
+	resource, ok := t.(model.Resource)
 	if ok {
 		if resource.Vname == "" {
 			resource.Vname = defaultVolumeName
@@ -386,7 +389,7 @@ func (fsl *FsLite) Insert(ctx context.Context, t any) error {
 
 		return err
 	}
-	resources, ok := t.([]ut.Resource)
+	resources, ok := t.([]model.Resource)
 	if ok {
 		db, err := fsl.dbh.GetConn()
 		if err != nil {
@@ -404,7 +407,7 @@ func (fsl *FsLite) Insert(ctx context.Context, t any) error {
 		return err
 	}
 
-	uv, ok := t.(ut.UserVolume)
+	uv, ok := t.(model.UserVolume)
 	if ok {
 		db, err := fsl.dbh.GetConn()
 		if err != nil {
@@ -416,7 +419,7 @@ func (fsl *FsLite) Insert(ctx context.Context, t any) error {
 
 		return err
 	}
-	uvs, ok := t.([]ut.UserVolume)
+	uvs, ok := t.([]model.UserVolume)
 	if ok {
 		db, err := fsl.dbh.GetConn()
 		if err != nil {
@@ -475,7 +478,7 @@ func (fsl *FsLite) Stat(_ context.Context, t any) (any, error) {
 	if !fsl.config.FslLocality {
 		return nil, errors.New("cannot use stat if locality is turned off")
 	}
-	resource, ok := t.(ut.Resource)
+	resource, ok := t.(model.Resource)
 	if !ok {
 		log.Printf("[FSL_stat] failed to cast to designated struct")
 
@@ -487,7 +490,7 @@ func (fsl *FsLite) Stat(_ context.Context, t any) (any, error) {
 
 // Remove deletes a resource (file/object) from the database and, if locality is enabled, from disk.
 func (fsl *FsLite) Remove(ctx context.Context, t any) error {
-	resource, ok := t.(ut.Resource)
+	resource, ok := t.(model.Resource)
 	if !ok {
 		log.Printf("[FSL_remove] failed to cast to designated struct")
 
@@ -581,20 +584,20 @@ func (fsl *FsLite) Update(ctx context.Context, t map[string]string) error {
 }
 
 // Download opens a resource's file and attaches it as the resource's Reader.
-// t points at a ut.Resource or a *ut.Resource (filled in place). The returned
+// t points at a model.Resource or a *model.Resource (filled in place). The returned
 // func closes the file. Needs locality: without it fslite holds no data.
 func (fsl *FsLite) Download(ctx context.Context, t *any) (context.CancelFunc, error) {
 	if !fsl.config.FslLocality {
 		return nil, errors.New("cannot download if locality is off")
 	}
-	var resource *ut.Resource
+	var resource *model.Resource
 	switch v := (*t).(type) {
-	case *ut.Resource:
+	case *model.Resource:
 		resource = v
-	case ut.Resource:
+	case model.Resource:
 		resource = &v
 	default:
-		return nil, errors.New("failed to cast to ut.Resource")
+		return nil, errors.New("failed to cast to model.Resource")
 	}
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
@@ -619,7 +622,7 @@ func (fsl *FsLite) Download(ctx context.Context, t *any) (context.CancelFunc, er
 	}
 	resource.Size = stat.Size()
 	resource.Reader = file
-	if _, isValue := (*t).(ut.Resource); isValue {
+	if _, isValue := (*t).(model.Resource); isValue {
 		*t = *resource
 	}
 
@@ -628,11 +631,11 @@ func (fsl *FsLite) Download(ctx context.Context, t *any) (context.CancelFunc, er
 
 // Copy duplicates a resource (file/object) from a source to a destination, both in the database and on disk if locality is enabled.
 func (fsl *FsLite) Copy(ctx context.Context, s, d any) error {
-	src, ok := s.(ut.Resource)
+	src, ok := s.(model.Resource)
 	if !ok {
 		return fmt.Errorf("unexpected argument type (%w)", ut.ErrInvalid)
 	}
-	dst, ok := d.(ut.Resource)
+	dst, ok := d.(model.Resource)
 	if !ok {
 		return fmt.Errorf("unexpected argument type (%w)", ut.ErrInvalid)
 	}

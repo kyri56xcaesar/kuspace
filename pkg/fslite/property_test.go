@@ -3,12 +3,11 @@ package fslite
 import (
 	"errors"
 	"fmt"
+	"kyri56xcaesar/kuspace/internal/model"
 	"math"
 	"math/rand/v2"
 	"strconv"
 	"testing"
-
-	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
 // A model of what the store should hold: files per volume with owner and
@@ -107,7 +106,7 @@ func TestQuotaAccountingProperty(t *testing.T) {
 					}
 				case op < 8: // delete
 					for name := range m.files[vol] {
-						if err := fsl.Remove(ctx, ut.Resource{Name: name, Vname: vol}); err != nil {
+						if err := fsl.Remove(ctx, model.Resource{Name: name, Vname: vol}); err != nil {
 							t.Fatalf("step %d: remove %s: %v", step, name, err)
 						}
 						delete(m.files[vol], name)
@@ -148,7 +147,7 @@ func checkUsage(t *testing.T, fsl *FsLite, m *quotaModel, step int) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, v := range vols.([]ut.Volume) {
+	for _, v := range vols.([]model.Volume) {
 		if _, modeled := m.files[v.Name]; modeled && !near(v.Usage, m.used(v.Name, 0, false)) {
 			t.Fatalf("step %d: volume %s usage %v GB, files hold %d bytes", step, v.Name, v.Usage, m.used(v.Name, 0, false))
 		}

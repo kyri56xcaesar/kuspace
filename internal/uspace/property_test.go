@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"kyri56xcaesar/kuspace/internal/model"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
@@ -100,7 +101,7 @@ func recordsWithoutObjects(t *testing.T, a *apiHarness, store *memStorage) []str
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	var missing []string
-	for _, r := range res.([]ut.Resource) {
+	for _, r := range res.([]model.Resource) {
 		if _, ok := store.objects[key(r.Vname, r.Name)]; !ok {
 			missing = append(missing, r.Vname+r.Name)
 		}

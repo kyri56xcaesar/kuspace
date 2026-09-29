@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"kyri56xcaesar/kuspace/internal/model"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
@@ -31,40 +32,40 @@ var (
 // AssignGroupVolume gives the named volume to group gid with quotaGB (0 =
 // only the volume's capacity limits it), or changes the quota of a volume
 // the group already has. A volume that holds files can't change hands.
-func (fsl *FsLite) AssignGroupVolume(ctx context.Context, volume string, gid int64, quotaGB float64) (ut.GroupVolume, error) {
+func (fsl *FsLite) AssignGroupVolume(ctx context.Context, volume string, gid int64, quotaGB float64) (model.GroupVolume, error) {
 	if volume == defaultVolumeName || volume == fsl.config.MinioDefaultBucket {
-		return ut.GroupVolume{}, ErrDefaultVolume
+		return model.GroupVolume{}, ErrDefaultVolume
 	}
 	if gid <= 0 || quotaGB < 0 {
-		return ut.GroupVolume{}, errors.New("group id must be positive and the quota not negative")
+		return model.GroupVolume{}, errors.New("group id must be positive and the quota not negative")
 	}
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
-		return ut.GroupVolume{}, err
+		return model.GroupVolume{}, err
 	}
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return ut.GroupVolume{}, err
+		return model.GroupVolume{}, err
 	}
 	defer func() { _ = tx.Rollback() }()
 
 	var vid int64
 	if err := tx.QueryRowContext(ctx, `SELECT vid FROM volumes WHERE name = ?`, volume).Scan(&vid); err != nil {
-		return ut.GroupVolume{}, fmt.Errorf("volume %q: %w", volume, err)
+		return model.GroupVolume{}, fmt.Errorf("volume %q: %w", volume, err)
 	}
 	owner, assigned, err := groupOf(ctx, tx, vid)
 	if err != nil {
-		return ut.GroupVolume{}, err
+		return model.GroupVolume{}, err
 	}
 	if !assigned || owner != gid {
 		// changing hands: only while empty, or the usage already charged
 		// (to users or to the previous group) would land on the wrong account
 		var files int
 		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM resources WHERE vid = ?`, vid).Scan(&files); err != nil {
-			return ut.GroupVolume{}, err
+			return model.GroupVolume{}, err
 		}
 		if files > 0 {
-			return ut.GroupVolume{}, ErrVolumeInUse
+			return model.GroupVolume{}, ErrVolumeInUse
 		}
 	}
 	now := ut.CurrentTime()
@@ -72,14 +73,14 @@ func (fsl *FsLite) AssignGroupVolume(ctx context.Context, volume string, gid int
 		INSERT INTO group_volume (vid, gid, usage, quota, updatedAt) VALUES (?, ?, 0, ?, ?)
 		ON CONFLICT(vid) DO UPDATE SET gid = excluded.gid, quota = excluded.quota, updatedAt = excluded.updatedAt`,
 		vid, gid, quotaGB, now); err != nil {
-		return ut.GroupVolume{}, err
+		return model.GroupVolume{}, err
 	}
 	// personal claims on a shared volume would never be charged: drop them
 	if _, err := tx.ExecContext(ctx, `DELETE FROM user_volume WHERE vid = ?`, vid); err != nil {
-		return ut.GroupVolume{}, err
+		return model.GroupVolume{}, err
 	}
 	if err := tx.Commit(); err != nil {
-		return ut.GroupVolume{}, err
+		return model.GroupVolume{}, err
 	}
 
 	return fsl.GroupVolume(ctx, volume)
@@ -112,13 +113,13 @@ func (fsl *FsLite) ReleaseGroupVolume(ctx context.Context, volume string) error 
 
 // GroupVolume returns the named volume's group assignment, or
 // ErrNotGroupVolume.
-func (fsl *FsLite) GroupVolume(ctx context.Context, volume string) (ut.GroupVolume, error) {
+func (fsl *FsLite) GroupVolume(ctx context.Context, volume string) (model.GroupVolume, error) {
 	gvs, err := fsl.queryGroupVolumes(ctx, `WHERE v.name = ?`, volume)
 	if err != nil {
-		return ut.GroupVolume{}, err
+		return model.GroupVolume{}, err
 	}
 	if len(gvs) == 0 {
-		return ut.GroupVolume{}, ErrNotGroupVolume
+		return model.GroupVolume{}, ErrNotGroupVolume
 	}
 
 	return gvs[0], nil
@@ -126,7 +127,7 @@ func (fsl *FsLite) GroupVolume(ctx context.Context, volume string) (ut.GroupVolu
 
 // GroupVolumes lists the group volumes of the given groups (all of them
 // when gids is empty).
-func (fsl *FsLite) GroupVolumes(ctx context.Context, gids []int64) ([]ut.GroupVolume, error) {
+func (fsl *FsLite) GroupVolumes(ctx context.Context, gids []int64) ([]model.GroupVolume, error) {
 	if len(gids) == 0 {
 		return fsl.queryGroupVolumes(ctx, "")
 	}
@@ -139,7 +140,7 @@ func (fsl *FsLite) GroupVolumes(ctx context.Context, gids []int64) ([]ut.GroupVo
 	return fsl.queryGroupVolumes(ctx, where, args...)
 }
 
-func (fsl *FsLite) queryGroupVolumes(ctx context.Context, where string, args ...any) ([]ut.GroupVolume, error) {
+func (fsl *FsLite) queryGroupVolumes(ctx context.Context, where string, args ...any) ([]model.GroupVolume, error) {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
 		return nil, err
@@ -153,9 +154,9 @@ func (fsl *FsLite) queryGroupVolumes(ctx context.Context, where string, args ...
 		return nil, err
 	}
 	defer func() { _ = rows.Close() }()
-	gvs := []ut.GroupVolume{}
+	gvs := []model.GroupVolume{}
 	for rows.Next() {
-		var gv ut.GroupVolume
+		var gv model.GroupVolume
 		if err := rows.Scan(&gv.VID, &gv.Vname, &gv.GID, &gv.Usage, &gv.Quota, &gv.UpdatedAt); err != nil {
 			return nil, err
 		}

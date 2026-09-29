@@ -1,7 +1,8 @@
-// Package utils provides utility functions and types for database initialization and handling.
+// Package sqlite opens the services' SQLite databases and migrates them
+// (moved out of utils).
 //
 // This file defines the DBHandler struct and associated methods for managing SQL database connections
-// using supported drivers (SQLite3 and DuckDB). It includes routines for creating and validating
+// using the SQLite3 driver. It includes routines for creating and validating
 // database paths, opening and closing connections, and initializing database schemas.
 //
 // Types:
@@ -23,7 +24,7 @@
 // used it, and its bundled C++ library went into every binary.)
 //
 // Database driver
-package utils
+package sqlite
 
 /*
 	initialization and general database handling code

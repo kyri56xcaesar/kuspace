@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
+	"kyri56xcaesar/kuspace/internal/model"
 )
 
 // platformProbe finds the deployment; its fields let tests stand in.
@@ -53,10 +54,10 @@ func (srv *UService) platformProbe() platformProbe {
 var errNoPlatform = errors.New("uspace runs outside kubernetes and docker compose (e.g. go run): there are no replicas to show")
 
 // deployment reports the platform and its services' replicas.
-func (p platformProbe) deployment(ctx context.Context) ut.Deployment {
+func (p platformProbe) deployment(ctx context.Context) model.Deployment {
 	ctx, cancel := context.WithTimeout(ctx, 2*executorStatusTimeout)
 	defer cancel()
-	d := ut.Deployment{CheckedAt: ut.CurrentTime()}
+	d := model.Deployment{CheckedAt: ut.CurrentTime()}
 	var err error
 	switch {
 	case p.inCluster:
@@ -78,18 +79,18 @@ func (p platformProbe) deployment(ctx context.Context) ut.Deployment {
 
 // ---------------------------------------------------------------- kubernetes
 
-func (p platformProbe) kubeServices(ctx context.Context) ([]ut.ServiceReplicas, error) {
+func (p platformProbe) kubeServices(ctx context.Context) ([]model.ServiceReplicas, error) {
 	client, err := p.kube()
 	if err != nil {
 		return nil, err
 	}
-	var out []ut.ServiceReplicas
+	var out []model.ServiceReplicas
 	deps, err := client.AppsV1().Deployments(p.namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 	for _, d := range deps.Items {
-		s := ut.ServiceReplicas{Name: d.Name, Kind: "Deployment", Ready: int(d.Status.ReadyReplicas), Desired: 1}
+		s := model.ServiceReplicas{Name: d.Name, Kind: "Deployment", Ready: int(d.Status.ReadyReplicas), Desired: 1}
 		if d.Spec.Replicas != nil {
 			s.Desired = int(*d.Spec.Replicas)
 		}
@@ -104,7 +105,7 @@ func (p platformProbe) kubeServices(ctx context.Context) ([]ut.ServiceReplicas, 
 		return nil, err
 	}
 	for _, st := range sets.Items {
-		s := ut.ServiceReplicas{Name: st.Name, Kind: "StatefulSet", Ready: int(st.Status.ReadyReplicas), Desired: 1}
+		s := model.ServiceReplicas{Name: st.Name, Kind: "StatefulSet", Ready: int(st.Status.ReadyReplicas), Desired: 1}
 		if st.Spec.Replicas != nil {
 			s.Desired = int(*st.Spec.Replicas)
 		}
@@ -119,14 +120,14 @@ func (p platformProbe) kubeServices(ctx context.Context) ([]ut.ServiceReplicas, 
 	return out, nil
 }
 
-func (p platformProbe) pods(ctx context.Context, client kubernetes.Interface, match map[string]string) ([]ut.Instance, error) {
+func (p platformProbe) pods(ctx context.Context, client kubernetes.Interface, match map[string]string) ([]model.Instance, error) {
 	pods, err := client.CoreV1().Pods(p.namespace).List(ctx, metav1.ListOptions{LabelSelector: labels.SelectorFromSet(match).String()})
 	if err != nil {
 		return nil, err
 	}
-	out := make([]ut.Instance, 0, len(pods.Items))
+	out := make([]model.Instance, 0, len(pods.Items))
 	for _, pod := range pods.Items {
-		in := ut.Instance{Name: pod.Name, State: strings.ToLower(string(pod.Status.Phase)), Node: pod.Spec.NodeName, Ready: true}
+		in := model.Instance{Name: pod.Name, State: strings.ToLower(string(pod.Status.Phase)), Node: pod.Spec.NodeName, Ready: true}
 		if pod.Status.StartTime != nil {
 			in.StartedAt = pod.Status.StartTime.UTC().Format(time.RFC3339)
 		}
@@ -178,7 +179,7 @@ const composeFormat = `{"name":{{json .Name}},"service":{{json (index .Config.La
 	`"state":{{json .State.Status}},"health":{{if .State.Health}}{{json .State.Health.Status}}{{else}}""{{end}},` +
 	`"restarts":{{.RestartCount}},"startedAt":{{json .State.StartedAt}},"image":{{json .Config.Image}}}`
 
-func (p platformProbe) composeServices(ctx context.Context, project string) ([]ut.ServiceReplicas, error) {
+func (p platformProbe) composeServices(ctx context.Context, project string) ([]model.ServiceReplicas, error) {
 	ids, err := p.docker(ctx, "ps", "--all", "--quiet", "--filter", "label=com.docker.compose.project="+project)
 	if err != nil {
 		return nil, errors.New("listing the compose containers: " + lastLine(ids))
@@ -191,7 +192,7 @@ func (p platformProbe) composeServices(ctx context.Context, project string) ([]u
 	if err != nil {
 		return nil, errors.New("inspecting the compose containers: " + lastLine(out))
 	}
-	byService := map[string]*ut.ServiceReplicas{}
+	byService := map[string]*model.ServiceReplicas{}
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		var c composeContainer
 		if err := json.Unmarshal([]byte(line), &c); err != nil {
@@ -199,7 +200,7 @@ func (p platformProbe) composeServices(ctx context.Context, project string) ([]u
 		}
 		s, ok := byService[c.Service]
 		if !ok {
-			s = &ut.ServiceReplicas{Name: c.Service, Kind: "container"}
+			s = &model.ServiceReplicas{Name: c.Service, Kind: "container"}
 			byService[c.Service] = s
 		}
 		ready := c.State == "running" && (c.Health == "" || c.Health == "healthy")
@@ -211,10 +212,10 @@ func (p platformProbe) composeServices(ctx context.Context, project string) ([]u
 		if ready {
 			s.Ready++
 		}
-		s.Instances = append(s.Instances, ut.Instance{Name: strings.TrimPrefix(c.Name, "/"), State: state, Ready: ready,
+		s.Instances = append(s.Instances, model.Instance{Name: strings.TrimPrefix(c.Name, "/"), State: state, Ready: ready,
 			Restarts: c.RestartCount, StartedAt: c.StartedAt, Image: c.Image})
 	}
-	services := make([]ut.ServiceReplicas, 0, len(byService))
+	services := make([]model.ServiceReplicas, 0, len(byService))
 	for _, s := range byService {
 		services = append(services, *s)
 	}

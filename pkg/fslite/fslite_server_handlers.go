@@ -10,14 +10,13 @@ package fslite
 
 import (
 	"errors"
+	"github.com/gin-gonic/gin"
+	"kyri56xcaesar/kuspace/internal/config"
+	"kyri56xcaesar/kuspace/internal/model"
 	"log"
 	"net/http"
 	"strconv"
 	"strings"
-
-	ut "kyri56xcaesar/kuspace/internal/utils"
-
-	"github.com/gin-gonic/gin"
 )
 
 // @Summary Admin login
@@ -102,12 +101,12 @@ func (fsl *FsLite) registerHandler(c *gin.Context) {
 // @Tags volume
 // @Accept json
 // @Produce json
-// @Param volume body ut.Volume true "Volume object"
+// @Param volume body model.Volume true "Volume object"
 // @Success 200 {object} map[string]string "volume created"
 // @Failure 400 {object} map[string]string "binding or creation error"
 // @Router /admin/volume/new [post]
 func (fsl *FsLite) newVolumeHandler(c *gin.Context) {
-	volume := ut.Volume{}
+	volume := model.Volume{}
 	err := c.BindJSON(&volume)
 	if err != nil {
 		log.Printf("[FSL_API_newVolume] error binding request body to struct: %v", err)
@@ -139,13 +138,13 @@ func (fsl *FsLite) newVolumeHandler(c *gin.Context) {
 // @Tags volume
 // @Accept json
 // @Produce json
-// @Param volume body ut.Volume false "Volume object"
+// @Param volume body model.Volume false "Volume object"
 // @Param name query string false "Volume name"
 // @Success 200 {object} map[string]string "volume deleted"
 // @Failure 400 {object} map[string]string "deletion error or invalid input"
 // @Router /admin/volume/delete [delete]
 func (fsl *FsLite) deleteVolumeHandler(c *gin.Context) {
-	volume := ut.Volume{}
+	volume := model.Volume{}
 	err := c.BindJSON(&volume)
 	if err != nil {
 		log.Printf("[FSL_API_delVolume] error binding request body to struct: %v, trying query", err)
@@ -178,7 +177,7 @@ func (fsl *FsLite) deleteVolumeHandler(c *gin.Context) {
 // @Produce json
 // @Param name query string false "Volume name"
 // @Param vid query string false "Volume ID"
-// @Success 200 {object} []ut.Volume "volume info"
+// @Success 200 {object} []model.Volume "volume info"
 // @Failure 400 {object} map[string]string "retrieval error"
 // @Router /admin/volume/get [get]
 func (fsl *FsLite) getVolumeHandler(c *gin.Context) {
@@ -226,7 +225,7 @@ func (fsl *FsLite) statResourceHandler(c *gin.Context) {
 	resourceVname := parts[0]
 	resourceName := parts[1]
 
-	res, err := fsl.Stat(c.Request.Context(), ut.Resource{Vname: resourceVname, Name: resourceName})
+	res, err := fsl.Stat(c.Request.Context(), model.Resource{Vname: resourceVname, Name: resourceName})
 	if err != nil {
 		log.Printf("[FSL_API_statResource] failed to stat resource")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to stat"})
@@ -243,7 +242,7 @@ func (fsl *FsLite) statResourceHandler(c *gin.Context) {
 // @Produce json
 // @Param name query string false "Resource name to search"
 // @Param rids query string false "Comma-separated list of resource IDs"
-// @Success 200 {array} ut.Resource "List of resources"
+// @Success 200 {array} model.Resource "List of resources"
 // @Failure 400 {object} map[string]string "Query or processing error"
 // @Failure 404 {object} map[string]string "No matching resources found"
 // @Router /admin/resource/get [get]
@@ -270,7 +269,7 @@ func (fsl *FsLite) getResourceHandler(c *gin.Context) {
 // @Tags resource
 // @Accept json
 // @Produce json
-// @Param resource body ut.Resource false "Resource to delete"
+// @Param resource body model.Resource false "Resource to delete"
 // @Param name query string false "Name of the resource"
 // @Param volume query string false "Volume name of the resource"
 // @Success 200 {object} map[string]string "Successful deletion"
@@ -286,7 +285,7 @@ func (fsl *FsLite) deleteResourceHandler(c *gin.Context) {
 
 		return
 	}
-	resource := ut.Resource{}
+	resource := model.Resource{}
 	err := c.BindJSON(&resource)
 	if err != nil || resource.Name == "" {
 		log.Printf("[FSL_API_delResource] error binding request body to struct: %v, trying query", err)
@@ -392,13 +391,13 @@ func (fsl *FsLite) uploadResourceHandler(c *gin.Context) {
 			return
 		}
 		/* Insert the appropriate metadata as a resource */
-		resource := ut.Resource{
+		resource := model.Resource{
 			Vname:  vname,
 			VID:    volume.VID,
 			Name:   fileHeader.Filename,
 			Type:   "file",
 			Reader: file,
-			Perms:  ut.DefaultFilePerms,
+			Perms:  model.DefaultFilePerms,
 			UID:    uid,
 			GID:    uid,
 			Size:   fileHeader.Size,
@@ -473,7 +472,7 @@ func (fsl *FsLite) downloadResourceHandler(c *gin.Context) {
 		return
 	}
 
-	resource := any(ut.Resource{Name: resourceName, Vname: resourceVname})
+	resource := any(model.Resource{Name: resourceName, Vname: resourceVname})
 	closeFile, err := fsl.Download(c.Request.Context(), &resource)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to download"})
@@ -481,7 +480,7 @@ func (fsl *FsLite) downloadResourceHandler(c *gin.Context) {
 		return
 	}
 	defer closeFile()
-	r, ok := resource.(ut.Resource)
+	r, ok := resource.(model.Resource)
 	if !ok {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to download"})
 
@@ -536,7 +535,7 @@ func (fsl *FsLite) copyResourceHandler(c *gin.Context) {
 	dstVname := parts[0]
 	dstName := parts[1]
 
-	err := fsl.Copy(c.Request.Context(), ut.Resource{Name: srcName, Vname: srvVname}, ut.Resource{Name: dstName, Vname: dstVname})
+	err := fsl.Copy(c.Request.Context(), model.Resource{Name: srcName, Vname: srvVname}, model.Resource{Name: dstName, Vname: dstVname})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to copy the objs"})
 
@@ -579,7 +578,7 @@ func (fsl *FsLite) handleUserVolumes(c *gin.Context) {
 // @Failure 500 {object} map[string]string
 // @Router /admin/system-conf [get]
 func (fsl *FsLite) handleSysConf(c *gin.Context) {
-	fslcfg, err := ut.ReadConfig("configs/"+fsl.config.ConfigPath, false)
+	fslcfg, err := config.ReadConfig("configs/"+fsl.config.ConfigPath, false)
 	if err != nil {
 		log.Printf("[API_sysConf] failed to read config: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

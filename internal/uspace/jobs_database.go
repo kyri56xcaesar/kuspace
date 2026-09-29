@@ -17,6 +17,8 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"kyri56xcaesar/kuspace/internal/model"
+	"kyri56xcaesar/kuspace/internal/sqlite"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 	"log"
 	"strings"
@@ -26,17 +28,17 @@ import (
 //go:embed migrations/jobs/*.sql
 var jobsMigrationFiles embed.FS
 
-// jobsMigrations are jobs.db's migrations (see ut.Migration).
-func jobsMigrations() ([]ut.Migration, error) {
-	return ut.LoadMigrations(jobsMigrationFiles, "migrations/jobs",
+// jobsMigrations are jobs.db's migrations (see sqlite.Migration).
+func jobsMigrations() ([]sqlite.Migration, error) {
+	return sqlite.LoadMigrations(jobsMigrationFiles, "migrations/jobs",
 		// added by start-up code before migrations existed: some databases have them
-		ut.Migration{Version: 2, Name: "job_engine_and_gid", Func: ut.AddColumns("jobs",
-			ut.Column{Name: "engine", Type: "TEXT"}, ut.Column{Name: "gid", Type: "INTEGER"})},
+		sqlite.Migration{Version: 2, Name: "job_engine_and_gid", Func: sqlite.AddColumns("jobs",
+			sqlite.Column{Name: "engine", Type: "TEXT"}, sqlite.Column{Name: "gid", Type: "INTEGER"})},
 	)
 }
 
 // openJobsDB opens jobs.db and brings it up to date.
-func openJobsDB(ctx context.Context, h *ut.DBHandler, maxOpen, maxIdle, lifetime string) error {
+func openJobsDB(ctx context.Context, h *sqlite.DBHandler, maxOpen, maxIdle, lifetime string) error {
 	h.Init(ctx, "", maxOpen, maxIdle, lifetime)
 	migs, err := jobsMigrations()
 	if err != nil {
@@ -46,7 +48,7 @@ func openJobsDB(ctx context.Context, h *ut.DBHandler, maxOpen, maxIdle, lifetime
 	return h.Migrate(ctx, migs)
 }
 
-func (srv *UService) insertJob(ctx context.Context, jb ut.Job) (int64, error) {
+func (srv *UService) insertJob(ctx context.Context, jb model.Job) (int64, error) {
 	// log.Printf("inserting job in db: %+v", jb)
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
@@ -157,8 +159,8 @@ func (srv *UService) removeJobs(ctx context.Context, jids []int) error {
 	return nil
 }
 
-func (srv *UService) getJobByID(ctx context.Context, jid int) (ut.Job, error) {
-	var job ut.Job
+func (srv *UService) getJobByID(ctx context.Context, jid int) (model.Job, error) {
+	var job model.Job
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
@@ -200,8 +202,8 @@ func (srv *UService) getJobByID(ctx context.Context, jid int) (ut.Job, error) {
 	return job, nil
 }
 
-func (srv *UService) getJobsByUID(ctx context.Context, uid int) ([]ut.Job, error) {
-	var jobs []ut.Job
+func (srv *UService) getJobsByUID(ctx context.Context, uid int) ([]model.Job, error) {
+	var jobs []model.Job
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
@@ -224,7 +226,7 @@ func (srv *UService) getJobsByUID(ctx context.Context, uid int) ([]ut.Job, error
 		completedAt, createdAt sql.NullString
 	)
 	for rows.Next() {
-		var job ut.Job
+		var job model.Job
 
 		err = rows.Scan(&job.JID, &job.UID, &job.Description, &job.Duration, &job.Input,
 			&job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody,
@@ -255,8 +257,8 @@ func (srv *UService) getJobsByUID(ctx context.Context, uid int) ([]ut.Job, error
 	return jobs, nil
 }
 
-func (srv *UService) getJobsByUIDs(ctx context.Context, uids []int) ([]ut.Job, error) {
-	var jobs []ut.Job
+func (srv *UService) getJobsByUIDs(ctx context.Context, uids []int) ([]model.Job, error) {
+	var jobs []model.Job
 
 	if len(uids) == 0 {
 		return jobs, nil // no users, empty list
@@ -302,7 +304,7 @@ func (srv *UService) getJobsByUIDs(ctx context.Context, uids []int) ([]ut.Job, e
 		completedAt, createdAt sql.NullString
 	)
 	for rows.Next() {
-		var job ut.Job
+		var job model.Job
 
 		err = rows.Scan(&job.JID, &job.UID, &job.Description, &job.Duration, &job.Input,
 			&job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody,
@@ -333,8 +335,8 @@ func (srv *UService) getJobsByUIDs(ctx context.Context, uids []int) ([]ut.Job, e
 	return jobs, nil
 }
 
-func (srv *UService) getAllJobs(ctx context.Context, limit, offset string) ([]ut.Job, error) {
-	var jobs []ut.Job
+func (srv *UService) getAllJobs(ctx context.Context, limit, offset string) ([]model.Job, error) {
+	var jobs []model.Job
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
@@ -368,7 +370,7 @@ func (srv *UService) getAllJobs(ctx context.Context, limit, offset string) ([]ut
 		completedAt, createdAt sql.NullString
 	)
 	for rows.Next() {
-		var job ut.Job
+		var job model.Job
 		err = rows.Scan(&job.JID, &job.UID, &job.Description, &job.Duration, &job.Input, &job.InputFormat,
 			&job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status,
 			&job.Completed, &completedAt, &createdAt, &job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest,
@@ -397,7 +399,7 @@ func (srv *UService) getAllJobs(ctx context.Context, limit, offset string) ([]ut
 	return jobs, nil
 }
 
-func (srv *UService) updateJob(ctx context.Context, jb ut.Job) error {
+func (srv *UService) updateJob(ctx context.Context, jb model.Job) error {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)

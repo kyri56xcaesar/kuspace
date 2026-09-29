@@ -3,14 +3,13 @@ package uspace
 import (
 	"context"
 	"errors"
+	"kyri56xcaesar/kuspace/internal/model"
 	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
-
-	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
 // world is the job engine as the tests see it: which jobs it has and in
@@ -57,7 +56,7 @@ type fakeExecutor struct {
 	dead atomic.Bool   // the process died: nothing it does is recorded any more
 }
 
-func (e *fakeExecutor) ExecuteJob(job ut.Job) error {
+func (e *fakeExecutor) ExecuteJob(job model.Job) error {
 	ctx, cancel := context.WithCancelCause(context.Background())
 	defer cancel(nil)
 	defer e.rt.trackRunning(job.JID, cancel)()
@@ -83,15 +82,15 @@ func (e *fakeExecutor) ExecuteJob(job ut.Job) error {
 	return e.rt.srv.markJobStatus(context.Background(), job.JID, "completed", time.Millisecond)
 }
 
-func (e *fakeExecutor) CancelJob(ut.Job) error { return nil }
+func (e *fakeExecutor) CancelJob(model.Job) error { return nil }
 
 func (e *fakeExecutor) Name() string { return "fake" }
 
-func (e *fakeExecutor) Status(context.Context) ut.ExecutorStatus {
-	return ut.ExecutorStatus{Engine: "fake", Active: true}
+func (e *fakeExecutor) Status(context.Context) model.ExecutorStatus {
+	return model.ExecutorStatus{Engine: "fake", Active: true}
 }
 
-func (e *fakeExecutor) inspect(_ context.Context, job ut.Job) (engineState, error) {
+func (e *fakeExecutor) inspect(_ context.Context, job model.Job) (engineState, error) {
 	e.w.inspected.Add(1)
 	e.w.mu.Lock()
 	defer e.w.mu.Unlock()
@@ -105,7 +104,7 @@ func (e *fakeExecutor) inspect(_ context.Context, job ut.Job) (engineState, erro
 	return engineGone, nil
 }
 
-func (e *fakeExecutor) reattach(job ut.Job, _ time.Time) {
+func (e *fakeExecutor) reattach(job model.Job, _ time.Time) {
 	e.w.record(e.w.reattach, e.name, job.JID)
 	<-e.w.finish
 	e.w.set(job.JID, engineSucceeded)
@@ -166,7 +165,7 @@ func (h *dbDispatcherHarness) process(name string, workers int, hold bool) (*DBD
 	d.timing = dbDispatchTiming{lease: testLease, heartbeat: 5 * time.Millisecond, poll: 10 * time.Millisecond,
 		reap: 10 * time.Millisecond, maxAttempts: 2}
 	d.now = h.clock.Now
-	d.outputWritten = func(_ context.Context, job ut.Job, _ time.Time) bool {
+	d.outputWritten = func(_ context.Context, job model.Job, _ time.Time) bool {
 		h.w.mu.Lock()
 		defer h.w.mu.Unlock()
 
@@ -190,7 +189,7 @@ func (h *dbDispatcherHarness) process(name string, workers int, hold bool) (*DBD
 // insert adds a job in the given state, as a previous run left it.
 func (h *dbDispatcherHarness) insert(status string, attempts int, started bool) int64 {
 	h.t.Helper()
-	jid, err := h.a.srv.insertJob(h.t.Context(), ut.Job{UID: 1001, Input: "vol1/in", Output: "vol1/out", Logic: "bash"})
+	jid, err := h.a.srv.insertJob(h.t.Context(), model.Job{UID: 1001, Input: "vol1/in", Output: "vol1/out", Logic: "bash"})
 	if err != nil {
 		h.t.Fatal(err)
 	}
@@ -211,18 +210,18 @@ func (h *dbDispatcherHarness) insert(status string, attempts int, started bool) 
 // submit inserts a job and publishes it, as the API does.
 func (h *dbDispatcherHarness) submit(d *DBDispatcher) int64 {
 	h.t.Helper()
-	jid, err := h.a.srv.insertJob(h.t.Context(), ut.Job{UID: 1001, Input: "vol1/in", Output: "vol1/out", Logic: "bash"})
+	jid, err := h.a.srv.insertJob(h.t.Context(), model.Job{UID: 1001, Input: "vol1/in", Output: "vol1/out", Logic: "bash"})
 	if err != nil {
 		h.t.Fatal(err)
 	}
-	if err := d.PublishJob(ut.Job{JID: jid}); err != nil {
+	if err := d.PublishJob(model.Job{JID: jid}); err != nil {
 		h.t.Fatal(err)
 	}
 
 	return jid
 }
 
-func (h *dbDispatcherHarness) job(jid int64) ut.Job {
+func (h *dbDispatcherHarness) job(jid int64) model.Job {
 	h.t.Helper()
 	j, err := h.a.srv.getJobByID(h.t.Context(), int(jid))
 	if err != nil {
@@ -435,7 +434,7 @@ func TestDBDispatcherCancelsWaitingJobs(t *testing.T) {
 func TestDBDispatcherStartAndDrain(t *testing.T) {
 	h := newDBDispatcherHarness(t)
 	// accepted (inserted) but not yet queued when uspace stopped
-	pending, err := h.a.srv.insertJob(t.Context(), ut.Job{UID: 1001, Input: "vol1/in", Output: "vol1/out", Logic: "bash"})
+	pending, err := h.a.srv.insertJob(t.Context(), model.Job{UID: 1001, Input: "vol1/in", Output: "vol1/out", Logic: "bash"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -453,7 +452,7 @@ func TestDBDispatcherStartAndDrain(t *testing.T) {
 		drained <- d.Drain(ctx)
 	}()
 	h.eventually("draining", d.draining.Load)
-	if err := d.PublishJob(ut.Job{JID: 99}); !errors.Is(err, ErrShuttingDown) {
+	if err := d.PublishJob(model.Job{JID: 99}); !errors.Is(err, ErrShuttingDown) {
 		t.Errorf("publish while draining: %v", err)
 	}
 	close(ex.hold) // the running job finishes: Drain returns

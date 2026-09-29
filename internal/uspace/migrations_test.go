@@ -1,10 +1,9 @@
 package uspace
 
 import (
+	"kyri56xcaesar/kuspace/internal/sqlite"
 	"strings"
 	"testing"
-
-	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
 // jobs.db from every earlier shape ends up with the same columns, and its
@@ -24,7 +23,7 @@ func TestJobsDBMigratesEveryEarlierShape(t *testing.T) {
 	for name, schema := range shapes {
 		t.Run(name, func(t *testing.T) {
 			srv := &UService{}
-			srv.jdbh = ut.NewDBHandler("jobs.db", t.TempDir()+"/", "sqlite3")
+			srv.jdbh = sqlite.NewDBHandler("jobs.db", t.TempDir()+"/", "sqlite3")
 			srv.jdbh.Init(t.Context(), schema, "4", "2", "5")
 			t.Cleanup(srv.jdbh.Close)
 			db, _ := srv.jdbh.GetConn()

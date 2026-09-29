@@ -1,12 +1,10 @@
 package authn
 
 import (
+	"github.com/golang-jwt/jwt/v5"
+	"kyri56xcaesar/kuspace/internal/config"
 	"testing"
 	"time"
-
-	ut "kyri56xcaesar/kuspace/internal/utils"
-
-	"github.com/golang-jwt/jwt/v5"
 )
 
 var (
@@ -35,7 +33,7 @@ func token(t *testing.T, key []byte, method jwt.SigningMethod, mutate func(*Clai
 }
 
 func TestVerifyAccessToken(t *testing.T) {
-	hs := NewVerifier(ut.EnvConfig{TokensConfig: ut.TokensConfig{JwtSecretKey: testJWTKey}}) // HS256 is the default
+	hs := NewVerifier(config.EnvConfig{TokensConfig: config.TokensConfig{JwtSecretKey: testJWTKey}}) // HS256 is the default
 	good := token(t, testJWTKey, jwt.SigningMethodHS256, nil)
 	if c, err := hs.Verify(good); err != nil || c.UserID != "1001" {
 		t.Fatalf("valid token rejected: %v", err)

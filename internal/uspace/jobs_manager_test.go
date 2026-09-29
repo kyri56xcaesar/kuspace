@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"kyri56xcaesar/kuspace/internal/model"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
@@ -19,24 +20,24 @@ type recordingExecutor struct {
 	ran []int64
 }
 
-func (e *recordingExecutor) ExecuteJob(job ut.Job) error {
+func (e *recordingExecutor) ExecuteJob(job model.Job) error {
 	e.mu.Lock()
 	e.ran = append(e.ran, job.JID)
 	e.mu.Unlock()
 
 	return nil
 }
-func (e *recordingExecutor) CancelJob(ut.Job) error { return nil }
-func (e *recordingExecutor) Name() string           { return "test" }
-func (e *recordingExecutor) Status(context.Context) ut.ExecutorStatus {
-	return ut.ExecutorStatus{Engine: "test", Active: true}
+func (e *recordingExecutor) CancelJob(model.Job) error { return nil }
+func (e *recordingExecutor) Name() string              { return "test" }
+func (e *recordingExecutor) Status(context.Context) model.ExecutorStatus {
+	return model.ExecutorStatus{Engine: "test", Active: true}
 }
 
 func newTestManager() (*JobManager, *recordingExecutor) {
 	ex := &recordingExecutor{}
 	jm := &JobManager{
 		rt:         newRuntimeWith(nil, ex),
-		jobQueue:   make(chan ut.Job, 10),
+		jobQueue:   make(chan model.Job, 10),
 		workerPool: make(chan struct{}, 2),
 		draining:   &atomic.Bool{},
 	}
@@ -50,7 +51,7 @@ func TestCancelQueuedJobIsSkipped(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, jid := range []int64{5, 6} {
-		if err := jm.ScheduleJob(ut.Job{JID: jid}); err != nil {
+		if err := jm.ScheduleJob(model.Job{JID: jid}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -100,11 +101,11 @@ func TestCancelRunningJobCancelsItsContext(t *testing.T) {
 }
 
 func TestQueueFull(t *testing.T) {
-	jm := &JobManager{rt: newRuntimeWith(nil), jobQueue: make(chan ut.Job, 1), draining: &atomic.Bool{}}
-	if err := jm.ScheduleJob(ut.Job{JID: 1}); err != nil {
+	jm := &JobManager{rt: newRuntimeWith(nil), jobQueue: make(chan model.Job, 1), draining: &atomic.Bool{}}
+	if err := jm.ScheduleJob(model.Job{JID: 1}); err != nil {
 		t.Fatal(err)
 	}
-	if err := jm.ScheduleJob(ut.Job{JID: 2}); !errors.Is(err, ErrJobQueueFull) {
+	if err := jm.ScheduleJob(model.Job{JID: 2}); !errors.Is(err, ErrJobQueueFull) {
 		t.Errorf("second job on a full queue: %v, want ErrJobQueueFull", err)
 	}
 }
@@ -115,27 +116,27 @@ type blockingExecutor struct {
 	release chan struct{}
 }
 
-func (b blockingExecutor) ExecuteJob(job ut.Job) error {
+func (b blockingExecutor) ExecuteJob(job model.Job) error {
 	b.started <- job.JID
 	<-b.release
 
 	return nil
 }
 
-func (b blockingExecutor) CancelJob(ut.Job) error { return nil }
-func (b blockingExecutor) Name() string           { return "test" }
-func (b blockingExecutor) Status(context.Context) ut.ExecutorStatus {
-	return ut.ExecutorStatus{Engine: "test", Active: true}
+func (b blockingExecutor) CancelJob(model.Job) error { return nil }
+func (b blockingExecutor) Name() string              { return "test" }
+func (b blockingExecutor) Status(context.Context) model.ExecutorStatus {
+	return model.ExecutorStatus{Engine: "test", Active: true}
 }
 
 func TestDrainWaitsForRunningJobs(t *testing.T) {
 	ex := blockingExecutor{started: make(chan int64, 4), release: make(chan struct{})}
 	jm := &JobManager{
-		rt: newRuntimeWith(nil, ex), jobQueue: make(chan ut.Job, 4), workerPool: make(chan struct{}, 2),
+		rt: newRuntimeWith(nil, ex), jobQueue: make(chan model.Job, 4), workerPool: make(chan struct{}, 2),
 		draining: &atomic.Bool{},
 	}
 	jm.StartDispatcher()
-	if err := jm.ScheduleJob(ut.Job{JID: 1}); err != nil {
+	if err := jm.ScheduleJob(model.Job{JID: 1}); err != nil {
 		t.Fatal(err)
 	}
 	<-ex.started
@@ -146,7 +147,7 @@ func TestDrainWaitsForRunningJobs(t *testing.T) {
 	if err := jm.Drain(ctx); err == nil {
 		t.Error("drain returned while a job was running")
 	}
-	if err := jm.ScheduleJob(ut.Job{JID: 2}); !errors.Is(err, ErrShuttingDown) || ut.HTTPStatus(err) != http.StatusServiceUnavailable {
+	if err := jm.ScheduleJob(model.Job{JID: 2}); !errors.Is(err, ErrShuttingDown) || ut.HTTPStatus(err) != http.StatusServiceUnavailable {
 		t.Errorf("submission while draining: %v", err)
 	}
 

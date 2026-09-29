@@ -1,6 +1,8 @@
-package utils
+package sqlite
 
 import (
+	ut "kyri56xcaesar/kuspace/internal/utils"
+
 	"context"
 	"database/sql"
 	"errors"
@@ -178,8 +180,8 @@ func TestMigrateRefusesWhatItCantTrust(t *testing.T) {
 		}
 		migs := testMigrations()
 		migs[1].Name = "something_else"
-		if err := h.Migrate(t.Context(), migs); !errors.Is(err, ErrInvalid) {
-			t.Errorf("err = %v, want ErrInvalid", err)
+		if err := h.Migrate(t.Context(), migs); !errors.Is(err, ut.ErrInvalid) {
+			t.Errorf("err = %v, want ut.ErrInvalid", err)
 		}
 	})
 	t.Run("gap filled later", func(t *testing.T) {
@@ -192,8 +194,8 @@ func TestMigrateRefusesWhatItCantTrust(t *testing.T) {
 			t.Fatal(err)
 		}
 		migs := testMigrations(Migration{Version: 3, Name: "three", SQL: `SELECT 1`})
-		if _, err := PendingMigrations(t.Context(), db, migs); !errors.Is(err, ErrInvalid) {
-			t.Errorf("err = %v, want ErrInvalid", err)
+		if _, err := PendingMigrations(t.Context(), db, migs); !errors.Is(err, ut.ErrInvalid) {
+			t.Errorf("err = %v, want ut.ErrInvalid", err)
 		}
 	})
 }
@@ -221,8 +223,8 @@ func TestLoadMigrations(t *testing.T) {
 		"bad name": {"m/1_a.sql": {Data: []byte("SELECT 1")}},
 		"empty":    {"m/0001_a.sql": {Data: []byte("")}},
 	} {
-		if _, err := LoadMigrations(fsys, "m"); !errors.Is(err, ErrInvalid) {
-			t.Errorf("%s: err = %v, want ErrInvalid", name, err)
+		if _, err := LoadMigrations(fsys, "m"); !errors.Is(err, ut.ErrInvalid) {
+			t.Errorf("%s: err = %v, want ut.ErrInvalid", name, err)
 		}
 	}
 }

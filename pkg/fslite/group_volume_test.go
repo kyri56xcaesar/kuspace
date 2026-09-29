@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"kyri56xcaesar/kuspace/internal/model"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
@@ -42,14 +43,14 @@ func TestGroupVolumeQuotaIsTheGroups(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, uv := range uvs.([]ut.UserVolume) {
+	for _, uv := range uvs.([]model.UserVolume) {
 		if uv.VID == gv.VID {
 			t.Errorf("a personal claim exists on the group volume: %+v", uv)
 		}
 	}
 
 	// deleting a member's file frees the group's space
-	if err := fsl.Remove(ctx, ut.Resource{Name: "m2", Vname: "team"}); err != nil {
+	if err := fsl.Remove(ctx, model.Resource{Name: "m2", Vname: "team"}); err != nil {
 		t.Fatal(err)
 	}
 	if gv, _ = fsl.GroupVolume(ctx, "team"); gv.Usage != 1.5 {
@@ -78,7 +79,7 @@ func TestGroupVolumeAssignmentRules(t *testing.T) {
 	}
 
 	// a volume with files can't change hands (their usage is already on someone's account)
-	mustResource(t, fsl, ut.Resource{Name: "a.csv", Vname: "team", VID: vid, UID: 1001, GID: 1001, Type: "file"})
+	mustResource(t, fsl, model.Resource{Name: "a.csv", Vname: "team", VID: vid, UID: 1001, GID: 1001, Type: "file"})
 	if _, err := fsl.AssignGroupVolume(ctx, "team", 500, 1); !errors.Is(err, ErrVolumeInUse) {
 		t.Errorf("volume with files: %v, want ErrVolumeInUse", err)
 	}
@@ -110,7 +111,7 @@ func TestGroupVolumeAssignmentRules(t *testing.T) {
 	if _, err := fsl.AssignGroupVolume(ctx, "empty", 700, 1); err != nil {
 		t.Fatal(err)
 	}
-	if err := fsl.RemoveVolume(ctx, ut.Volume{Name: "empty"}); err != nil {
+	if err := fsl.RemoveVolume(ctx, model.Volume{Name: "empty"}); err != nil {
 		t.Fatal(err)
 	}
 	if gvs, _ := fsl.GroupVolumes(ctx, nil); len(gvs) != 0 {

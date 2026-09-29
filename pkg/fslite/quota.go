@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"kyri56xcaesar/kuspace/internal/model"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
@@ -147,7 +148,7 @@ func (fsl *FsLite) CheckSpace(ctx context.Context, uid int64, volume string, siz
 // volume's capacity and the owner's (or group's) quota. The check and the
 // insert are one transaction that takes SQLite's write lock up front, so
 // concurrent inserts can't both squeeze into the same free space.
-func (fsl *FsLite) InsertResource(ctx context.Context, r ut.Resource, defaultQuota float64, enforce bool) error {
+func (fsl *FsLite) InsertResource(ctx context.Context, r model.Resource, defaultQuota float64, enforce bool) error {
 	return fsl.immediate(ctx, func(q querier) error {
 		if r.Vname == "" {
 			r.Vname = defaultVolumeName

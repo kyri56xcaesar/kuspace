@@ -3,17 +3,15 @@ package fslite
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
+	"kyri56xcaesar/kuspace/internal/config"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
-
-	ut "kyri56xcaesar/kuspace/internal/utils"
-
-	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 const testServiceSecret = "service-secret"
@@ -22,11 +20,11 @@ const testServiceSecret = "service-secret"
 // files on a temp dir) and the admin account admin / adminpassword1.
 func newTestServer(t *testing.T) (*FsLite, *gin.Engine) {
 	t.Helper()
-	fsl := NewFsLite(ut.EnvConfig{
-		ServiceConfig: ut.ServiceConfig{APIGinMode: "test"},
-		AuthConfig:    ut.AuthConfig{ServiceSecretKey: []byte(testServiceSecret)},
-		TokensConfig:  ut.TokensConfig{JwtSecretKey: []byte("jwt-key")},
-		FsliteConfig: ut.FsliteConfig{
+	fsl := NewFsLite(config.EnvConfig{
+		ServiceConfig: config.ServiceConfig{APIGinMode: "test"},
+		AuthConfig:    config.AuthConfig{ServiceSecretKey: []byte(testServiceSecret)},
+		TokensConfig:  config.TokensConfig{JwtSecretKey: []byte("jwt-key")},
+		FsliteConfig: config.FsliteConfig{
 			FslDB: "fsl_test.db", FslDBPath: t.TempDir() + "/", FslDBDriver: "sqlite3",
 			FslDBMaxOpenConns: "4", FslDBMaxIdleConns: "2", FslDBMaxLifetime: "5",
 			FslAccessKey: "admin", FslSecretKey: "adminpassword1",

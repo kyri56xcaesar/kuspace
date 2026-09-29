@@ -8,10 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"kyri56xcaesar/kuspace/internal/model"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
-func (srv *UService) insertApp(ctx context.Context, app ut.Application) (int64, error) {
+func (srv *UService) insertApp(ctx context.Context, app model.Application) (int64, error) {
 	// log.Printf("inserting job in db: %+v", jb)
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
@@ -52,7 +53,7 @@ func (srv *UService) insertApp(ctx context.Context, app ut.Application) (int64, 
 }
 
 // should user an appender
-func (srv *UService) insertApps(ctx context.Context, apps []ut.Application) error {
+func (srv *UService) insertApps(ctx context.Context, apps []model.Application) error {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
@@ -194,8 +195,8 @@ func (srv *UService) removeApps(ctx context.Context, ids []int) error {
 	return nil
 }
 
-func (srv *UService) getAppByNameAndVersion(ctx context.Context, name, version string) (ut.Application, error) {
-	var app ut.Application
+func (srv *UService) getAppByNameAndVersion(ctx context.Context, name, version string) (model.Application, error) {
+	var app model.Application
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
@@ -233,8 +234,8 @@ func (srv *UService) getAppByNameAndVersion(ctx context.Context, name, version s
 	return app, nil
 }
 
-func (srv *UService) getAppsByIDs(ctx context.Context, ids []int) ([]ut.Application, error) {
-	var apps []ut.Application
+func (srv *UService) getAppsByIDs(ctx context.Context, ids []int) ([]model.Application, error) {
+	var apps []model.Application
 
 	if len(ids) == 0 {
 		return apps, nil
@@ -280,7 +281,7 @@ func (srv *UService) getAppsByIDs(ctx context.Context, ids []int) ([]ut.Applicat
 	var insertedAt, createdAt sql.NullString
 
 	for rows.Next() {
-		var app ut.Application
+		var app model.Application
 
 		err = rows.Scan(&app.ID, &app.Name, &app.Image, &app.Description, &app.Version,
 			&app.Author, &app.AuthorID, &app.Status, &insertedAt, &createdAt)
@@ -307,8 +308,8 @@ func (srv *UService) getAppsByIDs(ctx context.Context, ids []int) ([]ut.Applicat
 	return apps, nil
 }
 
-func (srv *UService) getAllApps(ctx context.Context, limit, offset string) ([]ut.Application, error) {
-	var apps []ut.Application
+func (srv *UService) getAllApps(ctx context.Context, limit, offset string) ([]model.Application, error) {
+	var apps []model.Application
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
@@ -349,7 +350,7 @@ func (srv *UService) getAllApps(ctx context.Context, limit, offset string) ([]ut
 	var insertedAt, createdAt sql.NullString
 
 	for rows.Next() {
-		var app ut.Application
+		var app model.Application
 		err = rows.Scan(&app.ID, &app.Name, &app.Image, &app.Description, &app.Version,
 			&app.Author, &app.AuthorID, &app.Status, &insertedAt, &createdAt)
 		if err != nil {
@@ -374,7 +375,7 @@ func (srv *UService) getAllApps(ctx context.Context, limit, offset string) ([]ut
 	return apps, nil
 }
 
-func (srv *UService) updateApp(ctx context.Context, a ut.Application) error {
+func (srv *UService) updateApp(ctx context.Context, a model.Application) error {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)

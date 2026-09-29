@@ -3,14 +3,12 @@ package uspace
 import (
 	"context"
 	"errors"
+	"github.com/gin-gonic/gin"
+	"kyri56xcaesar/kuspace/internal/model"
 	"log"
 	"net/http"
 	"regexp"
 	"strings"
-
-	ut "kyri56xcaesar/kuspace/internal/utils"
-
-	"github.com/gin-gonic/gin"
 )
 
 // BindAccessTarget function, used by middleware
@@ -36,9 +34,9 @@ var whoPattern = regexp.MustCompile(`^[0-9]+:[0-9]+(,[0-9]+)*$`)
 
 // BindAccessTarget parses an Access-Target header, "vid:vname:target
 // uid:gid[,gid...]" (see above), into an AccessClaim.
-func BindAccessTarget(httpHeader string) (ut.AccessClaim, error) {
+func BindAccessTarget(httpHeader string) (model.AccessClaim, error) {
 	var (
-		ac                              = ut.AccessClaim{}
+		ac                              = model.AccessClaim{}
 		vid, vname, resource, uid, gids string
 		target                          string
 	)
@@ -138,13 +136,13 @@ var errTargetNotFound = errors.New("resource not found")
 // that name in that volume. (It used to match `name LIKE %target%` across all
 // volumes, so a check could hit unrelated files - e.g. "o_x.txt" matched
 // "hello_x.txt" - and underscores acted as wildcards.)
-func accessTargets(ctx context.Context, srv *UService, ac ut.AccessClaim) ([]ut.Resource, error) {
+func accessTargets(ctx context.Context, srv *UService, ac model.AccessClaim) ([]model.Resource, error) {
 	if ac.HasKeyword {
 		res, err := srv.fsl.SelectObjects(ctx, map[string]any{"rids": strings.TrimPrefix(ac.Target, "/"), "vname": ac.Vname})
 		if err != nil {
 			return nil, err
 		}
-		resources, ok := res.([]ut.Resource)
+		resources, ok := res.([]model.Resource)
 		if !ok {
 			return nil, errors.New("unexpected resource type")
 		}
@@ -162,7 +160,7 @@ func accessTargets(ctx context.Context, srv *UService, ac ut.AccessClaim) ([]ut.
 		return nil, errTargetNotFound
 	}
 
-	return []ut.Resource{r}, nil
+	return []model.Resource{r}, nil
 }
 
 // abortTargetError answers a failed accessTargets lookup.
@@ -187,7 +185,7 @@ func isOwner(srv *UService) gin.HandlerFunc {
 
 			return
 		}
-		ac, ok := access.(ut.AccessClaim)
+		ac, ok := access.(model.AccessClaim)
 		if !ok {
 			log.Printf("[Middleware-Ownership] failed to cast ac, :?corrupt data?, should have been set already")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "acces-target setup error"})
@@ -237,7 +235,7 @@ func hasAccessMiddleware(mode string, srv *UService) gin.HandlerFunc {
 
 			return
 		}
-		ac, ok := acH.(ut.AccessClaim)
+		ac, ok := acH.(model.AccessClaim)
 		if !ok {
 			log.Printf("[Middleware-Access] failed to cast ac, :?corrupt data?, should have been set already")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "acces-target setup error"})

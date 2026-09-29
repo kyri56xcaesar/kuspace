@@ -27,6 +27,9 @@ import (
 
 	// swagger documentation
 	_ "kyri56xcaesar/kuspace/api/uspace"
+	"kyri56xcaesar/kuspace/internal/config"
+	"kyri56xcaesar/kuspace/internal/model"
+	"kyri56xcaesar/kuspace/internal/sqlite"
 	k "kyri56xcaesar/kuspace/internal/uspace/kubernetes"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 	"kyri56xcaesar/kuspace/pkg/fslite"
@@ -51,7 +54,7 @@ var verbose = true
 */
 type UService struct {
 	/* configuration file (.env) */
-	config ut.EnvConfig
+	config config.EnvConfig
 
 	// tokens verifies minioth access tokens (identity.go, tokens.go)
 	tokens *authn.Verifier
@@ -70,7 +73,7 @@ type UService struct {
 	storage StorageSystem
 
 	/* database call handlers for the Jobs db*/
-	jdbh ut.DBHandler
+	jdbh sqlite.DBHandler
 
 	// a database related to files
 	// to enforce security on ownerships
@@ -92,7 +95,7 @@ type UService struct {
 */
 func NewUService(conf string) UService {
 	// configuration
-	cfg := ut.LoadConfig(conf, ut.Service, ut.Peers, ut.Auth, ut.Tokens, ut.Storage, ut.Fslite, ut.Minio, ut.Jobs)
+	cfg := config.LoadConfig(conf, config.Service, config.Peers, config.Auth, config.Tokens, config.Storage, config.Fslite, config.Minio, config.Jobs)
 	verbose = cfg.Verbose
 
 	setGinMode(cfg.APIGinMode)
@@ -121,7 +124,7 @@ func NewUService(conf string) UService {
 	srv.jdp = jdp
 
 	// database (init)
-	jdbh := ut.NewDBHandler(cfg.UspaceJobsDB, cfg.UspaceJobsDBPath, cfg.UspaceJobsDBDriver)
+	jdbh := sqlite.NewDBHandler(cfg.UspaceJobsDB, cfg.UspaceJobsDBPath, cfg.UspaceJobsDBDriver)
 	srv.jdbh = jdbh
 	if err := openJobsDB(context.Background(), &srv.jdbh, cfg.UspaceJobsDBMaxOpenConns, cfg.UspaceJobsDBMaxIdleConns, cfg.UspaceJobsDBMaxLifetime); err != nil {
 		log.Fatalf("[USPACE_init] jobs database: %v", err)
@@ -149,7 +152,7 @@ func NewUService(conf string) UService {
 	srv.fsl = fslite.NewFsLite(copyCfg)
 
 	// lets create a default bucket
-	defaultVolume := ut.Volume{Name: cfg.MinioDefaultBucket, CreatedAt: ut.CurrentTime()}
+	defaultVolume := model.Volume{Name: cfg.MinioDefaultBucket, CreatedAt: ut.CurrentTime()}
 	err = storage.CreateVolume(context.Background(), defaultVolume)
 	if err != nil {
 		if errors.Is(err, ut.ErrExists) {
@@ -374,7 +377,7 @@ func (srv *UService) handleInfo(c *gin.Context) {
 // @Summary     Deployment and replicas
 // @Tags        system
 // @Produce     json
-// @Success     200 {object} ut.Deployment
+// @Success     200 {object} model.Deployment
 // @Router      /admin/replicas [get]
 func (srv *UService) handleReplicas(c *gin.Context) {
 	c.JSON(http.StatusOK, srv.platformProbe().deployment(c.Request.Context()))
@@ -387,15 +390,15 @@ func (srv *UService) handleReplicas(c *gin.Context) {
 // @Summary     Execution engines
 // @Tags        system
 // @Produce     json
-// @Success     200 {object} ut.EnginesStatus
+// @Success     200 {object} model.EnginesStatus
 // @Router      /admin/executor [get]
 func (srv *UService) handleExecutorStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, srv.enginesStatus(c.Request.Context()))
 }
 
-func (srv *UService) enginesStatus(ctx context.Context) ut.EnginesStatus {
+func (srv *UService) enginesStatus(ctx context.Context) model.EnginesStatus {
 	engines := srv.jdp.engines()
-	st := ut.EnginesStatus{Engines: engines.statuses(ctx)}
+	st := model.EnginesStatus{Engines: engines.statuses(ctx)}
 	st.Current, _ = engines.now()
 	if s, err := srv.storedEngine(ctx); err == nil && s.Value == st.Current {
 		st.ChosenBy, st.ChosenAt = s.UpdatedBy, s.UpdatedAt
@@ -417,7 +420,7 @@ func (srv *UService) enginesStatus(ctx context.Context) ut.EnginesStatus {
 // @Accept      json
 // @Produce     json
 // @Param       request body object true "{\"engine\": \"docker\" | \"kubernetes\"}"
-// @Success     200 {object} ut.EnginesStatus
+// @Success     200 {object} model.EnginesStatus
 // @Failure     404 {object} map[string]string "no such engine"
 // @Failure     503 {object} map[string]string "the engine is not active"
 // @Router      /admin/executor [put]
@@ -478,7 +481,7 @@ func (srv *UService) handleSysMetrics(c *gin.Context) {
 // @Failure     500 {object} map[string]string
 // @Router      /admin/system-conf [get]
 func (srv *UService) handleSysConf(c *gin.Context) {
-	uspacecfg, err := ut.ReadConfig("configs/"+srv.config.ConfigPath, false)
+	uspacecfg, err := config.ReadConfig("configs/"+srv.config.ConfigPath, false)
 	if err != nil {
 		log.Printf("[API_sysConf] failed to read config: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -514,7 +517,7 @@ func syncUsers(srv *UService) error {
 		return fmt.Errorf("minioth answered %s", resp.Status)
 	}
 	var groups struct {
-		Content []ut.Group `json:"content"`
+		Content []model.Group `json:"content"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&groups); err != nil {
 		return fmt.Errorf("failed to decode groups: %w", err)
@@ -524,7 +527,7 @@ func syncUsers(srv *UService) error {
 	if err != nil {
 		return fmt.Errorf("default volume: %w", err)
 	}
-	volume, ok := v.(ut.Volume)
+	volume, ok := v.(model.Volume)
 	if !ok {
 		return errors.New("default volume: unexpected type")
 	}
@@ -537,7 +540,7 @@ func syncUsers(srv *UService) error {
 			if user.Username != group.Groupname {
 				continue
 			}
-			err := srv.fsl.Insert(ctx, ut.UserVolume{VID: volume.VID, UID: user.UID, Quota: quota})
+			err := srv.fsl.Insert(ctx, model.UserVolume{VID: volume.VID, UID: user.UID, Quota: quota})
 			switch {
 			case err == nil:
 				claimed++

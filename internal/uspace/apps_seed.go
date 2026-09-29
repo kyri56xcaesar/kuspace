@@ -8,6 +8,7 @@ import (
 	"log"
 	"sort"
 
+	"kyri56xcaesar/kuspace/internal/model"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
@@ -21,7 +22,7 @@ var defaultAppsJSON []byte
 // (e.g. -v1 -> -v2). Everything else an admin changed - or a custom image -
 // is left untouched.
 func (srv *UService) seedDefaultApps(ctx context.Context) error {
-	var apps []ut.Application
+	var apps []model.Application
 	if err := json.Unmarshal(defaultAppsJSON, &apps); err != nil {
 		return fmt.Errorf("failed to parse default apps: %w", err)
 	}
@@ -74,16 +75,16 @@ func (srv *UService) seedDefaultApps(ctx context.Context) error {
 }
 
 // languageApps lists the code languages (codeModes) as catalogue entries.
-func languageApps() []ut.Application {
+func languageApps() []model.Application {
 	names := make([]string, 0, len(codeModes))
 	for n := range codeModes {
 		names = append(names, n)
 	}
 	sort.Strings(names)
-	apps := make([]ut.Application, 0, len(names))
+	apps := make([]model.Application, 0, len(names))
 	for _, n := range names {
 		m := codeModes[n]
-		apps = append(apps, ut.Application{
+		apps = append(apps, model.Application{
 			Name: n, Image: m.image + ":" + m.tag, Version: m.tag, Author: "kuspace", Status: "available",
 			Description: m.desc + ": write it in the editor. The job's input and output are presigned URLs in INPUT_URL and OUTPUT_URL.",
 		})

@@ -1,0 +1,521 @@
+// Package model holds kuspace's domain types (moved out of utils): resources
+// and volumes (resource.go), users and groups (identity.go), jobs and apps
+// (job.go), and what the admin System page reports (system.go).
+//
+// This package defines the foundational models used throughout the system, including:
+//   - Resource: Represents a file-system-like entity with permissions, ownership, and metadata.
+//   - Volume: Models a physical or logical storage volume, including capacity and usage.
+//   - User, Group: Represent system users and groups, including membership and credentials.
+//   - Job: Encapsulates computational jobs with resource requirements and execution metadata.
+//   - AccessClaim: Carries user and group context for access control decisions.
+//   - Permissions, PermTriplet: Parse and represent UNIX-like permission schemes.
+//
+// The package also provides utility methods for validation, permission checks, and
+// conversion between struct fields and generic representations, facilitating database
+// operations and API interactions.
+//
+// All models are designed to be serializable to JSON for API communication, and include
+// helper methods for common operations such as permission checking, ownership validation,
+// and string representations.
+//
+// This package is intended to be imported by higher-level application logic and API handlers
+// to enforce access control, manage resources, and maintain consistent user and group metadata.
+package model
+
+/* every struct used in this system */
+
+/*
+* Core structures for the Userspace API and their methods.
+*
+* perhaps some utility functions as well.
+*
+* */
+import (
+	ut "kyri56xcaesar/kuspace/internal/utils"
+
+	"errors"
+	"fmt"
+	"io"
+	"log"
+	"strconv"
+	"strings"
+)
+
+// Resource struct
+/*
+* trying to mimic inodes from a regular fs...
+*
+* NOTE: Question: How does "executable" permission as a concept hold in this "smwhat cloud" context?
+* Read/Write should be there.
+*
+*
+* each resource is owned by a user, a group, a volume, a parent... Perhaps the term shared is more appropriate..
+* even though there is singularity in ownership since only one group can own a file... (feels weird)
+*
+* NOTE: Question: What relation should the "parent" resource have with its "child"?
+* I would guess solely as in reference hierarchy. Perhaps give it some common access permissions as well...
+*
+*
+*
+* */
+type Resource struct {
+	Name string `json:"name"`
+	Path string `json:"path,omitempty"`
+	Type string `json:"type,omitempty"`
+
+	CreatedAt  string `json:"createdAt,omitempty"`
+	UpdatedAt  string `json:"updatedAt,omitempty"`
+	AccessedAt string `json:"accessedAt,omitempty"`
+
+	Perms string `json:"perms,omitempty"`
+
+	RID int64 `json:"rid,omitempty"`
+	UID int64 `json:"uid,omitempty"` // as in user id (owner)
+	GID int64 `json:"gid,omitempty"` // as in group id
+
+	Size  int64 `json:"size,omitempty"`
+	Links int   `json:"links,omitempty"`
+
+	VID   int64  `json:"vid,omitempty"`
+	Vname string `json:"vname,omitempty"`
+
+	Reader io.Reader `json:"reader,omitempty"`
+}
+
+/* representative utility methods of the above structures */
+/* fields and ptrs fields for "resource" struct helper methods*/
+
+// Fields returns a slice containing the values of the Resource struct fields,
+// in a specific order suitable for database operations or serialization.
+// The returned slice includes all fields, including IDs and metadata.
+func (r *Resource) Fields() []any {
+	return []any{
+		r.RID, r.UID, r.GID, r.VID, r.Vname, r.Size, r.Links,
+		r.Perms, r.Name, r.Path, r.Type, r.CreatedAt, r.UpdatedAt, r.AccessedAt,
+	}
+}
+
+// PtrFields returns a slice of pointers to the Resource struct fields,
+// in a specific order. This is useful for scanning database rows directly
+// into the struct fields or for generic update operations.
+func (r *Resource) PtrFields() []any {
+	return []any{
+		&r.RID, &r.UID, &r.GID, &r.VID, &r.Vname, &r.Size, &r.Links,
+		&r.Perms, &r.Name, &r.Path, &r.Type, &r.CreatedAt, &r.UpdatedAt, &r.AccessedAt,
+	}
+}
+
+// FieldsNoID returns a slice containing the values of the Resource struct fields,
+// excluding the primary ID (Rid). This is typically used for insert or update
+// operations where the ID is auto-generated or not required.
+func (r *Resource) FieldsNoID() []any {
+	return []any{
+		r.UID, r.GID, r.VID, r.Vname, r.Size, r.Links,
+		r.Perms, r.Name, r.Path, r.Type, r.CreatedAt, r.UpdatedAt, r.AccessedAt,
+	}
+}
+
+// PtrFieldsNoID returns a slice of pointers to the Resource struct fields,
+// excluding the primary ID (Rid). This is typically used for insert or update
+// operations where the ID is auto-generated or not required.
+func (r *Resource) PtrFieldsNoID() []any {
+	return []any{
+		&r.UID, &r.GID, &r.VID, &r.Vname, &r.Size, &r.Links,
+		&r.Perms, &r.Name, &r.Path, &r.Type, &r.CreatedAt, &r.UpdatedAt, &r.AccessedAt,
+	}
+}
+
+/* this method belongs to the Resource objects
+*  and checks if a user claim it allowed to acccess it
+*
+*  -> authorization.
+* */
+
+// DefaultFilePerms is given to every new resource: read/write for the owner,
+// read for the owner's group, nothing for everyone else.
+const DefaultFilePerms = "rw-r-----"
+
+// HasAccess method checks whether the given AccessClaim applies Read authorization upon the Resource Object
+func (r *Resource) HasAccess(userInfo AccessClaim) bool {
+	/* parse permissions
+	*  rwx     644, (unix inode metadata)
+	*   |
+	* owner   group   others
+	* */
+
+	var perm Permissions
+	err := perm.FillFromStr(r.Perms)
+	if err != nil {
+		log.Printf("failed to retrieve permissions normally: %v", err)
+
+		return false
+	}
+
+	/* check ownership
+	* if true, can exit prematurely
+	* */
+	if uid, err := strconv.ParseInt(userInfo.UID, 10, 64); err != nil {
+		log.Printf("error atoing user id")
+
+		return false
+	} else if uid == r.UID {
+		return perm.Owner.Read
+	}
+
+	/* check groups */
+	gids := strings.Split(userInfo.Gids, ",")
+
+	for _, gid := range gids {
+		if igid, err := strconv.ParseInt(gid, 10, 64); err != nil {
+			log.Printf("error atoing group id")
+
+			return false
+		} else if igid == r.GID {
+			return perm.Group.Read
+		}
+	}
+	/* check others */
+
+	return perm.Other.Read
+}
+
+// HasWriteAccess method checks whether the given AccessClaim applies Write authorization upon the Resource object
+/* similar as above just for write access*/
+func (r *Resource) HasWriteAccess(userInfo AccessClaim) bool {
+	/* parse permissions
+	*  rwx     644, (unix inode metadata)
+	*   |
+	* owner   group   others
+	* */
+	var perm Permissions
+	err := perm.FillFromStr(r.Perms)
+	if err != nil {
+		log.Printf("failed to retrieve permissions normally: %v", err)
+
+		return false
+	}
+
+	/* check ownership
+	* if true, can exit prematurely
+	* */
+	if uid, err := strconv.ParseInt(userInfo.UID, 10, 64); err != nil {
+		log.Printf("error atoing user id")
+
+		return false
+	} else if uid == r.UID {
+		return perm.Owner.Write
+	}
+
+	/* check groups */
+	gids := strings.Split(userInfo.Gids, ",")
+
+	for _, gid := range gids {
+		if igid, err := strconv.ParseInt(gid, 10, 64); err != nil {
+			log.Printf("error atoing group id")
+
+			return false
+		} else if igid == r.GID {
+			return perm.Group.Write
+		}
+	}
+	/* check others */
+
+	return perm.Other.Write
+}
+
+// HasExecutionAccess method checks the given AccessClaim applies Execution authorization upon the Resource object
+/* execution access is somewhat trivial at this point, perhaps it can be used in the future*/
+func (r *Resource) HasExecutionAccess(_ AccessClaim) bool {
+	return false
+}
+
+// IsOwner method will check the given AccessClaim applies Ownership authorization upon the Resource object
+// this shall check if the resource owner is of the claim OR if the resource group ownership is included in the claim groups
+func (r *Resource) IsOwner(ac AccessClaim) bool {
+	// Only the owning user owns a resource (root is handled by the callers).
+	// Group members used to count as owners too, so anyone in a shared group
+	// (every user is in "user") could chmod/chown a file shared with it.
+	intUID, err := strconv.ParseInt(ac.UID, 10, 64)
+	if err != nil {
+		log.Printf("[ownership-controller] failed to atoi access_claim")
+
+		return false
+	}
+
+	return r.UID == intUID
+}
+
+// Permissions struct describes a unix style file inode permission set
+type Permissions struct {
+	Representation string      `json:"perms"`
+	Owner          PermTriplet `json:"owner"`
+	Group          PermTriplet `json:"group"`
+	Other          PermTriplet `json:"other"`
+}
+
+// FillFromStr method will build the object accordingly from its string representation
+/* this method goal is from the given argument "representation" which
+* looks like "r-x---r--" (or w.e) to transform into the boolean
+* */
+func (p *Permissions) FillFromStr(representation string) error {
+	if len(representation) != 9 {
+		log.Printf("fill fail, invalid representation input")
+
+		return errors.New("invalid representation")
+	}
+
+	chunks := [3]string{
+		representation[:3],
+		representation[3:6],
+		representation[6:],
+	}
+
+	parseTriplet := func(triplet string) (PermTriplet, error) {
+		if len(triplet) != 3 {
+			log.Printf("invalid tripled input length")
+
+			return PermTriplet{}, errors.New("invalid triplet")
+		}
+
+		return PermTriplet{
+			Read:    triplet[0] == 'r',
+			Write:   triplet[1] == 'w',
+			Execute: triplet[2] == 'x',
+		}, nil
+	}
+	var err error
+	p.Owner, err = parseTriplet(chunks[0])
+	if err != nil {
+		log.Printf("failed to parse owner triplet: %v", err)
+
+		return err
+	}
+	p.Group, err = parseTriplet(chunks[1])
+	if err != nil {
+		log.Printf("failed to parse group triplet: %v", err)
+
+		return err
+	}
+	p.Other, err = parseTriplet(chunks[2])
+	if err != nil {
+		log.Printf("failed to parse other triplet: %v", err)
+
+		return err
+	}
+
+	return nil
+}
+
+// ToString method formats and returns the permission object to a string
+func (p *Permissions) ToString() string {
+	return fmt.Sprintf("%s%s%s", p.Owner.ToString(), p.Group.ToString(), p.Other.ToString())
+}
+
+// PermTriplet a unit of permission description, unix style
+type PermTriplet struct {
+	Title   string `json:"title"`
+	Read    bool   `json:"read"`
+	Write   bool   `json:"write"`
+	Execute bool   `json:"execute"`
+}
+
+// ToString method formats and returns the permission object to a string
+func (pt PermTriplet) ToString() string {
+	r, w, x := "-", "-", "-"
+
+	if pt.Read {
+		r = "r"
+	}
+
+	if pt.Write {
+		w = "w"
+	}
+
+	if pt.Execute {
+		x = "x"
+	}
+
+	return fmt.Sprintf("%v%v%v", r, w, x)
+}
+
+/* This will represent the physical volumes provides by Kubernetes and supervised by the controller */
+
+// Volume struct describes the volume information needed
+type Volume struct {
+	Name        string  `json:"name" form:"name"`
+	Path        string  `json:"path,omitempty" form:"path,omitempty"`
+	VID         int64   `json:"vid,omitempty" form:"vid,omitempty"`
+	Dynamic     bool    `json:"dynamic,omitempty" form:"dynamic,omitempty"`
+	Capacity    float64 `json:"capacity,omitempty" form:"capacity,omitempty"`
+	Usage       float64 `json:"usage,omitempty" form:"usage,omitempty"`
+	CreatedAt   string  `json:"createdAt,omitempty" form:"createdAt,omitempty"`
+	ObjectCount int64   `json:"objectCount,omitempty" form:"objectCount,omitempty"`
+	// Shared marks a group volume; GID is its group (neither is stored in
+	// the volumes table: they come from the group assignment).
+	Shared bool  `json:"shared,omitempty" form:"-"`
+	GID    int64 `json:"gid,omitempty" form:"-"`
+}
+
+/* fields and ptr fields for "volume" struct helper methods*/
+
+// Fields returns a slice containing the values of the Volume struct fields,
+// in a specific order suitable for database operations or serialization.
+// The returned slice includes all fields, including IDs and metadata.
+func (v *Volume) Fields() []any {
+	return []any{v.VID, v.Name, v.Path, v.Dynamic, v.Capacity, v.Usage, v.CreatedAt}
+}
+
+// PtrFields returns a slice of pointers to the Volume struct fields,
+// in a specific order. This is useful for scanning database rows directly
+// into the struct fields or for generic update operations.
+func (v *Volume) PtrFields() []any {
+	return []any{&v.VID, &v.Name, &v.Path, &v.Dynamic, &v.Capacity, &v.Usage, &v.CreatedAt}
+}
+
+// FieldsNoID returns a slice containing the values of the Volume struct fields,
+// excluding the primary ID (Rid). This is typically used for insert or update
+// operations where the ID is auto-generated or not required.
+func (v *Volume) FieldsNoID() []any {
+	return []any{v.Name, v.Path, v.Dynamic, v.Capacity, v.Usage, v.CreatedAt}
+}
+
+// PtrFieldsNoID returns a slice of pointers to the Volume struct fields,
+// excluding the primary ID (Rid). This is typically used for insert or update
+// operations where the ID is auto-generated or not required.
+func (v *Volume) PtrFieldsNoID() []any {
+	return []any{&v.Name, &v.Path, &v.Dynamic, &v.Capacity, &v.Usage, &v.CreatedAt}
+}
+
+// Validate method verifies the volume object is allowed, given the rules
+func (v *Volume) Validate(maxCapacity, fallbackCapacity float64, plusChars string) error {
+	// name should be specific
+	// path should exist
+	// vid should exist
+
+	// for starters, check just the name
+	if len(v.Name) < 4 {
+		return errors.New("volume name cannot be less or equal than 3 characters")
+	}
+
+	if len(v.Name) > 63 {
+		return errors.New("volume name too large: max 63 chars")
+	}
+
+	if !ut.IsAlphanumericPlus(v.Name, plusChars) {
+		return errors.New("volume name must contain only alphanumeric characters and '.' or '-'")
+	}
+
+	if maxCapacity > 0 && v.Capacity > maxCapacity {
+		v.Capacity = fallbackCapacity
+	}
+
+	return nil
+}
+
+/* a struct to represent each user volume relationship */
+
+// UserVolume struct describes the "chunk" of a user upon a volume
+type UserVolume struct {
+	UpdatedAt string  `json:"updatedAt"`
+	VID       int64   `json:"vid"`
+	Vname     string  `json:"vname,omitempty"` // filled by listings, not stored
+	UID       int64   `json:"uid"`
+	Usage     float64 `json:"usage"`
+	Quota     float64 `json:"quota"`
+}
+
+// PtrFields returns a slice of pointers to the UserVolume struct fields,
+// in a specific order. This is useful for scanning database rows directly
+// into the struct fields or for generic update operations.
+func (uv *UserVolume) PtrFields() []any {
+	return []any{&uv.VID, &uv.UID, &uv.Usage, &uv.Quota, &uv.UpdatedAt}
+}
+
+// Fields returns a slice containing the values of the UserVolume struct fields,
+// in a specific order suitable for database operations or serialization.
+// The returned slice includes all fields, including IDs and metadata.
+func (uv *UserVolume) Fields() []any {
+	return []any{uv.VID, uv.UID, uv.Usage, uv.Quota, uv.UpdatedAt}
+}
+
+/* a struct to represent a volume claim by a group*/
+
+// GroupVolume is a volume that belongs to a group: its members share it,
+// and what they store there counts against Quota (GB), not their own quotas.
+type GroupVolume struct {
+	UpdatedAt string  `json:"updatedAt"`
+	VID       int64   `json:"vid"`
+	Vname     string  `json:"vname"`
+	GID       int64   `json:"gid"`
+	Usage     float64 `json:"usage"`
+	Quota     float64 `json:"quota"`
+}
+
+// PtrFields returns a slice of pointers to the GroupVolume struct fields,
+// in a specific order. This is useful for scanning database rows directly
+// into the struct fields or for generic update operations.
+func (gv *GroupVolume) PtrFields() []any {
+	return []any{&gv.VID, &gv.GID, &gv.Usage, &gv.Quota, &gv.UpdatedAt}
+}
+
+// Fields returns a slice containing the values of the GroupVolume struct fields,
+// in a specific order suitable for database operations or serialization.
+// The returned slice includes all fields, including IDs and metadata.
+func (gv *GroupVolume) Fields() []any {
+	return []any{gv.VID, gv.GID, gv.Usage, gv.Quota, gv.UpdatedAt}
+}
+
+/* Header information the service needs to handle requests.
+*  given uid, gids, volume_name/vid, resourceName
+*  (who the user is and in which groups he belongs to and what he seeks)
+* */
+
+// AccessClaim carries user and volume access context.
+type AccessClaim struct {
+	// UID is the user ID.
+	// @example 1001
+	UID string `json:"userId" example:"1001"`
+
+	// Gids is a comma-separated string of group IDs.
+	// @example 2001,2002
+	Gids string `json:"groupIds" example:"2001,2002"`
+
+	// Vid is the volume ID.
+	// @example 1
+	VID string `json:"volumeId" example:"1"`
+
+	// Vname is the name of the volume.
+	// @example default
+	Vname string `json:"volumeName" example:"default"`
+
+	// HasKeyword indicates if the user used a special keyword in the request.
+	HasKeyword bool `json:"haskeyword,omitempty"`
+
+	// Target is the requested resource or path.
+	// @example /data/reports
+	Target string `json:"target" example:"/data/reports"`
+}
+
+// Filter method cleans the object data, mostly strings
+func (ac *AccessClaim) Filter() AccessClaim {
+	/* can enrich this method */
+
+	return AccessClaim{
+		UID:    strings.TrimSpace(ac.UID),
+		Gids:   strings.TrimSpace(ac.Gids),
+		Target: strings.TrimSpace(ac.Target),
+		VID:    ac.VID,
+	}
+}
+
+// Validate method verifies the object is within limits
+func (ac *AccessClaim) Validate() error {
+	if ac.UID == "" && ac.Gids == "" {
+		return errors.New("cannot have empty ids")
+	}
+	if ac.Target == "" {
+		return errors.New("cannot have empty target")
+	}
+
+	return nil
+}

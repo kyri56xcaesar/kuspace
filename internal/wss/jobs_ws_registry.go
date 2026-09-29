@@ -20,6 +20,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"kyri56xcaesar/kuspace/internal/config"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
@@ -360,7 +361,7 @@ func writeMessages(client *Client) {
 }
 
 // newEngine applies the configuration and returns the wss routes.
-func newEngine(cfg ut.EnvConfig) *gin.Engine {
+func newEngine(cfg config.EnvConfig) *gin.Engine {
 	address = cfg.WssAddress
 	jobLogPath = cfg.WssLogsPath
 	serviceSecret = cfg.ServiceSecretKey
@@ -378,7 +379,7 @@ func newEngine(cfg ut.EnvConfig) *gin.Engine {
 
 			return
 		}
-		wss, err := ut.ReadConfig("configs/"+cfg.ConfigPath, false)
+		wss, err := config.ReadConfig("configs/"+cfg.ConfigPath, false)
 		if err != nil {
 			log.Printf("[API_sysConf] failed to read wss config: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -402,7 +403,7 @@ func newEngine(cfg ut.EnvConfig) *gin.Engine {
 }
 
 // Serve launches the main service listener
-func Serve(cfg ut.EnvConfig) {
+func Serve(cfg config.EnvConfig) {
 	engine := newEngine(cfg)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"kyri56xcaesar/kuspace/internal/model"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
@@ -26,8 +27,8 @@ import (
 // @Param ids query string false "Comma-separated application IDs to filter"
 // @Param name query string false "Application name to fetch specific app"
 // @Param version query string false "Application version to fetch specific app"
-// @Param app body ut.Application true "Single application object (for POST)"
-// @Param apps body []ut.Application true "Multiple applications (for POST)"
+// @Param app body model.Application true "Single application object (for POST)"
+// @Param apps body []model.Application true "Multiple applications (for POST)"
 //
 // @Success 200 {object} map[string]interface{} "Success with application(s) content or status"
 // @Failure 400 {object} map[string]string "Bad request (e.g., malformed input)"
@@ -38,8 +39,8 @@ import (
 // @Router /app [post]
 func (srv *UService) handleApps(c *gin.Context) {
 	var (
-		app  ut.Application
-		apps []ut.Application
+		app  model.Application
+		apps []model.Application
 	)
 	switch c.Request.Method {
 	// "getting" jobs should be treated as "subscribing"
@@ -163,8 +164,8 @@ func (srv *UService) handleApps(c *gin.Context) {
 // @Param name query string false "Application name (used with version)"
 // @Param version query string false "Application version (used with name)"
 // @Param id query string false "Single application ID to delete"
-// @Param app body ut.Application true "Single application object (POST/PUT)"
-// @Param apps body []ut.Application true "Multiple application objects (POST)"
+// @Param app body model.Application true "Single application object (POST/PUT)"
+// @Param apps body []model.Application true "Multiple application objects (POST)"
 //
 // @Success 200 {object} map[string]interface{} "Success with application(s) content or status"
 // @Failure 400 {object} map[string]string "Bad request (e.g., malformed input)"
@@ -177,8 +178,8 @@ func (srv *UService) handleApps(c *gin.Context) {
 // @Router /admin/app [delete]
 func (srv *UService) handleAppsAdmin(c *gin.Context) {
 	var (
-		app  ut.Application
-		apps []ut.Application
+		app  model.Application
+		apps []model.Application
 	)
 	switch c.Request.Method {
 	case http.MethodGet:

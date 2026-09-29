@@ -572,46 +572,6 @@ func ValidateObjectName(name string) error {
 	return nil
 }
 
-func appendIfMissing(s, suffix string) string {
-	if !strings.HasSuffix(s, suffix) {
-		return s + suffix
-	}
-
-	return s
-}
-
-func parseMi(s string) (int, error) {
-	if s == "" {
-		return 0, nil
-	}
-	s = strings.TrimSuffix(s, "Mi")
-	if s == "" {
-		return 0, nil
-	}
-
-	return strconv.Atoi(s)
-}
-
-func parseGi(s string) (float64, error) {
-	if s == "" {
-		return 0, nil
-	}
-	s = strings.TrimSuffix(s, "Gi")
-	if s == "" {
-		return 0, nil
-	}
-
-	return strconv.ParseFloat(s, 64)
-}
-
-func parseCPU(s string) (float64, error) {
-	if s == "" {
-		return 0, nil
-	}
-
-	return strconv.ParseFloat(s, 64)
-}
-
 // GenerateRandomStringAll returns length random characters (crypto/rand)
 // from letters, digits and symbols.
 func GenerateRandomStringAll(length int) (string, error) {

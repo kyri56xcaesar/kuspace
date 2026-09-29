@@ -4,19 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/http"
-	"net/http/httptest"
-	"strings"
-	"testing"
-
-	ut "kyri56xcaesar/kuspace/internal/utils"
-
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sversion "k8s.io/apimachinery/pkg/version"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
+	"kyri56xcaesar/kuspace/internal/config"
+	"kyri56xcaesar/kuspace/internal/model"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
 )
 
 // fakeDocker answers the docker CLI calls Status makes: args joined by " "
@@ -40,7 +39,7 @@ func fakeDocker(answers map[string]string, failing ...string) func(ctx context.C
 }
 
 func dockerExecutor(network string, run func(context.Context, ...string) ([]byte, error)) JDockerExecutor {
-	rt := newRuntimeWith(&UService{config: ut.EnvConfig{JobsConfig: ut.JobsConfig{UspaceJobDockerNetwork: network}}})
+	rt := newRuntimeWith(&UService{config: config.EnvConfig{JobsConfig: config.JobsConfig{UspaceJobDockerNetwork: network}}})
 
 	return JDockerExecutor{rt: rt, run: run}
 }
@@ -101,10 +100,10 @@ func TestEngineSwitching(t *testing.T) {
 	k8s := &stubEngine{name: "kubernetes", err: "no cluster configuration"}
 	rt.engines = newEngineSet(JDockerExecutor{rt: rt, run: fakeDocker(map[string]string{"version": "27.3.1"})}, k8s)
 	a.srv.jdp = JobDispatcherImpl{Manager: JobManager{rt: rt}}
-	get := func() ut.EnginesStatus {
+	get := func() model.EnginesStatus {
 		t.Helper()
 		rec := a.do(http.MethodGet, "/api/v1/admin/executor", "::/", "0:0", nil, "")
-		var st ut.EnginesStatus
+		var st model.EnginesStatus
 		if err := json.Unmarshal(rec.Body.Bytes(), &st); rec.Code != http.StatusOK || err != nil {
 			t.Fatalf("%d %s", rec.Code, rec.Body)
 		}
@@ -158,9 +157,9 @@ type stubEngine struct {
 	name, err string
 }
 
-func (s *stubEngine) ExecuteJob(ut.Job) error { return nil }
-func (s *stubEngine) CancelJob(ut.Job) error  { return nil }
-func (s *stubEngine) Name() string            { return s.name }
-func (s *stubEngine) Status(context.Context) ut.ExecutorStatus {
-	return ut.ExecutorStatus{Engine: s.name, Active: s.err == "", Error: s.err}
+func (s *stubEngine) ExecuteJob(model.Job) error { return nil }
+func (s *stubEngine) CancelJob(model.Job) error  { return nil }
+func (s *stubEngine) Name() string               { return s.name }
+func (s *stubEngine) Status(context.Context) model.ExecutorStatus {
+	return model.ExecutorStatus{Engine: s.name, Active: s.err == "", Error: s.err}
 }

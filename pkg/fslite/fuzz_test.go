@@ -1,11 +1,10 @@
 package fslite
 
 import (
+	"kyri56xcaesar/kuspace/internal/model"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
 // FuzzNormalizeName: one stored form - a single leading "/" - reached in
@@ -49,7 +48,7 @@ func FuzzPrefixListing(f *testing.F) {
 	names := []string{"/a_b", "/aXb", "/a%b", "/a%", `/a\b`, "/ab", "/b", "/a b"}
 	vid := mustVolume(f, fsl, "vol1", 0)
 	for _, n := range names {
-		mustResource(f, fsl, ut.Resource{Name: n, Vname: "vol1", VID: vid, UID: 1, GID: 1, Type: "file"})
+		mustResource(f, fsl, model.Resource{Name: n, Vname: "vol1", VID: vid, UID: 1, GID: 1, Type: "file"})
 	}
 	for _, s := range []string{"a_", "a%", `a\`, "a", "", "%", "_", `\`, "a b"} {
 		f.Add(s)
@@ -60,7 +59,7 @@ func FuzzPrefixListing(f *testing.F) {
 			t.Fatal(err)
 		}
 		got := map[string]bool{}
-		for _, r := range res.([]ut.Resource) {
+		for _, r := range res.([]model.Resource) {
 			got[r.Name] = true
 		}
 		want := NormalizeName(prefix)

@@ -40,6 +40,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"kyri56xcaesar/kuspace/internal/model"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
@@ -66,7 +67,7 @@ type DBDispatcher struct {
 	now    func() time.Time
 	// outputWritten tells whether a job whose container is gone wrote its
 	// output (tests stand in)
-	outputWritten func(ctx context.Context, job ut.Job, since time.Time) bool
+	outputWritten func(ctx context.Context, job model.Job, since time.Time) bool
 
 	draining atomic.Bool   // set by Drain: nothing new is claimed
 	wake     chan struct{} // a job was queued
@@ -138,7 +139,7 @@ func (d *DBDispatcher) exec(ctx context.Context, query string, args ...any) (int
 }
 
 // PublishJob queues an inserted job.
-func (d *DBDispatcher) PublishJob(job ut.Job) error {
+func (d *DBDispatcher) PublishJob(job model.Job) error {
 	if d.draining.Load() {
 		return ErrShuttingDown
 	}
@@ -155,7 +156,7 @@ func (d *DBDispatcher) PublishJob(job ut.Job) error {
 }
 
 // PublishJobs queues each job.
-func (d *DBDispatcher) PublishJobs(jobs []ut.Job) error {
+func (d *DBDispatcher) PublishJobs(jobs []model.Job) error {
 	for _, j := range jobs {
 		if err := d.PublishJob(j); err != nil {
 			return err
@@ -192,12 +193,12 @@ func (d *DBDispatcher) RemoveJobs(jids []int) error {
 }
 
 // Subscribe is not used by this dispatcher.
-func (d *DBDispatcher) Subscribe(ut.Job) error { return nil }
+func (d *DBDispatcher) Subscribe(model.Job) error { return nil }
 
 func (d *DBDispatcher) engines() *engineSet { return d.rt.engines }
 
 // reattacher is the engine job runs on (checked in NewDBDispatcher).
-func (d *DBDispatcher) reattacher(job ut.Job) jobReattacher {
+func (d *DBDispatcher) reattacher(job model.Job) jobReattacher {
 	r, _ := d.rt.engines.forJob(job.Engine).(jobReattacher)
 
 	return r
@@ -262,10 +263,10 @@ func (d *DBDispatcher) claimAll(ctx context.Context) {
 
 // claim takes the oldest queued job: starting, attempts+1, leased, on the
 // engine taking new jobs now (recorded, so a switch can't move it).
-func (d *DBDispatcher) claim(ctx context.Context) (ut.Job, bool, error) {
+func (d *DBDispatcher) claim(ctx context.Context) (model.Job, bool, error) {
 	db, err := d.db()
 	if err != nil {
-		return ut.Job{}, false, err
+		return model.Job{}, false, err
 	}
 	var jid int64
 	engine, _ := d.rt.engines.now()
@@ -273,10 +274,10 @@ func (d *DBDispatcher) claim(ctx context.Context) (ut.Job, bool, error) {
 		WHERE jid = (SELECT jid FROM jobs WHERE status = 'queued' ORDER BY jid LIMIT 1) AND status = 'queued'
 		RETURNING jid`, d.leaseEnd(), engine).Scan(&jid)
 	if errors.Is(err, sql.ErrNoRows) {
-		return ut.Job{}, false, nil
+		return model.Job{}, false, nil
 	}
 	if err != nil {
-		return ut.Job{}, false, err
+		return model.Job{}, false, err
 	}
 	job, err := d.srv.getJobByID(ctx, int(jid))
 
@@ -286,7 +287,7 @@ func (d *DBDispatcher) claim(ctx context.Context) (ut.Job, bool, error) {
 // watch runs work for job (executing or following it) under a heartbeat,
 // counted for Drain (the runtime's work in flight); a job work leaves
 // unfinished is failed.
-func (d *DBDispatcher) watch(ctx context.Context, job ut.Job, work func()) {
+func (d *DBDispatcher) watch(ctx context.Context, job model.Job, work func()) {
 	beat := d.heartbeat(ctx, job.JID)
 	d.rt.start(func() {
 		defer beat()
@@ -344,7 +345,7 @@ func (d *DBDispatcher) reapLoop() {
 
 // lostJob is a starting or running job past its lease.
 type lostJob struct {
-	job     ut.Job
+	job     model.Job
 	status  string
 	started time.Time // zero when it never started
 }

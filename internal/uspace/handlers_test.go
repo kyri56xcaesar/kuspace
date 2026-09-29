@@ -21,6 +21,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"kyri56xcaesar/kuspace/internal/model"
+	"kyri56xcaesar/kuspace/internal/sqlite"
 )
 
 // memStorage is an in-memory StorageSystem, so handlers run without MinIO.
@@ -47,7 +49,7 @@ func (m *memStorage) Stat(context.Context, any) (any, error) {
 }
 
 func (m *memStorage) Insert(_ context.Context, t any) error {
-	r := t.(ut.Resource)
+	r := t.(model.Resource)
 	b, err := io.ReadAll(r.Reader)
 	if err != nil {
 		return err
@@ -60,7 +62,7 @@ func (m *memStorage) Insert(_ context.Context, t any) error {
 }
 
 func (m *memStorage) Download(_ context.Context, t *any) (context.CancelFunc, error) {
-	r := (*t).(*ut.Resource)
+	r := (*t).(*model.Resource)
 	m.mu.Lock()
 	b, ok := m.objects[key(r.Vname, r.Name)]
 	m.mu.Unlock()
@@ -73,7 +75,7 @@ func (m *memStorage) Download(_ context.Context, t *any) (context.CancelFunc, er
 }
 
 func (m *memStorage) Remove(_ context.Context, t any) error {
-	r := t.(ut.Resource)
+	r := t.(model.Resource)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.objects, key(r.Vname, r.Name))
@@ -82,7 +84,7 @@ func (m *memStorage) Remove(_ context.Context, t any) error {
 }
 
 func (m *memStorage) Copy(_ context.Context, s, d any) error {
-	src, dst := s.(ut.Resource), d.(ut.Resource)
+	src, dst := s.(model.Resource), d.(model.Resource)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	b, ok := m.objects[key(src.Vname, src.Name)]
@@ -115,7 +117,7 @@ func newAPIHarness(t *testing.T, quotaGB float64) *apiHarness {
 	srv.Engine = gin.New()
 	srv.RegisterRoutes()
 	for _, v := range []string{"team", "other"} {
-		if err := srv.fsl.CreateVolume(t.Context(), ut.Volume{Name: v, CreatedAt: ut.CurrentTime()}); err != nil {
+		if err := srv.fsl.CreateVolume(t.Context(), model.Volume{Name: v, CreatedAt: ut.CurrentTime()}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -152,7 +154,7 @@ func (a *apiHarness) upload(volume, name, content, who string) *httptest.Respons
 	return a.do(http.MethodPost, "/api/v1/resource/upload", volume+":/", who, &buf, mw.FormDataContentType())
 }
 
-func (a *apiHarness) resource(volume, name string) ut.Resource {
+func (a *apiHarness) resource(volume, name string) model.Resource {
 	a.t.Helper()
 	r, found, err := a.srv.lookupResource(a.t.Context(), name, volume)
 	if err != nil || !found {
@@ -239,7 +241,7 @@ func TestGroupVolumeHandlers(t *testing.T) {
 	}
 
 	// who sees which shared volumes
-	var gvs []ut.GroupVolume
+	var gvs []model.GroupVolume
 	rec := a.do(http.MethodGet, "/api/v1/volumes/shared", "::/", member, nil, "")
 	_ = json.Unmarshal(rec.Body.Bytes(), &gvs)
 	if len(gvs) != 1 || gvs[0].Vname != "team" || gvs[0].Usage <= 0 {
@@ -265,13 +267,13 @@ func TestGroupVolumeHandlers(t *testing.T) {
 // withJobsDB gives the harness a jobs database holding one job per uid.
 func (a *apiHarness) withJobsDB(uids ...int64) {
 	a.t.Helper()
-	a.srv.jdbh = ut.NewDBHandler("jobs_test.db", a.t.TempDir()+"/", "sqlite3")
+	a.srv.jdbh = sqlite.NewDBHandler("jobs_test.db", a.t.TempDir()+"/", "sqlite3")
 	if err := openJobsDB(a.t.Context(), &a.srv.jdbh, "4", "2", "5"); err != nil {
 		a.t.Fatal(err)
 	}
 	a.t.Cleanup(a.srv.jdbh.Close)
 	for _, uid := range uids {
-		if _, err := a.srv.insertJob(a.t.Context(), ut.Job{UID: uid, Input: "vol1/in.csv", Output: "vol1/out.csv",
+		if _, err := a.srv.insertJob(a.t.Context(), model.Job{UID: uid, Input: "vol1/in.csv", Output: "vol1/out.csv",
 			Logic: "bash", LogicBody: "secret code of " + strconv.FormatInt(uid, 10), Status: "completed", CreatedAt: ut.CurrentTime()}); err != nil {
 			a.t.Fatal(err)
 		}
@@ -283,7 +285,7 @@ func (a *apiHarness) withJobsDB(uids ...int64) {
 func TestJobListingIsScopedToTheCaller(t *testing.T) {
 	a := newAPIHarness(t, 1)
 	a.withJobsDB(1001, 2002, 2002)
-	jobsOf := func(who, query string) []ut.Job {
+	jobsOf := func(who, query string) []model.Job {
 		t.Helper()
 		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/job"+query, nil)
 		req.Header.Set("X-Service-Secret", svcSecret)
@@ -291,7 +293,7 @@ func TestJobListingIsScopedToTheCaller(t *testing.T) {
 		rec := httptest.NewRecorder()
 		a.h.ServeHTTP(rec, req)
 		var body struct {
-			Content []ut.Job `json:"content"`
+			Content []model.Job `json:"content"`
 		}
 		_ = json.Unmarshal(rec.Body.Bytes(), &body)
 
@@ -307,13 +309,13 @@ func TestJobListingIsScopedToTheCaller(t *testing.T) {
 
 		return s
 	}
-	asUser := func(uid, query string) (int, []ut.Job) {
+	asUser := func(uid, query string) (int, []model.Job) {
 		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/job"+query, nil)
 		req.Header.Set("Authorization", "Bearer "+tok(uid))
 		rec := httptest.NewRecorder()
 		a.h.ServeHTTP(rec, req)
 		var body struct {
-			Content []ut.Job `json:"content"`
+			Content []model.Job `json:"content"`
 		}
 		_ = json.Unmarshal(rec.Body.Bytes(), &body)
 
@@ -373,8 +375,8 @@ func TestErrorsAnswerByKind(t *testing.T) {
 	a := newAPIHarness(t, 1)
 	// a record whose object is gone (the kind of drift fsck reports)
 	now := ut.CurrentTime()
-	if err := a.srv.fsl.Insert(t.Context(), ut.Resource{Name: "/ghost.txt", Vname: "vol1", VID: a.srv.volumeID(t.Context(), "vol1"),
-		UID: 1001, GID: 1001, Perms: ut.DefaultFilePerms, Type: "file", CreatedAt: now, UpdatedAt: now, AccessedAt: now}); err != nil {
+	if err := a.srv.fsl.Insert(t.Context(), model.Resource{Name: "/ghost.txt", Vname: "vol1", VID: a.srv.volumeID(t.Context(), "vol1"),
+		UID: 1001, GID: 1001, Perms: model.DefaultFilePerms, Type: "file", CreatedAt: now, UpdatedAt: now, AccessedAt: now}); err != nil {
 		t.Fatal(err)
 	}
 	if rec := a.do(http.MethodGet, "/api/v1/resource/download", "vol1:/ghost.txt", "1001:1001", nil, ""); rec.Code != http.StatusNotFound {
@@ -471,7 +473,7 @@ func TestLanguagesAreApps(t *testing.T) {
 	}
 	rec := a.do(http.MethodGet, "/api/v1/app", "::/", "1001:1001", nil, "")
 	var body struct {
-		Content []ut.Application `json:"content"`
+		Content []model.Application `json:"content"`
 	}
 	_ = json.Unmarshal(rec.Body.Bytes(), &body)
 	names := map[string]string{}

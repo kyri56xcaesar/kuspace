@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"kyri56xcaesar/kuspace/internal/model"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
@@ -48,7 +49,7 @@ func dockerContainerName(jid int64) string {
 
 // dockerRunArgs builds the `docker run` arguments for a prepared job
 // (image in job.Logic, environment in job.Env).
-func dockerRunArgs(job ut.Job, command []string, q jobQuotas, network string) []string {
+func dockerRunArgs(job model.Job, command []string, q jobQuotas, network string) []string {
 	args := []string{
 		"run", "--rm",
 		"--name", dockerContainerName(job.JID),
@@ -79,10 +80,10 @@ func (je JDockerExecutor) Name() string { return "docker" }
 
 // Status asks the docker engine for its version (which fails when uspace
 // can't reach it) and checks that the job network exists.
-func (je JDockerExecutor) Status(ctx context.Context) ut.ExecutorStatus {
+func (je JDockerExecutor) Status(ctx context.Context) model.ExecutorStatus {
 	run := je.docker
 	network := je.rt.srv.config.UspaceJobDockerNetwork
-	st := ut.ExecutorStatus{Engine: "docker", Where: "network " + network, CheckedAt: ut.CurrentTime()}
+	st := model.ExecutorStatus{Engine: "docker", Where: "network " + network, CheckedAt: ut.CurrentTime()}
 	if network == "" {
 		st.Where = "the default network"
 	}
@@ -118,7 +119,7 @@ func killContainer(jid int64) error {
 }
 
 // ExecuteJob method, the core logic of execution
-func (je JDockerExecutor) ExecuteJob(job ut.Job) error {
+func (je JDockerExecutor) ExecuteJob(job model.Job) error {
 	srv := je.rt.srv
 	bg := context.Background()
 
@@ -228,6 +229,6 @@ func (je JDockerExecutor) ExecuteJob(job ut.Job) error {
 }
 
 // CancelJob stops the job's container.
-func (je JDockerExecutor) CancelJob(job ut.Job) error {
+func (je JDockerExecutor) CancelJob(job model.Job) error {
 	return killContainer(job.JID)
 }

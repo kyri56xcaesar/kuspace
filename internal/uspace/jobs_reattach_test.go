@@ -1,14 +1,12 @@
 package uspace
 
 import (
-	"testing"
-
-	ut "kyri56xcaesar/kuspace/internal/utils"
-
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	"kyri56xcaesar/kuspace/internal/model"
+	"testing"
 )
 
 func TestDockerInspect(t *testing.T) {
@@ -20,16 +18,16 @@ func TestDockerInspect(t *testing.T) {
 		"dead 1":      engineFailed,
 	} {
 		je := dockerExecutor("", fakeDocker(map[string]string{"inspect": out}))
-		if got, err := je.inspect(t.Context(), ut.Job{JID: 7}); got != want || err != nil {
+		if got, err := je.inspect(t.Context(), model.Job{JID: 7}); got != want || err != nil {
 			t.Errorf("%q: %v %v, want %v", out, got, err, want)
 		}
 	}
 	gone := dockerExecutor("", fakeDocker(map[string]string{"inspect": "Error: No such object: kuspace-job-7"}, "inspect"))
-	if got, err := gone.inspect(t.Context(), ut.Job{JID: 7}); got != engineGone || err != nil {
+	if got, err := gone.inspect(t.Context(), model.Job{JID: 7}); got != engineGone || err != nil {
 		t.Errorf("no container: %v %v", got, err)
 	}
 	down := dockerExecutor("", fakeDocker(map[string]string{"inspect": "Cannot connect to the Docker daemon"}, "inspect"))
-	if got, err := down.inspect(t.Context(), ut.Job{JID: 7}); got != engineUnknown || err == nil {
+	if got, err := down.inspect(t.Context(), model.Job{JID: 7}); got != engineUnknown || err == nil {
 		t.Errorf("engine down: %v %v (must not look gone)", got, err)
 	}
 }

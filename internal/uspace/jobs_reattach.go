@@ -18,13 +18,12 @@ import (
 	"strings"
 	"time"
 
-	k "kyri56xcaesar/kuspace/internal/uspace/kubernetes"
-	ut "kyri56xcaesar/kuspace/internal/utils"
-
 	"github.com/minio/minio-go/v7"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"kyri56xcaesar/kuspace/internal/model"
+	k "kyri56xcaesar/kuspace/internal/uspace/kubernetes"
 )
 
 // engineState is what an engine knows about a job.
@@ -45,16 +44,16 @@ func (s engineState) String() string {
 // jobReattacher is what an executor needs for the database dispatcher.
 type jobReattacher interface {
 	// inspect asks the engine about a job uspace lost track of.
-	inspect(ctx context.Context, job ut.Job) (engineState, error)
+	inspect(ctx context.Context, job model.Job) (engineState, error)
 	// reattach watches a still-running job to its end and records the
 	// outcome (status, log, output) as ExecuteJob does. started is when the
 	// job started; its timeout counts from there. It takes no worker slot.
-	reattach(job ut.Job, started time.Time)
+	reattach(job model.Job, started time.Time)
 }
 
 // runDeadline bounds a job's run: its timeout (or a day) plus slack, from
 // when it started.
-func runDeadline(job ut.Job, started time.Time) time.Time {
+func runDeadline(job model.Job, started time.Time) time.Time {
 	limit := 24 * time.Hour
 	if job.Timeout > 0 {
 		limit = time.Duration(job.Timeout)*time.Minute + 5*time.Minute
@@ -66,7 +65,7 @@ func runDeadline(job ut.Job, started time.Time) time.Time {
 // ---------------------------------------------------------------- docker
 
 // inspect reads the container's state (docker inspect).
-func (je JDockerExecutor) inspect(ctx context.Context, job ut.Job) (engineState, error) {
+func (je JDockerExecutor) inspect(ctx context.Context, job model.Job) (engineState, error) {
 	ctx, cancel := context.WithTimeout(ctx, executorStatusTimeout)
 	defer cancel()
 	out, err := je.docker(ctx, "inspect", "--format", "{{.State.Status}} {{.State.ExitCode}}", dockerContainerName(job.JID))
@@ -111,7 +110,7 @@ func (je JDockerExecutor) docker(ctx context.Context, args ...string) ([]byte, e
 // start) and waits for it to exit (docker wait). A container that is gone
 // before its exit code is read (it runs with --rm) counts as completed when
 // it wrote its output.
-func (je JDockerExecutor) reattach(job ut.Job, started time.Time) {
+func (je JDockerExecutor) reattach(job model.Job, started time.Time) {
 	srv := je.rt.srv
 	bg := context.Background()
 	name := dockerContainerName(job.JID)
@@ -189,7 +188,7 @@ func (je JDockerExecutor) reattach(job ut.Job, started time.Time) {
 // ---------------------------------------------------------------- kubernetes
 
 // inspect reads the kubernetes job's status.
-func (jke JKubernetesExecutor) inspect(ctx context.Context, job ut.Job) (engineState, error) {
+func (jke JKubernetesExecutor) inspect(ctx context.Context, job model.Job) (engineState, error) {
 	client, err := k.GetKubeClient()
 	if err != nil {
 		return engineUnknown, err
@@ -225,7 +224,7 @@ func k8sState(ctx context.Context, client kubernetes.Interface, ns string, jid i
 
 // reattach watches the kubernetes job again, as ExecuteJob does after
 // starting it.
-func (jke JKubernetesExecutor) reattach(job ut.Job, started time.Time) {
+func (jke JKubernetesExecutor) reattach(job model.Job, started time.Time) {
 	srv := jke.rt.srv
 	out := newJobOutput(job.JID)
 	defer func() {
@@ -256,7 +255,7 @@ func (jke JKubernetesExecutor) reattach(job ut.Job, started time.Time) {
 
 // finishJob records a job's outcome: its status (with reason when there is
 // one to give) and, when it completed, its output.
-func (srv *UService) finishJob(ctx context.Context, job ut.Job, status, reason string, d time.Duration, out *jobOutput) {
+func (srv *UService) finishJob(ctx context.Context, job model.Job, status, reason string, d time.Duration, out *jobOutput) {
 	msg := "[executor] job " + strconv.FormatInt(job.JID, 10) + " finished with status: " + status
 	if reason != "" {
 		msg += " (" + reason + ")"
@@ -277,12 +276,12 @@ func (srv *UService) finishJob(ctx context.Context, job ut.Job, status, reason s
 
 // outputWrittenSince reports whether the job's output object was written
 // at or after since: how a job whose container is gone shows it finished.
-func (srv *UService) outputWrittenSince(ctx context.Context, job ut.Job, since time.Time) bool {
+func (srv *UService) outputWrittenSince(ctx context.Context, job model.Job, since time.Time) bool {
 	vname, name, ok := strings.Cut(strings.TrimPrefix(job.Output, "/"), "/")
 	if !ok {
 		return false
 	}
-	info, err := srv.storage.Stat(ctx, ut.Resource{Vname: vname, Name: name})
+	info, err := srv.storage.Stat(ctx, model.Resource{Vname: vname, Name: name})
 	if err != nil {
 		return false
 	}

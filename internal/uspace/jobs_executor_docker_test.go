@@ -1,19 +1,18 @@
 package uspace
 
 import (
+	"kyri56xcaesar/kuspace/internal/model"
 	"slices"
 	"strings"
 	"testing"
-
-	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
 func TestDockerRunArgs(t *testing.T) {
-	q, err := parseJobQuotas(ut.Job{MemoryRequest: "256Mi", MemoryLimit: "512Mi", CPURequest: "250m", CPULimit: "1500m"})
+	q, err := parseJobQuotas(model.Job{MemoryRequest: "256Mi", MemoryLimit: "512Mi", CPURequest: "250m", CPULimit: "1500m"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	job := ut.Job{JID: 9, Logic: "kyri56xcaesar/kuspace:applications-bash-v2",
+	job := model.Job{JID: 9, Logic: "kyri56xcaesar/kuspace:applications-bash-v2",
 		Env: map[string]string{"OUTPUT_URL": "http://m/o?sig", "INPUT_URL": "http://m/i?sig", "LOGIC": "sort {input} > {output}"}}
 	args := dockerRunArgs(job, []string{"python3", "bash_app.py"}, q, "devnet")
 	joined := strings.Join(args, " ")

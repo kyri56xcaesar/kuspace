@@ -3,10 +3,9 @@ package uspace_test
 import (
 	"testing"
 
-	u "kyri56xcaesar/kuspace/internal/uspace"
-	ut "kyri56xcaesar/kuspace/internal/utils"
-
 	"github.com/zeebo/assert"
+	"kyri56xcaesar/kuspace/internal/model"
+	u "kyri56xcaesar/kuspace/internal/uspace"
 )
 
 func TestBinding(t *testing.T) {
@@ -17,7 +16,7 @@ func TestBinding(t *testing.T) {
 		panic(err)
 	}
 
-	assert.DeepEqual(t, ac, ut.AccessClaim{
+	assert.DeepEqual(t, ac, model.AccessClaim{
 		UID:        "0",
 		Gids:       "0,100,1000",
 		VID:        "3",
@@ -31,7 +30,7 @@ func TestBinding(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	assert.DeepEqual(t, ac, ut.AccessClaim{
+	assert.DeepEqual(t, ac, model.AccessClaim{
 		UID:        "0",
 		Gids:       "0",
 		VID:        "1",
@@ -44,7 +43,7 @@ func TestBinding(t *testing.T) {
 	_, err = u.BindAccessTarget(testH)
 
 	assert.NoError(t, err)
-	// assert.DeepEqual(t, ac, ut.AccessClaim{
+	// assert.DeepEqual(t, ac, model.AccessClaim{
 	// 	UID:        "0",
 	// 	Gids:       "0",
 	// 	Vid:        "",
@@ -58,7 +57,7 @@ func TestBindingFalse(t *testing.T) {
 	testH := "::$rids=1,2,3 0:0"
 	_, err := u.BindAccessTarget(testH)
 	assert.Error(t, err)
-	// assert.DeepEqual(t, ac, ut.AccessClaim{
+	// assert.DeepEqual(t, ac, model.AccessClaim{
 	// 	UID:        "0",
 	// 	Gids:       "0",
 	// 	Vid:        "",

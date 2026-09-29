@@ -15,11 +15,12 @@ import (
 	"log"
 	"strings"
 
+	"kyri56xcaesar/kuspace/internal/model"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
 /* database call handlers regarding the Volume table */
-func getAllVolumes(ctx context.Context, db *sql.DB) ([]ut.Volume, error) {
+func getAllVolumes(ctx context.Context, db *sql.DB) ([]model.Volume, error) {
 	rows, err := db.QueryContext(ctx, `
     SELECT * FROM volume_usage`)
 	if err != nil {
@@ -34,9 +35,9 @@ func getAllVolumes(ctx context.Context, db *sql.DB) ([]ut.Volume, error) {
 		}
 	}()
 
-	var volumes []ut.Volume
+	var volumes []model.Volume
 	for rows.Next() {
-		var v ut.Volume
+		var v model.Volume
 		err = rows.Scan(v.PtrFields()...)
 		if err != nil {
 			log.Printf("[FSL_DB_getVolumes] error scanning row: %v", err)
@@ -54,29 +55,29 @@ func getAllVolumes(ctx context.Context, db *sql.DB) ([]ut.Volume, error) {
 	return volumes, nil
 }
 
-func getVolumeByVid(ctx context.Context, db *sql.DB, vid int) (ut.Volume, error) {
-	var volume ut.Volume
+func getVolumeByVid(ctx context.Context, db *sql.DB, vid int) (model.Volume, error) {
+	var volume model.Volume
 	err := db.QueryRowContext(ctx, `SELECT * FROM volume_usage WHERE vid = ?`, vid).Scan(volume.PtrFields()...)
 	if errors.Is(err, sql.ErrNoRows) {
-		return ut.Volume{}, fmt.Errorf("%w: id %d", ErrVolumeNotFound, vid)
+		return model.Volume{}, fmt.Errorf("%w: id %d", ErrVolumeNotFound, vid)
 	} else if err != nil {
 		log.Printf("[FSL_DB_getVolumeByVid] failed to scan result query: %v", err)
 
-		return ut.Volume{}, fmt.Errorf("[fsl] failed to scan row: %w", err)
+		return model.Volume{}, fmt.Errorf("[fsl] failed to scan row: %w", err)
 	}
 
 	return volume, nil
 }
 
-func getVolumeByName(ctx context.Context, db *sql.DB, name string) (ut.Volume, error) {
-	var volume ut.Volume
+func getVolumeByName(ctx context.Context, db *sql.DB, name string) (model.Volume, error) {
+	var volume model.Volume
 	err := db.QueryRowContext(ctx, `SELECT * FROM volume_usage WHERE name = ?`, name).Scan(volume.PtrFields()...)
 	if errors.Is(err, sql.ErrNoRows) {
-		return ut.Volume{}, fmt.Errorf("%w: %s", ErrVolumeNotFound, name)
+		return model.Volume{}, fmt.Errorf("%w: %s", ErrVolumeNotFound, name)
 	} else if err != nil {
 		log.Printf("failed to scan result query: %v", err)
 
-		return ut.Volume{}, fmt.Errorf("[fsl] failed to scan row: %w", err)
+		return model.Volume{}, fmt.Errorf("[fsl] failed to scan row: %w", err)
 	}
 
 	return volume, nil
@@ -130,7 +131,7 @@ func deleteVolumeByName(ctx context.Context, db *sql.DB, name string) error {
 	return nil
 }
 
-func insertVolume(ctx context.Context, db *sql.DB, volume ut.Volume) error {
+func insertVolume(ctx context.Context, db *sql.DB, volume model.Volume) error {
 	_, err := db.ExecContext(ctx, `
 		INSERT INTO 
 			volumes (name, path, dynamic, capacity, usage, createdAt) 
@@ -146,7 +147,7 @@ func insertVolume(ctx context.Context, db *sql.DB, volume ut.Volume) error {
 
 /* database call handlers regarding the UserVolume table */
 /* UNIQUE (vid, uid) pair*/
-func insertUserVolume(ctx context.Context, db *sql.DB, uv ut.UserVolume) error {
+func insertUserVolume(ctx context.Context, db *sql.DB, uv model.UserVolume) error {
 	// check for uniquness
 	var exists bool
 	err := db.QueryRowContext(ctx, `SELECT 1 FROM user_volume WHERE vid = ? AND uid = ? LIMIT 1;`, uv.VID, uv.UID).Scan(&exists)
@@ -171,7 +172,7 @@ func insertUserVolume(ctx context.Context, db *sql.DB, uv ut.UserVolume) error {
 	return nil
 }
 
-func insertUserVolumes(ctx context.Context, db *sql.DB, uvs []ut.UserVolume) error {
+func insertUserVolumes(ctx context.Context, db *sql.DB, uvs []model.UserVolume) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Printf("error starting transaction: %v", err)
@@ -230,9 +231,9 @@ func getAllUserVolumes(ctx context.Context, db *sql.DB) (any, error) {
 			log.Printf("failed to close rows: %v", err)
 		}
 	}()
-	var userVolumes []ut.UserVolume
+	var userVolumes []model.UserVolume
 	for rows.Next() {
-		var uv ut.UserVolume
+		var uv model.UserVolume
 		err = rows.Scan(uv.PtrFields()...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan user volume: %w", err)
@@ -265,9 +266,9 @@ func getUserVolumesByUserIDs(ctx context.Context, db *sql.DB, uids []string) (an
 			log.Printf("failed to close rows: %v", err)
 		}
 	}()
-	var userVolumes []ut.UserVolume
+	var userVolumes []model.UserVolume
 	for rows.Next() {
-		var uv ut.UserVolume
+		var uv model.UserVolume
 		err = rows.Scan(uv.PtrFields()...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan user volume: %w", err)
@@ -300,9 +301,9 @@ func getUserVolumesByVolumeIDs(ctx context.Context, db *sql.DB, vids []string) (
 			log.Printf("failed to close rows: %v", err)
 		}
 	}()
-	var userVolumes []ut.UserVolume
+	var userVolumes []model.UserVolume
 	for rows.Next() {
-		var uv ut.UserVolume
+		var uv model.UserVolume
 		err = rows.Scan(uv.PtrFields()...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan user volume: %w", err)
@@ -337,9 +338,9 @@ func getUserVolumesByUidsAndVids(ctx context.Context, db *sql.DB, uids, vids []s
 			log.Printf("failed to close rows: %v", err)
 		}
 	}()
-	var userVolumes []ut.UserVolume
+	var userVolumes []model.UserVolume
 	for rows.Next() {
-		var uv ut.UserVolume
+		var uv model.UserVolume
 		err = rows.Scan(uv.PtrFields()...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan user volume: %w", err)

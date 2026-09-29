@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	ut "kyri56xcaesar/kuspace/internal/utils"
+	"kyri56xcaesar/kuspace/internal/model"
 )
 
 // JobDispatcher interface description
@@ -33,11 +33,11 @@ the default one is JDispatcher which works as a scheduler
 type JobDispatcher interface {
 	Start()
 	Drain(ctx context.Context) error
-	PublishJob(job ut.Job) error
-	PublishJobs(jobs []ut.Job) error
+	PublishJob(job model.Job) error
+	PublishJobs(jobs []model.Job) error
 	RemoveJob(jid int) error
 	RemoveJobs(jids []int) error
-	Subscribe(job ut.Job) error
+	Subscribe(job model.Job) error
 	// engines are the execution engines and the one taking new jobs.
 	engines() *engineSet
 }

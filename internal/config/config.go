@@ -1,4 +1,6 @@
-package utils
+// Package config loads a service's settings: the sections of EnvConfig it
+// asks for, from its .conf file and the environment (moved out of utils).
+package config
 
 /*
 	Configuration of the kuspace services.

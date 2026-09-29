@@ -24,6 +24,8 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
+	"kyri56xcaesar/kuspace/internal/config"
+	"kyri56xcaesar/kuspace/internal/model"
 )
 
 /*
@@ -39,7 +41,7 @@ const (
 * Structs */
 type HTTPService struct {
 	Engine *gin.Engine
-	Config ut.EnvConfig
+	Config config.EnvConfig
 
 	webRoot  string          // directory holding web/ ("." in production)
 	verifier *authn.Verifier // checks session tokens locally
@@ -54,7 +56,7 @@ type HTTPService struct {
 * Structs */
 func NewService(conf string) HTTPService {
 	service := HTTPService{webRoot: "."}
-	service.Config = ut.LoadConfig(conf, ut.Service, ut.Peers, ut.Auth, ut.Tokens, ut.Storage, ut.Jobs)
+	service.Config = config.LoadConfig(conf, config.Service, config.Peers, config.Auth, config.Tokens, config.Storage, config.Jobs)
 	setGinMode(service.Config.APIGinMode)
 	service.Engine = gin.Default()
 
@@ -126,7 +128,7 @@ func (srv *HTTPService) routes() {
 
 			return nil // Return nil if key does not exist
 		},
-		"findGroupVolume": func(s []ut.GroupVolume, gid int64) *ut.GroupVolume {
+		"findGroupVolume": func(s []model.GroupVolume, gid int64) *model.GroupVolume {
 			for _, v := range s {
 				if v.GID == gid {
 					return &v
@@ -135,7 +137,7 @@ func (srv *HTTPService) routes() {
 
 			return nil
 		},
-		"findUserVolume": func(s []ut.UserVolume, uid int64) *ut.UserVolume {
+		"findUserVolume": func(s []model.UserVolume, uid int64) *model.UserVolume {
 			for _, v := range s {
 				if v.UID == uid {
 					return &v

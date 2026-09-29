@@ -12,6 +12,7 @@ import (
 	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"github.com/gorilla/websocket"
+	"kyri56xcaesar/kuspace/internal/model"
 )
 
 /*
@@ -57,14 +58,14 @@ func (j JobDispatcherImpl) engines() *engineSet { return j.Manager.rt.engines }
 
 // PublishJob method which publishes an incoming Job towards into a Queue towards execution
 /* dispatching Jobs interface methods */
-func (j JobDispatcherImpl) PublishJob(jb ut.Job) error {
+func (j JobDispatcherImpl) PublishJob(jb model.Job) error {
 	// log.Printf("publishing job... :%v", jb)
 
 	return j.Manager.ScheduleJob(jb)
 }
 
 // PublishJobs method, same as PublishJob but with plurality
-func (j JobDispatcherImpl) PublishJobs(jbs []ut.Job) error {
+func (j JobDispatcherImpl) PublishJobs(jbs []model.Job) error {
 	for _, jb := range jbs {
 		err := j.Manager.ScheduleJob(jb)
 		if err != nil {
@@ -95,7 +96,7 @@ func (j JobDispatcherImpl) RemoveJobs(jids []int) error {
 
 // Subscribe method is not yet functional
 // this aims to link a JobManager to an external Queue
-func (j JobDispatcherImpl) Subscribe(_ ut.Job) error {
+func (j JobDispatcherImpl) Subscribe(_ model.Job) error {
 	return nil
 }
 
@@ -117,8 +118,8 @@ shared with the other dispatchers.
 type JobManager struct {
 	rt *jobRuntime // the engines, running jobs, work in flight
 
-	jobQueue   chan ut.Job   // actual queue of the jobs
-	workerPool chan struct{} // a slot per running job (J_MAX_WORKERS)
+	jobQueue   chan model.Job // actual queue of the jobs
+	workerPool chan struct{}  // a slot per running job (J_MAX_WORKERS)
 
 	draining *atomic.Bool // set by Drain: no new jobs start
 }
@@ -138,7 +139,7 @@ func newJobManagerOn(rt *jobRuntime, srv *UService) JobManager {
 
 	return JobManager{
 		rt:         rt,
-		jobQueue:   make(chan ut.Job, qs),
+		jobQueue:   make(chan model.Job, qs),
 		workerPool: make(chan struct{}, maxWorkers(srv)),
 		draining:   &atomic.Bool{},
 	}
@@ -187,7 +188,7 @@ func (jm *JobManager) StartDispatcher() {
 }
 
 // ScheduleJob method puts a job into the execution queue
-func (jm *JobManager) ScheduleJob(jb ut.Job) error {
+func (jm *JobManager) ScheduleJob(jb model.Job) error {
 	log.Printf("[Scheduler] Scheduling job... ID=%d", jb.JID)
 	if jm.draining.Load() {
 		return ErrShuttingDown

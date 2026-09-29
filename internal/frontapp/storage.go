@@ -12,6 +12,7 @@ import (
 	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"github.com/gin-gonic/gin"
+	"kyri56xcaesar/kuspace/internal/model"
 )
 
 /*
@@ -64,7 +65,7 @@ func (srv *HTTPService) handleFetchResources(c *gin.Context) {
 
 		return
 	}
-	var data []ut.Resource
+	var data []model.Resource
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": "unreadable file list"})
 
@@ -252,10 +253,10 @@ func (srv *HTTPService) handleResourcePerms(c *gin.Context) {
 // users. (It used to list all volumes, as root, for everyone.)
 func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 	admin := isAdmin(c)
-	var volumes []ut.Volume
+	var volumes []model.Volume
 	if admin {
 		var resp struct {
-			Content []ut.Volume `json:"content"`
+			Content []model.Volume `json:"content"`
 		}
 		err := srv.uspace.decode(c.Request.Context(), request{
 			method: http.MethodGet, path: "/api/v1/admin/volumes", token: userToken(c), target: "0::/",
@@ -267,7 +268,7 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 		}
 		volumes = resp.Content
 	} else {
-		var shared []ut.GroupVolume
+		var shared []model.GroupVolume
 		err := srv.uspace.decode(c.Request.Context(), request{
 			method: http.MethodGet, path: "/api/v1/volumes/shared", token: userToken(c), target: "0::/",
 		}, &shared)
@@ -276,9 +277,9 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 
 			return
 		}
-		volumes = append(volumes, ut.Volume{Name: srv.Config.MinioDefaultBucket})
+		volumes = append(volumes, model.Volume{Name: srv.Config.MinioDefaultBucket})
 		for _, gv := range shared {
-			volumes = append(volumes, ut.Volume{VID: gv.VID, Name: gv.Vname, Capacity: gv.Quota, Usage: gv.Usage, Shared: true, GID: gv.GID})
+			volumes = append(volumes, model.Volume{VID: gv.VID, Name: gv.Vname, Capacity: gv.Quota, Usage: gv.Usage, Shared: true, GID: gv.GID})
 		}
 	}
 	elevated := 0
@@ -289,7 +290,7 @@ func (srv *HTTPService) handleFetchVolumes(c *gin.Context) {
 }
 
 func (srv *HTTPService) handleVolumeadd(c *gin.Context) {
-	var v ut.Volume
+	var v model.Volume
 	if err := c.ShouldBind(&v); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad binding"})
 

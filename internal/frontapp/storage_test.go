@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"kyri56xcaesar/kuspace/internal/model"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
@@ -259,9 +260,9 @@ func TestSystemStatusShowsReplicas(t *testing.T) {
 	}
 	// the JSON stays the list of services
 	var services []struct {
-		Name     string              `json:"name"`
-		Replicas *ut.ServiceReplicas `json:"replicas"`
-		Scaling  struct{ Can bool }  `json:"scaling"`
+		Name     string                 `json:"name"`
+		Replicas *model.ServiceReplicas `json:"replicas"`
+		Scaling  struct{ Can bool }     `json:"scaling"`
 	}
 	rec := h.do(http.MethodGet, "/api/v1/verified/admin/system-status?format=json", admin, nil, nil)
 	if err := json.Unmarshal(rec.Body.Bytes(), &services); err != nil || len(services) != 4 {

@@ -11,6 +11,8 @@ import (
 	"sync"
 	"testing"
 
+	"kyri56xcaesar/kuspace/internal/config"
+	"kyri56xcaesar/kuspace/internal/model"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
@@ -18,9 +20,9 @@ import (
 // every pooled connection its own empty database).
 func newTestFsl(tb testing.TB) *FsLite {
 	tb.Helper()
-	fsl := NewFsLite(ut.EnvConfig{
-		ServiceConfig: ut.ServiceConfig{APIGinMode: "test"},
-		FsliteConfig: ut.FsliteConfig{
+	fsl := NewFsLite(config.EnvConfig{
+		ServiceConfig: config.ServiceConfig{APIGinMode: "test"},
+		FsliteConfig: config.FsliteConfig{
 			FslDB:             "fsl_test.db",
 			FslDBPath:         tb.TempDir() + "/",
 			FslDBDriver:       "sqlite3",
@@ -38,7 +40,7 @@ func newTestFsl(tb testing.TB) *FsLite {
 
 func mustVolume(tb testing.TB, fsl *FsLite, name string, capacityGB float64) int64 {
 	tb.Helper()
-	if err := fsl.CreateVolume(tb.Context(), ut.Volume{Name: name, Capacity: capacityGB, CreatedAt: ut.CurrentTime()}); err != nil {
+	if err := fsl.CreateVolume(tb.Context(), model.Volume{Name: name, Capacity: capacityGB, CreatedAt: ut.CurrentTime()}); err != nil {
 		tb.Fatalf("create volume %s: %v", name, err)
 	}
 	v, err := fsl.SelectVolumes(tb.Context(), map[string]any{"name": name})
@@ -46,29 +48,29 @@ func mustVolume(tb testing.TB, fsl *FsLite, name string, capacityGB float64) int
 		tb.Fatalf("select volume %s: %v", name, err)
 	}
 
-	return v.(ut.Volume).VID
+	return v.(model.Volume).VID
 }
 
-func mustResource(tb testing.TB, fsl *FsLite, r ut.Resource) {
+func mustResource(tb testing.TB, fsl *FsLite, r model.Resource) {
 	tb.Helper()
 	now := ut.CurrentTime()
 	r.CreatedAt, r.UpdatedAt, r.AccessedAt = now, now, now
 	if r.Perms == "" {
-		r.Perms = ut.DefaultFilePerms
+		r.Perms = model.DefaultFilePerms
 	}
 	if err := fsl.Insert(tb.Context(), r); err != nil {
 		tb.Fatalf("insert %s: %v", r.Name, err)
 	}
 }
 
-func lookup(t *testing.T, fsl *FsLite, name, volume string) (ut.Resource, bool) {
+func lookup(t *testing.T, fsl *FsLite, name, volume string) (model.Resource, bool) {
 	t.Helper()
 	r, err := fsl.SelectObjects(t.Context(), map[string]any{"name": name, "volume": volume})
 	if err != nil {
-		return ut.Resource{}, false
+		return model.Resource{}, false
 	}
 
-	return r.(ut.Resource), true
+	return r.(model.Resource), true
 }
 
 const gb = int64(1_000_000_000)
@@ -76,11 +78,11 @@ const gb = int64(1_000_000_000)
 var ctx = context.Background()
 
 // file is a resource of size bytes owned by uid on volume.
-func file(name, volume string, uid, size int64) ut.Resource {
+func file(name, volume string, uid, size int64) model.Resource {
 	now := ut.CurrentTime()
 
-	return ut.Resource{Name: name, Vname: volume, UID: uid, GID: uid, Size: size, Type: "file",
-		Perms: ut.DefaultFilePerms, CreatedAt: now, UpdatedAt: now, AccessedAt: now}
+	return model.Resource{Name: name, Vname: volume, UID: uid, GID: uid, Size: size, Type: "file",
+		Perms: model.DefaultFilePerms, CreatedAt: now, UpdatedAt: now, AccessedAt: now}
 }
 
 // Usage is the sum of the records: inserting charges, deleting frees, and
@@ -109,12 +111,12 @@ func TestQuotaFollowsRecords(t *testing.T) {
 		t.Fatalf("unenforced insert: %v", err)
 	}
 	uvs, _ := fsl.selectUserVolumes(ctx, map[string]any{"uids": "1001"})
-	if u := uvs.([]ut.UserVolume); len(u) != 1 || u[0].Usage != 3 || u[0].Quota != 2 {
+	if u := uvs.([]model.UserVolume); len(u) != 1 || u[0].Usage != 3 || u[0].Quota != 2 {
 		t.Errorf("user volume = %+v, want usage 3 GB, quota 2", u)
 	}
 	// deleting frees space - nothing to release by hand
 	for _, name := range []string{"a", "b", "d"} {
-		if err := fsl.Remove(ctx, ut.Resource{Name: name, Vname: "volume1"}); err != nil {
+		if err := fsl.Remove(ctx, model.Resource{Name: name, Vname: "volume1"}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -126,7 +128,7 @@ func TestQuotaFollowsRecords(t *testing.T) {
 		t.Fatalf("root: %v", err)
 	}
 	v, _ := fsl.SelectVolumes(ctx, map[string]any{"name": "volume1"})
-	if got := v.(ut.Volume).Usage; got != 1002 {
+	if got := v.(model.Volume).Usage; got != 1002 {
 		t.Errorf("volume usage = %v GB, want 1002", got)
 	}
 	if err := fsl.InsertResource(ctx, file("x", "nope", 1001, 1), 2, true); err == nil {
@@ -179,7 +181,7 @@ func TestConcurrentInsertsRespectQuota(t *testing.T) {
 func TestNamesAreNormalized(t *testing.T) {
 	fsl := newTestFsl(t)
 	vid := mustVolume(t, fsl, "volume1", 0)
-	mustResource(t, fsl, ut.Resource{Name: "data.csv", Vname: "volume1", VID: vid, UID: 1001, GID: 1001, Type: "file"})
+	mustResource(t, fsl, model.Resource{Name: "data.csv", Vname: "volume1", VID: vid, UID: 1001, GID: 1001, Type: "file"})
 
 	if _, ok := lookup(t, fsl, "/data.csv", "volume1"); !ok {
 		t.Fatal(`"data.csv" was not stored as "/data.csv"`)
@@ -193,8 +195,8 @@ func TestRenameStaysInItsVolume(t *testing.T) {
 	fsl := newTestFsl(t)
 	a := mustVolume(t, fsl, "vol-a", 0)
 	b := mustVolume(t, fsl, "vol-b", 0)
-	mustResource(t, fsl, ut.Resource{Name: "/x", Vname: "vol-a", VID: a, UID: 1, GID: 1, Type: "file"})
-	mustResource(t, fsl, ut.Resource{Name: "/x", Vname: "vol-b", VID: b, UID: 2, GID: 2, Type: "file"})
+	mustResource(t, fsl, model.Resource{Name: "/x", Vname: "vol-a", VID: a, UID: 1, GID: 1, Type: "file"})
+	mustResource(t, fsl, model.Resource{Name: "/x", Vname: "vol-b", VID: b, UID: 2, GID: 2, Type: "file"})
 
 	// move a:/x -> b:/y ; b:/x must be untouched (the WHERE used to ignore the volume)
 	if err := fsl.Update(t.Context(), map[string]string{"name": "/x", "newname": "y", "volume": "vol-b", "oldvolume": "vol-a"}); err != nil {
@@ -215,7 +217,7 @@ func TestRenameStaysInItsVolume(t *testing.T) {
 func TestSelectByIDs(t *testing.T) {
 	fsl := newTestFsl(t)
 	vid := mustVolume(t, fsl, "volume1", 0)
-	mustResource(t, fsl, ut.Resource{Name: "/a", Vname: "volume1", VID: vid, UID: 1, GID: 1, Type: "file", Size: 7})
+	mustResource(t, fsl, model.Resource{Name: "/a", Vname: "volume1", VID: vid, UID: 1, GID: 1, Type: "file", Size: 7})
 	r, _ := lookup(t, fsl, "/a", "volume1")
 
 	// used to SELECT one column and scan fourteen: chmod/chown/chgrp all failed
@@ -223,7 +225,7 @@ func TestSelectByIDs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("select by rid: %v", err)
 	}
-	got := res.([]ut.Resource)
+	got := res.([]model.Resource)
 	if len(got) != 1 || got[0].Name != "/a" || got[0].Size != 7 {
 		t.Fatalf("select by rid = %+v", got)
 	}
@@ -234,12 +236,12 @@ func TestForeignKeys(t *testing.T) {
 	vid := mustVolume(t, fsl, "volume1", 0)
 
 	// a resource must reference an existing volume
-	if err := fsl.Insert(t.Context(), ut.Resource{Name: "/orphan", Vname: "volume1", VID: 999, UID: 1, Perms: ut.DefaultFilePerms}); err == nil {
+	if err := fsl.Insert(t.Context(), model.Resource{Name: "/orphan", Vname: "volume1", VID: 999, UID: 1, Perms: model.DefaultFilePerms}); err == nil {
 		t.Fatal("inserted a resource pointing at a missing volume")
 	}
 	// deleting a volume removes its resources (ON DELETE CASCADE)
-	mustResource(t, fsl, ut.Resource{Name: "/f", Vname: "volume1", VID: vid, UID: 1, GID: 1, Type: "file"})
-	if err := fsl.RemoveVolume(t.Context(), ut.Volume{Name: "volume1", VID: vid}); err != nil {
+	mustResource(t, fsl, model.Resource{Name: "/f", Vname: "volume1", VID: vid, UID: 1, GID: 1, Type: "file"})
+	if err := fsl.RemoveVolume(t.Context(), model.Volume{Name: "volume1", VID: vid}); err != nil {
 		t.Fatalf("remove volume: %v", err)
 	}
 	if _, ok := lookup(t, fsl, "/f", "volume1"); ok {
@@ -259,8 +261,8 @@ func TestConcurrentSameNameInserts(t *testing.T) {
 		go func() {
 			start.Wait()
 			now := ut.CurrentTime()
-			err := fsl.Insert(t.Context(), ut.Resource{Name: "race.txt", Vname: "volume1", VID: vid, UID: int64(1000 + i),
-				GID: 1, Perms: ut.DefaultFilePerms, Type: "file", CreatedAt: now, UpdatedAt: now, AccessedAt: now})
+			err := fsl.Insert(t.Context(), model.Resource{Name: "race.txt", Vname: "volume1", VID: vid, UID: int64(1000 + i),
+				GID: 1, Perms: model.DefaultFilePerms, Type: "file", CreatedAt: now, UpdatedAt: now, AccessedAt: now})
 			errs <- err
 		}()
 	}
@@ -296,17 +298,17 @@ func TestLocalDownloadAndStat(t *testing.T) {
 	fsl := newTestFsl(t)
 	vid := mustVolume(t, fsl, "volume1", 0)
 
-	var r any = &ut.Resource{Name: "a.txt", Vname: "volume1"}
+	var r any = &model.Resource{Name: "a.txt", Vname: "volume1"}
 	if _, err := fsl.Download(t.Context(), &r); err == nil {
 		t.Error("download without locality succeeded (fslite holds no data then)")
 	}
 
 	withLocality(t, fsl, "volume1")
-	mustResource(t, fsl, ut.Resource{Name: "a.txt", Vname: "volume1", VID: vid, UID: 1, GID: 1, Type: "file",
+	mustResource(t, fsl, model.Resource{Name: "a.txt", Vname: "volume1", VID: vid, UID: 1, GID: 1, Type: "file",
 		Reader: strings.NewReader("hello")})
 
-	// uspace passes a *ut.Resource and reads the reader off it
-	res := &ut.Resource{Name: "a.txt", Vname: "volume1"}
+	// uspace passes a *model.Resource and reads the reader off it
+	res := &model.Resource{Name: "a.txt", Vname: "volume1"}
 	r = res
 	release, err := fsl.Download(t.Context(), &r)
 	if err != nil {
@@ -318,7 +320,7 @@ func TestLocalDownloadAndStat(t *testing.T) {
 		t.Errorf("downloaded %q (size %d)", body, res.Size)
 	}
 
-	info, err := fsl.Stat(t.Context(), ut.Resource{Name: "a.txt", Vname: "volume1"})
+	info, err := fsl.Stat(t.Context(), model.Resource{Name: "a.txt", Vname: "volume1"})
 	if err != nil || info.(os.FileInfo).Size() != 5 {
 		t.Errorf("stat = %v, %v", info, err)
 	}
@@ -327,7 +329,7 @@ func TestLocalDownloadAndStat(t *testing.T) {
 func TestCreateVolumeExists(t *testing.T) {
 	fsl := newTestFsl(t)
 	mustVolume(t, fsl, "volume1", 0)
-	if err := fsl.CreateVolume(t.Context(), ut.Volume{Name: "volume1", CreatedAt: ut.CurrentTime()}); !errors.Is(err, ErrVolumeExists) {
+	if err := fsl.CreateVolume(t.Context(), model.Volume{Name: "volume1", CreatedAt: ut.CurrentTime()}); !errors.Is(err, ErrVolumeExists) {
 		t.Errorf("second create = %v, want ErrVolumeExists", err)
 	}
 }
@@ -344,7 +346,7 @@ func TestPrefixListing(t *testing.T) {
 		name string
 	}{{v1, "volume1", "/docs/a_1.txt"}, {v1, "volume1", "/docs/aX1.txt"}, {v1, "volume1", "/other/docs/z.txt"},
 		{v1, "volume1", "/100%.txt"}, {v2, "volume2", "/docs/a_1.txt"}} {
-		mustResource(t, fsl, ut.Resource{Name: r.name, Vname: r.vol, VID: r.vid, UID: 1, GID: 1, Type: "file"})
+		mustResource(t, fsl, model.Resource{Name: r.name, Vname: r.vol, VID: r.vid, UID: 1, GID: 1, Type: "file"})
 	}
 	names := func(how map[string]any) []string {
 		t.Helper()
@@ -353,7 +355,7 @@ func TestPrefixListing(t *testing.T) {
 			t.Fatal(err)
 		}
 		var out []string
-		for _, r := range res.([]ut.Resource) {
+		for _, r := range res.([]model.Resource) {
 			out = append(out, r.Vname+r.Name)
 		}
 

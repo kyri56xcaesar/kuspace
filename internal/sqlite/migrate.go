@@ -1,4 +1,4 @@
-package utils
+package sqlite
 
 /*
 	Schema migrations: each database owns an ordered list of numbered
@@ -14,6 +14,8 @@ package utils
 */
 
 import (
+	ut "kyri56xcaesar/kuspace/internal/utils"
+
 	"context"
 	"database/sql"
 	"errors"
@@ -53,7 +55,7 @@ func LoadMigrations(fsys fs.FS, dir string, funcs ...Migration) ([]Migration, er
 	for _, e := range entries {
 		m := migrationFile.FindStringSubmatch(e.Name())
 		if m == nil {
-			return nil, fmt.Errorf("migration file %q is not named NNNN_name.sql (%w)", e.Name(), ErrInvalid)
+			return nil, fmt.Errorf("migration file %q is not named NNNN_name.sql (%w)", e.Name(), ut.ErrInvalid)
 		}
 		body, err := fs.ReadFile(fsys, path.Join(dir, e.Name()))
 		if err != nil {
@@ -65,10 +67,10 @@ func LoadMigrations(fsys fs.FS, dir string, funcs ...Migration) ([]Migration, er
 	sort.Slice(migs, func(i, j int) bool { return migs[i].Version < migs[j].Version })
 	for i, m := range migs {
 		if m.Version != i+1 {
-			return nil, fmt.Errorf("migrations must be numbered 1, 2, 3...: found %d at position %d (%w)", m.Version, i+1, ErrInvalid)
+			return nil, fmt.Errorf("migrations must be numbered 1, 2, 3...: found %d at position %d (%w)", m.Version, i+1, ut.ErrInvalid)
 		}
 		if (m.SQL == "") == (m.Func == nil) {
-			return nil, fmt.Errorf("migration %d (%s) needs exactly one of SQL and Func (%w)", m.Version, m.Name, ErrInvalid)
+			return nil, fmt.Errorf("migration %d (%s) needs exactly one of SQL and Func (%w)", m.Version, m.Name, ut.ErrInvalid)
 		}
 	}
 
@@ -111,7 +113,7 @@ func PendingMigrations(ctx context.Context, db *sql.DB, migs []Migration) ([]Mig
 		}
 		if migs[v-1].Name != name {
 			return nil, fmt.Errorf("migration %d ran as %q but is now %q: migrations must not be renamed or replaced (%w)",
-				v, name, migs[v-1].Name, ErrInvalid)
+				v, name, migs[v-1].Name, ut.ErrInvalid)
 		}
 	}
 	var pending []Migration
@@ -121,7 +123,7 @@ func PendingMigrations(ctx context.Context, db *sql.DB, migs []Migration) ([]Mig
 		}
 	}
 	if len(pending) > 0 && pending[0].Version < highest {
-		return nil, fmt.Errorf("migration %d was added after later ones ran (%w)", pending[0].Version, ErrInvalid)
+		return nil, fmt.Errorf("migration %d was added after later ones ran (%w)", pending[0].Version, ut.ErrInvalid)
 	}
 
 	return pending, nil
@@ -191,7 +193,7 @@ func AddColumns(table string, cols ...Column) func(ctx context.Context, tx *sql.
 		}
 		_ = rows.Close()
 		if len(have) == 0 {
-			return fmt.Errorf("no table %q (%w)", table, ErrNotFound)
+			return fmt.Errorf("no table %q (%w)", table, ut.ErrNotFound)
 		}
 		for _, c := range cols {
 			if have[c.Name] {

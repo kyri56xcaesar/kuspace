@@ -13,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"kyri56xcaesar/kuspace/internal/config"
 )
 
 var testSecret = []byte("service-secret")
@@ -20,9 +21,9 @@ var testSecret = []byte("service-secret")
 func newTestWSS(t *testing.T) *httptest.Server {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
-	engine := newEngine(ut.EnvConfig{
-		AuthConfig:  ut.AuthConfig{ServiceSecretKey: testSecret},
-		PeersConfig: ut.PeersConfig{WssLogsPath: t.TempDir()}, // no trailing slash: joined, not concatenated
+	engine := newEngine(config.EnvConfig{
+		AuthConfig:  config.AuthConfig{ServiceSecretKey: testSecret},
+		PeersConfig: config.PeersConfig{WssLogsPath: t.TempDir()}, // no trailing slash: joined, not concatenated
 	})
 	ts := httptest.NewServer(engine)
 	t.Cleanup(ts.Close)

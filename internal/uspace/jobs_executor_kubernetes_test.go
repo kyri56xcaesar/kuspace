@@ -3,24 +3,22 @@ package uspace
 import (
 	"context"
 	"encoding/json"
+	batchv1 "k8s.io/api/batch/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
+	"kyri56xcaesar/kuspace/internal/model"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
-
-	ut "kyri56xcaesar/kuspace/internal/utils"
-
-	batchv1 "k8s.io/api/batch/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/kubernetes/fake"
-	k8stesting "k8s.io/client-go/testing"
 )
 
 func TestParseJobQuotas(t *testing.T) {
-	good := ut.Job{MemoryRequest: "512Mi", MemoryLimit: "1Gi", CPURequest: "500m", CPULimit: "1"}
+	good := model.Job{MemoryRequest: "512Mi", MemoryLimit: "1Gi", CPURequest: "500m", CPULimit: "1"}
 	q, err := parseJobQuotas(good)
 	if err != nil {
 		t.Fatalf("valid quotas rejected: %v", err)
@@ -37,13 +35,13 @@ func TestParseJobQuotas(t *testing.T) {
 	if err := validateJobQuotas(bad); err == nil {
 		t.Error("submission check accepted an invalid cpu limit")
 	}
-	if err := validateJobQuotas(ut.Job{}); err != nil {
+	if err := validateJobQuotas(model.Job{}); err != nil {
 		t.Errorf("empty quotas (defaults apply later) rejected: %v", err)
 	}
 }
 
 func TestBuildK8sJobUsesOneName(t *testing.T) {
-	q, _ := parseJobQuotas(ut.Job{MemoryRequest: "1Gi", MemoryLimit: "2Gi", CPURequest: "1", CPULimit: "2"})
+	q, _ := parseJobQuotas(model.Job{MemoryRequest: "1Gi", MemoryLimit: "2Gi", CPURequest: "1", CPULimit: "2"})
 	j := buildK8sJob(k8sJobName(42), "img", []string{"run"}, map[string]string{"A": "b"}, q, 1, "ns", 60, 30)
 
 	// create, watch, cancel and pod lookup all derive from k8sJobName
@@ -154,7 +152,7 @@ func TestJobOutput(t *testing.T) {
 
 type fakePresigner struct{ calls []string }
 
-func (f *fakePresigner) PresignFor(_ context.Context, method string, r ut.Resource, d time.Duration) (*url.URL, error) {
+func (f *fakePresigner) PresignFor(_ context.Context, method string, r model.Resource, d time.Duration) (*url.URL, error) {
 	f.calls = append(f.calls, method+" "+r.Vname+"/"+r.Name+" "+d.String())
 
 	return url.Parse("http://minio:9000/" + r.Vname + "/" + r.Name + "?X-Amz-Signature=sig")
@@ -162,8 +160,8 @@ func (f *fakePresigner) PresignFor(_ context.Context, method string, r ut.Resour
 
 func TestPresignJobIO(t *testing.T) {
 	p := &fakePresigner{}
-	in := ut.Resource{Vname: "vol", Name: "in.csv"}
-	out := ut.Resource{Vname: "vol", Name: "out.csv"}
+	in := model.Resource{Vname: "vol", Name: "in.csv"}
+	out := model.Resource{Vname: "vol", Name: "out.csv"}
 	get, put, err := presignJobIO(p, in, out, time.Hour)
 	if err != nil {
 		t.Fatal(err)
@@ -191,7 +189,7 @@ func TestJobURLValidity(t *testing.T) {
 
 func TestFormatJobCommandCodeModes(t *testing.T) {
 	code := `print('it''s "quoted" $HOME')`
-	job := ut.Job{Logic: "py:3.12", LogicBody: code}
+	job := model.Job{Logic: "py:3.12", LogicBody: code}
 	cmd, err := formatJobCommand(&job)
 	if err != nil {
 		t.Fatal(err)
@@ -208,19 +206,19 @@ func TestFormatJobCommandCodeModes(t *testing.T) {
 
 	// without a tag a language gets its small pinned image (":latest" pulled ~1 GB for python)
 	for lang, image := range map[string]string{"js": "node:22-alpine", "c": "gcc:14", "java": "eclipse-temurin:21-jdk-alpine", "golang": "golang:1.24-alpine", "python": "python:3.12-alpine"} {
-		j := ut.Job{Logic: lang}
+		j := model.Job{Logic: lang}
 		if _, err := formatJobCommand(&j); err != nil || j.Logic != image {
 			t.Errorf("%s -> %q, %v; want %s", lang, j.Logic, err, image)
 		}
 	}
 	for _, bad := range []string{"rust", "solidity", "visual-basic"} {
-		j := ut.Job{Logic: bad}
+		j := model.Job{Logic: bad}
 		if _, err := formatJobCommand(&j); err == nil || !strings.Contains(err.Error(), "python") {
 			t.Errorf("%s: %v (want an error listing the supported languages)", bad, err)
 		}
 	}
 	// built-in applications are untouched
-	j := ut.Job{Logic: "duckdb"}
+	j := model.Job{Logic: "duckdb"}
 	if cmd, err := formatJobCommand(&j); err != nil || j.Logic != duckImage || cmd[1] != "duckdb_app.py" {
 		t.Errorf("duckdb app: %v %v %v", j.Logic, cmd, err)
 	}

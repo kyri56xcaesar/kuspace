@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 
+	"kyri56xcaesar/kuspace/internal/model"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 	"kyri56xcaesar/kuspace/pkg/fslite"
 
@@ -61,7 +62,7 @@ func (srv *UService) getResourcesHandler(c *gin.Context) {
 
 		return
 	}
-	ac := acH.(ut.AccessClaim)
+	ac := acH.(model.AccessClaim)
 	// prefer to get from db // must be ensure its in sync
 	res, err := srv.fsl.SelectObjects(c.Request.Context(),
 		map[string]any{
@@ -76,7 +77,7 @@ func (srv *UService) getResourcesHandler(c *gin.Context) {
 		return
 	}
 
-	resources, ok := res.([]ut.Resource)
+	resources, ok := res.([]model.Resource)
 	if !ok {
 		log.Printf("error retrieving resource: %v", res)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "bad format"})
@@ -94,7 +95,7 @@ func (srv *UService) getResourcesHandler(c *gin.Context) {
 		resources = visible
 	}
 	if resources == nil { // no files: an empty list (it was a 404, which the pages showed as an error)
-		resources = []ut.Resource{}
+		resources = []model.Resource{}
 	}
 
 	// we should determine the structure to be returned.
@@ -141,7 +142,7 @@ func (srv *UService) rmResourceHandler(c *gin.Context) {
 
 		return
 	}
-	ac := acH.(ut.AccessClaim)
+	ac := acH.(model.AccessClaim)
 
 	_, found, err := srv.lookupResource(c.Request.Context(), ac.Target, ac.Vname)
 	if err != nil || !found {
@@ -151,12 +152,12 @@ func (srv *UService) rmResourceHandler(c *gin.Context) {
 	}
 	// record first, object last: a failure in between leaves an orphan
 	// object (invisible, collectable), never a listed file without data
-	if err := srv.fsl.Remove(c.Request.Context(), ut.Resource{Name: ac.Target, Vname: ac.Vname}); err != nil {
+	if err := srv.fsl.Remove(c.Request.Context(), model.Resource{Name: ac.Target, Vname: ac.Vname}); err != nil {
 		respondErr(c, "delete", err)
 
 		return
 	}
-	if err := srv.storage.Remove(c.Request.Context(), ut.Resource{Name: ac.Target, Vname: ac.Vname}); err != nil {
+	if err := srv.storage.Remove(c.Request.Context(), model.Resource{Name: ac.Target, Vname: ac.Vname}); err != nil {
 		log.Printf("record of %s/%s deleted, its object stays behind (orphan): %v", ac.Vname, ac.Target, err)
 	}
 
@@ -168,15 +169,15 @@ func (srv *UService) rmResourceHandler(c *gin.Context) {
 // lookupResource finds the resource named `name` in `volume`; found is false
 // (with a nil error) when it doesn't exist. Names are compared in their
 // normalized form (fslite.NormalizeName).
-func (srv *UService) lookupResource(ctx context.Context, name, volume string) (ut.Resource, bool, error) {
+func (srv *UService) lookupResource(ctx context.Context, name, volume string) (model.Resource, bool, error) {
 	r, err := srv.fsl.SelectObjects(ctx, map[string]any{"name": fslite.NormalizeName(name), "volume": volume})
 	if errors.Is(err, sql.ErrNoRows) {
-		return ut.Resource{}, false, nil
+		return model.Resource{}, false, nil
 	}
 	if err != nil {
-		return ut.Resource{}, false, err
+		return model.Resource{}, false, err
 	}
-	res, ok := r.(ut.Resource)
+	res, ok := r.(model.Resource)
 
 	return res, ok, nil
 }
@@ -231,7 +232,7 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 
 		return
 	}
-	ac := acH.(ut.AccessClaim)
+	ac := acH.(model.AccessClaim)
 
 	dest := c.Request.URL.Query().Get("dest")
 	if dest == "" {
@@ -264,7 +265,7 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 		return
 	}
 	// a move to another volume moves the owner's usage with it
-	var moved ut.Resource
+	var moved model.Resource
 	crossVolume := parts[0] != ac.Vname
 	if crossVolume {
 		var found bool
@@ -282,11 +283,11 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 	}
 
 	if err := srv.storage.Copy(c.Request.Context(),
-		ut.Resource{
+		model.Resource{
 			Name:  ac.Target,
 			Vname: ac.Vname,
 		},
-		ut.Resource{
+		model.Resource{
 			Name:  parts[1],
 			Vname: parts[0],
 		},
@@ -306,7 +307,7 @@ func (srv *UService) mvResourcesHandler(c *gin.Context) {
 	// the old object goes last: a failure here leaves an orphan (invisible,
 	// collectable), never a record whose object is gone (the removal used to
 	// come before the record update)
-	if err := srv.storage.Remove(c.Request.Context(), ut.Resource{Name: ac.Target, Vname: ac.Vname}); err != nil {
+	if err := srv.storage.Remove(c.Request.Context(), model.Resource{Name: ac.Target, Vname: ac.Vname}); err != nil {
 		log.Printf("moved %s/%s but its old object stays behind (orphan): %v", ac.Vname, ac.Target, err)
 	}
 	// moved onto a group volume: it joins the group
@@ -346,7 +347,7 @@ func (srv *UService) cpResourceHandler(c *gin.Context) {
 
 		return
 	}
-	ac := acH.(ut.AccessClaim)
+	ac := acH.(model.AccessClaim)
 
 	dest := c.Request.URL.Query().Get("dest")
 	if dest == "" {
@@ -386,23 +387,23 @@ func (srv *UService) cpResourceHandler(c *gin.Context) {
 	// The copy belongs to whoever made it (it used to be recorded with no
 	// owner and no permissions, i.e. readable by nobody but root).
 	now := ut.CurrentTime()
-	dst := ut.Resource{
+	dst := model.Resource{
 		Name: parts[1], Vname: parts[0], VID: srv.volumeID(c.Request.Context(), parts[0]),
 		Path: src.Path, Type: src.Type, Size: src.Size,
-		UID: caller, GID: gid, Perms: ut.DefaultFilePerms,
+		UID: caller, GID: gid, Perms: model.DefaultFilePerms,
 		CreatedAt: now, UpdatedAt: now, AccessedAt: now,
 	}
 	if !srv.checkQuota(c, caller, dst.Vname, dst.Size) {
 		return
 	}
 
-	if err := srv.storage.Copy(c.Request.Context(), ut.Resource{Name: ac.Target, Vname: ac.Vname}, dst); err != nil {
+	if err := srv.storage.Copy(c.Request.Context(), model.Resource{Name: ac.Target, Vname: ac.Vname}, dst); err != nil {
 		respondErr(c, "copy", err)
 
 		return
 	}
 	// database
-	if err := srv.fsl.Copy(c.Request.Context(), ut.Resource{Name: ac.Target, Vname: ac.Vname}, dst); err != nil {
+	if err := srv.fsl.Copy(c.Request.Context(), model.Resource{Name: ac.Target, Vname: ac.Vname}, dst); err != nil {
 		respondErr(c, "copy", err)
 
 		return
@@ -435,7 +436,7 @@ func (srv *UService) handleDownload(c *gin.Context) {
 
 		return
 	}
-	ac := acH.(ut.AccessClaim)
+	ac := acH.(model.AccessClaim)
 
 	if strings.HasSuffix(ac.Target, "/") {
 		log.Printf("target should be a file, not a directory")
@@ -455,7 +456,7 @@ func (srv *UService) handleDownload(c *gin.Context) {
 		return
 	}
 
-	resource := &ut.Resource{
+	resource := &model.Resource{
 		Path:  path,
 		Name:  name,
 		Vname: ac.Vname,
@@ -513,7 +514,7 @@ func (srv *UService) handleUpload(c *gin.Context) {
 
 		return
 	}
-	ac, ok := acH.(ut.AccessClaim)
+	ac, ok := acH.(model.AccessClaim)
 	if !ok {
 		log.Printf("failed to cast, ac wasn't set properly")
 		c.JSON(http.StatusInternalServerError,
@@ -573,7 +574,7 @@ func (srv *UService) handleUpload(c *gin.Context) {
 		// resource row references an existing volume.
 		vid, err := strconv.ParseInt(ac.VID, 10, 64)
 		if v, verr := srv.fsl.SelectVolumes(c.Request.Context(), map[string]any{"name": ac.Vname}); verr == nil {
-			if vol, ok := v.(ut.Volume); ok {
+			if vol, ok := v.(model.Volume); ok {
 				vid, err = vol.VID, nil
 			}
 		}
@@ -601,7 +602,7 @@ func (srv *UService) handleUpload(c *gin.Context) {
 
 		currentTime := ut.CurrentTime()
 		/* Insert the appropriate metadata as a resource */
-		resource := ut.Resource{
+		resource := model.Resource{
 			VID:    vid,
 			Vname:  ac.Vname,
 			Name:   ac.Target + fileHeader.Filename,
@@ -612,7 +613,7 @@ func (srv *UService) handleUpload(c *gin.Context) {
 			CreatedAt:  currentTime,
 			UpdatedAt:  currentTime,
 			AccessedAt: currentTime,
-			Perms:      ut.DefaultFilePerms,
+			Perms:      model.DefaultFilePerms,
 			UID:        uid,
 			GID:        gid,
 			Size:       fileHeader.Size,
@@ -689,10 +690,10 @@ func (srv *UService) handlePreview(c *gin.Context) {
 
 		return
 	}
-	ac := acH.(ut.AccessClaim)
+	ac := acH.(model.AccessClaim)
 
 	// get the resource info
-	resource := &ut.Resource{
+	resource := &model.Resource{
 		Name:  ac.Target,
 		Vname: ac.Vname,
 	}
@@ -767,7 +768,7 @@ func (srv *UService) handlePreview(c *gin.Context) {
 	c.Data(http.StatusPartialContent, "text/plain", pContent)
 }
 
-func buildTreeRec(tree map[string]any, entry []string, resource ut.Resource) {
+func buildTreeRec(tree map[string]any, entry []string, resource model.Resource) {
 	// Check if the current level already exists in the tree
 	if len(entry) == 1 {
 		tree[entry[0]] = resource
@@ -925,7 +926,7 @@ func (srv *UService) chgroupResourceHandler(c *gin.Context) {
 // primaryGID is the caller's primary group: the first gid of the claim
 // (frontapp lists the primary group first; a token's pgroup claim is used when
 // the caller authenticates with one). Falls back to fallback (the uid).
-func primaryGID(ac ut.AccessClaim, fallback int64) int64 {
+func primaryGID(ac model.AccessClaim, fallback int64) int64 {
 	first, _, _ := strings.Cut(ac.Gids, ",")
 	if gid, err := strconv.ParseInt(strings.TrimSpace(first), 10, 64); err == nil {
 		return gid
@@ -953,7 +954,7 @@ func (srv *UService) volumeID(ctx context.Context, name string) int64 {
 	if err != nil {
 		return 0
 	}
-	vol, _ := v.(ut.Volume)
+	vol, _ := v.(model.Volume)
 
 	return vol.VID
 }

@@ -9,6 +9,7 @@ import (
 	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"github.com/gin-gonic/gin"
+	"kyri56xcaesar/kuspace/internal/model"
 )
 
 // TestAuthorizeJobIO: jobs run with service credentials, so this check is
@@ -18,8 +19,8 @@ func TestAuthorizeJobIO(t *testing.T) {
 	vid := srv.volumeID(t.Context(), "vol1")
 	for _, name := range []string{"in.csv", "out.csv"} {
 		now := ut.CurrentTime()
-		r := ut.Resource{Name: name, Vname: "vol1", VID: vid, UID: 1001, GID: 1002, Type: "file",
-			Perms: ut.DefaultFilePerms, CreatedAt: now, UpdatedAt: now, AccessedAt: now} // rw-r-----
+		r := model.Resource{Name: name, Vname: "vol1", VID: vid, UID: 1001, GID: 1002, Type: "file",
+			Perms: model.DefaultFilePerms, CreatedAt: now, UpdatedAt: now, AccessedAt: now} // rw-r-----
 		if err := srv.fsl.Insert(t.Context(), r); err != nil {
 			t.Fatal(err)
 		}
@@ -50,7 +51,7 @@ func TestAuthorizeJobIO(t *testing.T) {
 			if tc.target != "" {
 				c.Request.Header.Set("Access-Target", "0:vol1:/ "+tc.target)
 			}
-			err := srv.authorizeJobIO(c, ut.Job{UID: tc.uid, Input: tc.input, Output: tc.output})
+			err := srv.authorizeJobIO(c, model.Job{UID: tc.uid, Input: tc.input, Output: tc.output})
 			switch {
 			case tc.allowed && err != nil:
 				t.Errorf("refused: %v", err)
@@ -65,19 +66,19 @@ func TestAuthorizeJobIO(t *testing.T) {
 
 func TestAuthorizeJobOutputOnGroupVolume(t *testing.T) {
 	srv := newTestService(t)
-	if err := srv.fsl.CreateVolume(t.Context(), ut.Volume{Name: "team", CreatedAt: ut.CurrentTime()}); err != nil {
+	if err := srv.fsl.CreateVolume(t.Context(), model.Volume{Name: "team", CreatedAt: ut.CurrentTime()}); err != nil {
 		t.Fatal(err)
 	}
 	now := ut.CurrentTime()
-	in := ut.Resource{Name: "in.csv", Vname: "vol1", VID: srv.volumeID(t.Context(), "vol1"), UID: 1001, GID: 1001, Type: "file",
-		Perms: ut.DefaultFilePerms, CreatedAt: now, UpdatedAt: now, AccessedAt: now}
+	in := model.Resource{Name: "in.csv", Vname: "vol1", VID: srv.volumeID(t.Context(), "vol1"), UID: 1001, GID: 1001, Type: "file",
+		Perms: model.DefaultFilePerms, CreatedAt: now, UpdatedAt: now, AccessedAt: now}
 	if err := srv.fsl.Insert(t.Context(), in); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := srv.fsl.AssignGroupVolume(t.Context(), "team", 500, 0); err != nil {
 		t.Fatal(err)
 	}
-	job := ut.Job{UID: 1001, Input: "vol1/in.csv", Output: "team/result.csv"}
+	job := model.Job{UID: 1001, Input: "vol1/in.csv", Output: "team/result.csv"}
 	for who, allowed := range map[string]bool{"1001:1001,500": true, "1001:1001": false} {
 		c, _ := gin.CreateTestContext(httptest.NewRecorder())
 		c.Request = httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/job", nil)

@@ -12,10 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"kyri56xcaesar/kuspace/internal/authn"
-	ut "kyri56xcaesar/kuspace/internal/utils"
-
 	"github.com/golang-jwt/jwt/v5"
+	"kyri56xcaesar/kuspace/internal/authn"
+	"kyri56xcaesar/kuspace/internal/model"
 )
 
 var routerAnnotation = regexp.MustCompile(`(?m)^//\s*@Router\s+(\S+)\s+\[(\w+)\]`)
@@ -76,7 +75,7 @@ func TestAdminJobRoutes(t *testing.T) {
 	a.withJobsDB(1001, 2002, 2002)
 	rec := a.do(http.MethodGet, "/api/v1/admin/job", "::/", "0:0", nil, "")
 	var body struct {
-		Content []ut.Job `json:"content"`
+		Content []model.Job `json:"content"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); rec.Code != http.StatusOK || err != nil || len(body.Content) != 3 {
 		t.Errorf("admin job listing: %d %s", rec.Code, rec.Body)

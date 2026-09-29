@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"kyri56xcaesar/kuspace/internal/model"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
@@ -22,7 +23,7 @@ var ErrSharedVolume = fmt.Errorf("a group volume has the group's quota, not pers
 
 // UserVolumes lists users' claims with their computed usage and the volume
 // name, optionally only those of uids and/or on the named volume.
-func (fsl *FsLite) UserVolumes(ctx context.Context, uids []int64, volume string) ([]ut.UserVolume, error) {
+func (fsl *FsLite) UserVolumes(ctx context.Context, uids []int64, volume string) ([]model.UserVolume, error) {
 	db, err := fsl.dbh.GetConn()
 	if err != nil {
 		return nil, err
@@ -46,9 +47,9 @@ func (fsl *FsLite) UserVolumes(ctx context.Context, uids []int64, volume string)
 		return nil, err
 	}
 	defer func() { _ = rows.Close() }()
-	uvs := []ut.UserVolume{}
+	uvs := []model.UserVolume{}
 	for rows.Next() {
-		var uv ut.UserVolume
+		var uv model.UserVolume
 		if err := rows.Scan(&uv.VID, &uv.Vname, &uv.UID, &uv.Usage, &uv.Quota, &uv.UpdatedAt); err != nil {
 			return nil, err
 		}
@@ -60,9 +61,9 @@ func (fsl *FsLite) UserVolumes(ctx context.Context, uids []int64, volume string)
 
 // SetUserQuota sets uid's quota (GB, 0 = unlimited) on the named volume,
 // creating the claim if needed.
-func (fsl *FsLite) SetUserQuota(ctx context.Context, volume string, uid int64, quotaGB float64) (ut.UserVolume, error) {
+func (fsl *FsLite) SetUserQuota(ctx context.Context, volume string, uid int64, quotaGB float64) (model.UserVolume, error) {
 	if uid <= 0 || quotaGB < 0 {
-		return ut.UserVolume{}, fmt.Errorf("uid must be positive and the quota not negative (%w)", ut.ErrInvalid)
+		return model.UserVolume{}, fmt.Errorf("uid must be positive and the quota not negative (%w)", ut.ErrInvalid)
 	}
 	err := fsl.immediate(ctx, func(q querier) error {
 		var vid int64
@@ -86,11 +87,11 @@ func (fsl *FsLite) SetUserQuota(ctx context.Context, volume string, uid int64, q
 		return err
 	})
 	if err != nil {
-		return ut.UserVolume{}, err
+		return model.UserVolume{}, err
 	}
 	uvs, err := fsl.UserVolumes(ctx, []int64{uid}, volume)
 	if err != nil || len(uvs) == 0 {
-		return ut.UserVolume{}, errors.Join(err, errors.New("claim not found after update"))
+		return model.UserVolume{}, errors.Join(err, errors.New("claim not found after update"))
 	}
 
 	return uvs[0], nil

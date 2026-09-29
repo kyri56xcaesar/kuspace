@@ -23,6 +23,8 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"kyri56xcaesar/kuspace/internal/config"
+	"kyri56xcaesar/kuspace/internal/model"
 )
 
 const (
@@ -55,7 +57,7 @@ type Client struct {
 
 // NewMinioClient creates and returns a new Client instance using the provided configuration.
 // ✅
-func NewMinioClient(cfg ut.EnvConfig) Client {
+func NewMinioClient(cfg config.EnvConfig) Client {
 	var err error
 	onlyPresignedUpload = cfg.PresignedUploadOnly
 	fetchstat = cfg.MinioFetchStat
@@ -97,7 +99,7 @@ func NewMinioClient(cfg ut.EnvConfig) Client {
 // CreateVolume creates a new bucket (volume) in Minio.
 // ✅
 func (mc *Client) CreateVolume(ctx context.Context, volume any) error {
-	v, ok := volume.(ut.Volume)
+	v, ok := volume.(model.Volume)
 	if !ok {
 		return fmt.Errorf("%s: %w", "failed to cast to a volume", errWrongType)
 	}
@@ -120,7 +122,7 @@ var errWrongType = fmt.Errorf("unexpected argument type (%w)", ut.ErrInvalid)
 // Insert uploads an object to Minio, through a presigned URL above
 // objectSizeThreshold (or always, with onlyPresignedUpload).
 func (mc *Client) Insert(ctx context.Context, t any) error {
-	object, ok := t.(ut.Resource)
+	object, ok := t.(model.Resource)
 	if !ok {
 		return fmt.Errorf("%s: %w", "failed to cast", errWrongType)
 	}
@@ -165,7 +167,7 @@ func (mc *Client) SelectVolumes(ctx context.Context, which map[string]any) (any,
 
 	var r []any
 	for _, b := range res {
-		volume := ut.Volume{
+		volume := model.Volume{
 			Name:      b.Name,
 			CreatedAt: b.CreationDate.String(),
 		}
@@ -200,14 +202,14 @@ func (mc *Client) SelectObjects(ctx context.Context, which map[string]any) (any,
 	objectCh, cancel := mc.listObjects(ctx, vName, prefix)
 	defer cancel()
 
-	var objects []ut.Resource
+	var objects []model.Resource
 	for object := range objectCh {
 		if object.Err != nil {
 			fmt.Println(object.Err)
 
 			return nil, object.Err
 		}
-		rsrc := ut.Resource{
+		rsrc := model.Resource{
 			Name:      object.Key,
 			Size:      object.Size,
 			Type:      "object",
@@ -224,7 +226,7 @@ func (mc *Client) SelectObjects(ctx context.Context, which map[string]any) (any,
 // Stat retrieves metadata information for a given object, optionally fetching the object locally.
 // ✅
 func (mc *Client) Stat(ctx context.Context, t any) (any, error) {
-	object, ok := t.(ut.Resource)
+	object, ok := t.(model.Resource)
 	if !ok {
 		return nil, fmt.Errorf("%s: %w", "failed to cast", errWrongType)
 	}
@@ -250,7 +252,7 @@ func (mc *Client) Stat(ctx context.Context, t any) (any, error) {
 // Remove deletes an object from Minio.
 // ✅
 func (mc *Client) Remove(ctx context.Context, t any) error {
-	resource, ok := t.(ut.Resource)
+	resource, ok := t.(model.Resource)
 	if !ok {
 		return fmt.Errorf("%s: %w", "failed to cast", errWrongType)
 	}
@@ -266,7 +268,7 @@ func (mc *Client) RemoveVolume(ctx context.Context, t any) error {
 	// check if the argument passed is either an entire volume
 	// or just the identifier (name)
 	// either case, get the name
-	volume, ok := t.(ut.Volume)
+	volume, ok := t.(model.Volume)
 	if !ok {
 		bucketname, ok = t.(string)
 		if !ok {
@@ -283,7 +285,7 @@ func (mc *Client) RemoveVolume(ctx context.Context, t any) error {
 // ✅
 func (mc *Client) Download(ctx context.Context, t *any) (context.CancelFunc, error) {
 	value := *t
-	resourcePtr, ok := value.(*ut.Resource)
+	resourcePtr, ok := value.(*model.Resource)
 	if !ok {
 		return nil, fmt.Errorf("%s: %w", "failed to cast to *Resource", errWrongType)
 	}
@@ -311,11 +313,11 @@ func (mc *Client) Download(ctx context.Context, t *any) (context.CancelFunc, err
 
 // Copy copies the given object to a new destination
 func (mc *Client) Copy(ctx context.Context, s, d any) error {
-	src, ok := s.(ut.Resource)
+	src, ok := s.(model.Resource)
 	if !ok {
 		return fmt.Errorf("%s: %w", "failed to cast", errWrongType)
 	}
-	dst, ok := d.(ut.Resource)
+	dst, ok := d.(model.Resource)
 	if !ok {
 		return fmt.Errorf("%s: %w", "failed to cast", errWrongType)
 	}
@@ -349,7 +351,7 @@ func (mc *Client) DefaultVolume(local bool) string {
 // Share generates a presigned URL for uploading or downloading an object.
 // ✅
 func (mc *Client) Share(ctx context.Context, method string, t any) (any, error) {
-	resource, ok := t.(ut.Resource)
+	resource, ok := t.(model.Resource)
 	if !ok {
 		log.Printf("failed to cast to resource")
 
@@ -382,7 +384,7 @@ func (mc *Client) Share(ctx context.Context, method string, t any) (any, error) 
 
 // PresignFor returns a presigned URL granting method ("get" or "put") on
 // exactly one object for d. Jobs get these instead of storage credentials.
-func (mc *Client) PresignFor(ctx context.Context, method string, r ut.Resource, d time.Duration) (*url.URL, error) {
+func (mc *Client) PresignFor(ctx context.Context, method string, r model.Resource, d time.Duration) (*url.URL, error) {
 	object := strings.TrimPrefix(r.Name, "/")
 	switch method {
 	case "get":

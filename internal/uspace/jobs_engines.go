@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"kyri56xcaesar/kuspace/internal/model"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
@@ -99,11 +100,11 @@ func (e *engineSet) use(name string) error {
 }
 
 // statuses checks every engine (in parallel), the current one marked.
-func (e *engineSet) statuses(ctx context.Context) []ut.ExecutorStatus {
+func (e *engineSet) statuses(ctx context.Context) []model.ExecutorStatus {
 	e.mu.RLock()
 	names, current := append([]string{}, e.order...), e.current
 	e.mu.RUnlock()
-	out := make([]ut.ExecutorStatus, len(names))
+	out := make([]model.ExecutorStatus, len(names))
 	var wg sync.WaitGroup
 	for i, name := range names {
 		wg.Add(1)
@@ -123,16 +124,16 @@ func (e *engineSet) statuses(ctx context.Context) []ut.ExecutorStatus {
 const engineSetting = "executor"
 
 // storedEngine reads the engine an admin chose (empty when none).
-func (srv *UService) storedEngine(ctx context.Context) (ut.Setting, error) {
+func (srv *UService) storedEngine(ctx context.Context) (model.Setting, error) {
 	db, err := srv.jdbh.GetConn()
 	if err != nil {
-		return ut.Setting{}, err
+		return model.Setting{}, err
 	}
-	var s ut.Setting
+	var s model.Setting
 	err = db.QueryRowContext(ctx, `SELECT key, value, updated_by, updated_at FROM settings WHERE key = ?`, engineSetting).
 		Scan(&s.Key, &s.Value, &s.UpdatedBy, &s.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
-		return ut.Setting{}, nil
+		return model.Setting{}, nil
 	}
 
 	return s, err

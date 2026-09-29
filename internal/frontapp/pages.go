@@ -2,13 +2,12 @@ package frontendapp
 
 import (
 	"encoding/json"
+	"github.com/gin-gonic/gin"
+	"kyri56xcaesar/kuspace/internal/config"
+	"kyri56xcaesar/kuspace/internal/model"
 	"log"
 	"net/http"
 	"strings"
-
-	ut "kyri56xcaesar/kuspace/internal/utils"
-
-	"github.com/gin-gonic/gin"
 )
 
 /*
@@ -17,7 +16,7 @@ import (
 */
 
 func (srv *HTTPService) handleAdminPanel(c *gin.Context) {
-	var me ut.User
+	var me model.User
 	if err := srv.minioth.decode(c.Request.Context(), request{method: http.MethodGet, path: "/v1/user/me", token: userToken(c)}, &me); err != nil {
 		fail(c, "load your profile", err)
 
@@ -57,7 +56,7 @@ func (srv *HTTPService) handleSysConf(c *gin.Context) {
 		case "wss":
 			err = srv.wss.decode(ctx, request{method: http.MethodGet, path: "/system-conf", svc: true}, &cfg)
 		case "frontapp":
-			cfg, err = ut.ReadConfig("configs/"+srv.Config.ConfigPath, false)
+			cfg, err = config.ReadConfig("configs/"+srv.Config.ConfigPath, false)
 		default:
 			continue
 		}
@@ -84,7 +83,7 @@ func (srv *HTTPService) handleSysMetrics(c *gin.Context) {
 
 func parseTreeNode(name string, data map[string]any) *TreeNode {
 	if isFileNode(data) {
-		var resource ut.Resource
+		var resource model.Resource
 		jsonData, err := json.Marshal(data)
 		if err != nil {
 			log.Printf("failed to marshal data: %v", err)
@@ -137,9 +136,9 @@ func respondInFormat(c *gin.Context, format string, data any, templateName strin
 }
 
 // parsePermissionsString translates something like "rwxr-xr--" into a FilePermissions struct.
-func parsePermissionsString(permsStr string) (ut.Permissions, error) {
+func parsePermissionsString(permsStr string) (model.Permissions, error) {
 	// We assume permsStr has length >= 9 (like "rwxr-xr--").
-	fp := ut.Permissions{}
+	fp := model.Permissions{}
 
 	err := fp.FillFromStr(permsStr)
 	if err != nil {
@@ -161,7 +160,7 @@ func compareStatus(status1, status2 string) bool {
 // TreeNode struct describes the "set" of resources in a tree like representation
 // using maps
 type TreeNode struct {
-	Resource *ut.Resource         `json:"resource,omitempty"`
+	Resource *model.Resource      `json:"resource,omitempty"`
 	Children map[string]*TreeNode `json:"children,omitempty"`
 	Name     string               `json:"name,omitempty"`
 	Type     string               `json:"type"` // "directory" or "file"
