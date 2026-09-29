@@ -163,6 +163,7 @@
             <span class="output" data-v="{{ $j.Output }}" title="Output">{{ $j.Output }}</span>
           </div>
           {{ if $j.Description }}<p class="description" data-v="{{ $j.Description }}">{{ $j.Description }}</p>{{ else }}<p class="description k-hidden-empty" data-v=""></p>{{ end }}
+          {{ if $j.StatusReason }}<p class="k-job-reason"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> {{ $j.StatusReason }}</p>{{ end }}
           <dl class="k-job-meta">
             <div><dt>Created</dt><dd class="createdAt k-when" data-v="{{ $j.CreatedAt }}" data-ts="{{ $j.CreatedAt }}">{{ $j.CreatedAt }}</dd></div>
             <div><dt>Completed</dt><dd class="completedAt k-when" data-v="{{ $j.CompletedAt }}" data-ts="{{ $j.CompletedAt }}">{{ $j.CompletedAt }}</dd></div>

@@ -53,7 +53,7 @@ func TestJobsDBMigratesEveryEarlierShape(t *testing.T) {
 			}
 			_ = rows.Close()
 			got := strings.Join(cols, ",")
-			if !strings.HasSuffix(got, ",engine,gid") {
+			if !strings.Contains(got, ",engine,gid,") || !strings.HasSuffix(got, ",attempts,lease_until,started_unix,status_reason") {
 				t.Errorf("columns: %s", got)
 			}
 			if want == "" {

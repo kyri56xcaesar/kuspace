@@ -280,6 +280,15 @@ func (jm *JobManager) takeCancelled(jid int64) bool {
 	return false
 }
 
+// isTracked reports whether a job is being run or followed here.
+func (jm *JobManager) isTracked(jid int64) bool {
+	jm.mu.Lock()
+	defer jm.mu.Unlock()
+	_, ok := jm.running[jid]
+
+	return ok
+}
+
 // trackRunning registers a running job's cancel func until the returned
 // func is called.
 func (jm *JobManager) trackRunning(jid int64, cancel context.CancelCauseFunc) func() {
@@ -294,9 +303,9 @@ func (jm *JobManager) trackRunning(jid int64, cancel context.CancelCauseFunc) fu
 	}
 }
 
-func streamToSocketWS(jobID int64, ch <-chan []byte) {
+func streamToSocketWS(address string, jobID int64, ch <-chan []byte) {
 	jobIDStr := strconv.FormatInt(jobID, 10)
-	wsURL := fmt.Sprintf("ws://"+jobsSocketAddress+"/get-session?jid=%s&role=Producer", jobIDStr)
+	wsURL := fmt.Sprintf("ws://"+address+"/get-session?jid=%s&role=Producer", jobIDStr)
 
 	// wss only accepts producers that authenticate as a service
 	conn, resp, err := websocket.DefaultDialer.Dial(wsURL, http.Header{"X-Service-Secret": {string(jobsServiceSecret)}})

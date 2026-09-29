@@ -176,7 +176,8 @@ func (srv *UService) getJobByID(ctx context.Context, jid int) (ut.Job, error) {
 		&job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders,
 		&params, &job.Status, &job.Completed, &completedAt, &createdAt, &job.Parallelism, &job.Priority,
 		&job.MemoryRequest, &job.CPURequest, &job.MemoryLimit, &job.CPULimit, &job.EphemeralStorageRequest,
-		&job.EphemeralStorageLimit, &job.Engine, &job.GID)
+		&job.EphemeralStorageLimit, &job.Engine, &job.GID,
+		&job.StatusReason, &job.Attempts)
 	if err != nil {
 		log.Printf("failed to query row: %v", err)
 
@@ -229,7 +230,8 @@ func (srv *UService) getJobsByUID(ctx context.Context, uid int) ([]ut.Job, error
 			&job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody,
 			&job.LogicHeaders, &params, &job.Status, &job.Completed, &completedAt, &createdAt,
 			&job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest, &job.MemoryLimit,
-			&job.CPULimit, &job.EphemeralStorageRequest, &job.EphemeralStorageLimit, &job.Engine, &job.GID)
+			&job.CPULimit, &job.EphemeralStorageRequest, &job.EphemeralStorageLimit, &job.Engine, &job.GID,
+			&job.StatusReason, &job.Attempts)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
 
@@ -306,7 +308,8 @@ func (srv *UService) getJobsByUIDs(ctx context.Context, uids []int) ([]ut.Job, e
 			&job.InputFormat, &job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody,
 			&job.LogicHeaders, &params, &job.Status, &job.Completed, &completedAt, &createdAt,
 			&job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest, &job.MemoryLimit,
-			&job.CPULimit, &job.EphemeralStorageRequest, &job.EphemeralStorageLimit, &job.Engine, &job.GID)
+			&job.CPULimit, &job.EphemeralStorageRequest, &job.EphemeralStorageLimit, &job.Engine, &job.GID,
+			&job.StatusReason, &job.Attempts)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
 
@@ -369,7 +372,8 @@ func (srv *UService) getAllJobs(ctx context.Context, limit, offset string) ([]ut
 		err = rows.Scan(&job.JID, &job.UID, &job.Description, &job.Duration, &job.Input, &job.InputFormat,
 			&job.Output, &job.OutputFormat, &job.Logic, &job.LogicBody, &job.LogicHeaders, &params, &job.Status,
 			&job.Completed, &completedAt, &createdAt, &job.Parallelism, &job.Priority, &job.MemoryRequest, &job.CPURequest,
-			&job.MemoryLimit, &job.CPULimit, &job.EphemeralStorageRequest, &job.EphemeralStorageLimit, &job.Engine, &job.GID)
+			&job.MemoryLimit, &job.CPULimit, &job.EphemeralStorageRequest, &job.EphemeralStorageLimit, &job.Engine, &job.GID,
+			&job.StatusReason, &job.Attempts)
 		if err != nil {
 			log.Printf("failed to scan row: %v", err)
 
@@ -435,7 +439,7 @@ func (srv *UService) markJobStatus(ctx context.Context, jid int64, status string
 		query = `
 		UPDATE jobs
 		SET
-			status = ?, completed = ?, completedAt = ?, duration = ?
+			status = ?, completed = ?, completedAt = ?, duration = ?, lease_until = NULL
 		WHERE
 			jid = ?
 	`
@@ -446,12 +450,16 @@ func (srv *UService) markJobStatus(ctx context.Context, jid int64, status string
 			return fmt.Errorf("failed to execute query: %w", err)
 		}
 	} else {
+		// running: remember when (the database dispatcher's reaper needs it);
+		// a final state ends the job's lease
 		query = `
 		UPDATE jobs
 		SET
-			status = ?, completed = ?, duration = ?
+			status = ?1, completed = ?2, duration = ?3,
+			started_unix = CASE WHEN ?1 = 'running' THEN COALESCE(started_unix, unixepoch()) ELSE started_unix END,
+			lease_until = CASE WHEN ?1 IN ('failed', 'cancelled', 'unknown') THEN NULL ELSE lease_until END
 		WHERE
-			jid = ?
+			jid = ?4
 	`
 		_, err = db.ExecContext(ctx, query, status, completed, duration, jid)
 		if err != nil {
@@ -497,7 +505,8 @@ func (srv *UService) getJobLog(ctx context.Context, jid int64) (string, error) {
 const jobColumns = `jid, uid, description, duration, input, inputFormat, output, outputFormat,
 	logic, logicBody, logicHeaders, parameters, status, completed, completedAt, createdAt,
 	parallelism, priority, memoryRequest, cpuRequest, memoryLimit, cpuLimit,
-	ephemeralStorageRequest, ephemeralStorageLimit, COALESCE(engine, ''), COALESCE(gid, 0)`
+	ephemeralStorageRequest, ephemeralStorageLimit, COALESCE(engine, ''), COALESCE(gid, 0),
+	COALESCE(status_reason, ''), attempts`
 
 // jobsByEngine counts the jobs per recorded engine ("" = none recorded).
 func (srv *UService) jobsByEngine(ctx context.Context) (map[string]int, error) {
@@ -521,6 +530,17 @@ func (srv *UService) jobsByEngine(ctx context.Context) (map[string]int, error) {
 	}
 
 	return out, rows.Err()
+}
+
+// setJobReason records why a job is in its state.
+func (srv *UService) setJobReason(ctx context.Context, jid int64, reason string) error {
+	db, err := srv.jdbh.GetConn()
+	if err != nil {
+		return err
+	}
+	_, err = db.ExecContext(ctx, `UPDATE jobs SET status_reason = ? WHERE jid = ?`, reason, jid)
+
+	return err
 }
 
 // markJobEngine records where a job runs.

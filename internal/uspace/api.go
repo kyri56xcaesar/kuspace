@@ -119,7 +119,6 @@ func NewUService(conf string) UService {
 		panic(errors.New("jobs socket address is empty"))
 	}
 	srv.jdp = jdp
-	jdp.Start() // start "master" worker (the one that spawns other workers)
 
 	// database (init)
 	jdbh := ut.NewDBHandler(cfg.UspaceJobsDB, cfg.UspaceJobsDBPath, cfg.UspaceJobsDBDriver)
@@ -163,6 +162,10 @@ func NewUService(conf string) UService {
 			log.Fatalf("[USPACE_init] failed to save to local fsl db: %v", err)
 		}
 	}
+
+	// last: the database dispatcher reads jobs.db and may record job outputs
+	// (fslite, storage) as soon as it starts
+	jdp.Start()
 
 	syncUsersInBackground(&srv)
 

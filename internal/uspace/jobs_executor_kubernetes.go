@@ -70,7 +70,7 @@ func (jke JKubernetesExecutor) CancelJob(job ut.Job) error {
 
 		return err
 	}
-	err = cancelJob(client, k8sJobName(job.JID), jke.jm.srv.config.Namespace)
+	err = cancelJob(context.Background(), client, k8sJobName(job.JID), jke.jm.srv.config.Namespace)
 	if err != nil {
 		log.Printf("[executor] failed to cancel the Job: %v", err)
 	}
@@ -229,10 +229,10 @@ func runJob(ctx context.Context, clientset kubernetes.Interface, job *batchv1.Jo
 	return err
 }
 
-func cancelJob(clientset kubernetes.Interface, jobName, namespace string) error {
+func cancelJob(ctx context.Context, clientset kubernetes.Interface, jobName, namespace string) error {
 	foreground := metav1.DeletePropagationForeground
 
-	return clientset.BatchV1().Jobs(namespace).Delete(context.Background(), jobName, metav1.DeleteOptions{
+	return clientset.BatchV1().Jobs(namespace).Delete(ctx, jobName, metav1.DeleteOptions{
 		PropagationPolicy: &foreground,
 	})
 }
@@ -353,7 +353,7 @@ type jobOutput struct {
 
 func newJobOutput(jid int64) *jobOutput {
 	o := &jobOutput{ch: make(chan []byte, 100)}
-	go streamToSocketWS(jid, o.ch)
+	go streamToSocketWS(jobsSocketAddress, jid, o.ch) // the address is read here, not in the stream
 
 	return o
 }
@@ -475,7 +475,18 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	if err := je.jm.srv.markJobEngine(context.Background(), job.JID, "kubernetes"); err != nil {
 		log.Printf("failed to record job %d engine: %v", job.JID, err)
 	}
+	je.watch(ctx, clientset, job, jobSpec.Name, namespace, out, startTime)
+}
 
+// watch follows a started kubernetes job to its end: streams its logs,
+// waits for its status (deleting it if its owner cancelled ctx), then
+// records the outcome and, when it completed, its output. ExecuteJob and
+// Reattach share it.
+func (jke JKubernetesExecutor) watch(ctx context.Context, clientset kubernetes.Interface, job ut.Job,
+	jobName, namespace string, out *jobOutput, startTime time.Time,
+) {
+	// the outcome is written even when ctx was cancelled
+	bg := context.WithoutCancel(ctx)
 	var logsDone sync.WaitGroup
 	logsDone.Add(1)
 	go func() {
@@ -486,14 +497,14 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 		}
 	}()
 
-	status, err := monitorJob(ctx, clientset, jobSpec.Name, namespace)
+	status, err := monitorJob(ctx, clientset, jobName, namespace)
 	if err != nil {
 		log.Printf("error monitoring job: %v", err)
 	}
 	if errors.Is(context.Cause(ctx), ErrJobCancelled) {
 		// stop the pod: deleting the kubernetes job (foreground) removes it
-		if err := cancelJob(clientset, jobSpec.Name, namespace); err != nil {
-			log.Printf("failed to delete cancelled job %s: %v", jobSpec.Name, err)
+		if err := cancelJob(bg, clientset, jobName, namespace); err != nil {
+			log.Printf("failed to delete cancelled job %s: %v", jobName, err)
 		}
 		status = "cancelled"
 		out.Send([]byte("[executor] job cancelled by its owner\n"))
@@ -509,13 +520,13 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	duration := time.Since(startTime)
 	out.Sendf("[executor] job %v finished with status: %s, duration: %v\n", jobName, status, duration)
 
-	if err := je.jm.srv.markJobStatus(context.Background(), job.JID, status, duration); err != nil {
+	if err := jke.jm.srv.markJobStatus(bg, job.JID, status, duration); err != nil {
 		log.Printf("failed to annotate result to database")
 		out.Sendf("[executor]: error marking job completion %v\n", err)
 	}
 
 	if status == "completed" {
-		je.jm.srv.recordJobOutput(context.Background(), job, out)
+		jke.jm.srv.recordJobOutput(bg, job, out)
 	}
 }
 

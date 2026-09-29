@@ -77,12 +77,7 @@ func dockerRunArgs(job ut.Job, command []string, q jobQuotas, network string) []
 // Status asks the docker engine for its version (which fails when uspace
 // can't reach it) and checks that the job network exists.
 func (je JDockerExecutor) Status(ctx context.Context) ut.ExecutorStatus {
-	run := je.run
-	if run == nil {
-		run = func(ctx context.Context, args ...string) ([]byte, error) {
-			return exec.CommandContext(ctx, "docker", args...).CombinedOutput()
-		}
-	}
+	run := je.docker
 	network := je.jm.srv.config.UspaceJobDockerNetwork
 	st := ut.ExecutorStatus{Engine: "docker", Where: "network " + network, CheckedAt: ut.CurrentTime()}
 	if network == "" {

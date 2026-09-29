@@ -247,6 +247,7 @@ once. Smoke checks the old session and password stop working.
 |---|---|---|---|
 | MED | minioth | Only a static "alive" endpoint: a minioth whose store was broken looked healthy to frontapp's `/readyz` and the status page. | minioth v1.1.2 `GET /v1/.well-known/ready` asks the store; kuspace, compose and the k8s readiness probe use it. v1.1.2 also ships the primary-group fix and plain-store durability. |
 | MED | databases | Schema changes were ad-hoc start-up code with its own "already applied?" checks, and nothing recorded what ran. | Numbered migrations with a record table and a backup (see "Schema migrations" below). |
+| HIGH | uspace jobs | The queue was an in-memory channel: after a restart queued jobs stayed "queued" and running ones "running" forever, their outputs unrecorded; a cancel of a queued job was forgotten. | `J_DISPATCHER=database`, a second dispatcher next to the in-memory one: the jobs table is the queue, leases and heartbeats, a reaper that follows running jobs again (docker logs/wait, the kubernetes watch), records outcomes reached unwatched, retries a job claimed but never started once, and fails lost jobs with a reason (`status_reason`, shown with the job). Migration 0003. Tests with a fake engine and clock, including a crash and restart; live reattach checked against docker. |
 | LOW | admin panel | Nothing showed which engine runs jobs or whether it works; jobs recorded their engine but no view showed it. | `GET /api/v1/admin/executor` (engine, active, version, where jobs run, why not active, jobs per engine; Docker: `docker version` + the job network; Kubernetes: API server version + listing jobs in the namespace). An "Execution engine" card on the System page (refreshed with it), "Ran on" in job details, the engine in gShell's `jobs`, and smoke checks. |
 
 ---
@@ -261,9 +262,10 @@ once. Smoke checks the old session and password stop working.
   objects, size drift, volume halves), report periodically, repair on
   `--repair`/admin call; fault-injecting storage fake + property tests; fsck
   in smoke. Also: move/copy ordering audit.
-- `HIGH` **jobs across restarts**: queued jobs stay "queued" and running ones
-  "running" after a restart (drain now leaves them so) - re-queue / re-attach
-  or fail them at start, plus a timeout watchdog.
+- `MED` the database dispatcher is tested with a fake engine and its
+  reattach live against docker, but not yet end to end in the compose stack
+  (needs the rebuilt images and `J_DISPATCHER=database`); decide whether it
+  becomes the default.
 
 ### Code health
 
@@ -285,11 +287,7 @@ once. Smoke checks the old session and password stop working.
   commits).
 
 ### Next up (agreed 2026-09-29)
-1. Jobs across restarts: a database-backed dispatcher (the jobs table is the
-   queue; leases, heartbeat, a reaper that re-attaches or fails lost jobs,
-   timeout watchdog; one automatic retry for jobs claimed but never started)
-   as a second `JobDispatcher` next to the in-memory one, chosen by config.
-2. `fsck`: admin endpoint (check / repair) with stored reports, and a
+1. `fsck`: admin endpoint (check / repair) with stored reports, and a
    Consistency page in the admin panel.
 
 ### Schema migrations (done 2026-09-29)

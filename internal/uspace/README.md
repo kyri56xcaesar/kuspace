@@ -42,6 +42,20 @@ submit ──► queue (J_QUEUE_SIZE, full → 503) ──► dispatcher ──�
                         docker executor (J_EXECUTOR=docker) ◄────┤────► kubernetes executor
 ```
 
+Two dispatchers (`J_DISPATCHER`):
+
+- `scheduler` (default): an in-memory queue. Queued and running jobs are lost
+  when uspace stops (they stay "queued"/"running" in the table).
+- `database`: the jobs table is the queue (`jobs_dispatcher_db.go`), so jobs
+  survive restarts. A job goes `pending → queued → starting → running → done`;
+  whoever runs or follows a job keeps a lease on it with a heartbeat. A job past
+  its lease has lost its watcher, and the reaper (every 15 s and at start) asks
+  the engine: still running → followed again (logs, outcome, output recorded as
+  usual); finished → its outcome recorded; claimed but never started → queued
+  again once, then failed; gone after running → completed if it wrote its
+  output, else failed as lost; engine unreachable → asked again later. The
+  reason is kept in `status_reason` and shown with the job. No queue limit.
+
 - A job is an **application** (built-in images from `applications/`, or any catalogue
   entry) or **code** in a language mode (`python`, `node`, `ruby`, `php`, `perl`, `r`,
   `go`, `java`, `c`, with aliases such as `py` or `js`). The code goes into the
@@ -55,9 +69,10 @@ submit ──► queue (J_QUEUE_SIZE, full → 503) ──► dispatcher ──�
   the difference is charged or refunded.
 - Live output streams through [wss](../wss/README.md). The log is kept (last 64 KiB)
   in `job_logs` and served by `/job/log`.
-- `POST /job/cancel` works on queued jobs (skipped at dequeue) and running jobs (the
+- `POST /job/cancel` works on queued jobs (never started) and running jobs (the
   container or kubernetes Job is killed). Finished jobs answer 409.
-- Each job records the `engine` it ran on (`docker` or `kubernetes`).
+- Each job records the `engine` it ran on (`docker` or `kubernetes`);
+  `GET /admin/executor` says which engine is in use and whether it answers.
 
 The docker executor is for development: it needs the docker socket (root on the
 host) and joins `J_DOCKER_NETWORK` so the job can reach MinIO under the name the URLs

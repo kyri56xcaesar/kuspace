@@ -49,6 +49,11 @@ func DispatcherShipment(dispatcherType string, srv *UService) (JobDispatcher, er
 	case "scheduler", "default", "local":
 
 		return JobDispatcherImpl{Manager: NewJobManager(srv)}, nil
+	case "database", "db":
+		// the jobs table is the queue: jobs survive restarts (jobs_dispatcher_db.go)
+		jm := NewJobManager(srv)
+
+		return NewDBDispatcher(srv, &jm)
 	case "kafka":
 
 		return nil, errors.New("the kafka dispatcher is not implemented")

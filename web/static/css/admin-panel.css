@@ -787,7 +787,7 @@ body.k-app {
 }
 .job-display-entry.is-completed::before { background: var(--st-good); }
 .job-display-entry.is-failed::before, .job-display-entry.is-canceled::before, .job-display-entry.is-cancelled::before { background: var(--st-crit); }
-.job-display-entry.is-running::before, .job-display-entry.is-dispatched::before { background: var(--st-run); }
+.job-display-entry.is-running::before, .job-display-entry.is-dispatched::before, .job-display-entry.is-starting::before { background: var(--st-run); }
 .job-display-entry.is-pending::before, .job-display-entry.is-queued::before { background: var(--st-warn); }
 .job-display-entry:hover { border-color: var(--k-line-strong); }
 .job-row-head { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
@@ -802,6 +802,8 @@ body.k-app {
 .k-job-io > i { color: var(--k-muted); font-size: 0.8rem; }
 .job-row-body .description { margin: 0; color: var(--k-ink-2); font-size: var(--fs-sm); }
 .k-hidden-empty { display: none; }
+.k-job-reason { margin: 2px 0 6px; font-size: var(--fs-xs); color: var(--k-muted); }
+.k-job-reason i { margin-right: 4px; }
 .k-job-meta { display: flex; flex-wrap: wrap; gap: 4px var(--sp-5); margin: 0; font-size: var(--fs-xs); }
 .k-job-meta div { display: flex; gap: 6px; }
 .k-job-meta dt { color: var(--k-muted); }
@@ -819,8 +821,8 @@ body.k-app {
 .status.is-completed::before { content: "\f058"; font-size: 0.75rem; }
 .status.is-failed, .status.is-canceled, .status.is-cancelled { background: var(--st-crit-soft); color: var(--st-crit-ink); }
 .status.is-failed::before, .status.is-canceled::before, .status.is-cancelled::before { content: "\f057"; font-size: 0.75rem; }
-.status.is-running, .status.is-dispatched { background: var(--st-run-soft); color: var(--st-run-ink); }
-.status.is-running::before, .status.is-dispatched::before { content: "\f110"; font-size: 0.7rem; }
+.status.is-running, .status.is-dispatched, .status.is-starting { background: var(--st-run-soft); color: var(--st-run-ink); }
+.status.is-running::before, .status.is-dispatched::before, .status.is-starting::before { content: "\f110"; font-size: 0.7rem; }
 .status.is-pending, .status.is-queued { background: var(--st-warn-soft); color: var(--st-warn-ink); }
 .status.is-pending::before, .status.is-queued::before { content: "\f252"; font-size: 0.7rem; }
 

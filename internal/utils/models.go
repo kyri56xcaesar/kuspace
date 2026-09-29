@@ -712,6 +712,12 @@ type Job struct {
 	// never by the submitter.
 	Engine string `json:"engine,omitempty" form:"-"`
 
+	// StatusReason says why the job is in its state when that isn't obvious
+	// (re-queued or failed after a restart); Attempts counts how often it was
+	// claimed to run. Set by uspace's database dispatcher.
+	StatusReason string `json:"statusReason,omitempty" form:"-"`
+	Attempts     int    `json:"attempts,omitempty" form:"-"`
+
 	// GID is the owner's primary group at submission: the job's output files
 	// get it. Set by uspace, never by the submitter.
 	GID int64 `json:"gid,omitempty" form:"-"`
