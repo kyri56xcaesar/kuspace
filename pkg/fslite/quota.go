@@ -32,11 +32,10 @@ var (
 	ErrVolumeFull = fmt.Errorf("volume is full (%w)", ut.ErrNoSpace)
 )
 
-// usageSchema: the views the read queries use, and the index the sums use.
-// Views are re-created on every start, so their definition can change.
+// usageSchema: the views the read queries use (their index is in
+// migrations/0001_init.sql). Views are re-created on every start, so their
+// definition can change.
 const usageSchema = `
-	CREATE INDEX IF NOT EXISTS idx_resources_vid_uid ON resources(vid, uid);
-
 	DROP VIEW IF EXISTS volume_usage;
 	CREATE VIEW volume_usage AS
 	    SELECT v.vid, v.name, v.path, v.dynamic, v.capacity,

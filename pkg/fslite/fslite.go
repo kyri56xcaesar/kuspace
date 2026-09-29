@@ -45,6 +45,8 @@ package fslite
 
 import (
 	"context"
+	"database/sql"
+	"embed"
 	"errors"
 	"fmt"
 	"io"
@@ -64,59 +66,32 @@ const (
 	maxVolumeCap      float64 = 100 // GB
 )
 
-const (
-	initSQL = `
-	CREATE TABLE IF NOT EXISTS user_admin (
-	    uuid TEXT PRIMARY KEY,
-	    username TEXT UNIQUE,
-	    hashpass TEXT
-	);
-	
-	CREATE TABLE IF NOT EXISTS volumes (
-	    vid INTEGER PRIMARY KEY AUTOINCREMENT,
-	    name TEXT UNIQUE,
-	    path TEXT,
-	    dynamic BOOLEAN, 
-	    capacity REAL,
-	    usage REAL,
-	    createdAt DATETIME
-	);
-	
-	CREATE TABLE IF NOT EXISTS resources (
-	    rid INTEGER PRIMARY KEY AUTOINCREMENT,
-	    uid INTEGER,
-	    gid INTEGER,
-	    vid INTEGER,
-	    vname TEXT,
-	    size INTEGER,
-	    links INTEGER,
-	    perms TEXT,
-	    name TEXT,
-	    path TEXT,
-	    type TEXT,
-	    createdAt DATETIME,
-	    updatedAt DATETIME,
-	    accessedAt DATETIME,
-	    FOREIGN KEY (vid) REFERENCES volumes(vid) ON DELETE CASCADE
-	);
-	
-	CREATE TABLE IF NOT EXISTS user_volume (
-	    vid INTEGER,
-	    uid INTEGER,
-	    usage REAL,
-	    quota REAL,
-	    updatedAt DATETIME,
-	    PRIMARY KEY (vid, uid),
-	    FOREIGN KEY (vid) REFERENCES volumes(vid) ON DELETE CASCADE
-	);
+//go:embed migrations/*.sql
+var migrationFiles embed.FS
 
-	-- faster lookup
-	CREATE INDEX IF NOT EXISTS idx_resources_vid ON resources(vid);
-	CREATE INDEX IF NOT EXISTS idx_resources_uid ON resources(uid);
-	CREATE INDEX IF NOT EXISTS idx_user_volume_uid ON user_volume(uid);
+// migrations are fslite's database migrations (see ut.Migration).
+func migrations() ([]ut.Migration, error) {
+	return ut.LoadMigrations(migrationFiles, "migrations",
+		// data fixes that ran at every start before migrations existed
+		ut.Migration{Version: 2, Name: "repair_volume_ids", Func: func(ctx context.Context, tx *sql.Tx) error {
+			return logFixed(repairVolumeIDs(ctx, tx))("repaired the volume id of %d resource(s)")
+		}},
+		ut.Migration{Version: 3, Name: "normalize_names", Func: func(ctx context.Context, tx *sql.Tx) error {
+			return logFixed(normalizeStoredNames(ctx, tx))("normalized %d resource name(s) to a leading \"/\"")
+		}},
+	)
+}
 
-    `
-)
+// logFixed logs how many rows a data fix changed (when it changed any).
+func logFixed(n int64, err error) func(format string) error {
+	return func(format string) error {
+		if err == nil && n > 0 {
+			log.Printf("[FSL_init] "+format, n)
+		}
+
+		return err
+	}
+}
 
 // FsLite central object
 // a database handler
@@ -149,24 +124,29 @@ func NewFsLite(cfg ut.EnvConfig) FsLite {
 		dbh:    ut.NewDBHandler(cfg.FslDB, cfg.FslDBPath, cfg.FslDBDriver),
 		Engine: ginEngine,
 	}
-	fsl.dbh.Init(initSQL+groupVolumeSchema+usageSchema, cfg.FslDBMaxOpenConns, cfg.FslDBMaxIdleConns, cfg.FslDBMaxLifetime)
-	_, err := fsl.insertAdmin(cfg.FslAccessKey, cfg.FslSecretKey)
+	fsl.dbh.Init(context.Background(), "", cfg.FslDBMaxOpenConns, cfg.FslDBMaxIdleConns, cfg.FslDBMaxLifetime)
+	migs, err := migrations()
+	if err == nil {
+		err = fsl.dbh.Migrate(context.Background(), migs)
+	}
+	if err != nil {
+		log.Fatalf("[FSL_init] database: %v", err)
+	}
+	// views are definitions, not data: re-created at every start
+	if db, err := fsl.dbh.GetConn(); err != nil {
+		log.Fatalf("[FSL_init] database: %v", err)
+	} else if _, err := db.ExecContext(context.Background(), usageSchema); err != nil {
+		log.Fatalf("[FSL_init] usage views: %v", err)
+	}
+	_, err = fsl.insertAdmin(cfg.FslAccessKey, cfg.FslSecretKey)
 	if isUniqueViolation(err) {
 		log.Printf("[FSL_init] admin user already exists")
 	} else if err != nil {
 		log.Fatalf("[FSL_init] error inserting main user, fatal...: %v", err)
 	}
+	// not a migration: on a database holding duplicate names it can't be
+	// created, and that must not stop fslite from starting (retried each start)
 	if db, err := fsl.dbh.GetConn(); err == nil {
-		if n, err := repairVolumeIDs(context.Background(), db); err != nil {
-			log.Printf("[FSL_init] failed to repair volume ids: %v", err)
-		} else if n > 0 {
-			log.Printf("[FSL_init] repaired the volume id of %d resource(s)", n)
-		}
-		if n, err := normalizeStoredNames(context.Background(), db); err != nil {
-			log.Printf("[FSL_init] failed to normalize resource names: %v", err)
-		} else if n > 0 {
-			log.Printf("[FSL_init] normalized %d resource name(s) to a leading \"/\"", n)
-		}
 		if err := ensureUniqueNames(context.Background(), db); err != nil {
 			log.Printf("[FSL_init] WARNING: %v", err)
 		}

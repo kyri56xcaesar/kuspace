@@ -14,6 +14,7 @@ package uspace
 import (
 	"context"
 	"database/sql"
+	"embed"
 	"errors"
 	"fmt"
 	ut "kyri56xcaesar/kuspace/internal/utils"
@@ -22,58 +23,28 @@ import (
 	"time"
 )
 
-const (
-	initSQLJobs = `
-		CREATE TABLE IF NOT EXISTS jobs (
-		    jid INTEGER PRIMARY KEY AUTOINCREMENT, 
-		    uid INTEGER,                           
-		    description TEXT,
-		    duration REAL,                         
-		    input TEXT,
-		    inputFormat TEXT,
-		    output TEXT,
-		    outputFormat TEXT,
-		    logic TEXT,
-		    logicBody TEXT,
-		    logicHeaders TEXT,
-		    parameters TEXT,
-		    status TEXT,
-		    completed INTEGER,                     
-		    completedAt DATETIME,
-		    createdAt DATETIME,
-		    parallelism INTEGER,
-		    priority INTEGER,
-		    memoryRequest TEXT,
-		    cpuRequest TEXT,
-		    memoryLimit TEXT,
-		    cpuLimit TEXT,
-		    ephemeralStorageRequest TEXT,           
-		    ephemeralStorageLimit TEXT,
-		    engine TEXT,
-		    gid INTEGER
-		);
+//go:embed migrations/jobs/*.sql
+var jobsMigrationFiles embed.FS
 
-		-- the kept tail of each job's output (outlives the live stream)
-		CREATE TABLE IF NOT EXISTS job_logs (
-		    jid INTEGER PRIMARY KEY,
-		    log TEXT,
-		    updatedAt DATETIME
-		);
+// jobsMigrations are jobs.db's migrations (see ut.Migration).
+func jobsMigrations() ([]ut.Migration, error) {
+	return ut.LoadMigrations(jobsMigrationFiles, "migrations/jobs",
+		// added by start-up code before migrations existed: some databases have them
+		ut.Migration{Version: 2, Name: "job_engine_and_gid", Func: ut.AddColumns("jobs",
+			ut.Column{Name: "engine", Type: "TEXT"}, ut.Column{Name: "gid", Type: "INTEGER"})},
+	)
+}
 
-		CREATE TABLE IF NOT EXISTS apps (
-		    id INTEGER PRIMARY KEY AUTOINCREMENT,   
-		    name TEXT UNIQUE,
-		    image TEXT,
-		    description TEXT,
-		    version TEXT,
-		    author TEXT,
-		    authorId INTEGER,                       
-		    status TEXT,
-		    insertedAt DATETIME,
-		    createdAt DATETIME
-		);
-`
-)
+// openJobsDB opens jobs.db and brings it up to date.
+func openJobsDB(ctx context.Context, h *ut.DBHandler, maxOpen, maxIdle, lifetime string) error {
+	h.Init(ctx, "", maxOpen, maxIdle, lifetime)
+	migs, err := jobsMigrations()
+	if err != nil {
+		return err
+	}
+
+	return h.Migrate(ctx, migs)
+}
 
 func (srv *UService) insertJob(ctx context.Context, jb ut.Job) (int64, error) {
 	// log.Printf("inserting job in db: %+v", jb)
@@ -527,40 +498,6 @@ const jobColumns = `jid, uid, description, duration, input, inputFormat, output,
 	logic, logicBody, logicHeaders, parameters, status, completed, completedAt, createdAt,
 	parallelism, priority, memoryRequest, cpuRequest, memoryLimit, cpuLimit,
 	ephemeralStorageRequest, ephemeralStorageLimit, COALESCE(engine, ''), COALESCE(gid, 0)`
-
-// ensureJobColumns adds columns introduced after a database was created
-// (engine, gid). TODO(BACKLOG): replace with numbered migrations.
-func (srv *UService) ensureJobColumns(ctx context.Context) error {
-	db, err := srv.jdbh.GetConn()
-	if err != nil {
-		return err
-	}
-	rows, err := db.QueryContext(ctx, `SELECT name FROM pragma_table_info('jobs')`)
-	if err != nil {
-		return err
-	}
-	have := map[string]bool{}
-	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err != nil {
-			_ = rows.Close()
-
-			return err
-		}
-		have[name] = true
-	}
-	_ = rows.Close()
-	for _, col := range []struct{ name, typ string }{{"engine", "TEXT"}, {"gid", "INTEGER"}} {
-		if have[col.name] {
-			continue
-		}
-		if _, err := db.ExecContext(ctx, `ALTER TABLE jobs ADD COLUMN `+col.name+` `+col.typ); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
 
 // markJobEngine records where a job runs.
 func (srv *UService) markJobEngine(ctx context.Context, jid int64, engine string) error {

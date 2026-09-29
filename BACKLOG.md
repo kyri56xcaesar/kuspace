@@ -276,35 +276,34 @@ once. Smoke checks the old session and password stop working.
   the current local repository (the copy prepared earlier predates these
   commits).
 
-### Next up
-1. `fsck` (consistency step 3): the fault-injecting storage fake and the
-   property tests are in place.
-3. Jobs across restarts.
-4. Schema migrations (see Design notes below).
-5. minioth plain store: harden or drop (decision pending).
+### Next up (agreed 2026-09-29)
+1. Execution engine status on the admin System page and status page
+   (engine, active, version); the engine shown in job views.
+2. Jobs across restarts: a database-backed dispatcher (the jobs table is the
+   queue; leases, heartbeat, a reaper that re-attaches or fails lost jobs,
+   timeout watchdog; one automatic retry for jobs claimed but never started)
+   as a second `JobDispatcher` next to the in-memory one, chosen by config.
+3. `fsck`: admin endpoint (check / repair) with stored reports, and a
+   Consistency page in the admin panel.
 
-### Design notes: schema migrations
-Today schema changes are applied by start-up code scattered across the
-services (`CREATE TABLE IF NOT EXISTS`, name normalization, volume-id
-repair, the `jobs.engine` column). Nothing records what has run, so every
-change needs its own "is it already applied?" check.
-
-Plan - a small runner in `internal/utils` (no new dependency):
-- each database (uspace's jobs.db, fslite's db) owns an ordered list of
-  migrations embedded with `go:embed` (`migrations/0001_init.sql`,
-  `0002_job_engine.sql`, ...), plus Go functions for data fixes SQL can't
-  express;
-- a `schema_migrations(version, name, applied_at)` table records what ran;
-  at start-up each pending migration runs in its own transaction, in order,
-  and the service refuses to start if one fails;
-- existing databases are baselined: `0001` is today's schema written with
-  `IF NOT EXISTS`, so running it on an existing database is a no-op, and the
-  current ad-hoc fixes become `0002...` (each already idempotent);
-- forward-only (SQLite can't drop columns cheaply); a bad migration is fixed
-  by a new one; a backup of the file is taken before the first pending one;
-- tests run every migration on an empty database and on a snapshot of the
-  previous schema.
-minioth needs the same (its BACKLOG already discusses it).
+### Schema migrations (done 2026-09-29)
+`internal/utils/migrate.go`: each database has numbered migrations
+(`NNNN_name.sql` embedded in its package, plus Go functions for data fixes)
+recorded in `schema_migrations`; at start-up the pending ones run in order,
+each in its own transaction, and the service stops if one fails. It refuses
+a database migrated by a newer build, a renamed migration, and one inserted
+below migrations that already ran. An existing SQLite file is copied first
+(`VACUUM INTO <db>.pre-NNNN-<time>.bak`).
+- jobs.db (`internal/uspace/migrations/jobs`): 0001 baseline, 0002 adds
+  `engine`/`gid` if missing (was `ensureJobColumns` at every start).
+- fslite (`pkg/fslite/migrations`): 0001 baseline, 0002 volume-id repair,
+  0003 name normalization (both ran at every start). Views stay re-created
+  at every start (definitions, not data); the unique (volume, name) index
+  stays a start-up check, since it can't be created over duplicates and that
+  must not stop fslite.
+- Verified on copies of the local data/ databases (25 jobs, 43 resources:
+  baselined, backed up, nothing lost).
+minioth needs the same (its BACKLOG discusses it).
 
 ### Dev-session state (revert before release)
 - `deployments/docker-compose/docker-compose.yml` uses the external `rumie-minio`

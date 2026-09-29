@@ -266,11 +266,10 @@ func TestGroupVolumeHandlers(t *testing.T) {
 func (a *apiHarness) withJobsDB(uids ...int64) {
 	a.t.Helper()
 	a.srv.jdbh = ut.NewDBHandler("jobs_test.db", a.t.TempDir()+"/", "sqlite3")
-	a.srv.jdbh.Init(initSQLJobs, "4", "2", "5")
-	a.t.Cleanup(a.srv.jdbh.Close)
-	if err := a.srv.ensureJobColumns(a.t.Context()); err != nil {
+	if err := openJobsDB(a.t.Context(), &a.srv.jdbh, "4", "2", "5"); err != nil {
 		a.t.Fatal(err)
 	}
+	a.t.Cleanup(a.srv.jdbh.Close)
 	for _, uid := range uids {
 		if _, err := a.srv.insertJob(a.t.Context(), ut.Job{UID: uid, Input: "vol1/in.csv", Output: "vol1/out.csv",
 			Logic: "bash", LogicBody: "secret code of " + strconv.FormatInt(uid, 10), Status: "completed", CreatedAt: ut.CurrentTime()}); err != nil {

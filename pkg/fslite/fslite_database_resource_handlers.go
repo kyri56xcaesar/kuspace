@@ -58,7 +58,7 @@ func NormalizeName(name string) string {
 
 // repairVolumeIDs points rows whose vid names no existing volume (uploads
 // used to record vid 0) at the volume their vname refers to.
-func repairVolumeIDs(ctx context.Context, db *sql.DB) (int64, error) {
+func repairVolumeIDs(ctx context.Context, db querier) (int64, error) {
 	res, err := db.ExecContext(ctx, `UPDATE resources SET vid = (SELECT v.vid FROM volumes v WHERE v.name = resources.vname)
 		WHERE vid NOT IN (SELECT vid FROM volumes) AND vname IN (SELECT name FROM volumes)`)
 	if err != nil {
@@ -70,7 +70,7 @@ func repairVolumeIDs(ctx context.Context, db *sql.DB) (int64, error) {
 
 // normalizeStoredNames rewrites names stored without the leading "/" (older
 // rows) and returns how many changed.
-func normalizeStoredNames(ctx context.Context, db *sql.DB) (int64, error) {
+func normalizeStoredNames(ctx context.Context, db querier) (int64, error) {
 	res, err := db.ExecContext(ctx, `UPDATE resources SET name = '/' || name WHERE name NOT LIKE '/%'`)
 	if err != nil {
 		return 0, err

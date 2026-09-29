@@ -33,6 +33,7 @@ package utils
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -147,7 +148,7 @@ func (m *DBHandler) Close() {
 // Init method applies all needed logic on startup of the db
 /* Initialization routines for a database */
 /* must be a pointer since there is no specific connection variable and is depending on the Handler struct*/
-func (m *DBHandler) Init(initSQLarg, maxOpenConns, maxIdleCons, connLifetime string) {
+func (m *DBHandler) Init(ctx context.Context, initSQLarg, maxOpenConns, maxIdleCons, connLifetime string) {
 	log.Printf("Initializing %v database", m.DBName)
 	if err := os.MkdirAll(m.dbPath, 0o740); err != nil {
 		log.Fatalf("failed to create directory path %s, destructive: %v", m.dbPath, err)
@@ -177,10 +178,60 @@ func (m *DBHandler) Init(initSQLarg, maxOpenConns, maxIdleCons, connLifetime str
 	db.SetMaxIdleConns(maxIdle)
 	db.SetConnMaxLifetime(time.Duration(connLifetimeInt) * time.Minute)
 
-	// init tables
-	_, err = db.ExecContext(context.Background(), initSQLarg)
+	// init tables (databases with migrations pass "" and call Migrate)
+	if initSQLarg == "" {
+		return
+	}
+	_, err = db.ExecContext(ctx, initSQLarg)
 	if err != nil {
 		m.Close()
 		log.Fatalf("failed to init db, destrcutive: %v", err)
 	}
+}
+
+// Migrate brings the database up to date with migs (see migrate.go). An
+// existing SQLite file is first copied to <name>.pre-NNNN-<time>.bak, NNNN
+// being the first pending migration.
+func (m *DBHandler) Migrate(ctx context.Context, migs []Migration) error {
+	db, err := m.GetConn()
+	if err != nil {
+		return err
+	}
+	pending, err := PendingMigrations(ctx, db, migs)
+	if err != nil || len(pending) == 0 {
+		return err
+	}
+	if err := m.backup(ctx, db, pending[0].Version); err != nil {
+		return fmt.Errorf("backup before migrating: %w", err)
+	}
+	applied, err := ApplyMigrations(ctx, db, migs)
+	for _, a := range applied {
+		log.Printf("[%s] applied migration %04d_%s", m.DBName, a.Version, a.Name)
+	}
+
+	return err
+}
+
+// backup copies an SQLite database that holds tables (a new, empty one has
+// nothing to lose) with VACUUM INTO, which gives a consistent copy of a
+// database in WAL mode.
+func (m *DBHandler) backup(ctx context.Context, db *sql.DB, version int) error {
+	if m.dbDriver != "sqlite3" || m.DBName == ":memory:" || m.dbPath == ":memory:" {
+		return nil
+	}
+	var tables int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'
+		AND name NOT IN ('schema_migrations', 'sqlite_sequence')`).Scan(&tables); err != nil {
+		return err
+	}
+	if tables == 0 {
+		return nil
+	}
+	dst := fmt.Sprintf("%s%s.pre-%04d-%s.bak", m.dbPath, m.DBName, version, time.Now().UTC().Format("20060102T150405"))
+	if _, err := db.ExecContext(ctx, `VACUUM INTO ?`, dst); err != nil {
+		return err
+	}
+	log.Printf("[%s] backed up to %s before migrating", m.DBName, dst)
+
+	return nil
 }

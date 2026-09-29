@@ -124,9 +124,8 @@ func NewUService(conf string) UService {
 	// database (init)
 	jdbh := ut.NewDBHandler(cfg.UspaceJobsDB, cfg.UspaceJobsDBPath, cfg.UspaceJobsDBDriver)
 	srv.jdbh = jdbh
-	srv.jdbh.Init(initSQLJobs, cfg.UspaceJobsDBMaxOpenConns, cfg.UspaceJobsDBMaxIdleConns, cfg.UspaceJobsDBMaxLifetime)
-	if err := srv.ensureJobColumns(context.Background()); err != nil {
-		log.Printf("[USPACE_init] failed to add new jobs columns: %v", err)
+	if err := openJobsDB(context.Background(), &srv.jdbh, cfg.UspaceJobsDBMaxOpenConns, cfg.UspaceJobsDBMaxIdleConns, cfg.UspaceJobsDBMaxLifetime); err != nil {
+		log.Fatalf("[USPACE_init] jobs database: %v", err)
 	}
 	if err := srv.seedDefaultApps(context.Background()); err != nil {
 		log.Printf("[USPACE_init] failed to install default apps: %v", err)

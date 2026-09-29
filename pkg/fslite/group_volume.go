@@ -28,18 +28,6 @@ var (
 	ErrNotGroupVolume = fmt.Errorf("not a group volume (%w)", ut.ErrNotFound)
 )
 
-const groupVolumeSchema = `
-	CREATE TABLE IF NOT EXISTS group_volume (
-	    vid INTEGER PRIMARY KEY,
-	    gid INTEGER NOT NULL,
-	    usage REAL NOT NULL DEFAULT 0,
-	    quota REAL NOT NULL DEFAULT 0,
-	    updatedAt DATETIME,
-	    FOREIGN KEY (vid) REFERENCES volumes(vid) ON DELETE CASCADE
-	);
-	CREATE INDEX IF NOT EXISTS idx_group_volume_gid ON group_volume(gid);
-`
-
 // AssignGroupVolume gives the named volume to group gid with quotaGB (0 =
 // only the volume's capacity limits it), or changes the quota of a volume
 // the group already has. A volume that holds files can't change hands.
