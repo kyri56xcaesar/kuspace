@@ -40,9 +40,9 @@ func fakeDocker(answers map[string]string, failing ...string) func(ctx context.C
 }
 
 func dockerExecutor(network string, run func(context.Context, ...string) ([]byte, error)) JDockerExecutor {
-	jm := &JobManager{srv: &UService{config: ut.EnvConfig{JobsConfig: ut.JobsConfig{UspaceJobDockerNetwork: network}}}}
+	rt := newRuntimeWith(&UService{config: ut.EnvConfig{JobsConfig: ut.JobsConfig{UspaceJobDockerNetwork: network}}})
 
-	return JDockerExecutor{jm: jm, run: run}
+	return JDockerExecutor{rt: rt, run: run}
 }
 
 func TestDockerStatus(t *testing.T) {
@@ -97,10 +97,10 @@ func TestEngineSwitching(t *testing.T) {
 	if err := a.srv.markJobEngine(t.Context(), 1, "docker"); err != nil {
 		t.Fatal(err)
 	}
-	jm := &JobManager{srv: a.srv}
+	rt := newRuntimeWith(a.srv)
 	k8s := &stubEngine{name: "kubernetes", err: "no cluster configuration"}
-	jm.engines = newEngineSet(JDockerExecutor{jm: jm, run: fakeDocker(map[string]string{"version": "27.3.1"})}, k8s)
-	a.srv.jdp = JobDispatcherImpl{Manager: *jm}
+	rt.engines = newEngineSet(JDockerExecutor{rt: rt, run: fakeDocker(map[string]string{"version": "27.3.1"})}, k8s)
+	a.srv.jdp = JobDispatcherImpl{Manager: JobManager{rt: rt}}
 	get := func() ut.EnginesStatus {
 		t.Helper()
 		rec := a.do(http.MethodGet, "/api/v1/admin/executor", "::/", "0:0", nil, "")
@@ -137,7 +137,7 @@ func TestEngineSwitching(t *testing.T) {
 	if st.Current != "kubernetes" || !st.Engines[1].Current || st.ChosenBy != "uid 0" || st.ChosenAt == "" {
 		t.Errorf("after switching: %+v", st)
 	}
-	if name, _ := jm.engines.now(); name != "kubernetes" {
+	if name, _ := rt.engines.now(); name != "kubernetes" {
 		t.Errorf("new jobs go to %s", name)
 	}
 	// the choice is kept: what a restart reads
@@ -145,10 +145,10 @@ func TestEngineSwitching(t *testing.T) {
 		t.Errorf("stored choice: %+v %v", s, err)
 	}
 	// a job that started on docker stays on docker
-	if x := jm.engines.forJob("docker"); x.Name() != "docker" {
+	if x := rt.engines.forJob("docker"); x.Name() != "docker" {
 		t.Errorf("a docker job is handled by %s", x.Name())
 	}
-	if x := jm.engines.forJob(""); x.Name() != "kubernetes" {
+	if x := rt.engines.forJob(""); x.Name() != "kubernetes" {
 		t.Errorf("a job without an engine goes to %s, want the current one", x.Name())
 	}
 }

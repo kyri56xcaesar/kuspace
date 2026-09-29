@@ -32,14 +32,14 @@ import (
 
 // JDockerExecutor struct implementing the JobExecutor interface
 type JDockerExecutor struct {
-	jm *JobManager
+	rt *jobRuntime
 	// run runs the docker CLI for status checks (tests stand in; nil = docker)
 	run func(ctx context.Context, args ...string) ([]byte, error)
 }
 
 // NewJDockerExecutor function as a constructor
-func NewJDockerExecutor(jm *JobManager) JDockerExecutor {
-	return JDockerExecutor{jm: jm}
+func NewJDockerExecutor(rt *jobRuntime) JDockerExecutor {
+	return JDockerExecutor{rt: rt}
 }
 
 func dockerContainerName(jid int64) string {
@@ -81,7 +81,7 @@ func (je JDockerExecutor) Name() string { return "docker" }
 // can't reach it) and checks that the job network exists.
 func (je JDockerExecutor) Status(ctx context.Context) ut.ExecutorStatus {
 	run := je.docker
-	network := je.jm.srv.config.UspaceJobDockerNetwork
+	network := je.rt.srv.config.UspaceJobDockerNetwork
 	st := ut.ExecutorStatus{Engine: "docker", Where: "network " + network, CheckedAt: ut.CurrentTime()}
 	if network == "" {
 		st.Where = "the default network"
@@ -119,8 +119,7 @@ func killContainer(jid int64) error {
 
 // ExecuteJob method, the core logic of execution
 func (je JDockerExecutor) ExecuteJob(job ut.Job) error {
-	defer func() { <-je.jm.workerPool }() // release worker slot
-	srv := je.jm.srv
+	srv := je.rt.srv
 	bg := context.Background()
 
 	out := newJobOutput(job.JID)
@@ -158,9 +157,9 @@ func (je JDockerExecutor) ExecuteJob(job ut.Job) error {
 	defer cancelDeadline()
 	ctx, cancel := context.WithCancelCause(deadline)
 	defer cancel(nil)
-	untrack := je.jm.trackRunning(job.JID, cancel)
+	untrack := je.rt.trackRunning(job.JID, cancel)
 	defer untrack()
-	if je.jm.takeCancelled(job.JID) { // cancelled between dequeue and here
+	if je.rt.takeCancelled(job.JID) { // cancelled between dequeue and here
 		cancel(ErrJobCancelled)
 	}
 

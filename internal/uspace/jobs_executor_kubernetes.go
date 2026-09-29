@@ -38,19 +38,18 @@ var (
 // JKubernetesExecutor struct the core data structure impelemnting the JobExecutor interface
 // essentially a JobExecutor responsible for executing jobs in cooperation with the Kubernetes API
 type JKubernetesExecutor struct {
-	jm *JobManager
+	rt *jobRuntime
 }
 
 // NewJKubernetesExecutor function as a constructor
-func NewJKubernetesExecutor(jm *JobManager) JKubernetesExecutor {
+func NewJKubernetesExecutor(rt *jobRuntime) JKubernetesExecutor {
 	return JKubernetesExecutor{
-		jm: jm,
+		rt: rt,
 	}
 }
 
 // ExecuteJob method where the core logic of execution happens
 func (jke JKubernetesExecutor) ExecuteJob(job ut.Job) error {
-	defer func() { <-jke.jm.workerPool }() // release worker slot
 	executeK8sJob(&jke, job)
 
 	return nil
@@ -70,7 +69,7 @@ func (jke JKubernetesExecutor) CancelJob(job ut.Job) error {
 
 		return err
 	}
-	err = cancelJob(context.Background(), client, k8sJobName(job.JID), jke.jm.srv.config.Namespace)
+	err = cancelJob(context.Background(), client, k8sJobName(job.JID), jke.rt.srv.config.Namespace)
 	if err != nil {
 		log.Printf("[executor] failed to cancel the Job: %v", err)
 	}
@@ -83,7 +82,7 @@ func (jke JKubernetesExecutor) Name() string { return "kubernetes" }
 
 // Status checks the cluster the executor would use.
 func (jke JKubernetesExecutor) Status(ctx context.Context) ut.ExecutorStatus {
-	ns := jke.jm.srv.config.Namespace
+	ns := jke.rt.srv.config.Namespace
 	client, err := k.GetKubeClient()
 	if err != nil {
 		return ut.ExecutorStatus{Engine: "kubernetes", Where: "namespace " + ns, CheckedAt: ut.CurrentTime(),
@@ -396,11 +395,11 @@ func (o *jobOutput) Close() string {
 
 func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	jobName := k8sJobName(job.JID)
-	namespace := je.jm.srv.config.Namespace
+	namespace := je.rt.srv.config.Namespace
 	out := newJobOutput(job.JID)
 	defer func() {
 		// the log outlives the live stream: save it with the job
-		if err := je.jm.srv.saveJobLog(context.Background(), job.JID, out.Close()); err != nil {
+		if err := je.rt.srv.saveJobLog(context.Background(), job.JID, out.Close()); err != nil {
 			log.Printf("[executor] failed to save the log of job %d: %v", job.JID, err)
 		}
 	}()
@@ -408,7 +407,7 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	out.Send([]byte("=-----------------------------------------------------------------------="))
 	out.Sendf("[executor] formatting job as %s\n", jobName)
 
-	command, err := je.jm.srv.prepareJobRun(&job)
+	command, err := je.rt.srv.prepareJobRun(&job)
 	if err != nil {
 		log.Printf("error formatting job data: %v", err)
 		out.Sendf("[executor]: error formatting job data %v\n", err)
@@ -433,7 +432,7 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	}
 
 	jobSpec := buildK8sJob(jobName, job.Logic, command, job.Env, quotas, parallelism, namespace,
-		int64(job.Timeout*60), je.jm.srv.config.UspaceJobTTL)
+		int64(job.Timeout*60), je.rt.srv.config.UspaceJobTTL)
 
 	out.Send([]byte("[executor] launching job...\n"))
 	out.Sendf("[executor] specs: {parallelism: %v, timeout: %v, cpu_limit: %v, cpu_request: %v, mem_limit: %v, mem_req: %v}\n",
@@ -455,12 +454,12 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 	}
 	deadline, cancelDeadline := context.WithTimeout(context.Background(), limit)
 	defer cancelDeadline()
-	// a user's cancel (JobManager.CancelJob) cancels this with ErrJobCancelled
+	// a user's cancel (jobRuntime.cancel) cancels this with ErrJobCancelled
 	ctx, cancel := context.WithCancelCause(deadline)
 	defer cancel(nil)
-	untrack := je.jm.trackRunning(job.JID, cancel)
+	untrack := je.rt.trackRunning(job.JID, cancel)
 	defer untrack()
-	if je.jm.takeCancelled(job.JID) { // cancelled between dequeue and here
+	if je.rt.takeCancelled(job.JID) { // cancelled between dequeue and here
 		cancel(ErrJobCancelled)
 	}
 
@@ -472,10 +471,10 @@ func executeK8sJob(je *JKubernetesExecutor, job ut.Job) {
 		return
 	}
 	startTime := time.Now()
-	if err := je.jm.srv.markJobStatus(context.Background(), job.JID, "running", 0); err != nil {
+	if err := je.rt.srv.markJobStatus(context.Background(), job.JID, "running", 0); err != nil {
 		log.Printf("failed to mark job %d running: %v", job.JID, err)
 	}
-	if err := je.jm.srv.markJobEngine(context.Background(), job.JID, "kubernetes"); err != nil {
+	if err := je.rt.srv.markJobEngine(context.Background(), job.JID, "kubernetes"); err != nil {
 		log.Printf("failed to record job %d engine: %v", job.JID, err)
 	}
 	je.watch(ctx, clientset, job, jobSpec.Name, namespace, out, startTime)
@@ -523,18 +522,18 @@ func (jke JKubernetesExecutor) watch(ctx context.Context, clientset kubernetes.I
 	duration := time.Since(startTime)
 	out.Sendf("[executor] job %v finished with status: %s, duration: %v\n", jobName, status, duration)
 
-	if err := jke.jm.srv.markJobStatus(bg, job.JID, status, duration); err != nil {
+	if err := jke.rt.srv.markJobStatus(bg, job.JID, status, duration); err != nil {
 		log.Printf("failed to annotate result to database")
 		out.Sendf("[executor]: error marking job completion %v\n", err)
 	}
 
 	if status == "completed" {
-		jke.jm.srv.recordJobOutput(bg, job, out)
+		jke.rt.srv.recordJobOutput(bg, job, out)
 	}
 }
 
 func (jke JKubernetesExecutor) markFailed(jid int64, d time.Duration) {
-	if err := jke.jm.srv.markJobStatus(context.Background(), jid, "failed", d); err != nil {
+	if err := jke.rt.srv.markJobStatus(context.Background(), jid, "failed", d); err != nil {
 		log.Printf("failed to mark job %d failed: %v", jid, err)
 	}
 }

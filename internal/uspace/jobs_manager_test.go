@@ -12,16 +12,14 @@ import (
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
-// recordingExecutor records which jobs ran and releases the worker slot as
-// the real executors do.
+// recordingExecutor records which jobs ran (the dispatcher releases the
+// worker slot when ExecuteJob returns).
 type recordingExecutor struct {
-	jm  *JobManager
 	mu  sync.Mutex
 	ran []int64
 }
 
 func (e *recordingExecutor) ExecuteJob(job ut.Job) error {
-	defer func() { <-e.jm.workerPool }()
 	e.mu.Lock()
 	e.ran = append(e.ran, job.JID)
 	e.mu.Unlock()
@@ -35,17 +33,13 @@ func (e *recordingExecutor) Status(context.Context) ut.ExecutorStatus {
 }
 
 func newTestManager() (*JobManager, *recordingExecutor) {
+	ex := &recordingExecutor{}
 	jm := &JobManager{
-		mu:         &sync.Mutex{},
+		rt:         newRuntimeWith(nil, ex),
 		jobQueue:   make(chan ut.Job, 10),
 		workerPool: make(chan struct{}, 2),
-		cancelled:  map[int64]bool{},
-		running:    map[int64]context.CancelCauseFunc{},
-		inflight:   &sync.WaitGroup{},
 		draining:   &atomic.Bool{},
 	}
-	ex := &recordingExecutor{jm: jm}
-	jm.engines = newEngineSet(ex)
 
 	return jm, ex
 }
@@ -81,7 +75,7 @@ func TestCancelQueuedJobIsSkipped(t *testing.T) {
 	if len(ex.ran) != 1 || ex.ran[0] != 6 {
 		t.Errorf("ran %v, want only job 6 (5 was cancelled while queued)", ex.ran)
 	}
-	if jm.takeCancelled(5) {
+	if jm.rt.takeCancelled(5) {
 		t.Error("cancel mark for job 5 was not consumed")
 	}
 }
@@ -89,7 +83,7 @@ func TestCancelQueuedJobIsSkipped(t *testing.T) {
 func TestCancelRunningJobCancelsItsContext(t *testing.T) {
 	jm, _ := newTestManager()
 	ctx, cancel := context.WithCancelCause(context.Background())
-	untrack := jm.trackRunning(7, cancel)
+	untrack := jm.rt.trackRunning(7, cancel)
 
 	if err := jm.CancelJob(7); err != nil {
 		t.Fatal(err)
@@ -100,13 +94,13 @@ func TestCancelRunningJobCancelsItsContext(t *testing.T) {
 	untrack()
 	// once finished it's no longer "running": a later cancel only marks it
 	_ = jm.CancelJob(7)
-	if !jm.takeCancelled(7) {
+	if !jm.rt.takeCancelled(7) {
 		t.Error("cancel after the job finished should fall back to the queued mark")
 	}
 }
 
 func TestQueueFull(t *testing.T) {
-	jm := &JobManager{mu: &sync.Mutex{}, jobQueue: make(chan ut.Job, 1), draining: &atomic.Bool{}}
+	jm := &JobManager{rt: newRuntimeWith(nil), jobQueue: make(chan ut.Job, 1), draining: &atomic.Bool{}}
 	if err := jm.ScheduleJob(ut.Job{JID: 1}); err != nil {
 		t.Fatal(err)
 	}
@@ -117,13 +111,11 @@ func TestQueueFull(t *testing.T) {
 
 // blockingExecutor runs jobs until release is closed.
 type blockingExecutor struct {
-	jm      *JobManager
 	started chan int64
 	release chan struct{}
 }
 
 func (b blockingExecutor) ExecuteJob(job ut.Job) error {
-	defer func() { <-b.jm.workerPool }()
 	b.started <- job.JID
 	<-b.release
 
@@ -137,13 +129,11 @@ func (b blockingExecutor) Status(context.Context) ut.ExecutorStatus {
 }
 
 func TestDrainWaitsForRunningJobs(t *testing.T) {
+	ex := blockingExecutor{started: make(chan int64, 4), release: make(chan struct{})}
 	jm := &JobManager{
-		mu: &sync.Mutex{}, jobQueue: make(chan ut.Job, 4), workerPool: make(chan struct{}, 2),
-		cancelled: map[int64]bool{}, running: map[int64]context.CancelCauseFunc{},
-		inflight: &sync.WaitGroup{}, draining: &atomic.Bool{},
+		rt: newRuntimeWith(nil, ex), jobQueue: make(chan ut.Job, 4), workerPool: make(chan struct{}, 2),
+		draining: &atomic.Bool{},
 	}
-	ex := blockingExecutor{jm: jm, started: make(chan int64, 4), release: make(chan struct{})}
-	jm.engines = newEngineSet(ex)
 	jm.StartDispatcher()
 	if err := jm.ScheduleJob(ut.Job{JID: 1}); err != nil {
 		t.Fatal(err)

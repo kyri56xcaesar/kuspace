@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"sync"
 	"sync/atomic"
 
 	ut "kyri56xcaesar/kuspace/internal/utils"
@@ -54,7 +53,7 @@ func (j JobDispatcherImpl) Drain(ctx context.Context) error {
 	return j.Manager.Drain(ctx)
 }
 
-func (j JobDispatcherImpl) engines() *engineSet { return j.Manager.engines }
+func (j JobDispatcherImpl) engines() *engineSet { return j.Manager.rt.engines }
 
 // PublishJob method which publishes an incoming Job towards into a Queue towards execution
 /* dispatching Jobs interface methods */
@@ -103,9 +102,12 @@ func (j JobDispatcherImpl) Subscribe(_ ut.Job) error {
 //  JobManager struct, the central definition of a JobManger
 /*
 a Job manager is the default implementation for a simplistic queue Job scheduling
-in memory.
+in memory: a channel of jobs served by a pool of workers. Running a job (the
+engines, cancellation, the work in flight) is the runtime's (jobs_runtime.go),
+shared with the other dispatchers.
 
 @alternatives:
+  - the jobs table (DBDispatcher)
   - a broker
 
 @methods:
@@ -113,57 +115,43 @@ in memory.
   - CancelJob(Job) error
 */
 type JobManager struct {
-	srv *UService // reference to the Service
-	mu  *sync.Mutex
+	rt *jobRuntime // the engines, running jobs, work in flight
 
-	// jobs       map[int]*Job // cache of the jobs
 	jobQueue   chan ut.Job   // actual queue of the jobs
-	workerPool chan struct{} //
+	workerPool chan struct{} // a slot per running job (J_MAX_WORKERS)
 
-	cancelled map[int64]bool                    // queued jobs to skip (guarded by mu)
-	running   map[int64]context.CancelCauseFunc // running jobs' cancel funcs (guarded by mu)
-
-	inflight *sync.WaitGroup // jobs handed to a worker and not finished
-	draining *atomic.Bool    // set by Drain: no new jobs start
-
-	engines *engineSet // the executors, and the one taking new jobs
+	draining *atomic.Bool // set by Drain: no new jobs start
 }
 
 // NewJobManager function as in a constructor for JobManager struct
 /* constructor for the JobManager */
 func NewJobManager(srv *UService) JobManager {
+	return newJobManagerOn(newJobRuntime(srv), srv)
+}
+
+// newJobManagerOn builds the in-memory dispatcher on a runtime.
+func newJobManagerOn(rt *jobRuntime, srv *UService) JobManager {
 	qs, err := strconv.Atoi(srv.config.UspaceJobQueueSize)
 	if err != nil {
 		qs = 100 // default size
 	}
-	mw, err := strconv.Atoi(srv.config.UspaceJobMaxWorkers)
-	if err != nil {
-		mw = 10 // default size
-	}
 
-	jobsSocketAddress = srv.config.WssAddress
-	jobsServiceSecret = srv.config.ServiceSecretKey
-
-	jm := JobManager{
-		mu:  &sync.Mutex{},
-		srv: srv,
-
-		// jobs:       make(map[int]*Job),
+	return JobManager{
+		rt:         rt,
 		jobQueue:   make(chan ut.Job, qs),
-		workerPool: make(chan struct{}, mw),
-		cancelled:  map[int64]bool{},
-		running:    map[int64]context.CancelCauseFunc{},
-		inflight:   &sync.WaitGroup{},
+		workerPool: make(chan struct{}, maxWorkers(srv)),
 		draining:   &atomic.Bool{},
 	}
+}
 
-	jm.engines = newEngineSet(NewJDockerExecutor(&jm), NewJKubernetesExecutor(&jm))
-	// J_EXECUTOR is the initial choice; an admin's choice (jobs.db) replaces it at start
-	if err := jm.engines.use(engineName(srv.config.UspaceJobExecutor)); err != nil {
-		panic(err)
+// maxWorkers is J_MAX_WORKERS: how many jobs a dispatcher runs at once.
+func maxWorkers(srv *UService) int {
+	mw, err := strconv.Atoi(srv.config.UspaceJobMaxWorkers)
+	if err != nil || mw <= 0 {
+		return 10 // default size
 	}
 
-	return jm
+	return mw
 }
 
 // StartDispatcher method launches a goroutine which handles the jobQueue channel queue
@@ -172,12 +160,12 @@ func (jm *JobManager) StartDispatcher() {
 	go func() {
 		for job := range jm.jobQueue {
 			if jm.draining.Load() {
-				// stays "queued" in the database; picked up again at start (BACKLOG: jobs across restarts)
+				// stays "queued" in the database (the database dispatcher picks such jobs up at start)
 				log.Printf("[Scheduler] draining: job ID=%d left queued", job.JID)
 
 				continue
 			}
-			if jm.takeCancelled(job.JID) {
+			if jm.rt.takeCancelled(job.JID) {
 				log.Printf("[Scheduler] Job ID=%d was cancelled while queued; skipping", job.JID)
 
 				continue
@@ -186,17 +174,14 @@ func (jm *JobManager) StartDispatcher() {
 			jm.workerPool <- struct{}{} // Acquire worker slot
 			log.Printf("[Scheduler] Assigned job ID=%ds to a worker. Active workers: %d/%d",
 				job.JID, len(jm.workerPool), cap(jm.workerPool))
-			// the worker itself will release it
-			jm.inflight.Add(1)
-			go func() {
-				defer jm.inflight.Done()
-				name, executor := jm.engines.now()
+			jm.rt.start(func() {
+				defer func() { <-jm.workerPool }() // release the worker slot
+				name, executor := jm.rt.engines.now()
 				job.Engine = name
-				err := executor.ExecuteJob(job) // spawn worker goroutine
-				if err != nil {
+				if err := executor.ExecuteJob(job); err != nil {
 					log.Printf("execution of job: %v failed.", job.JID)
 				}
-			}()
+			})
 		}
 	}()
 }
@@ -227,21 +212,11 @@ func (jm *JobManager) ScheduleJob(jb ut.Job) error {
 // Drain stops starting jobs (new submissions get ErrShuttingDown, queued
 // ones stay queued in the database) and waits for the running ones to
 // finish, or for ctx to end. Jobs still running then keep running in their
-// containers; their status is settled when uspace starts again.
+// containers.
 func (jm *JobManager) Drain(ctx context.Context) error {
 	jm.draining.Store(true)
-	done := make(chan struct{})
-	go func() { jm.inflight.Wait(); close(done) }()
-	select {
-	case <-done:
-		return nil
-	case <-ctx.Done():
-		jm.mu.Lock()
-		n := len(jm.running)
-		jm.mu.Unlock()
 
-		return fmt.Errorf("%d job(s) still running: %w", n, ctx.Err())
-	}
+	return jm.rt.wait(ctx)
 }
 
 // ErrJobCancelled is the cause a running job's context is cancelled with
@@ -252,54 +227,9 @@ var ErrJobCancelled = errors.New("cancelled by user")
 // executor then deletes it from the cluster); a queued one is skipped when
 // its turn comes.
 func (jm *JobManager) CancelJob(jid int) error {
-	jm.mu.Lock()
-	defer jm.mu.Unlock()
-	if cancel, ok := jm.running[int64(jid)]; ok {
-		log.Printf("[Scheduler] cancelling running job %d", jid)
-		cancel(ErrJobCancelled)
-
-		return nil
-	}
-	log.Printf("[Scheduler] job %d will be skipped when dequeued", jid)
-	jm.cancelled[int64(jid)] = true
+	jm.rt.cancel(int64(jid))
 
 	return nil
-}
-
-// takeCancelled reports (and forgets) whether jid was cancelled while queued.
-func (jm *JobManager) takeCancelled(jid int64) bool {
-	jm.mu.Lock()
-	defer jm.mu.Unlock()
-	if jm.cancelled[jid] {
-		delete(jm.cancelled, jid)
-
-		return true
-	}
-
-	return false
-}
-
-// isTracked reports whether a job is being run or followed here.
-func (jm *JobManager) isTracked(jid int64) bool {
-	jm.mu.Lock()
-	defer jm.mu.Unlock()
-	_, ok := jm.running[jid]
-
-	return ok
-}
-
-// trackRunning registers a running job's cancel func until the returned
-// func is called.
-func (jm *JobManager) trackRunning(jid int64, cancel context.CancelCauseFunc) func() {
-	jm.mu.Lock()
-	jm.running[jid] = cancel
-	jm.mu.Unlock()
-
-	return func() {
-		jm.mu.Lock()
-		delete(jm.running, jid)
-		jm.mu.Unlock()
-	}
 }
 
 func streamToSocketWS(address string, jobID int64, ch <-chan []byte) {

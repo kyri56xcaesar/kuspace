@@ -37,6 +37,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	ut "kyri56xcaesar/kuspace/internal/utils"
@@ -59,31 +60,33 @@ var defaultDBDispatchTiming = dbDispatchTiming{
 // DBDispatcher is the JobDispatcher whose queue is the jobs table.
 type DBDispatcher struct {
 	srv    *UService
-	jm     *JobManager // the engines, worker slots, running jobs' cancel funcs, drain
+	rt     *jobRuntime   // the engines, running jobs, work in flight
+	slots  chan struct{} // a slot per job run here (J_MAX_WORKERS)
 	timing dbDispatchTiming
 	now    func() time.Time
 	// outputWritten tells whether a job whose container is gone wrote its
 	// output (tests stand in)
 	outputWritten func(ctx context.Context, job ut.Job, since time.Time) bool
 
+	draining atomic.Bool   // set by Drain: nothing new is claimed
 	wake     chan struct{} // a job was queued
 	stop     chan struct{} // closed by Drain (and halt)
 	stopOnce sync.Once
 	loops    sync.WaitGroup
 }
 
-// NewDBDispatcher builds the dispatcher around jm's engines, which must be
-// able to inspect and reattach jobs.
-func NewDBDispatcher(srv *UService, jm *JobManager) (*DBDispatcher, error) {
-	for _, name := range jm.engines.order {
-		x, _ := jm.engines.get(name)
+// NewDBDispatcher builds the dispatcher on rt, running up to workers jobs at
+// once. rt's engines must be able to inspect and reattach jobs.
+func NewDBDispatcher(srv *UService, rt *jobRuntime, workers int) (*DBDispatcher, error) {
+	for _, name := range rt.engines.order {
+		x, _ := rt.engines.get(name)
 		if _, ok := x.(jobReattacher); !ok {
 			return nil, fmt.Errorf("engine %s (%T) can't reattach jobs (%w)", name, x, ut.ErrInvalid)
 		}
 	}
 
 	return &DBDispatcher{
-		srv: srv, jm: jm, timing: defaultDBDispatchTiming, now: time.Now,
+		srv: srv, rt: rt, slots: make(chan struct{}, workers), timing: defaultDBDispatchTiming, now: time.Now,
 		outputWritten: srv.outputWrittenSince,
 		wake:          make(chan struct{}, 1), stop: make(chan struct{}),
 	}, nil
@@ -136,7 +139,7 @@ func (d *DBDispatcher) exec(ctx context.Context, query string, args ...any) (int
 
 // PublishJob queues an inserted job.
 func (d *DBDispatcher) PublishJob(job ut.Job) error {
-	if d.jm.draining.Load() {
+	if d.draining.Load() {
 		return ErrShuttingDown
 	}
 	n, err := d.exec(context.Background(), `UPDATE jobs SET status = 'queued' WHERE jid = ? AND status = 'pending'`, job.JID)
@@ -172,7 +175,9 @@ func (d *DBDispatcher) RemoveJob(jid int) error {
 		return err
 	}
 
-	return d.jm.CancelJob(jid)
+	d.rt.cancel(int64(jid))
+
+	return nil
 }
 
 // RemoveJobs cancels each job.
@@ -189,11 +194,11 @@ func (d *DBDispatcher) RemoveJobs(jids []int) error {
 // Subscribe is not used by this dispatcher.
 func (d *DBDispatcher) Subscribe(ut.Job) error { return nil }
 
-func (d *DBDispatcher) engines() *engineSet { return d.jm.engines }
+func (d *DBDispatcher) engines() *engineSet { return d.rt.engines }
 
 // reattacher is the engine job runs on (checked in NewDBDispatcher).
 func (d *DBDispatcher) reattacher(job ut.Job) jobReattacher {
-	r, _ := d.jm.engines.forJob(job.Engine).(jobReattacher)
+	r, _ := d.rt.engines.forJob(job.Engine).(jobReattacher)
 
 	return r
 }
@@ -202,10 +207,10 @@ func (d *DBDispatcher) reattacher(job ut.Job) jobReattacher {
 // watches. Jobs still running then keep running in their engine; their
 // leases lapse and the next start follows them again.
 func (d *DBDispatcher) Drain(ctx context.Context) error {
-	d.jm.draining.Store(true)
+	d.draining.Store(true)
 	d.halt()
 
-	return d.jm.Drain(ctx)
+	return d.rt.wait(ctx)
 }
 
 // halt stops the claim and reap loops and every heartbeat.
@@ -231,15 +236,15 @@ func (d *DBDispatcher) claimLoop() {
 
 // claimAll starts queued jobs while worker slots are free.
 func (d *DBDispatcher) claimAll(ctx context.Context) {
-	for !d.jm.draining.Load() {
+	for !d.draining.Load() {
 		select {
-		case d.jm.workerPool <- struct{}{}: // a slot; the executor releases it
+		case d.slots <- struct{}{}: // a slot, released when the job's run ends
 		default:
 			return
 		}
 		job, ok, err := d.claim(ctx)
 		if err != nil || !ok {
-			<-d.jm.workerPool
+			<-d.slots
 			if err != nil {
 				log.Printf("[dispatcher] claiming a job: %v", err)
 			}
@@ -247,7 +252,8 @@ func (d *DBDispatcher) claimAll(ctx context.Context) {
 			return
 		}
 		d.watch(ctx, job, func() {
-			if err := d.jm.engines.forJob(job.Engine).ExecuteJob(job); err != nil {
+			defer func() { <-d.slots }()
+			if err := d.rt.engines.forJob(job.Engine).ExecuteJob(job); err != nil {
 				log.Printf("[dispatcher] job %d: %v", job.JID, err)
 			}
 		})
@@ -262,7 +268,7 @@ func (d *DBDispatcher) claim(ctx context.Context) (ut.Job, bool, error) {
 		return ut.Job{}, false, err
 	}
 	var jid int64
-	engine, _ := d.jm.engines.now()
+	engine, _ := d.rt.engines.now()
 	err = db.QueryRowContext(ctx, `UPDATE jobs SET status = 'starting', attempts = attempts + 1, lease_until = ?, engine = ?
 		WHERE jid = (SELECT jid FROM jobs WHERE status = 'queued' ORDER BY jid LIMIT 1) AND status = 'queued'
 		RETURNING jid`, d.leaseEnd(), engine).Scan(&jid)
@@ -278,12 +284,11 @@ func (d *DBDispatcher) claim(ctx context.Context) (ut.Job, bool, error) {
 }
 
 // watch runs work for job (executing or following it) under a heartbeat,
-// counted for Drain; a job work leaves unfinished is failed.
+// counted for Drain (the runtime's work in flight); a job work leaves
+// unfinished is failed.
 func (d *DBDispatcher) watch(ctx context.Context, job ut.Job, work func()) {
-	d.jm.inflight.Add(1)
 	beat := d.heartbeat(ctx, job.JID)
-	go func() {
-		defer d.jm.inflight.Done()
+	d.rt.start(func() {
 		defer beat()
 		work()
 		if n, err := d.exec(ctx, `UPDATE jobs SET status = 'failed', lease_until = NULL,
@@ -293,7 +298,7 @@ func (d *DBDispatcher) watch(ctx context.Context, job ut.Job, work func()) {
 		} else if n > 0 {
 			log.Printf("[dispatcher] job %d ended without a final status: failed", job.JID)
 		}
-	}()
+	})
 }
 
 // heartbeat keeps jid's lease ahead until the returned func is called (or
@@ -353,7 +358,7 @@ func (d *DBDispatcher) reapOnce(ctx context.Context) {
 		return
 	}
 	for _, l := range lost {
-		if d.jm.isTracked(l.job.JID) { // watched here: its heartbeat is only late
+		if d.rt.isTracked(l.job.JID) { // watched here: its heartbeat is only late
 			continue
 		}
 		d.settleLost(ctx, l)

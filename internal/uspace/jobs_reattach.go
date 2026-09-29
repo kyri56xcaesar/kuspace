@@ -112,7 +112,7 @@ func (je JDockerExecutor) docker(ctx context.Context, args ...string) ([]byte, e
 // before its exit code is read (it runs with --rm) counts as completed when
 // it wrote its output.
 func (je JDockerExecutor) reattach(job ut.Job, started time.Time) {
-	srv := je.jm.srv
+	srv := je.rt.srv
 	bg := context.Background()
 	name := dockerContainerName(job.JID)
 	out := newJobOutput(job.JID)
@@ -127,9 +127,9 @@ func (je JDockerExecutor) reattach(job ut.Job, started time.Time) {
 	defer cancelDeadline()
 	ctx, cancel := context.WithCancelCause(deadline)
 	defer cancel(nil)
-	untrack := je.jm.trackRunning(job.JID, cancel)
+	untrack := je.rt.trackRunning(job.JID, cancel)
 	defer untrack()
-	if je.jm.takeCancelled(job.JID) { // cancelled while nobody watched it
+	if je.rt.takeCancelled(job.JID) { // cancelled while nobody watched it
 		cancel(ErrJobCancelled)
 	}
 
@@ -195,7 +195,7 @@ func (jke JKubernetesExecutor) inspect(ctx context.Context, job ut.Job) (engineS
 		return engineUnknown, err
 	}
 
-	return k8sState(ctx, client, jke.jm.srv.config.Namespace, job.JID)
+	return k8sState(ctx, client, jke.rt.srv.config.Namespace, job.JID)
 }
 
 func k8sState(ctx context.Context, client kubernetes.Interface, ns string, jid int64) (engineState, error) {
@@ -226,7 +226,7 @@ func k8sState(ctx context.Context, client kubernetes.Interface, ns string, jid i
 // reattach watches the kubernetes job again, as ExecuteJob does after
 // starting it.
 func (jke JKubernetesExecutor) reattach(job ut.Job, started time.Time) {
-	srv := jke.jm.srv
+	srv := jke.rt.srv
 	out := newJobOutput(job.JID)
 	defer func() {
 		if err := srv.saveJobLog(context.Background(), job.JID, out.Close()); err != nil {
@@ -244,12 +244,12 @@ func (jke JKubernetesExecutor) reattach(job ut.Job, started time.Time) {
 	defer cancelDeadline()
 	ctx, cancel := context.WithCancelCause(deadline)
 	defer cancel(nil)
-	untrack := jke.jm.trackRunning(job.JID, cancel)
+	untrack := jke.rt.trackRunning(job.JID, cancel)
 	defer untrack()
-	if jke.jm.takeCancelled(job.JID) { // cancelled while nobody watched it
+	if jke.rt.takeCancelled(job.JID) { // cancelled while nobody watched it
 		cancel(ErrJobCancelled)
 	}
-	jke.watch(ctx, client, job, k8sJobName(job.JID), jke.jm.srv.config.Namespace, out, started)
+	jke.watch(ctx, client, job, k8sJobName(job.JID), jke.rt.srv.config.Namespace, out, started)
 }
 
 // ---------------------------------------------------------------- shared

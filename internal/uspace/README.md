@@ -37,10 +37,17 @@ Swagger: `/api/v1/swagger/index.html` (`make api-docs`).
 ## Jobs
 
 ```
-submit ──► queue (J_QUEUE_SIZE, full → 503) ──► dispatcher ──► worker (J_MAX_WORKERS)
-                                                                 │
-                        docker executor (J_EXECUTOR=docker) ◄────┤────► kubernetes executor
+submit ──► dispatcher (J_DISPATCHER): WHEN and BY WHOM         its own queue, J_MAX_WORKERS slots,
+             │                                                   start/drain policy
+             ▼
+           execution runtime (jobs_runtime.go)                  engines + the one for new jobs,
+             │                                                   running jobs (cancel), work in flight
+             ▼
+           executor: HOW, on an engine        docker (J_EXECUTOR=docker) / kubernetes
 ```
+
+Executors depend only on the runtime; dispatchers own queueing and
+concurrency, so a new one (e.g. over a broker) reuses the executors as is.
 
 Two dispatchers (`J_DISPATCHER`):
 

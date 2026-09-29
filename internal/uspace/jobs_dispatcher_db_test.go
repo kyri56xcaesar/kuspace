@@ -51,20 +51,19 @@ func (w *world) list(m map[string][]int64, who string) []int64 {
 // fakeExecutor is one uspace process's executor over the world.
 type fakeExecutor struct {
 	name string
-	jm   *JobManager
+	rt   *jobRuntime
 	w    *world
 	hold chan struct{} // non-nil: jobs run until it is closed
 	dead atomic.Bool   // the process died: nothing it does is recorded any more
 }
 
 func (e *fakeExecutor) ExecuteJob(job ut.Job) error {
-	defer func() { <-e.jm.workerPool }()
 	ctx, cancel := context.WithCancelCause(context.Background())
 	defer cancel(nil)
-	defer e.jm.trackRunning(job.JID, cancel)()
+	defer e.rt.trackRunning(job.JID, cancel)()
 	e.w.record(e.w.ran, e.name, job.JID)
 	e.w.set(job.JID, engineRunning)
-	_ = e.jm.srv.markJobStatus(context.Background(), job.JID, "running", 0)
+	_ = e.rt.srv.markJobStatus(context.Background(), job.JID, "running", 0)
 	if e.hold != nil {
 		select {
 		case <-e.hold:
@@ -77,11 +76,11 @@ func (e *fakeExecutor) ExecuteJob(job ut.Job) error {
 	if errors.Is(context.Cause(ctx), ErrJobCancelled) {
 		e.w.set(job.JID, engineGone)
 
-		return e.jm.srv.markJobStatus(context.Background(), job.JID, "cancelled", 0)
+		return e.rt.srv.markJobStatus(context.Background(), job.JID, "cancelled", 0)
 	}
 	e.w.set(job.JID, engineSucceeded)
 
-	return e.jm.srv.markJobStatus(context.Background(), job.JID, "completed", time.Millisecond)
+	return e.rt.srv.markJobStatus(context.Background(), job.JID, "completed", time.Millisecond)
 }
 
 func (e *fakeExecutor) CancelJob(ut.Job) error { return nil }
@@ -110,7 +109,7 @@ func (e *fakeExecutor) reattach(job ut.Job, _ time.Time) {
 	e.w.record(e.w.reattach, e.name, job.JID)
 	<-e.w.finish
 	e.w.set(job.JID, engineSucceeded)
-	_ = e.jm.srv.markJobStatus(context.Background(), job.JID, "completed", time.Millisecond)
+	_ = e.rt.srv.markJobStatus(context.Background(), job.JID, "completed", time.Millisecond)
 }
 
 // fakeClock is the dispatchers' clock: leases expire when a test says so.
@@ -154,17 +153,13 @@ func newDBDispatcherHarness(t *testing.T) *dbDispatcherHarness {
 // jobs run until the returned executor's hold is closed.
 func (h *dbDispatcherHarness) process(name string, workers int, hold bool) (*DBDispatcher, *fakeExecutor) {
 	h.t.Helper()
-	jm := &JobManager{
-		srv: h.a.srv, mu: &sync.Mutex{}, workerPool: make(chan struct{}, workers),
-		cancelled: map[int64]bool{}, running: map[int64]context.CancelCauseFunc{},
-		inflight: &sync.WaitGroup{}, draining: &atomic.Bool{},
-	}
-	ex := &fakeExecutor{name: name, jm: jm, w: h.w}
+	rt := newRuntimeWith(h.a.srv)
+	ex := &fakeExecutor{name: name, rt: rt, w: h.w}
 	if hold {
 		ex.hold = make(chan struct{})
 	}
-	jm.engines = newEngineSet(ex)
-	d, err := NewDBDispatcher(h.a.srv, jm)
+	rt.engines = newEngineSet(ex)
+	d, err := NewDBDispatcher(h.a.srv, rt, workers)
 	if err != nil {
 		h.t.Fatal(err)
 	}
@@ -457,7 +452,7 @@ func TestDBDispatcherStartAndDrain(t *testing.T) {
 		defer cancel()
 		drained <- d.Drain(ctx)
 	}()
-	h.eventually("draining", d.jm.draining.Load)
+	h.eventually("draining", d.draining.Load)
 	if err := d.PublishJob(ut.Job{JID: 99}); !errors.Is(err, ErrShuttingDown) {
 		t.Errorf("publish while draining: %v", err)
 	}
