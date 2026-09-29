@@ -54,6 +54,7 @@ login() { curl -s -o /dev/null -c "$J/$1.jar" -X POST "$F/login" -d "username=$1
 
 echo "--- health"
 check "minioth well-known"          200 "$(code "$M/.well-known/minioth")"
+check "minioth ready"               200 "$(code "$M/.well-known/ready")"
 check "frontapp login page"         200 "$(code "$F/login")"
 check "wss healthz"                 200 "$(code "$WSS/healthz")"
 

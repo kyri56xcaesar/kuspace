@@ -23,6 +23,13 @@ spec:
         ports:
         - containerPort: 9090
           name: web
+        livenessProbe: # the process answers
+          httpGet: {path: /v1/.well-known/minioth, port: 9090}
+          periodSeconds: 10
+        readinessProbe: # its store can serve (minioth >= v1.1.2)
+          httpGet: {path: /v1/.well-known/ready, port: 9090}
+          periodSeconds: 5
+          failureThreshold: 3
         volumeMounts: # volume mount linked to a pv for database and perstent storage
         - name: database
           mountPath: /data

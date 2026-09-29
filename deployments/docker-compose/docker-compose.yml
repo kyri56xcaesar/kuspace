@@ -55,6 +55,11 @@ services:
     volumes:
       - ../../configs/minioth.conf:/app/minioth.env:ro
       - minioth-data:/data
+    healthcheck: # ready = its store can serve (minioth >= v1.1.2)
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9090/v1/.well-known/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
   wss:
     build:

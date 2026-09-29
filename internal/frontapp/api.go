@@ -184,7 +184,7 @@ func (srv *HTTPService) routes() {
 		root.GET("/readyz", func(c *gin.Context) {
 			status, checks := ut.Ready(c.Request.Context(), map[string]ut.Check{
 				"uspace":  ut.Reachable(srv.uspace.client, srv.uspace.base+"/healthz"),
-				"minioth": ut.Reachable(srv.minioth.client, srv.minioth.base+"/v1/.well-known/minioth"),
+				"minioth": ut.Reachable(srv.minioth.client, srv.minioth.base+"/v1/.well-known/ready"),
 			})
 			c.JSON(status, checks)
 		})
