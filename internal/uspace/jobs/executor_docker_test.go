@@ -1,10 +1,11 @@
-package uspace
+package jobs
 
 import (
-	"kyri56xcaesar/kuspace/internal/model"
 	"slices"
 	"strings"
 	"testing"
+
+	"kyri56xcaesar/kuspace/internal/model"
 )
 
 func TestDockerRunArgs(t *testing.T) {

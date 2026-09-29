@@ -6,9 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"sort"
 
 	"kyri56xcaesar/kuspace/internal/model"
+	"kyri56xcaesar/kuspace/internal/uspace/jobs"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
@@ -55,7 +55,7 @@ func (srv *UService) seedDefaultApps(ctx context.Context) error {
 	}
 	// the code languages are apps too, so the catalogue and the job form
 	// list them; an app an admin already made under the same name is kept
-	for _, app := range languageApps() {
+	for _, app := range jobs.LanguageApps() {
 		now := ut.CurrentTime()
 		app.InsertedAt, app.CreatedAt = now, now
 		res, err := db.ExecContext(ctx, `
@@ -72,23 +72,4 @@ func (srv *UService) seedDefaultApps(ctx context.Context) error {
 	log.Printf("[USPACE_init] default apps and languages: %d installed or updated", installed)
 
 	return nil
-}
-
-// languageApps lists the code languages (codeModes) as catalogue entries.
-func languageApps() []model.Application {
-	names := make([]string, 0, len(codeModes))
-	for n := range codeModes {
-		names = append(names, n)
-	}
-	sort.Strings(names)
-	apps := make([]model.Application, 0, len(names))
-	for _, n := range names {
-		m := codeModes[n]
-		apps = append(apps, model.Application{
-			Name: n, Image: m.image + ":" + m.tag, Version: m.tag, Author: "kuspace", Status: "available",
-			Description: m.desc + ": write it in the editor. The job's input and output are presigned URLs in INPUT_URL and OUTPUT_URL.",
-		})
-	}
-
-	return apps
 }

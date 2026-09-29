@@ -284,6 +284,10 @@ once. Smoke checks the old session and password stop working.
   becomes the default.
 
 ### Code health
+- `LOW` restructure step 2 (internal/uspace/jobs) is in, tests green; lint
+  still flags doc comments on the newly exported jobs.Store / dispatcher
+  methods (revive: exported, package-comments). Steps 3 (apps, platform,
+  storage) and 4 (docs, diagram, Dockerfile COPY check) remain.
 
 ### Operations
 - `MED` CI runs unit tests and lint (`.github/workflows/ci.yml`) but has not run

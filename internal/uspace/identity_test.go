@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+
 	"kyri56xcaesar/kuspace/internal/authn"
 	"kyri56xcaesar/kuspace/internal/config"
 )

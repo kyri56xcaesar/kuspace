@@ -1,15 +1,16 @@
-package uspace
+package jobs
 
 import (
-	"kyri56xcaesar/kuspace/internal/sqlite"
 	"strings"
 	"testing"
+
+	"kyri56xcaesar/kuspace/internal/sqlite"
 )
 
 // jobs.db from every earlier shape ends up with the same columns, and its
 // jobs stay readable.
 func TestJobsDBMigratesEveryEarlierShape(t *testing.T) {
-	baseline, err := jobsMigrationFiles.ReadFile("migrations/jobs/0001_init.sql")
+	baseline, err := jobsMigrationFiles.ReadFile("migrations/0001_init.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,11 +23,10 @@ func TestJobsDBMigratesEveryEarlierShape(t *testing.T) {
 	want := ""
 	for name, schema := range shapes {
 		t.Run(name, func(t *testing.T) {
-			srv := &UService{}
-			srv.jdbh = sqlite.NewDBHandler("jobs.db", t.TempDir()+"/", "sqlite3")
-			srv.jdbh.Init(t.Context(), schema, "4", "2", "5")
-			t.Cleanup(srv.jdbh.Close)
-			db, _ := srv.jdbh.GetConn()
+			h := sqlite.NewDBHandler("jobs.db", t.TempDir()+"/", "sqlite3")
+			h.Init(t.Context(), schema, "4", "2", "5")
+			t.Cleanup(h.Close)
+			db, _ := h.GetConn()
 			if schema != "" {
 				if _, err := db.ExecContext(t.Context(), `INSERT INTO jobs (jid, uid, description, duration, input, inputFormat,
 					output, outputFormat, logic, logicBody, logicHeaders, parameters, status, completed, completedAt,
@@ -37,7 +37,7 @@ func TestJobsDBMigratesEveryEarlierShape(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if err := openJobsDB(t.Context(), &srv.jdbh, "4", "2", "5"); err != nil {
+			if err := Open(t.Context(), &h, "4", "2", "5"); err != nil {
 				t.Fatal(err)
 			}
 			rows, err := db.QueryContext(t.Context(), `SELECT name FROM pragma_table_info('jobs')`)
@@ -61,7 +61,7 @@ func TestJobsDBMigratesEveryEarlierShape(t *testing.T) {
 				t.Errorf("columns differ between shapes:\n%s\n%s", got, want)
 			}
 			if schema != "" {
-				job, err := srv.getJobByID(t.Context(), 5)
+				job, err := NewStore(&h).ByID(t.Context(), 5)
 				if err != nil || job.UID != 1001 || job.Status != "completed" {
 					t.Errorf("the job after migrating: %+v %v", job, err)
 				}

@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"os/exec"
 	"sort"
 	"strings"
 	"time"
@@ -27,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
+
 	"kyri56xcaesar/kuspace/internal/model"
 )
 
@@ -46,16 +48,29 @@ func (srv *UService) platformProbe() platformProbe {
 		inCluster: os.Getenv("KUBERNETES_SERVICE_HOST") != "",
 		namespace: srv.config.Namespace,
 		kube:      func() (kubernetes.Interface, error) { return k.GetKubeClient() },
-		docker:    JDockerExecutor{}.docker,
-		hostname:  host,
+		docker: func(ctx context.Context, args ...string) ([]byte, error) {
+			return exec.CommandContext(ctx, "docker", args...).CombinedOutput()
+		},
+		hostname: host,
 	}
+}
+
+// platformTimeout bounds asking the platform.
+const platformTimeout = 10 * time.Second
+
+// lastLine is the last non-empty line of a command's output (where the CLI
+// tools put the error).
+func lastLine(out []byte) string {
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+
+	return strings.TrimSpace(lines[len(lines)-1])
 }
 
 var errNoPlatform = errors.New("uspace runs outside kubernetes and docker compose (e.g. go run): there are no replicas to show")
 
 // deployment reports the platform and its services' replicas.
 func (p platformProbe) deployment(ctx context.Context) model.Deployment {
-	ctx, cancel := context.WithTimeout(ctx, 2*executorStatusTimeout)
+	ctx, cancel := context.WithTimeout(ctx, platformTimeout)
 	defer cancel()
 	d := model.Deployment{CheckedAt: ut.CurrentTime()}
 	var err error

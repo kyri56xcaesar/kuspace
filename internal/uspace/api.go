@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"kyri56xcaesar/kuspace/internal/authn"
 	"log"
 	"net/http"
 	"os/signal"
@@ -20,6 +19,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"kyri56xcaesar/kuspace/internal/authn"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -30,6 +31,7 @@ import (
 	"kyri56xcaesar/kuspace/internal/config"
 	"kyri56xcaesar/kuspace/internal/model"
 	"kyri56xcaesar/kuspace/internal/sqlite"
+	"kyri56xcaesar/kuspace/internal/uspace/jobs"
 	k "kyri56xcaesar/kuspace/internal/uspace/kubernetes"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 	"kyri56xcaesar/kuspace/pkg/fslite"
@@ -83,7 +85,8 @@ type UService struct {
 	/* it is directly associated to other objects, JobManager, JobExecutor that
 	eventually carry out the execution.
 	*/
-	jdp JobDispatcher
+	jdp  jobs.JobDispatcher
+	jobs *jobs.Store // the jobs table (jobs.db)
 }
 
 // NewUService function as in a constructor for UService struct
@@ -112,28 +115,28 @@ func NewUService(conf string) UService {
 	// storage shipment will panic if its not working
 	srv.storage = storage
 
-	// dispatcher system (constructing)
-	jdp, err := DispatcherShipment(strings.ToLower(cfg.UspaceDispatcher), &srv)
+	// the jobs database (jobs, logs, apps, settings)
+	jdbh := sqlite.NewDBHandler(cfg.UspaceJobsDB, cfg.UspaceJobsDBPath, cfg.UspaceJobsDBDriver)
+	srv.jdbh = jdbh
+	if err := jobs.Open(context.Background(), &srv.jdbh, cfg.UspaceJobsDBMaxOpenConns, cfg.UspaceJobsDBMaxIdleConns, cfg.UspaceJobsDBMaxLifetime); err != nil {
+		log.Fatalf("[USPACE_init] jobs database: %v", err)
+	}
+	srv.jobs = jobs.NewStore(&srv.jdbh)
+
+	// the job dispatcher (J_DISPATCHER) and its engines
+	if cfg.WssAddress == "" {
+		panic(errors.New("jobs socket address is empty"))
+	}
+	jdp, err := jobs.New(strings.ToLower(cfg.UspaceDispatcher), jobs.Deps{Config: cfg, Store: srv.jobs, Storage: jobStorage{srv: &srv}})
 	if err != nil {
 		panic(err)
 	}
-	jobsSocketAddress = cfg.WssAddress
-	if jobsSocketAddress == "" {
-		panic(errors.New("jobs socket address is empty"))
-	}
 	srv.jdp = jdp
-
-	// database (init)
-	jdbh := sqlite.NewDBHandler(cfg.UspaceJobsDB, cfg.UspaceJobsDBPath, cfg.UspaceJobsDBDriver)
-	srv.jdbh = jdbh
-	if err := openJobsDB(context.Background(), &srv.jdbh, cfg.UspaceJobsDBMaxOpenConns, cfg.UspaceJobsDBMaxIdleConns, cfg.UspaceJobsDBMaxLifetime); err != nil {
-		log.Fatalf("[USPACE_init] jobs database: %v", err)
-	}
 	// an admin's choice of engine (kept in jobs.db) replaces J_EXECUTOR
-	if s, err := srv.storedEngine(context.Background()); err != nil {
+	if s, err := srv.jobs.StoredEngine(context.Background()); err != nil {
 		log.Printf("[USPACE_init] reading the chosen execution engine: %v", err)
 	} else if s.Value != "" {
-		if err := jdp.engines().use(s.Value); err != nil {
+		if err := jdp.Engines().Use(s.Value); err != nil {
 			log.Printf("[USPACE_init] the chosen execution engine: %v", err)
 		} else {
 			log.Printf("[USPACE_init] new jobs run on %s (chosen by %s, %s)", s.Value, s.UpdatedBy, s.UpdatedAt)
@@ -397,13 +400,13 @@ func (srv *UService) handleExecutorStatus(c *gin.Context) {
 }
 
 func (srv *UService) enginesStatus(ctx context.Context) model.EnginesStatus {
-	engines := srv.jdp.engines()
-	st := model.EnginesStatus{Engines: engines.statuses(ctx)}
-	st.Current, _ = engines.now()
-	if s, err := srv.storedEngine(ctx); err == nil && s.Value == st.Current {
+	engines := srv.jdp.Engines()
+	st := model.EnginesStatus{Engines: engines.Statuses(ctx)}
+	st.Current, _ = engines.Now()
+	if s, err := srv.jobs.StoredEngine(ctx); err == nil && s.Value == st.Current {
 		st.ChosenBy, st.ChosenAt = s.UpdatedBy, s.UpdatedAt
 	}
-	counts, err := srv.jobsByEngine(ctx)
+	counts, err := srv.jobs.CountByEngine(ctx)
 	if err != nil {
 		log.Printf("[API] counting jobs per engine: %v", err)
 	}
@@ -437,9 +440,9 @@ func (srv *UService) handleExecutorSwitch(c *gin.Context) {
 	if ac, err := BindAccessTarget(c.GetHeader("Access-Target")); err == nil && ac.UID != "" {
 		by = "uid " + ac.UID
 	}
-	before, _ := srv.jdp.engines().now()
-	if err := srv.switchEngine(c.Request.Context(), srv.jdp.engines(), engineName(req.Engine), by); err != nil {
-		if errors.Is(err, ErrEngineInactive) { // the reason is what the admin needs
+	before, _ := srv.jdp.Engines().Now()
+	if err := srv.jdp.Engines().Switch(c.Request.Context(), srv.jobs, jobs.EngineName(req.Engine), by); err != nil {
+		if errors.Is(err, jobs.ErrEngineInactive) { // the reason is what the admin needs
 			c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
 
 			return
@@ -448,7 +451,7 @@ func (srv *UService) handleExecutorSwitch(c *gin.Context) {
 
 		return
 	}
-	log.Printf("[AUDIT] execution engine for new jobs: %s -> %s by %s", before, engineName(req.Engine), by)
+	log.Printf("[AUDIT] execution engine for new jobs: %s -> %s by %s", before, jobs.EngineName(req.Engine), by)
 	c.JSON(http.StatusOK, srv.enginesStatus(c.Request.Context()))
 }
 

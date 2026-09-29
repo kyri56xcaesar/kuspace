@@ -1,4 +1,4 @@
-package uspace
+package jobs
 
 /*
 	Finding jobs again after uspace lost track of them (the database
@@ -18,10 +18,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/minio/minio-go/v7"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
 	"kyri56xcaesar/kuspace/internal/model"
 	k "kyri56xcaesar/kuspace/internal/uspace/kubernetes"
 )
@@ -111,12 +111,12 @@ func (je JDockerExecutor) docker(ctx context.Context, args ...string) ([]byte, e
 // before its exit code is read (it runs with --rm) counts as completed when
 // it wrote its output.
 func (je JDockerExecutor) reattach(job model.Job, started time.Time) {
-	srv := je.rt.srv
+	rt := je.rt
 	bg := context.Background()
 	name := dockerContainerName(job.JID)
 	out := newJobOutput(job.JID)
 	defer func() {
-		if err := srv.saveJobLog(bg, job.JID, out.Close()); err != nil {
+		if err := rt.saveJobLog(bg, job.JID, out.Close()); err != nil {
 			log.Printf("[docker-executor] failed to save the log of job %d: %v", job.JID, err)
 		}
 	}()
@@ -176,13 +176,13 @@ func (je JDockerExecutor) reattach(job model.Job, started time.Time) {
 		status, reason = "failed", "it exceeded its timeout"
 	case waitErr != nil:
 		// gone before its exit code could be read (--rm)
-		if !srv.outputWrittenSince(bg, job, started) {
+		if !rt.outputWrittenSince(bg, job, started) {
 			status, reason = "failed", "its container is gone and it wrote no output"
 		}
 	case strings.TrimSpace(string(waitOut)) != "0":
 		status, reason = "failed", "its container exited with code "+strings.TrimSpace(string(waitOut))
 	}
-	srv.finishJob(bg, job, status, reason, time.Since(started), out)
+	rt.finishJob(bg, job, status, reason, time.Since(started), out)
 }
 
 // ---------------------------------------------------------------- kubernetes
@@ -194,7 +194,7 @@ func (jke JKubernetesExecutor) inspect(ctx context.Context, job model.Job) (engi
 		return engineUnknown, err
 	}
 
-	return k8sState(ctx, client, jke.rt.srv.config.Namespace, job.JID)
+	return k8sState(ctx, client, jke.rt.config.Namespace, job.JID)
 }
 
 func k8sState(ctx context.Context, client kubernetes.Interface, ns string, jid int64) (engineState, error) {
@@ -225,17 +225,17 @@ func k8sState(ctx context.Context, client kubernetes.Interface, ns string, jid i
 // reattach watches the kubernetes job again, as ExecuteJob does after
 // starting it.
 func (jke JKubernetesExecutor) reattach(job model.Job, started time.Time) {
-	srv := jke.rt.srv
+	rt := jke.rt
 	out := newJobOutput(job.JID)
 	defer func() {
-		if err := srv.saveJobLog(context.Background(), job.JID, out.Close()); err != nil {
+		if err := rt.saveJobLog(context.Background(), job.JID, out.Close()); err != nil {
 			log.Printf("[executor] failed to save the log of job %d: %v", job.JID, err)
 		}
 	}()
 	out.Sendf("[executor] uspace restarted; following %s again\n", k8sJobName(job.JID))
 	client, err := k.GetKubeClient()
 	if err != nil {
-		srv.finishJob(context.Background(), job, "failed", "the cluster can't be reached to follow it: "+err.Error(), time.Since(started), out)
+		rt.finishJob(context.Background(), job, "failed", "the cluster can't be reached to follow it: "+err.Error(), time.Since(started), out)
 
 		return
 	}
@@ -248,44 +248,28 @@ func (jke JKubernetesExecutor) reattach(job model.Job, started time.Time) {
 	if jke.rt.takeCancelled(job.JID) { // cancelled while nobody watched it
 		cancel(ErrJobCancelled)
 	}
-	jke.watch(ctx, client, job, k8sJobName(job.JID), jke.rt.srv.config.Namespace, out, started)
+	jke.watch(ctx, client, job, k8sJobName(job.JID), jke.rt.config.Namespace, out, started)
 }
 
 // ---------------------------------------------------------------- shared
 
 // finishJob records a job's outcome: its status (with reason when there is
 // one to give) and, when it completed, its output.
-func (srv *UService) finishJob(ctx context.Context, job model.Job, status, reason string, d time.Duration, out *jobOutput) {
+func (rt *jobRuntime) finishJob(ctx context.Context, job model.Job, status, reason string, d time.Duration, out *jobOutput) {
 	msg := "[executor] job " + strconv.FormatInt(job.JID, 10) + " finished with status: " + status
 	if reason != "" {
 		msg += " (" + reason + ")"
 	}
 	out.Send([]byte(msg + "\n"))
-	if err := srv.markJobStatus(ctx, job.JID, status, d); err != nil {
+	if err := rt.markJobStatus(ctx, job.JID, status, d); err != nil {
 		log.Printf("failed to mark job %d %s: %v", job.JID, status, err)
 	}
 	if reason != "" {
-		if err := srv.setJobReason(ctx, job.JID, reason); err != nil {
+		if err := rt.setJobReason(ctx, job.JID, reason); err != nil {
 			log.Printf("failed to record why job %d is %s: %v", job.JID, status, err)
 		}
 	}
 	if status == "completed" {
-		srv.recordJobOutput(ctx, job, out)
+		rt.recordJobOutput(ctx, job, out)
 	}
-}
-
-// outputWrittenSince reports whether the job's output object was written
-// at or after since: how a job whose container is gone shows it finished.
-func (srv *UService) outputWrittenSince(ctx context.Context, job model.Job, since time.Time) bool {
-	vname, name, ok := strings.Cut(strings.TrimPrefix(job.Output, "/"), "/")
-	if !ok {
-		return false
-	}
-	info, err := srv.storage.Stat(ctx, model.Resource{Vname: vname, Name: name})
-	if err != nil {
-		return false
-	}
-	obj, ok := info.(minio.ObjectInfo)
-
-	return ok && !obj.LastModified.Before(since.Truncate(time.Second))
 }

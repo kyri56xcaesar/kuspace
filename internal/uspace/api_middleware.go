@@ -3,12 +3,14 @@ package uspace
 import (
 	"context"
 	"errors"
-	"github.com/gin-gonic/gin"
-	"kyri56xcaesar/kuspace/internal/model"
 	"log"
 	"net/http"
 	"regexp"
 	"strings"
+
+	"github.com/gin-gonic/gin"
+
+	"kyri56xcaesar/kuspace/internal/model"
 )
 
 // BindAccessTarget function, used by middleware

@@ -1,4 +1,4 @@
-package uspace
+package jobs
 
 import (
 	"context"
@@ -9,9 +9,11 @@ import (
 	"strconv"
 	"sync/atomic"
 
+	"kyri56xcaesar/kuspace/internal/config"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"github.com/gorilla/websocket"
+
 	"kyri56xcaesar/kuspace/internal/model"
 )
 
@@ -54,7 +56,7 @@ func (j JobDispatcherImpl) Drain(ctx context.Context) error {
 	return j.Manager.Drain(ctx)
 }
 
-func (j JobDispatcherImpl) engines() *engineSet { return j.Manager.rt.engines }
+func (j JobDispatcherImpl) Engines() *EngineSet { return j.Manager.rt.engines }
 
 // PublishJob method which publishes an incoming Job towards into a Queue towards execution
 /* dispatching Jobs interface methods */
@@ -126,13 +128,13 @@ type JobManager struct {
 
 // NewJobManager function as in a constructor for JobManager struct
 /* constructor for the JobManager */
-func NewJobManager(srv *UService) JobManager {
-	return newJobManagerOn(newJobRuntime(srv), srv)
+func NewJobManager(deps Deps) JobManager {
+	return newJobManagerOn(newJobRuntime(deps))
 }
 
 // newJobManagerOn builds the in-memory dispatcher on a runtime.
-func newJobManagerOn(rt *jobRuntime, srv *UService) JobManager {
-	qs, err := strconv.Atoi(srv.config.UspaceJobQueueSize)
+func newJobManagerOn(rt *jobRuntime) JobManager {
+	qs, err := strconv.Atoi(rt.config.UspaceJobQueueSize)
 	if err != nil {
 		qs = 100 // default size
 	}
@@ -140,14 +142,14 @@ func newJobManagerOn(rt *jobRuntime, srv *UService) JobManager {
 	return JobManager{
 		rt:         rt,
 		jobQueue:   make(chan model.Job, qs),
-		workerPool: make(chan struct{}, maxWorkers(srv)),
+		workerPool: make(chan struct{}, maxWorkers(rt.config)),
 		draining:   &atomic.Bool{},
 	}
 }
 
 // maxWorkers is J_MAX_WORKERS: how many jobs a dispatcher runs at once.
-func maxWorkers(srv *UService) int {
-	mw, err := strconv.Atoi(srv.config.UspaceJobMaxWorkers)
+func maxWorkers(cfg config.EnvConfig) int {
+	mw, err := strconv.Atoi(cfg.UspaceJobMaxWorkers)
 	if err != nil || mw <= 0 {
 		return 10 // default size
 	}
@@ -177,7 +179,7 @@ func (jm *JobManager) StartDispatcher() {
 				job.JID, len(jm.workerPool), cap(jm.workerPool))
 			jm.rt.start(func() {
 				defer func() { <-jm.workerPool }() // release the worker slot
-				name, executor := jm.rt.engines.now()
+				name, executor := jm.rt.engines.Now()
 				job.Engine = name
 				if err := executor.ExecuteJob(job); err != nil {
 					log.Printf("execution of job: %v failed.", job.JID)

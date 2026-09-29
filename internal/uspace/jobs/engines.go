@@ -1,4 +1,4 @@
-package uspace
+package jobs
 
 /*
 	The execution engines uspace can run jobs on, and which one takes new
@@ -25,16 +25,16 @@ import (
 // ErrEngineInactive refuses a switch to an engine that doesn't answer.
 var ErrEngineInactive = fmt.Errorf("the engine is not active (%w)", ut.ErrUnavailable)
 
-// engineSet holds the executors by name and the one taking new jobs.
-type engineSet struct {
+// EngineSet holds the executors by name and the one taking new jobs.
+type EngineSet struct {
 	mu      sync.RWMutex
 	byName  map[string]JobExecutor
 	order   []string // as added: the order the admin page lists them
 	current string
 }
 
-func newEngineSet(executors ...JobExecutor) *engineSet {
-	e := &engineSet{byName: map[string]JobExecutor{}}
+func newEngineSet(executors ...JobExecutor) *EngineSet {
+	e := &EngineSet{byName: map[string]JobExecutor{}}
 	for _, x := range executors {
 		e.byName[x.Name()] = x
 		e.order = append(e.order, x.Name())
@@ -46,8 +46,8 @@ func newEngineSet(executors ...JobExecutor) *engineSet {
 	return e
 }
 
-// engineName maps J_EXECUTOR's values (and aliases) to an engine name.
-func engineName(s string) string {
+// EngineName maps J_EXECUTOR's values (and aliases) to an engine name.
+func EngineName(s string) string {
 	switch s {
 	case "local", "default", "docker":
 		return "docker"
@@ -58,8 +58,8 @@ func engineName(s string) string {
 	}
 }
 
-// now returns the engine taking new jobs.
-func (e *engineSet) now() (string, JobExecutor) {
+// Now returns the engine taking new jobs.
+func (e *EngineSet) Now() (string, JobExecutor) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
@@ -68,7 +68,7 @@ func (e *engineSet) now() (string, JobExecutor) {
 
 // forJob returns the engine a job runs on (the current one for jobs that
 // never recorded one).
-func (e *engineSet) forJob(engine string) JobExecutor {
+func (e *EngineSet) forJob(engine string) JobExecutor {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	if x, ok := e.byName[engine]; ok {
@@ -79,7 +79,7 @@ func (e *engineSet) forJob(engine string) JobExecutor {
 }
 
 // get returns the engine called name.
-func (e *engineSet) get(name string) (JobExecutor, bool) {
+func (e *EngineSet) get(name string) (JobExecutor, bool) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	x, ok := e.byName[name]
@@ -87,8 +87,8 @@ func (e *engineSet) get(name string) (JobExecutor, bool) {
 	return x, ok
 }
 
-// use makes name the engine for new jobs.
-func (e *engineSet) use(name string) error {
+// Use makes name the engine for new jobs.
+func (e *EngineSet) Use(name string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if _, ok := e.byName[name]; !ok {
@@ -99,8 +99,8 @@ func (e *engineSet) use(name string) error {
 	return nil
 }
 
-// statuses checks every engine (in parallel), the current one marked.
-func (e *engineSet) statuses(ctx context.Context) []model.ExecutorStatus {
+// Statuses checks every engine (in parallel), the current one marked.
+func (e *EngineSet) Statuses(ctx context.Context) []model.ExecutorStatus {
 	e.mu.RLock()
 	names, current := append([]string{}, e.order...), e.current
 	e.mu.RUnlock()
@@ -123,24 +123,24 @@ func (e *engineSet) statuses(ctx context.Context) []model.ExecutorStatus {
 // engineSetting is the stored choice of engine.
 const engineSetting = "executor"
 
-// storedEngine reads the engine an admin chose (empty when none).
-func (srv *UService) storedEngine(ctx context.Context) (model.Setting, error) {
-	db, err := srv.jdbh.GetConn()
+// StoredEngine reads the engine an admin chose (empty when none).
+func (s *Store) StoredEngine(ctx context.Context) (model.Setting, error) {
+	db, err := s.db.GetConn()
 	if err != nil {
 		return model.Setting{}, err
 	}
-	var s model.Setting
+	var set model.Setting
 	err = db.QueryRowContext(ctx, `SELECT key, value, updated_by, updated_at FROM settings WHERE key = ?`, engineSetting).
-		Scan(&s.Key, &s.Value, &s.UpdatedBy, &s.UpdatedAt)
+		Scan(&set.Key, &set.Value, &set.UpdatedBy, &set.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return model.Setting{}, nil
 	}
 
-	return s, err
+	return set, err
 }
 
-func (srv *UService) storeEngine(ctx context.Context, name, by string) error {
-	db, err := srv.jdbh.GetConn()
+func (s *Store) storeEngine(ctx context.Context, name, by string) error {
+	db, err := s.db.GetConn()
 	if err != nil {
 		return err
 	}
@@ -151,19 +151,19 @@ func (srv *UService) storeEngine(ctx context.Context, name, by string) error {
 	return err
 }
 
-// switchEngine makes name the engine for new jobs, if it is active, and
-// keeps the choice. by is who asked (for the record).
-func (srv *UService) switchEngine(ctx context.Context, engines *engineSet, name, by string) error {
-	x, ok := engines.get(name)
+// Switch makes name the engine for new jobs, if it is active, and keeps the
+// choice in store. by is who asked (for the record).
+func (e *EngineSet) Switch(ctx context.Context, store *Store, name, by string) error {
+	x, ok := e.get(name)
 	if !ok {
 		return fmt.Errorf("no engine %q (%w)", name, ut.ErrNotFound)
 	}
 	if st := x.Status(ctx); !st.Active {
 		return fmt.Errorf("%s: %s: %w", name, st.Error, ErrEngineInactive)
 	}
-	if err := srv.storeEngine(ctx, name, by); err != nil {
+	if err := store.storeEngine(ctx, name, by); err != nil {
 		return err
 	}
 
-	return engines.use(name)
+	return e.Use(name)
 }

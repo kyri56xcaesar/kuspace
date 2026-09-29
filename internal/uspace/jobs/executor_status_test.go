@@ -1,21 +1,20 @@
-package uspace
+package jobs
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	"strings"
+	"testing"
+
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sversion "k8s.io/apimachinery/pkg/version"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
+
 	"kyri56xcaesar/kuspace/internal/config"
 	"kyri56xcaesar/kuspace/internal/model"
-	"net/http"
-	"net/http/httptest"
-	"strings"
-	"testing"
 )
 
 // fakeDocker answers the docker CLI calls Status makes: args joined by " "
@@ -39,7 +38,7 @@ func fakeDocker(answers map[string]string, failing ...string) func(ctx context.C
 }
 
 func dockerExecutor(network string, run func(context.Context, ...string) ([]byte, error)) JDockerExecutor {
-	rt := newRuntimeWith(&UService{config: config.EnvConfig{JobsConfig: config.JobsConfig{UspaceJobDockerNetwork: network}}})
+	rt := newRuntimeWith(Deps{Config: config.EnvConfig{JobsConfig: config.JobsConfig{UspaceJobDockerNetwork: network}}})
 
 	return JDockerExecutor{rt: rt, run: run}
 }
@@ -90,65 +89,21 @@ func TestKubernetesStatus(t *testing.T) {
 	}
 }
 
-func TestEngineSwitching(t *testing.T) {
-	a := newAPIHarness(t, 1)
-	a.withJobsDB(1001, 2002, 2002)
-	if err := a.srv.markJobEngine(t.Context(), 1, "docker"); err != nil {
+// A job stays on the engine it recorded; one without an engine goes to the
+// one taking new jobs.
+func TestEngineSetForJob(t *testing.T) {
+	e := newEngineSet(&stubEngine{name: "docker"}, &stubEngine{name: "kubernetes"})
+	if err := e.Use("kubernetes"); err != nil {
 		t.Fatal(err)
 	}
-	rt := newRuntimeWith(a.srv)
-	k8s := &stubEngine{name: "kubernetes", err: "no cluster configuration"}
-	rt.engines = newEngineSet(JDockerExecutor{rt: rt, run: fakeDocker(map[string]string{"version": "27.3.1"})}, k8s)
-	a.srv.jdp = JobDispatcherImpl{Manager: JobManager{rt: rt}}
-	get := func() model.EnginesStatus {
-		t.Helper()
-		rec := a.do(http.MethodGet, "/api/v1/admin/executor", "::/", "0:0", nil, "")
-		var st model.EnginesStatus
-		if err := json.Unmarshal(rec.Body.Bytes(), &st); rec.Code != http.StatusOK || err != nil {
-			t.Fatalf("%d %s", rec.Code, rec.Body)
-		}
-
-		return st
-	}
-	put := func(engine string) *httptest.ResponseRecorder {
-		return a.do(http.MethodPut, "/api/v1/admin/executor", "::/", "0:0", strings.NewReader(`{"engine":"`+engine+`"}`), "application/json")
-	}
-
-	st := get()
-	if st.Current != "docker" || len(st.Engines) != 2 || !st.Engines[0].Current || !st.Engines[0].Active ||
-		st.Engines[1].Engine != "kubernetes" || st.Engines[1].Active || st.JobsByEngine["docker"] != 1 || st.ChosenBy != "" {
-		t.Fatalf("status: %+v", st)
-	}
-
-	// an engine that doesn't answer can't take jobs; the reason is given
-	if rec := put("kubernetes"); rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "no cluster configuration") {
-		t.Errorf("switch to an inactive engine: %d %s", rec.Code, rec.Body)
-	}
-	if rec := put("nomad"); rec.Code != http.StatusNotFound {
-		t.Errorf("unknown engine: %d", rec.Code)
-	}
-
-	k8s.err = ""
-	if rec := put("k8s"); rec.Code != http.StatusOK {
-		t.Fatalf("switch: %d %s", rec.Code, rec.Body)
-	}
-	st = get()
-	if st.Current != "kubernetes" || !st.Engines[1].Current || st.ChosenBy != "uid 0" || st.ChosenAt == "" {
-		t.Errorf("after switching: %+v", st)
-	}
-	if name, _ := rt.engines.now(); name != "kubernetes" {
-		t.Errorf("new jobs go to %s", name)
-	}
-	// the choice is kept: what a restart reads
-	if s, err := a.srv.storedEngine(t.Context()); err != nil || s.Value != "kubernetes" {
-		t.Errorf("stored choice: %+v %v", s, err)
-	}
-	// a job that started on docker stays on docker
-	if x := rt.engines.forJob("docker"); x.Name() != "docker" {
+	if x := e.forJob("docker"); x.Name() != "docker" {
 		t.Errorf("a docker job is handled by %s", x.Name())
 	}
-	if x := rt.engines.forJob(""); x.Name() != "kubernetes" {
+	if x := e.forJob(""); x.Name() != "kubernetes" {
 		t.Errorf("a job without an engine goes to %s, want the current one", x.Name())
+	}
+	if err := e.Use("nomad"); err == nil {
+		t.Error("an unknown engine was accepted")
 	}
 }
 

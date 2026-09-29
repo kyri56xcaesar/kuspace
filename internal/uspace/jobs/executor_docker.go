@@ -1,4 +1,4 @@
-package uspace
+package jobs
 
 import (
 	"bufio"
@@ -82,7 +82,7 @@ func (je JDockerExecutor) Name() string { return "docker" }
 // can't reach it) and checks that the job network exists.
 func (je JDockerExecutor) Status(ctx context.Context) model.ExecutorStatus {
 	run := je.docker
-	network := je.rt.srv.config.UspaceJobDockerNetwork
+	network := je.rt.config.UspaceJobDockerNetwork
 	st := model.ExecutorStatus{Engine: "docker", Where: "network " + network, CheckedAt: ut.CurrentTime()}
 	if network == "" {
 		st.Where = "the default network"
@@ -120,20 +120,20 @@ func killContainer(jid int64) error {
 
 // ExecuteJob method, the core logic of execution
 func (je JDockerExecutor) ExecuteJob(job model.Job) error {
-	srv := je.rt.srv
+	rt := je.rt
 	bg := context.Background()
 
 	out := newJobOutput(job.JID)
 	defer func() {
 		// the log outlives the live stream: save it with the job
-		if err := srv.saveJobLog(bg, job.JID, out.Close()); err != nil {
+		if err := rt.saveJobLog(bg, job.JID, out.Close()); err != nil {
 			log.Printf("[docker-executor] failed to save the log of job %d: %v", job.JID, err)
 		}
 	}()
 	fail := func(err error) error {
 		log.Printf("[docker-executor] job %d: %v", job.JID, err)
 		out.Sendf("[executor]: %v\n", err)
-		if mErr := srv.markJobStatus(bg, job.JID, "failed", 0); mErr != nil {
+		if mErr := rt.markJobStatus(bg, job.JID, "failed", 0); mErr != nil {
 			log.Printf("[docker-executor] failed to mark job %d failed: %v", job.JID, mErr)
 		}
 
@@ -141,7 +141,7 @@ func (je JDockerExecutor) ExecuteJob(job model.Job) error {
 	}
 
 	out.Send([]byte("=-----------------------------------------------------------------------="))
-	command, err := srv.prepareJobRun(&job)
+	command, err := rt.prepareJobRun(&job)
 	if err != nil {
 		return fail(fmt.Errorf("error formatting job data: %w", err))
 	}
@@ -164,7 +164,7 @@ func (je JDockerExecutor) ExecuteJob(job model.Job) error {
 		cancel(ErrJobCancelled)
 	}
 
-	cmd := exec.CommandContext(ctx, "docker", dockerRunArgs(job, command, quotas, srv.config.UspaceJobDockerNetwork)...)
+	cmd := exec.CommandContext(ctx, "docker", dockerRunArgs(job, command, quotas, rt.config.UspaceJobDockerNetwork)...)
 	// on cancel/deadline stop the container itself, not just the docker CLI
 	cmd.Cancel = func() error { return killContainer(job.JID) }
 	cmd.WaitDelay = 15 * time.Second
@@ -193,10 +193,10 @@ func (je JDockerExecutor) ExecuteJob(job model.Job) error {
 
 		return fail(fmt.Errorf("failed to start the container: %w", err))
 	}
-	if err := srv.markJobStatus(bg, job.JID, "running", 0); err != nil {
+	if err := rt.markJobStatus(bg, job.JID, "running", 0); err != nil {
 		log.Printf("[docker-executor] failed to mark job %d running: %v", job.JID, err)
 	}
-	if err := srv.markJobEngine(bg, job.JID, "docker"); err != nil {
+	if err := rt.markJobEngine(bg, job.JID, "docker"); err != nil {
 		log.Printf("[docker-executor] failed to record job %d engine: %v", job.JID, err)
 	}
 
@@ -218,11 +218,11 @@ func (je JDockerExecutor) ExecuteJob(job model.Job) error {
 		out.Sendf("[executor] container failed: %v\n", runErr)
 	}
 	out.Sendf("[executor] job %d finished with status: %s, duration: %v\n", job.JID, status, duration)
-	if err := srv.markJobStatus(bg, job.JID, status, duration); err != nil {
+	if err := rt.markJobStatus(bg, job.JID, status, duration); err != nil {
 		log.Printf("[docker-executor] failed to mark job %d %s: %v", job.JID, status, err)
 	}
 	if status == "completed" {
-		srv.recordJobOutput(bg, job, out)
+		rt.recordJobOutput(bg, job, out)
 	}
 
 	return nil

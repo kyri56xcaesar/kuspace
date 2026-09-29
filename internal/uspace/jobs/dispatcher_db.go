@@ -1,4 +1,4 @@
-package uspace
+package jobs
 
 /*
 	DBDispatcher (J_DISPATCHER=database): the jobs table is the queue, so
@@ -60,7 +60,6 @@ var defaultDBDispatchTiming = dbDispatchTiming{
 
 // DBDispatcher is the JobDispatcher whose queue is the jobs table.
 type DBDispatcher struct {
-	srv    *UService
 	rt     *jobRuntime   // the engines, running jobs, work in flight
 	slots  chan struct{} // a slot per job run here (J_MAX_WORKERS)
 	timing dbDispatchTiming
@@ -78,7 +77,7 @@ type DBDispatcher struct {
 
 // NewDBDispatcher builds the dispatcher on rt, running up to workers jobs at
 // once. rt's engines must be able to inspect and reattach jobs.
-func NewDBDispatcher(srv *UService, rt *jobRuntime, workers int) (*DBDispatcher, error) {
+func NewDBDispatcher(rt *jobRuntime, workers int) (*DBDispatcher, error) {
 	for _, name := range rt.engines.order {
 		x, _ := rt.engines.get(name)
 		if _, ok := x.(jobReattacher); !ok {
@@ -87,13 +86,13 @@ func NewDBDispatcher(srv *UService, rt *jobRuntime, workers int) (*DBDispatcher,
 	}
 
 	return &DBDispatcher{
-		srv: srv, rt: rt, slots: make(chan struct{}, workers), timing: defaultDBDispatchTiming, now: time.Now,
-		outputWritten: srv.outputWrittenSince,
+		rt: rt, slots: make(chan struct{}, workers), timing: defaultDBDispatchTiming, now: time.Now,
+		outputWritten: rt.outputWrittenSince,
 		wake:          make(chan struct{}, 1), stop: make(chan struct{}),
 	}, nil
 }
 
-func (d *DBDispatcher) db() (*sql.DB, error) { return d.srv.jdbh.GetConn() }
+func (d *DBDispatcher) db() (*sql.DB, error) { return d.rt.store.db.GetConn() }
 
 func (d *DBDispatcher) ms(t time.Time) int64 { return t.UnixMilli() }
 
@@ -195,7 +194,7 @@ func (d *DBDispatcher) RemoveJobs(jids []int) error {
 // Subscribe is not used by this dispatcher.
 func (d *DBDispatcher) Subscribe(model.Job) error { return nil }
 
-func (d *DBDispatcher) engines() *engineSet { return d.rt.engines }
+func (d *DBDispatcher) Engines() *EngineSet { return d.rt.engines }
 
 // reattacher is the engine job runs on (checked in NewDBDispatcher).
 func (d *DBDispatcher) reattacher(job model.Job) jobReattacher {
@@ -269,7 +268,7 @@ func (d *DBDispatcher) claim(ctx context.Context) (model.Job, bool, error) {
 		return model.Job{}, false, err
 	}
 	var jid int64
-	engine, _ := d.rt.engines.now()
+	engine, _ := d.rt.engines.Now()
 	err = db.QueryRowContext(ctx, `UPDATE jobs SET status = 'starting', attempts = attempts + 1, lease_until = ?, engine = ?
 		WHERE jid = (SELECT jid FROM jobs WHERE status = 'queued' ORDER BY jid LIMIT 1) AND status = 'queued'
 		RETURNING jid`, d.leaseEnd(), engine).Scan(&jid)
@@ -279,7 +278,7 @@ func (d *DBDispatcher) claim(ctx context.Context) (model.Job, bool, error) {
 	if err != nil {
 		return model.Job{}, false, err
 	}
-	job, err := d.srv.getJobByID(ctx, int(jid))
+	job, err := d.rt.getJobByID(ctx, int(jid))
 
 	return job, err == nil, err
 }
@@ -394,7 +393,7 @@ func (d *DBDispatcher) lostJobs(ctx context.Context) ([]lostJob, error) {
 	_ = rows.Close()
 	lost := make([]lostJob, 0, len(found))
 	for _, r := range found {
-		job, err := d.srv.getJobByID(ctx, int(r.jid))
+		job, err := d.rt.getJobByID(ctx, int(r.jid))
 		if err != nil {
 			return nil, err
 		}
@@ -480,8 +479,8 @@ func (d *DBDispatcher) finishUnwatched(ctx context.Context, l lostJob, status, r
 	}
 	log.Printf("[dispatcher] job %d: %s (%s)", l.job.JID, status, reason)
 	out := newJobOutput(l.job.JID)
-	d.srv.finishJob(ctx, l.job, status, reason, d.now().Sub(started), out)
-	if err := d.srv.saveJobLog(ctx, l.job.JID, out.Close()); err != nil {
+	d.rt.finishJob(ctx, l.job, status, reason, d.now().Sub(started), out)
+	if err := d.rt.saveJobLog(ctx, l.job.JID, out.Close()); err != nil {
 		log.Printf("[dispatcher] saving the log of job %d: %v", l.job.JID, err)
 	}
 }

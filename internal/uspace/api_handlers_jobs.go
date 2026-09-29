@@ -23,6 +23,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/api/resource"
+
 	"kyri56xcaesar/kuspace/internal/model"
 )
 
@@ -195,7 +196,7 @@ func (srv *UService) handleJobAdmin(c *gin.Context) {
 
 			return
 		}
-		if err := srv.updateJob(c.Request.Context(), job); err != nil {
+		if err := srv.jobs.Update(c.Request.Context(), job); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update the job"})
 
 			return
@@ -218,7 +219,7 @@ func (srv *UService) respondJobsQuery(c *gin.Context) {
 
 			return
 		}
-		jobs, err := srv.getJobsByUIDs(c.Request.Context(), uidsInt)
+		jobs, err := srv.jobs.ByUIDs(c.Request.Context(), uidsInt)
 		if err != nil {
 			log.Printf("failed to retrieve jobs by uids %v: %v", uidsInt, err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve jobs by uid"})
@@ -236,7 +237,7 @@ func (srv *UService) respondJobsQuery(c *gin.Context) {
 
 			return
 		}
-		jobs, err := srv.getJobsByUID(c.Request.Context(), uidInt)
+		jobs, err := srv.jobs.ByUID(c.Request.Context(), uidInt)
 		if err != nil {
 			log.Printf("failed to retrieve jobs by uid %v: %v", uidInt, err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve jobs by uid"})
@@ -249,7 +250,7 @@ func (srv *UService) respondJobsQuery(c *gin.Context) {
 	}
 	jid := c.Query("jids")
 	if jid == "" || jid == "*" {
-		jobs, err := srv.getAllJobs(c.Request.Context(), c.Query("limit"), c.Query("offset"))
+		jobs, err := srv.jobs.All(c.Request.Context(), c.Query("limit"), c.Query("offset"))
 		if err != nil {
 			log.Printf("failed to retrieve the jobs: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the jobs"})
@@ -266,7 +267,7 @@ func (srv *UService) respondJobsQuery(c *gin.Context) {
 
 		return
 	}
-	job, err := srv.getJobByID(c.Request.Context(), jidInt)
+	job, err := srv.jobs.ByID(c.Request.Context(), jidInt)
 	if err != nil {
 		log.Printf("failed to retrieve job %d: %v", jidInt, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve the job"})
@@ -341,7 +342,7 @@ func (srv *UService) submitJobs(c *gin.Context, checkIO bool) {
 				job.GID = gv.GID
 			}
 		}
-		jid, err := srv.insertJob(c.Request.Context(), job)
+		jid, err := srv.jobs.Insert(c.Request.Context(), job)
 		if err != nil {
 			log.Printf("failed to insert the job in the db: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert into db", "published": jids})
@@ -350,7 +351,7 @@ func (srv *UService) submitJobs(c *gin.Context, checkIO bool) {
 		}
 		job.JID = jid
 		if err := srv.jdp.PublishJob(job); err != nil {
-			if rmErr := srv.removeJob(c.Request.Context(), int(jid)); rmErr != nil {
+			if rmErr := srv.jobs.Remove(c.Request.Context(), int(jid)); rmErr != nil {
 				log.Printf("failed to roll back unqueued job %d: %v", jid, rmErr)
 			}
 			status := ut.HTTPStatus(err) // queue full or draining: 503
@@ -389,7 +390,7 @@ func (srv *UService) deleteJobs(c *gin.Context) {
 
 		return
 	}
-	if err := srv.removeJobs(c.Request.Context(), jids); err != nil {
+	if err := srv.jobs.RemoveMany(c.Request.Context(), jids); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete the job(s)"})
 
 		return
@@ -433,7 +434,7 @@ func (srv *UService) handleJobLog(c *gin.Context) {
 
 		return
 	}
-	job, err := srv.getJobByID(c.Request.Context(), jid)
+	job, err := srv.jobs.ByID(c.Request.Context(), jid)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "job not found"})
 
@@ -445,7 +446,7 @@ func (srv *UService) handleJobLog(c *gin.Context) {
 
 		return
 	}
-	text, err := srv.getJobLog(c.Request.Context(), int64(jid))
+	text, err := srv.jobs.Log(c.Request.Context(), int64(jid))
 	if err != nil {
 		log.Printf("failed to read log of job %d: %v", jid, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read the job log"})
@@ -472,7 +473,7 @@ func (srv *UService) handleJobCancel(c *gin.Context) {
 
 		return
 	}
-	job, err := srv.getJobByID(c.Request.Context(), jid)
+	job, err := srv.jobs.ByID(c.Request.Context(), jid)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "job not found"})
 
@@ -497,7 +498,7 @@ func (srv *UService) handleJobCancel(c *gin.Context) {
 		return
 	}
 	if job.Status != "running" { // a running job is marked by its executor once stopped
-		if err := srv.markJobStatus(c.Request.Context(), int64(jid), "cancelled", 0); err != nil {
+		if err := srv.jobs.MarkStatus(c.Request.Context(), int64(jid), "cancelled", 0); err != nil {
 			log.Printf("failed to mark job %d cancelled: %v", jid, err)
 		}
 	}

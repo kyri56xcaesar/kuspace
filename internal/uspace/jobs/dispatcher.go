@@ -1,9 +1,10 @@
-package uspace
+package jobs
 
 import (
 	"context"
 	"errors"
 	"fmt"
+
 	"kyri56xcaesar/kuspace/internal/model"
 )
 
@@ -38,20 +39,19 @@ type JobDispatcher interface {
 	RemoveJob(jid int) error
 	RemoveJobs(jids []int) error
 	Subscribe(job model.Job) error
-	// engines are the execution engines and the one taking new jobs.
-	engines() *engineSet
+	// Engines are the execution engines and the one taking new jobs.
+	Engines() *EngineSet
 }
 
-// DispatcherShipment function for creating (or "shipping") the appropriate Dispatcher
-/* a factory contstructor for JobDispatchers: @used by the API*/
-func DispatcherShipment(dispatcherType string, srv *UService) (JobDispatcher, error) {
+// New builds the dispatcher J_DISPATCHER names, on a runtime with both engines.
+func New(dispatcherType string, deps Deps) (JobDispatcher, error) {
 	switch dispatcherType {
 	case "scheduler", "default", "local":
 
-		return JobDispatcherImpl{Manager: NewJobManager(srv)}, nil
+		return JobDispatcherImpl{Manager: NewJobManager(deps)}, nil
 	case "database", "db":
 		// the jobs table is the queue: jobs survive restarts (jobs_dispatcher_db.go)
-		return NewDBDispatcher(srv, newJobRuntime(srv), maxWorkers(srv))
+		return NewDBDispatcher(newJobRuntime(deps), maxWorkers(deps.Config))
 	case "kafka":
 
 		return nil, errors.New("the kafka dispatcher is not implemented")
@@ -65,4 +65,10 @@ func DispatcherShipment(dispatcherType string, srv *UService) (JobDispatcher, er
 
 		return nil, fmt.Errorf("unknown dispatcher type %q", dispatcherType)
 	}
+}
+
+// NewWithEngines is the in-memory dispatcher over the given engines (the
+// first takes new jobs): for callers that bring their own, such as tests.
+func NewWithEngines(deps Deps, executors ...JobExecutor) JobDispatcher {
+	return JobDispatcherImpl{Manager: newJobManagerOn(newRuntimeWith(deps, executors...))}
 }

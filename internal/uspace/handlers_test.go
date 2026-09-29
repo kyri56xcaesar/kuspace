@@ -17,10 +17,12 @@ import (
 	"time"
 
 	"kyri56xcaesar/kuspace/internal/authn"
+	"kyri56xcaesar/kuspace/internal/uspace/jobs"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+
 	"kyri56xcaesar/kuspace/internal/model"
 	"kyri56xcaesar/kuspace/internal/sqlite"
 )
@@ -268,12 +270,13 @@ func TestGroupVolumeHandlers(t *testing.T) {
 func (a *apiHarness) withJobsDB(uids ...int64) {
 	a.t.Helper()
 	a.srv.jdbh = sqlite.NewDBHandler("jobs_test.db", a.t.TempDir()+"/", "sqlite3")
-	if err := openJobsDB(a.t.Context(), &a.srv.jdbh, "4", "2", "5"); err != nil {
+	if err := jobs.Open(a.t.Context(), &a.srv.jdbh, "4", "2", "5"); err != nil {
 		a.t.Fatal(err)
 	}
 	a.t.Cleanup(a.srv.jdbh.Close)
+	a.srv.jobs = jobs.NewStore(&a.srv.jdbh)
 	for _, uid := range uids {
-		if _, err := a.srv.insertJob(a.t.Context(), model.Job{UID: uid, Input: "vol1/in.csv", Output: "vol1/out.csv",
+		if _, err := a.srv.jobs.Insert(a.t.Context(), model.Job{UID: uid, Input: "vol1/in.csv", Output: "vol1/out.csv",
 			Logic: "bash", LogicBody: "secret code of " + strconv.FormatInt(uid, 10), Status: "completed", CreatedAt: ut.CurrentTime()}); err != nil {
 			a.t.Fatal(err)
 		}

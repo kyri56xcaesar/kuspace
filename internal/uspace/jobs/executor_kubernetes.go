@@ -1,4 +1,4 @@
-package uspace
+package jobs
 
 import (
 	"bufio"
@@ -8,7 +8,6 @@ import (
 	"io"
 	"log"
 	"math"
-	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -18,12 +17,12 @@ import (
 	k "kyri56xcaesar/kuspace/internal/uspace/kubernetes"
 	ut "kyri56xcaesar/kuspace/internal/utils"
 
-	"github.com/minio/minio-go/v7"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
 	"kyri56xcaesar/kuspace/internal/model"
 )
 
@@ -70,7 +69,7 @@ func (jke JKubernetesExecutor) CancelJob(job model.Job) error {
 
 		return err
 	}
-	err = cancelJob(context.Background(), client, k8sJobName(job.JID), jke.rt.srv.config.Namespace)
+	err = cancelJob(context.Background(), client, k8sJobName(job.JID), jke.rt.config.Namespace)
 	if err != nil {
 		log.Printf("[executor] failed to cancel the Job: %v", err)
 	}
@@ -83,7 +82,7 @@ func (jke JKubernetesExecutor) Name() string { return "kubernetes" }
 
 // Status checks the cluster the executor would use.
 func (jke JKubernetesExecutor) Status(ctx context.Context) model.ExecutorStatus {
-	ns := jke.rt.srv.config.Namespace
+	ns := jke.rt.config.Namespace
 	client, err := k.GetKubeClient()
 	if err != nil {
 		return model.ExecutorStatus{Engine: "kubernetes", Where: "namespace " + ns, CheckedAt: ut.CurrentTime(),
@@ -396,11 +395,11 @@ func (o *jobOutput) Close() string {
 
 func executeK8sJob(je *JKubernetesExecutor, job model.Job) {
 	jobName := k8sJobName(job.JID)
-	namespace := je.rt.srv.config.Namespace
+	namespace := je.rt.config.Namespace
 	out := newJobOutput(job.JID)
 	defer func() {
 		// the log outlives the live stream: save it with the job
-		if err := je.rt.srv.saveJobLog(context.Background(), job.JID, out.Close()); err != nil {
+		if err := je.rt.saveJobLog(context.Background(), job.JID, out.Close()); err != nil {
 			log.Printf("[executor] failed to save the log of job %d: %v", job.JID, err)
 		}
 	}()
@@ -408,7 +407,7 @@ func executeK8sJob(je *JKubernetesExecutor, job model.Job) {
 	out.Send([]byte("=-----------------------------------------------------------------------="))
 	out.Sendf("[executor] formatting job as %s\n", jobName)
 
-	command, err := je.rt.srv.prepareJobRun(&job)
+	command, err := je.rt.prepareJobRun(&job)
 	if err != nil {
 		log.Printf("error formatting job data: %v", err)
 		out.Sendf("[executor]: error formatting job data %v\n", err)
@@ -433,7 +432,7 @@ func executeK8sJob(je *JKubernetesExecutor, job model.Job) {
 	}
 
 	jobSpec := buildK8sJob(jobName, job.Logic, command, job.Env, quotas, parallelism, namespace,
-		int64(job.Timeout*60), je.rt.srv.config.UspaceJobTTL)
+		int64(job.Timeout*60), je.rt.config.UspaceJobTTL)
 
 	out.Send([]byte("[executor] launching job...\n"))
 	out.Sendf("[executor] specs: {parallelism: %v, timeout: %v, cpu_limit: %v, cpu_request: %v, mem_limit: %v, mem_req: %v}\n",
@@ -472,10 +471,10 @@ func executeK8sJob(je *JKubernetesExecutor, job model.Job) {
 		return
 	}
 	startTime := time.Now()
-	if err := je.rt.srv.markJobStatus(context.Background(), job.JID, "running", 0); err != nil {
+	if err := je.rt.markJobStatus(context.Background(), job.JID, "running", 0); err != nil {
 		log.Printf("failed to mark job %d running: %v", job.JID, err)
 	}
-	if err := je.rt.srv.markJobEngine(context.Background(), job.JID, "kubernetes"); err != nil {
+	if err := je.rt.markJobEngine(context.Background(), job.JID, "kubernetes"); err != nil {
 		log.Printf("failed to record job %d engine: %v", job.JID, err)
 	}
 	je.watch(ctx, clientset, job, jobSpec.Name, namespace, out, startTime)
@@ -523,75 +522,25 @@ func (jke JKubernetesExecutor) watch(ctx context.Context, clientset kubernetes.I
 	duration := time.Since(startTime)
 	out.Sendf("[executor] job %v finished with status: %s, duration: %v\n", jobName, status, duration)
 
-	if err := jke.rt.srv.markJobStatus(bg, job.JID, status, duration); err != nil {
+	if err := jke.rt.markJobStatus(bg, job.JID, status, duration); err != nil {
 		log.Printf("failed to annotate result to database")
 		out.Sendf("[executor]: error marking job completion %v\n", err)
 	}
 
 	if status == "completed" {
-		jke.rt.srv.recordJobOutput(bg, job, out)
+		jke.rt.recordJobOutput(bg, job, out)
 	}
 }
 
 func (jke JKubernetesExecutor) markFailed(jid int64, d time.Duration) {
-	if err := jke.rt.srv.markJobStatus(context.Background(), jid, "failed", d); err != nil {
+	if err := jke.rt.markJobStatus(context.Background(), jid, "failed", d); err != nil {
 		log.Printf("failed to mark job %d failed: %v", jid, err)
 	}
 }
 
-// recordJobOutput stats a finished job's output object and records it
-// (saveJobOutput). Shared by the executors.
-// recordJobOutput runs after the job, so ctx is not a request context.
-func (srv *UService) recordJobOutput(ctx context.Context, job model.Job, out *jobOutput) {
-	vname, name, ok := strings.Cut(job.Output, "/")
-	if !ok {
-		out.Send([]byte("[executor]: invalid output location\n"))
-
-		return
-	}
-	outputResource := model.Resource{
-		Name:  name,
-		Path:  "/",
-		Type:  "file",
-		Perms: model.DefaultFilePerms,
-		UID:   job.UID,
-		Vname: vname,
-		VID:   srv.volumeID(ctx, vname),
-		GID:   jobGID(job),
-	}
-	info, err := srv.storage.Stat(ctx, outputResource)
-	if err != nil {
-		log.Printf("failed to stat output file from storage: %v", err)
-		out.Sendf("[executor]: error retrieving output file %v\n", err)
-
-		return
-	}
-	// this should be changed to be independent of minio... // will do "resourceInfo struct "
-	infoCasted, ok := info.(minio.ObjectInfo)
-	if !ok {
-		out.Send([]byte("[executor]: error retrieving output file format\n"))
-
-		return
-	}
-	outputResource.Size = infoCasted.Size
-	now := ut.CurrentTime()
-	outputResource.CreatedAt, outputResource.UpdatedAt, outputResource.AccessedAt = now, now, now
-
-	out.Sendf("[executor] saving output %s/%s ...\n", outputResource.Vname, outputResource.Name)
-	action, err := srv.saveJobOutput(ctx, outputResource)
-	if err != nil {
-		log.Printf("failed to record output of job %d: %v", job.JID, err)
-		out.Sendf("[executor]: error saving output data in db... %v\n", err)
-
-		return
-	}
-	out.Sendf("[executor] output %s\n", action)
-	out.Send([]byte("[executor] OK.\n"))
-}
-
 // prepareJobRun fills in a job's defaults, image, command and environment
 // (including its presigned input/output URLs). Shared by the executors.
-func (srv *UService) prepareJobRun(job *model.Job) ([]string, error) {
+func (rt *jobRuntime) prepareJobRun(job *model.Job) ([]string, error) {
 	// handle some generic checks as guard statement
 	if !ut.AssertStructNotEmptyUpon(job, map[any]bool{
 		"Input":     true,
@@ -626,7 +575,7 @@ func (srv *UService) prepareJobRun(job *model.Job) ([]string, error) {
 		InpAsResource.Vname = parts[0]
 		InpAsResource.Name = strings.Join(parts[1:], "/")
 	} else {
-		InpAsResource.Vname = srv.storage.DefaultVolume(false)
+		InpAsResource.Vname = rt.storage.DefaultVolume()
 		InpAsResource.Name = job.Input
 	}
 
@@ -635,7 +584,7 @@ func (srv *UService) prepareJobRun(job *model.Job) ([]string, error) {
 		OutAsResource.Vname = parts[0]
 		OutAsResource.Name = strings.Join(parts[1:], "/")
 	} else {
-		OutAsResource.Vname = srv.storage.DefaultVolume(false)
+		OutAsResource.Vname = rt.storage.DefaultVolume()
 		OutAsResource.Name = job.Output
 	}
 
@@ -683,7 +632,7 @@ func (srv *UService) prepareJobRun(job *model.Job) ([]string, error) {
 	// presigned URLs for exactly its input (GET) and output (PUT), valid
 	// while the job may run. (It used to get the MinIO root keys - any job
 	// could read or overwrite every user's files.)
-	inputURL, outputURL, err := presignJobIO(srv.storage, InpAsResource, OutAsResource, jobURLValidity(job.Timeout))
+	inputURL, outputURL, err := presignJobIO(rt.storage, InpAsResource, OutAsResource, jobURLValidity(job.Timeout))
 	if err != nil {
 		return nil, err
 	}
@@ -702,12 +651,6 @@ func (srv *UService) prepareJobRun(job *model.Job) ([]string, error) {
 	return command, nil
 }
 
-// presigner is implemented by storage backends that can hand out
-// per-object URLs (MinIO).
-type presigner interface {
-	PresignFor(ctx context.Context, method string, r model.Resource, d time.Duration) (*url.URL, error)
-}
-
 // jobURLValidity is how long a job's input/output URLs stay valid: its
 // timeout plus slack for scheduling, or 6 hours for jobs without one.
 func jobURLValidity(timeoutMinutes int) time.Duration {
@@ -716,25 +659,6 @@ func jobURLValidity(timeoutMinutes int) time.Duration {
 	}
 
 	return 6 * time.Hour
-}
-
-func presignJobIO(storage any, in, out model.Resource, valid time.Duration) (string, string, error) {
-	p, ok := storage.(presigner)
-	if !ok {
-		return "", "", errors.New("the storage backend can't issue per-object URLs; jobs need MinIO")
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	get, err := p.PresignFor(ctx, "get", in, valid)
-	if err != nil {
-		return "", "", fmt.Errorf("presign input: %w", err)
-	}
-	put, err := p.PresignFor(ctx, "put", out, valid)
-	if err != nil {
-		return "", "", fmt.Errorf("presign output: %w", err)
-	}
-
-	return get.String(), put.String(), nil
 }
 
 // codeMode runs a job's code (in $LOGIC) with a language's public image.
@@ -836,38 +760,36 @@ func formatJobCommand(job *model.Job) ([]string, error) {
 	}
 }
 
-// saveJobOutput records a job's output object: a new one is created (owned
-// by the job's owner); an existing one (a job may overwrite an output its
-// owner can write, checked at submission) gets its new size and time. Usage
-// follows the records, so nothing else is charged or refunded.
-func (srv *UService) saveJobOutput(ctx context.Context, output model.Resource) (string, error) {
-	quota := min(srv.config.LocalVolumesDefaultCapacity, maxDefaultVolumeCapacity)
-	_, found, err := srv.lookupResource(ctx, output.Name, output.Vname)
-	if err != nil {
-		return "", err
-	}
-	if !found {
-		// recorded even past the quota: the job already wrote it
-		if err := srv.fsl.InsertResource(ctx, output, quota, false); err != nil {
-			return "", err
-		}
-
-		return "created", nil
-	}
-
-	if err := srv.fsl.SetObjectSize(ctx, output.Name, output.Vname, output.Size); err != nil {
-		return "", err
-	}
-
-	return "updated (overwrote the existing file)", nil
-}
-
-// jobGID is the group a job's outputs belong to: the owner's primary group
+// OutputGID is the group a job's outputs belong to: the owner's primary group
 // recorded at submission (older jobs: the owner's uid).
-func jobGID(job model.Job) int64 {
+func OutputGID(job model.Job) int64 {
 	if job.GID > 0 {
 		return job.GID
 	}
 
 	return job.UID
+}
+
+// presignJobIO asks the storage for the job's input and output URLs.
+func presignJobIO(storage Storage, in, out model.Resource, valid time.Duration) (string, string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	return storage.PresignJobIO(ctx, in, out, valid)
+}
+
+// recordJobOutput records a completed job's output as its owner's file
+// (the storage's RecordOutput), reporting in the job's log. It runs after
+// the job, so ctx is not a request context.
+func (rt *jobRuntime) recordJobOutput(ctx context.Context, job model.Job, out *jobOutput) {
+	out.Sendf("[executor] saving output %s ...\n", job.Output)
+	action, err := rt.storage.RecordOutput(ctx, job)
+	if err != nil {
+		log.Printf("failed to record output of job %d: %v", job.JID, err)
+		out.Sendf("[executor]: error recording the output: %v\n", err)
+
+		return
+	}
+	out.Sendf("[executor] output %s\n", action)
+	out.Send([]byte("[executor] OK.\n"))
 }

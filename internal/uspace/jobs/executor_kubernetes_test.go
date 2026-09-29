@@ -1,20 +1,21 @@
-package uspace
+package jobs
 
 import (
 	"context"
 	"encoding/json"
-	batchv1 "k8s.io/api/batch/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/kubernetes/fake"
-	k8stesting "k8s.io/client-go/testing"
-	"kyri56xcaesar/kuspace/internal/model"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	batchv1 "k8s.io/api/batch/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
+
+	"kyri56xcaesar/kuspace/internal/model"
 )
 
 func TestParseJobQuotas(t *testing.T) {
@@ -31,12 +32,6 @@ func TestParseJobQuotas(t *testing.T) {
 	bad.CPULimit = "abc" // resource.MustParse used to panic here and kill uspace
 	if _, err := parseJobQuotas(bad); err == nil {
 		t.Error("invalid cpu limit accepted")
-	}
-	if err := validateJobQuotas(bad); err == nil {
-		t.Error("submission check accepted an invalid cpu limit")
-	}
-	if err := validateJobQuotas(model.Job{}); err != nil {
-		t.Errorf("empty quotas (defaults apply later) rejected: %v", err)
 	}
 }
 
@@ -150,34 +145,6 @@ func TestJobOutput(t *testing.T) {
 	}
 }
 
-type fakePresigner struct{ calls []string }
-
-func (f *fakePresigner) PresignFor(_ context.Context, method string, r model.Resource, d time.Duration) (*url.URL, error) {
-	f.calls = append(f.calls, method+" "+r.Vname+"/"+r.Name+" "+d.String())
-
-	return url.Parse("http://minio:9000/" + r.Vname + "/" + r.Name + "?X-Amz-Signature=sig")
-}
-
-func TestPresignJobIO(t *testing.T) {
-	p := &fakePresigner{}
-	in := model.Resource{Vname: "vol", Name: "in.csv"}
-	out := model.Resource{Vname: "vol", Name: "out.csv"}
-	get, put, err := presignJobIO(p, in, out, time.Hour)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(get, "/vol/in.csv") || !strings.Contains(put, "/vol/out.csv") {
-		t.Errorf("urls = %s | %s", get, put)
-	}
-	if len(p.calls) != 2 || p.calls[0] != "get vol/in.csv 1h0m0s" || p.calls[1] != "put vol/out.csv 1h0m0s" {
-		t.Errorf("presign calls = %v (want a GET for the input and a PUT for the output only)", p.calls)
-	}
-	// a backend that can't presign is an error, never a fallback to credentials
-	if _, _, err := presignJobIO(struct{}{}, in, out, time.Hour); err == nil {
-		t.Error("non-presigning storage accepted")
-	}
-}
-
 func TestJobURLValidity(t *testing.T) {
 	if got := jobURLValidity(30); got != 45*time.Minute {
 		t.Errorf("30 min job: %v", got)
@@ -242,7 +209,7 @@ func TestCodeModesGolden(t *testing.T) {
 		t.Fatal(err)
 	}
 	want = append(want, '\n')
-	path := filepath.Join("..", "..", "web", "tests", "code_modes.json")
+	path := filepath.Join("..", "..", "..", "web", "tests", "code_modes.json")
 	if os.Getenv("UPDATE_GOLDEN") == "1" {
 		if err := os.WriteFile(path, want, 0o644); err != nil {
 			t.Fatal(err)

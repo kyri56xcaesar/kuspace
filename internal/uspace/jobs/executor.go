@@ -5,13 +5,14 @@
 // examples: (already defined)
 // - docker engine
 // - kubernetes engine
-package uspace
+package jobs
 
 import (
 	"context"
-	"kyri56xcaesar/kuspace/internal/model"
 	"strings"
 	"time"
+
+	"kyri56xcaesar/kuspace/internal/model"
 )
 
 // JobExecutor interface defining what a JobExecutor must implement

@@ -1,4 +1,4 @@
-package uspace
+package jobs
 
 import (
 	"context"
@@ -36,7 +36,7 @@ func (e *recordingExecutor) Status(context.Context) model.ExecutorStatus {
 func newTestManager() (*JobManager, *recordingExecutor) {
 	ex := &recordingExecutor{}
 	jm := &JobManager{
-		rt:         newRuntimeWith(nil, ex),
+		rt:         newRuntimeWith(Deps{}, ex),
 		jobQueue:   make(chan model.Job, 10),
 		workerPool: make(chan struct{}, 2),
 		draining:   &atomic.Bool{},
@@ -101,7 +101,7 @@ func TestCancelRunningJobCancelsItsContext(t *testing.T) {
 }
 
 func TestQueueFull(t *testing.T) {
-	jm := &JobManager{rt: newRuntimeWith(nil), jobQueue: make(chan model.Job, 1), draining: &atomic.Bool{}}
+	jm := &JobManager{rt: newRuntimeWith(Deps{}), jobQueue: make(chan model.Job, 1), draining: &atomic.Bool{}}
 	if err := jm.ScheduleJob(model.Job{JID: 1}); err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +132,7 @@ func (b blockingExecutor) Status(context.Context) model.ExecutorStatus {
 func TestDrainWaitsForRunningJobs(t *testing.T) {
 	ex := blockingExecutor{started: make(chan int64, 4), release: make(chan struct{})}
 	jm := &JobManager{
-		rt: newRuntimeWith(nil, ex), jobQueue: make(chan model.Job, 4), workerPool: make(chan struct{}, 2),
+		rt: newRuntimeWith(Deps{}, ex), jobQueue: make(chan model.Job, 4), workerPool: make(chan struct{}, 2),
 		draining: &atomic.Bool{},
 	}
 	jm.StartDispatcher()

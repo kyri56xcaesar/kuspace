@@ -1,15 +1,16 @@
-package uspace
+package jobs
 
 import (
 	"context"
 	"errors"
-	"kyri56xcaesar/kuspace/internal/model"
 	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"kyri56xcaesar/kuspace/internal/model"
 )
 
 // world is the job engine as the tests see it: which jobs it has and in
@@ -62,7 +63,7 @@ func (e *fakeExecutor) ExecuteJob(job model.Job) error {
 	defer e.rt.trackRunning(job.JID, cancel)()
 	e.w.record(e.w.ran, e.name, job.JID)
 	e.w.set(job.JID, engineRunning)
-	_ = e.rt.srv.markJobStatus(context.Background(), job.JID, "running", 0)
+	_ = e.rt.markJobStatus(context.Background(), job.JID, "running", 0)
 	if e.hold != nil {
 		select {
 		case <-e.hold:
@@ -75,11 +76,11 @@ func (e *fakeExecutor) ExecuteJob(job model.Job) error {
 	if errors.Is(context.Cause(ctx), ErrJobCancelled) {
 		e.w.set(job.JID, engineGone)
 
-		return e.rt.srv.markJobStatus(context.Background(), job.JID, "cancelled", 0)
+		return e.rt.markJobStatus(context.Background(), job.JID, "cancelled", 0)
 	}
 	e.w.set(job.JID, engineSucceeded)
 
-	return e.rt.srv.markJobStatus(context.Background(), job.JID, "completed", time.Millisecond)
+	return e.rt.markJobStatus(context.Background(), job.JID, "completed", time.Millisecond)
 }
 
 func (e *fakeExecutor) CancelJob(model.Job) error { return nil }
@@ -108,7 +109,7 @@ func (e *fakeExecutor) reattach(job model.Job, _ time.Time) {
 	e.w.record(e.w.reattach, e.name, job.JID)
 	<-e.w.finish
 	e.w.set(job.JID, engineSucceeded)
-	_ = e.rt.srv.markJobStatus(context.Background(), job.JID, "completed", time.Millisecond)
+	_ = e.rt.markJobStatus(context.Background(), job.JID, "completed", time.Millisecond)
 }
 
 // fakeClock is the dispatchers' clock: leases expire when a test says so.
@@ -132,33 +133,32 @@ const testLease = time.Minute
 // several dispatchers ("uspace processes", one after another) share.
 type dbDispatcherHarness struct {
 	t     *testing.T
-	a     *apiHarness
+	store *Store
 	w     *world
 	clock *fakeClock
 }
 
 func newDBDispatcherHarness(t *testing.T) *dbDispatcherHarness {
 	t.Helper()
-	a := newAPIHarness(t, 1)
-	a.withJobsDB()
+	store := openTestStore(t)
 	old := jobsSocketAddress
 	jobsSocketAddress = "127.0.0.1:1" // job output streams go nowhere
 	t.Cleanup(func() { jobsSocketAddress = old })
 
-	return &dbDispatcherHarness{t: t, a: a, w: newWorld(), clock: &fakeClock{t: time.Unix(1_800_000_000, 0)}}
+	return &dbDispatcherHarness{t: t, store: store, w: newWorld(), clock: &fakeClock{t: time.Unix(1_800_000_000, 0)}}
 }
 
 // process starts a dispatcher named name with workers slots; hold makes its
 // jobs run until the returned executor's hold is closed.
 func (h *dbDispatcherHarness) process(name string, workers int, hold bool) (*DBDispatcher, *fakeExecutor) {
 	h.t.Helper()
-	rt := newRuntimeWith(h.a.srv)
+	rt := newRuntimeWith(Deps{Store: h.store, Storage: fakeStorage{}})
 	ex := &fakeExecutor{name: name, rt: rt, w: h.w}
 	if hold {
 		ex.hold = make(chan struct{})
 	}
 	rt.engines = newEngineSet(ex)
-	d, err := NewDBDispatcher(h.a.srv, rt, workers)
+	d, err := NewDBDispatcher(rt, workers)
 	if err != nil {
 		h.t.Fatal(err)
 	}
@@ -189,11 +189,11 @@ func (h *dbDispatcherHarness) process(name string, workers int, hold bool) (*DBD
 // insert adds a job in the given state, as a previous run left it.
 func (h *dbDispatcherHarness) insert(status string, attempts int, started bool) int64 {
 	h.t.Helper()
-	jid, err := h.a.srv.insertJob(h.t.Context(), model.Job{UID: 1001, Input: "vol1/in", Output: "vol1/out", Logic: "bash"})
+	jid, err := h.store.Insert(h.t.Context(), model.Job{UID: 1001, Input: "vol1/in", Output: "vol1/out", Logic: "bash"})
 	if err != nil {
 		h.t.Fatal(err)
 	}
-	db, _ := h.a.srv.jdbh.GetConn()
+	db, _ := h.store.db.GetConn()
 	var startedUnix any
 	if started {
 		startedUnix = h.clock.Now().Add(-time.Hour).Unix()
@@ -210,7 +210,7 @@ func (h *dbDispatcherHarness) insert(status string, attempts int, started bool) 
 // submit inserts a job and publishes it, as the API does.
 func (h *dbDispatcherHarness) submit(d *DBDispatcher) int64 {
 	h.t.Helper()
-	jid, err := h.a.srv.insertJob(h.t.Context(), model.Job{UID: 1001, Input: "vol1/in", Output: "vol1/out", Logic: "bash"})
+	jid, err := h.store.Insert(h.t.Context(), model.Job{UID: 1001, Input: "vol1/in", Output: "vol1/out", Logic: "bash"})
 	if err != nil {
 		h.t.Fatal(err)
 	}
@@ -223,7 +223,7 @@ func (h *dbDispatcherHarness) submit(d *DBDispatcher) int64 {
 
 func (h *dbDispatcherHarness) job(jid int64) model.Job {
 	h.t.Helper()
-	j, err := h.a.srv.getJobByID(h.t.Context(), int(jid))
+	j, err := h.store.ByID(h.t.Context(), int(jid))
 	if err != nil {
 		h.t.Fatal(err)
 	}
@@ -232,7 +232,7 @@ func (h *dbDispatcherHarness) job(jid int64) model.Job {
 }
 
 func (h *dbDispatcherHarness) lease(jid int64) (int64, bool) {
-	db, _ := h.a.srv.jdbh.GetConn()
+	db, _ := h.store.db.GetConn()
 	var l *int64
 	_ = db.QueryRowContext(h.t.Context(), `SELECT lease_until FROM jobs WHERE jid = ?`, jid).Scan(&l)
 	if l == nil {
@@ -434,7 +434,7 @@ func TestDBDispatcherCancelsWaitingJobs(t *testing.T) {
 func TestDBDispatcherStartAndDrain(t *testing.T) {
 	h := newDBDispatcherHarness(t)
 	// accepted (inserted) but not yet queued when uspace stopped
-	pending, err := h.a.srv.insertJob(t.Context(), model.Job{UID: 1001, Input: "vol1/in", Output: "vol1/out", Logic: "bash"})
+	pending, err := h.store.Insert(t.Context(), model.Job{UID: 1001, Input: "vol1/in", Output: "vol1/out", Logic: "bash"})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/zeebo/assert"
+
 	"kyri56xcaesar/kuspace/internal/model"
 	u "kyri56xcaesar/kuspace/internal/uspace"
 )

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+
 	"kyri56xcaesar/kuspace/internal/authn"
 	"kyri56xcaesar/kuspace/internal/model"
 )

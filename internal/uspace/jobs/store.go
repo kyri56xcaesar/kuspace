@@ -1,4 +1,4 @@
-package uspace
+package jobs
 
 /*
 	database call handlers for "jobs"
@@ -17,28 +17,38 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"kyri56xcaesar/kuspace/internal/model"
-	"kyri56xcaesar/kuspace/internal/sqlite"
-	ut "kyri56xcaesar/kuspace/internal/utils"
 	"log"
 	"strings"
 	"time"
+
+	"kyri56xcaesar/kuspace/internal/model"
+	"kyri56xcaesar/kuspace/internal/sqlite"
+	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
-//go:embed migrations/jobs/*.sql
+//go:embed migrations/*.sql
 var jobsMigrationFiles embed.FS
 
 // jobsMigrations are jobs.db's migrations (see sqlite.Migration).
 func jobsMigrations() ([]sqlite.Migration, error) {
-	return sqlite.LoadMigrations(jobsMigrationFiles, "migrations/jobs",
+	return sqlite.LoadMigrations(jobsMigrationFiles, "migrations",
 		// added by start-up code before migrations existed: some databases have them
 		sqlite.Migration{Version: 2, Name: "job_engine_and_gid", Func: sqlite.AddColumns("jobs",
 			sqlite.Column{Name: "engine", Type: "TEXT"}, sqlite.Column{Name: "gid", Type: "INTEGER"})},
 	)
 }
 
-// openJobsDB opens jobs.db and brings it up to date.
-func openJobsDB(ctx context.Context, h *sqlite.DBHandler, maxOpen, maxIdle, lifetime string) error {
+// Open opens jobs.db and brings it up to date.
+// Store is the jobs table (and the job logs and settings kept with it in
+// jobs.db). Open the database first.
+type Store struct {
+	db *sqlite.DBHandler
+}
+
+// NewStore reads and writes jobs in db.
+func NewStore(db *sqlite.DBHandler) *Store { return &Store{db: db} }
+
+func Open(ctx context.Context, h *sqlite.DBHandler, maxOpen, maxIdle, lifetime string) error {
 	h.Init(ctx, "", maxOpen, maxIdle, lifetime)
 	migs, err := jobsMigrations()
 	if err != nil {
@@ -48,9 +58,9 @@ func openJobsDB(ctx context.Context, h *sqlite.DBHandler, maxOpen, maxIdle, life
 	return h.Migrate(ctx, migs)
 }
 
-func (srv *UService) insertJob(ctx context.Context, jb model.Job) (int64, error) {
+func (s *Store) Insert(ctx context.Context, jb model.Job) (int64, error) {
 	// log.Printf("inserting job in db: %+v", jb)
-	db, err := srv.jdbh.GetConn()
+	db, err := s.db.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 
@@ -78,15 +88,11 @@ func (srv *UService) insertJob(ctx context.Context, jb model.Job) (int64, error)
 		return -1, fmt.Errorf("failed to execute query: %w", err)
 	}
 
-	if verbose {
-		log.Printf("[Database] Inserted job id: %v", jid)
-	}
-
 	return jid, nil
 }
 
-func (srv *UService) removeJob(ctx context.Context, jid int) error {
-	db, err := srv.jdbh.GetConn()
+func (s *Store) Remove(ctx context.Context, jid int) error {
+	db, err := s.db.GetConn()
 	if err != nil {
 		log.Printf("failed to retrieve db connection: %v", err)
 
@@ -107,8 +113,8 @@ func (srv *UService) removeJob(ctx context.Context, jid int) error {
 	return nil
 }
 
-func (srv *UService) removeJobs(ctx context.Context, jids []int) error {
-	db, err := srv.jdbh.GetConn()
+func (s *Store) RemoveMany(ctx context.Context, jids []int) error {
+	db, err := s.db.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 
@@ -159,9 +165,9 @@ func (srv *UService) removeJobs(ctx context.Context, jids []int) error {
 	return nil
 }
 
-func (srv *UService) getJobByID(ctx context.Context, jid int) (model.Job, error) {
+func (s *Store) ByID(ctx context.Context, jid int) (model.Job, error) {
 	var job model.Job
-	db, err := srv.jdbh.GetConn()
+	db, err := s.db.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 
@@ -202,9 +208,9 @@ func (srv *UService) getJobByID(ctx context.Context, jid int) (model.Job, error)
 	return job, nil
 }
 
-func (srv *UService) getJobsByUID(ctx context.Context, uid int) ([]model.Job, error) {
+func (s *Store) ByUID(ctx context.Context, uid int) ([]model.Job, error) {
 	var jobs []model.Job
-	db, err := srv.jdbh.GetConn()
+	db, err := s.db.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 
@@ -257,14 +263,14 @@ func (srv *UService) getJobsByUID(ctx context.Context, uid int) ([]model.Job, er
 	return jobs, nil
 }
 
-func (srv *UService) getJobsByUIDs(ctx context.Context, uids []int) ([]model.Job, error) {
+func (s *Store) ByUIDs(ctx context.Context, uids []int) ([]model.Job, error) {
 	var jobs []model.Job
 
 	if len(uids) == 0 {
 		return jobs, nil // no users, empty list
 	}
 
-	db, err := srv.jdbh.GetConn()
+	db, err := s.db.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 
@@ -335,9 +341,9 @@ func (srv *UService) getJobsByUIDs(ctx context.Context, uids []int) ([]model.Job
 	return jobs, nil
 }
 
-func (srv *UService) getAllJobs(ctx context.Context, limit, offset string) ([]model.Job, error) {
+func (s *Store) All(ctx context.Context, limit, offset string) ([]model.Job, error) {
 	var jobs []model.Job
-	db, err := srv.jdbh.GetConn()
+	db, err := s.db.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 
@@ -399,8 +405,8 @@ func (srv *UService) getAllJobs(ctx context.Context, limit, offset string) ([]mo
 	return jobs, nil
 }
 
-func (srv *UService) updateJob(ctx context.Context, jb model.Job) error {
-	db, err := srv.jdbh.GetConn()
+func (s *Store) Update(ctx context.Context, jb model.Job) error {
+	db, err := s.db.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 
@@ -424,8 +430,8 @@ func (srv *UService) updateJob(ctx context.Context, jb model.Job) error {
 	return nil
 }
 
-func (srv *UService) markJobStatus(ctx context.Context, jid int64, status string, duration time.Duration) error {
-	db, err := srv.jdbh.GetConn()
+func (s *Store) MarkStatus(ctx context.Context, jid int64, status string, duration time.Duration) error {
+	db, err := s.db.GetConn()
 	if err != nil {
 		log.Printf("failed to get database connection: %v", err)
 
@@ -474,9 +480,9 @@ func (srv *UService) markJobStatus(ctx context.Context, jid int64, status string
 	return nil
 }
 
-// saveJobLog stores (replaces) the kept output of a job.
-func (srv *UService) saveJobLog(ctx context.Context, jid int64, text string) error {
-	db, err := srv.jdbh.GetConn()
+// SaveLog stores (replaces) the kept output of a job.
+func (s *Store) SaveLog(ctx context.Context, jid int64, text string) error {
+	db, err := s.db.GetConn()
 	if err != nil {
 		return err
 	}
@@ -487,9 +493,9 @@ func (srv *UService) saveJobLog(ctx context.Context, jid int64, text string) err
 	return err
 }
 
-// getJobLog returns the kept output of a job ("" if none was saved).
-func (srv *UService) getJobLog(ctx context.Context, jid int64) (string, error) {
-	db, err := srv.jdbh.GetConn()
+// Log returns the kept output of a job ("" if none was saved).
+func (s *Store) Log(ctx context.Context, jid int64) (string, error) {
+	db, err := s.db.GetConn()
 	if err != nil {
 		return "", err
 	}
@@ -510,9 +516,9 @@ const jobColumns = `jid, uid, description, duration, input, inputFormat, output,
 	ephemeralStorageRequest, ephemeralStorageLimit, COALESCE(engine, ''), COALESCE(gid, 0),
 	COALESCE(status_reason, ''), attempts`
 
-// jobsByEngine counts the jobs per recorded engine ("" = none recorded).
-func (srv *UService) jobsByEngine(ctx context.Context) (map[string]int, error) {
-	db, err := srv.jdbh.GetConn()
+// CountByEngine counts the jobs per recorded engine ("" = none recorded).
+func (s *Store) CountByEngine(ctx context.Context) (map[string]int, error) {
+	db, err := s.db.GetConn()
 	if err != nil {
 		return nil, err
 	}
@@ -534,9 +540,9 @@ func (srv *UService) jobsByEngine(ctx context.Context) (map[string]int, error) {
 	return out, rows.Err()
 }
 
-// setJobReason records why a job is in its state.
-func (srv *UService) setJobReason(ctx context.Context, jid int64, reason string) error {
-	db, err := srv.jdbh.GetConn()
+// SetReason records why a job is in its state.
+func (s *Store) SetReason(ctx context.Context, jid int64, reason string) error {
+	db, err := s.db.GetConn()
 	if err != nil {
 		return err
 	}
@@ -545,9 +551,9 @@ func (srv *UService) setJobReason(ctx context.Context, jid int64, reason string)
 	return err
 }
 
-// markJobEngine records where a job runs.
-func (srv *UService) markJobEngine(ctx context.Context, jid int64, engine string) error {
-	db, err := srv.jdbh.GetConn()
+// MarkEngine records where a job runs.
+func (s *Store) MarkEngine(ctx context.Context, jid int64, engine string) error {
+	db, err := s.db.GetConn()
 	if err != nil {
 		return err
 	}
