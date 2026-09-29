@@ -364,7 +364,13 @@ html.theme-dark #settings .sys-role { margin: 4px 0 12px; font-size: 0.85rem; co
 #settings .sys-facts .sys-wrap dd,
 #settings .sys-facts .sys-problem dd { white-space: normal; overflow-wrap: anywhere; }
 #settings .sys-facts .sys-problem dd { color: var(--st-crit); }
-#settings .sys-engine-jobs { border-top: 1px solid var(--k-line); padding-top: 10px; }
+#settings .sys-engine-jobs { margin-top: 14px; }
+#settings .sys-engine-jobs .k-chip { background: var(--k-surface-2); color: var(--k-ink); }
+#settings .sys-card.is-current { box-shadow: var(--k-shadow), 0 0 0 2px var(--k-cyan); }
+#settings .sys-in-use { color: var(--k-ink); }
+#settings .sys-engine-note { margin: 0; font-size: 0.8rem; color: var(--k-muted); }
+#settings .sys-notice { margin: 0 0 12px; padding: 8px 12px; border-radius: 8px; font-size: 0.85rem;
+  background: var(--st-crit-soft, var(--k-surface-2)); color: var(--k-ink); border: 1px solid var(--st-crit); }
 #settings .sys-engine-jobs-title { margin: 0 0 6px; font-size: 0.78rem; color: var(--k-muted); }
 #settings .sys-engine-jobs .k-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 #settings .sys-details summary { cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--k-ink); }

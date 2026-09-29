@@ -29,6 +29,7 @@ func (e *recordingExecutor) ExecuteJob(job ut.Job) error {
 	return nil
 }
 func (e *recordingExecutor) CancelJob(ut.Job) error { return nil }
+func (e *recordingExecutor) Name() string           { return "test" }
 func (e *recordingExecutor) Status(context.Context) ut.ExecutorStatus {
 	return ut.ExecutorStatus{Engine: "test", Active: true}
 }
@@ -44,7 +45,7 @@ func newTestManager() (*JobManager, *recordingExecutor) {
 		draining:   &atomic.Bool{},
 	}
 	ex := &recordingExecutor{jm: jm}
-	jm.executor = ex
+	jm.engines = newEngineSet(ex)
 
 	return jm, ex
 }
@@ -130,6 +131,7 @@ func (b blockingExecutor) ExecuteJob(job ut.Job) error {
 }
 
 func (b blockingExecutor) CancelJob(ut.Job) error { return nil }
+func (b blockingExecutor) Name() string           { return "test" }
 func (b blockingExecutor) Status(context.Context) ut.ExecutorStatus {
 	return ut.ExecutorStatus{Engine: "test", Active: true}
 }
@@ -141,7 +143,7 @@ func TestDrainWaitsForRunningJobs(t *testing.T) {
 		inflight: &sync.WaitGroup{}, draining: &atomic.Bool{},
 	}
 	ex := blockingExecutor{jm: jm, started: make(chan int64, 4), release: make(chan struct{})}
-	jm.executor = ex
+	jm.engines = newEngineSet(ex)
 	jm.StartDispatcher()
 	if err := jm.ScheduleJob(ut.Job{JID: 1}); err != nil {
 		t.Fatal(err)

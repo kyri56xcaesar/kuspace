@@ -2,6 +2,7 @@ package frontendapp
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"sync"
@@ -79,20 +80,60 @@ func (srv *HTTPService) handleSysStatus(c *gin.Context) {
 	respondInFormat(c, c.Query("format"), out, "system_status.html")
 }
 
-// handleExecutorStatus shows the engine jobs run on (uspace checks it): the
-// engine, whether it is active, and how many jobs ran where.
+// handleExecutorStatus shows the execution engines (uspace checks them):
+// each one's state, which takes new jobs, and how many jobs ran where.
 func (srv *HTTPService) handleExecutorStatus(c *gin.Context) {
-	var st ut.ExecutorStatus
+	var st ut.EnginesStatus
 	err := srv.uspace.decode(c.Request.Context(), request{
 		method: http.MethodGet, path: "/api/v1/admin/executor", token: userToken(c), target: "0::/",
 	}, &st)
+	srv.renderEngines(c, st, err, "")
+}
+
+// handleExecutorSwitch sends new jobs to the engine named in the form, then
+// shows the engines again (with the reason when uspace refused).
+func (srv *HTTPService) handleExecutorSwitch(c *gin.Context) {
+	engine := c.PostForm("engine")
+	if engine == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "choose an engine"})
+
+		return
+	}
+	var st ut.EnginesStatus
+	err := srv.uspace.decode(c.Request.Context(), request{
+		method: http.MethodPut, path: "/api/v1/admin/executor", token: userToken(c), target: "0::/",
+		json: gin.H{"engine": engine},
+	}, &st)
+	notice := ""
 	if err != nil {
-		if c.Query("format") == "json" {
-			fail(c, "check the execution engine", err)
+		var ue *upstreamError
+		if !errors.As(err, &ue) {
+			srv.renderEngines(c, st, err, "")
 
 			return
 		}
-		st = ut.ExecutorStatus{Error: "uspace did not answer, so the engine can't be checked", CheckedAt: ut.CurrentTime()}
+		notice = "Not switched: " + ue.msg
+		// show the engines as they are
+		err = srv.uspace.decode(c.Request.Context(), request{
+			method: http.MethodGet, path: "/api/v1/admin/executor", token: userToken(c), target: "0::/",
+		}, &st)
 	}
-	respondInFormat(c, c.Query("format"), st, "executor_status.html")
+	srv.renderEngines(c, st, err, notice)
+}
+
+func (srv *HTTPService) renderEngines(c *gin.Context, st ut.EnginesStatus, err error, notice string) {
+	if err != nil {
+		if c.Query("format") == "json" {
+			fail(c, "check the execution engines", err)
+
+			return
+		}
+		notice = "uspace did not answer, so the engines can't be checked"
+	}
+	if c.Query("format") == "json" {
+		c.JSON(http.StatusOK, st)
+
+		return
+	}
+	c.HTML(http.StatusOK, "executor_status.html", gin.H{"st": st, "notice": notice, "failed": err != nil})
 }

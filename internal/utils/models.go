@@ -936,16 +936,36 @@ func (a *Application) PtrFields() []any {
 	return []any{&a.ID, &a.Name, &a.Image, &a.Description, &a.Version, &a.Author, &a.AuthorID, &a.Status, &a.InsertedAt, &a.CreatedAt}
 }
 
-// ExecutorStatus is what uspace reports about the engine jobs run on.
+// ExecutorStatus is what uspace reports about one execution engine.
 type ExecutorStatus struct {
-	Engine  string `json:"engine"` // "docker" or "kubernetes"
-	Active  bool   `json:"active"` // the engine answers and jobs can be started
+	Engine  string `json:"engine"`  // "docker" or "kubernetes"
+	Active  bool   `json:"active"`  // the engine answers and jobs can be started
+	Current bool   `json:"current"` // new jobs go to this engine
 	Version string `json:"version,omitempty"`
 	// Where jobs run: the kubernetes namespace or the docker network.
 	Where     string `json:"where,omitempty"`
 	Error     string `json:"error,omitempty"` // why it isn't active
 	CheckedAt string `json:"checkedAt"`
+}
+
+// EnginesStatus is uspace's execution engines: each one's status, which
+// takes new jobs (and who chose it when), and the jobs recorded per engine.
+type EnginesStatus struct {
+	Current string           `json:"current"`
+	Engines []ExecutorStatus `json:"engines"`
+	// ChosenBy/ChosenAt: the admin who switched to the current engine (empty
+	// while it is the configured default, J_EXECUTOR)
+	ChosenBy string `json:"chosenBy,omitempty"`
+	ChosenAt string `json:"chosenAt,omitempty"`
 	// JobsByEngine counts the recorded jobs per engine ("" for jobs that
 	// never started, or ran before engines were recorded).
 	JobsByEngine map[string]int `json:"jobsByEngine,omitempty"`
+}
+
+// Setting is a value an admin changed at runtime.
+type Setting struct {
+	Key       string `json:"key"`
+	Value     string `json:"value"`
+	UpdatedBy string `json:"updatedBy"`
+	UpdatedAt string `json:"updatedAt"`
 }

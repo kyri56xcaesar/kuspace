@@ -71,8 +71,13 @@ Two dispatchers (`J_DISPATCHER`):
   in `job_logs` and served by `/job/log`.
 - `POST /job/cancel` works on queued jobs (never started) and running jobs (the
   container or kubernetes Job is killed). Finished jobs answer 409.
-- Each job records the `engine` it ran on (`docker` or `kubernetes`);
-  `GET /admin/executor` says which engine is in use and whether it answers.
+- Each job records the `engine` it ran on (`docker` or `kubernetes`).
+  Both engines are available at once: `J_EXECUTOR` is the initial choice for
+  new jobs, and an admin switches at runtime (`PUT /admin/executor`, the System
+  page), only to an engine that answers. The choice is kept in jobs.db
+  (`settings`) and wins over `J_EXECUTOR` after a restart. A job stays on the
+  engine it started on (cancel, following it again, settling it).
+  `GET /admin/executor` shows both engines, which is in use and who chose it.
 
 The docker executor is for development: it needs the docker socket (root on the
 host) and joins `J_DOCKER_NETWORK` so the job can reach MinIO under the name the URLs

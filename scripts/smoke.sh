@@ -176,7 +176,8 @@ check "bash image name valid"       "*:applications-bash-v2" "$(json 'd=d.get("c
 check "all services up"             "4/4" "$(curl -s -b "$J/admin.jar" "$F/verified/admin/system-status?format=json" | json 'print(str(sum(s["up"] for s in d))+"/"+str(len(d)))')"
 check "dashboard served"            yes "$(curl -s -b "$J/user.jar" "$F/verified/admin-panel" | yes_if grep -q 'id="dash"')"
 check "user blocked from system page" "40?" "$(code -b "$J/user.jar" "$F/verified/admin/system-status")"
-check "execution engine active"     "docker True" "$(curl -s -b "$J/admin.jar" "$F/verified/admin/executor-status?format=json" | json 'print(d["engine"], d["active"])')"
+check "execution engine in use, active" "docker True" "$(curl -s -b "$J/admin.jar" "$F/verified/admin/executor-status?format=json" | json 'e=[x for x in d["engines"] if x["current"]][0]; print(e["engine"], e["active"])')"
+check "engine switch refused for users" "40?" "$(code -b "$J/user.jar" -X PUT "$F/verified/admin/executor" -d "engine=docker")"
 
 if [ "${SMOKE_JOBS:-1}" != "0" ]; then
   echo "--- jobs actually run (executor)"

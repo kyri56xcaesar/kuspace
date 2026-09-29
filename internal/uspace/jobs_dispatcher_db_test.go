@@ -86,6 +86,8 @@ func (e *fakeExecutor) ExecuteJob(job ut.Job) error {
 
 func (e *fakeExecutor) CancelJob(ut.Job) error { return nil }
 
+func (e *fakeExecutor) Name() string { return "fake" }
+
 func (e *fakeExecutor) Status(context.Context) ut.ExecutorStatus {
 	return ut.ExecutorStatus{Engine: "fake", Active: true}
 }
@@ -161,7 +163,7 @@ func (h *dbDispatcherHarness) process(name string, workers int, hold bool) (*DBD
 	if hold {
 		ex.hold = make(chan struct{})
 	}
-	jm.executor = ex
+	jm.engines = newEngineSet(ex)
 	d, err := NewDBDispatcher(h.a.srv, jm)
 	if err != nil {
 		h.t.Fatal(err)
@@ -272,8 +274,8 @@ func TestDBDispatcherRunsJobsFromTheTable(t *testing.T) {
 	for _, jid := range jids {
 		h.eventually("job completed", h.statusIs(jid, "completed"))
 		j := h.job(jid)
-		if j.Attempts != 1 {
-			t.Errorf("job %d: %d attempts", jid, j.Attempts)
+		if j.Attempts != 1 || j.Engine != "fake" {
+			t.Errorf("job %d: %d attempts, engine %q (recorded at claim)", jid, j.Attempts, j.Engine)
 		}
 		if _, leased := h.lease(jid); leased {
 			t.Errorf("job %d kept its lease after finishing", jid)

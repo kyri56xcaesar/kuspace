@@ -78,6 +78,9 @@ func (jke JKubernetesExecutor) CancelJob(job ut.Job) error {
 	return err
 }
 
+// Name is "kubernetes".
+func (jke JKubernetesExecutor) Name() string { return "kubernetes" }
+
 // Status checks the cluster the executor would use.
 func (jke JKubernetesExecutor) Status(ctx context.Context) ut.ExecutorStatus {
 	ns := jke.jm.srv.config.Namespace

@@ -74,6 +74,9 @@ func dockerRunArgs(job ut.Job, command []string, q jobQuotas, network string) []
 	return append(args, command...)
 }
 
+// Name is "docker".
+func (je JDockerExecutor) Name() string { return "docker" }
+
 // Status asks the docker engine for its version (which fails when uspace
 // can't reach it) and checks that the job network exists.
 func (je JDockerExecutor) Status(ctx context.Context) ut.ExecutorStatus {

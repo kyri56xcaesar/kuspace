@@ -461,12 +461,61 @@ const docTemplateuspacedocs = `{
                 "tags": [
                     "system"
                 ],
-                "summary": "Execution engine status",
+                "summary": "Execution engines",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.ExecutorStatus"
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.EnginesStatus"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Switch the execution engine for new jobs",
+                "parameters": [
+                    {
+                        "description": "{\\",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.EnginesStatus"
+                        }
+                    },
+                    "404": {
+                        "description": "no such engine",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "the engine is not active",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -3041,6 +3090,34 @@ const docTemplateuspacedocs = `{
                 }
             }
         },
+        "kyri56xcaesar_kuspace_internal_utils.EnginesStatus": {
+            "type": "object",
+            "properties": {
+                "chosenAt": {
+                    "type": "string"
+                },
+                "chosenBy": {
+                    "description": "ChosenBy/ChosenAt: the admin who switched to the current engine (empty\nwhile it is the configured default, J_EXECUTOR)",
+                    "type": "string"
+                },
+                "current": {
+                    "type": "string"
+                },
+                "engines": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.ExecutorStatus"
+                    }
+                },
+                "jobsByEngine": {
+                    "description": "JobsByEngine counts the recorded jobs per engine (\"\" for jobs that\nnever started, or ran before engines were recorded).",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
         "kyri56xcaesar_kuspace_internal_utils.ExecutorStatus": {
             "type": "object",
             "properties": {
@@ -3051,6 +3128,10 @@ const docTemplateuspacedocs = `{
                 "checkedAt": {
                     "type": "string"
                 },
+                "current": {
+                    "description": "new jobs go to this engine",
+                    "type": "boolean"
+                },
                 "engine": {
                     "description": "\"docker\" or \"kubernetes\"",
                     "type": "string"
@@ -3058,13 +3139,6 @@ const docTemplateuspacedocs = `{
                 "error": {
                     "description": "why it isn't active",
                     "type": "string"
-                },
-                "jobsByEngine": {
-                    "description": "JobsByEngine counts the recorded jobs per engine (\"\" for jobs that\nnever started, or ran before engines were recorded).",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "integer"
-                    }
                 },
                 "version": {
                     "type": "string"
@@ -3101,6 +3175,9 @@ const docTemplateuspacedocs = `{
         "kyri56xcaesar_kuspace_internal_utils.Job": {
             "type": "object",
             "properties": {
+                "attempts": {
+                    "type": "integer"
+                },
                 "completed": {
                     "type": "boolean"
                 },
@@ -3186,6 +3263,10 @@ const docTemplateuspacedocs = `{
                     "type": "integer"
                 },
                 "status": {
+                    "type": "string"
+                },
+                "statusReason": {
+                    "description": "StatusReason says why the job is in its state when that isn't obvious\n(re-queued or failed after a restart); Attempts counts how often it was\nclaimed to run. Set by uspace's database dispatcher.",
                     "type": "string"
                 },
                 "timeout": {

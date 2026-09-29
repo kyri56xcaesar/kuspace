@@ -59,8 +59,7 @@ var defaultDBDispatchTiming = dbDispatchTiming{
 // DBDispatcher is the JobDispatcher whose queue is the jobs table.
 type DBDispatcher struct {
 	srv    *UService
-	jm     *JobManager   // the executor, worker slots, running jobs' cancel funcs, drain
-	engine jobReattacher // the executor's inspect/reattach
+	jm     *JobManager // the engines, worker slots, running jobs' cancel funcs, drain
 	timing dbDispatchTiming
 	now    func() time.Time
 	// outputWritten tells whether a job whose container is gone wrote its
@@ -73,16 +72,18 @@ type DBDispatcher struct {
 	loops    sync.WaitGroup
 }
 
-// NewDBDispatcher builds the dispatcher around jm's executor, which must
-// be able to inspect and reattach jobs.
+// NewDBDispatcher builds the dispatcher around jm's engines, which must be
+// able to inspect and reattach jobs.
 func NewDBDispatcher(srv *UService, jm *JobManager) (*DBDispatcher, error) {
-	engine, ok := jm.executor.(jobReattacher)
-	if !ok {
-		return nil, fmt.Errorf("executor %T can't reattach jobs (%w)", jm.executor, ut.ErrInvalid)
+	for _, name := range jm.engines.order {
+		x, _ := jm.engines.get(name)
+		if _, ok := x.(jobReattacher); !ok {
+			return nil, fmt.Errorf("engine %s (%T) can't reattach jobs (%w)", name, x, ut.ErrInvalid)
+		}
 	}
 
 	return &DBDispatcher{
-		srv: srv, jm: jm, engine: engine, timing: defaultDBDispatchTiming, now: time.Now,
+		srv: srv, jm: jm, timing: defaultDBDispatchTiming, now: time.Now,
 		outputWritten: srv.outputWrittenSince,
 		wake:          make(chan struct{}, 1), stop: make(chan struct{}),
 	}, nil
@@ -188,9 +189,13 @@ func (d *DBDispatcher) RemoveJobs(jids []int) error {
 // Subscribe is not used by this dispatcher.
 func (d *DBDispatcher) Subscribe(ut.Job) error { return nil }
 
-// EngineStatus checks the executor's engine.
-func (d *DBDispatcher) EngineStatus(ctx context.Context) ut.ExecutorStatus {
-	return d.jm.executor.Status(ctx)
+func (d *DBDispatcher) engines() *engineSet { return d.jm.engines }
+
+// reattacher is the engine job runs on (checked in NewDBDispatcher).
+func (d *DBDispatcher) reattacher(job ut.Job) jobReattacher {
+	r, _ := d.jm.engines.forJob(job.Engine).(jobReattacher)
+
+	return r
 }
 
 // Drain stops claiming and waits (until ctx ends) for the jobs this process
@@ -242,23 +247,25 @@ func (d *DBDispatcher) claimAll(ctx context.Context) {
 			return
 		}
 		d.watch(ctx, job, func() {
-			if err := d.jm.executor.ExecuteJob(job); err != nil {
+			if err := d.jm.engines.forJob(job.Engine).ExecuteJob(job); err != nil {
 				log.Printf("[dispatcher] job %d: %v", job.JID, err)
 			}
 		})
 	}
 }
 
-// claim takes the oldest queued job: starting, attempts+1, leased.
+// claim takes the oldest queued job: starting, attempts+1, leased, on the
+// engine taking new jobs now (recorded, so a switch can't move it).
 func (d *DBDispatcher) claim(ctx context.Context) (ut.Job, bool, error) {
 	db, err := d.db()
 	if err != nil {
 		return ut.Job{}, false, err
 	}
 	var jid int64
-	err = db.QueryRowContext(ctx, `UPDATE jobs SET status = 'starting', attempts = attempts + 1, lease_until = ?
+	engine, _ := d.jm.engines.now()
+	err = db.QueryRowContext(ctx, `UPDATE jobs SET status = 'starting', attempts = attempts + 1, lease_until = ?, engine = ?
 		WHERE jid = (SELECT jid FROM jobs WHERE status = 'queued' ORDER BY jid LIMIT 1) AND status = 'queued'
-		RETURNING jid`, d.leaseEnd()).Scan(&jid)
+		RETURNING jid`, d.leaseEnd(), engine).Scan(&jid)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ut.Job{}, false, nil
 	}
@@ -398,7 +405,8 @@ func (d *DBDispatcher) lostJobs(ctx context.Context) ([]lostJob, error) {
 // settleLost decides what becomes of one lost job (see the top of the file).
 func (d *DBDispatcher) settleLost(ctx context.Context, l lostJob) {
 	jid := l.job.JID
-	state, err := d.engine.inspect(ctx, l.job)
+	engine := d.reattacher(l.job)
+	state, err := engine.inspect(ctx, l.job)
 	if state == engineUnknown {
 		log.Printf("[dispatcher] job %d lost its watcher; the engine can't say where it is (%v): asking again later", jid, err)
 
@@ -418,7 +426,7 @@ func (d *DBDispatcher) settleLost(ctx context.Context, l lostJob) {
 			return
 		}
 		log.Printf("[dispatcher] job %d is still running: following it again", jid)
-		d.watch(ctx, l.job, func() { d.engine.reattach(l.job, started) })
+		d.watch(ctx, l.job, func() { engine.reattach(l.job, started) })
 	case engineSucceeded:
 		d.finishUnwatched(ctx, l, "completed", "it finished while uspace wasn't watching", started)
 	case engineFailed:

@@ -126,6 +126,16 @@ func NewUService(conf string) UService {
 	if err := openJobsDB(context.Background(), &srv.jdbh, cfg.UspaceJobsDBMaxOpenConns, cfg.UspaceJobsDBMaxIdleConns, cfg.UspaceJobsDBMaxLifetime); err != nil {
 		log.Fatalf("[USPACE_init] jobs database: %v", err)
 	}
+	// an admin's choice of engine (kept in jobs.db) replaces J_EXECUTOR
+	if s, err := srv.storedEngine(context.Background()); err != nil {
+		log.Printf("[USPACE_init] reading the chosen execution engine: %v", err)
+	} else if s.Value != "" {
+		if err := jdp.engines().use(s.Value); err != nil {
+			log.Printf("[USPACE_init] the chosen execution engine: %v", err)
+		} else {
+			log.Printf("[USPACE_init] new jobs run on %s (chosen by %s, %s)", s.Value, s.UpdatedBy, s.UpdatedAt)
+		}
+	}
 	if err := srv.seedDefaultApps(context.Background()); err != nil {
 		log.Printf("[USPACE_init] failed to install default apps: %v", err)
 	}
@@ -340,26 +350,78 @@ func (srv *UService) RegisterRoutes() {
 
 			admin.GET("/system-metrics", srv.handleSysMetrics)
 			admin.GET("/executor", srv.handleExecutorStatus)
+			admin.PUT("/executor", srv.handleExecutorSwitch)
 		}
 	}
 }
 
-// handleExecutorStatus reports the engine jobs run on: which one, whether it
-// answers and can start jobs, and how many recorded jobs ran on each engine.
+// handleExecutorStatus reports the execution engines: whether each answers
+// and can start jobs, which one takes new jobs (and who chose it), and how
+// many recorded jobs ran on each.
 //
-// @Summary     Execution engine status
+// @Summary     Execution engines
 // @Tags        system
 // @Produce     json
-// @Success     200 {object} ut.ExecutorStatus
+// @Success     200 {object} ut.EnginesStatus
 // @Router      /admin/executor [get]
 func (srv *UService) handleExecutorStatus(c *gin.Context) {
-	st := srv.jdp.EngineStatus(c.Request.Context())
-	counts, err := srv.jobsByEngine(c.Request.Context())
+	c.JSON(http.StatusOK, srv.enginesStatus(c.Request.Context()))
+}
+
+func (srv *UService) enginesStatus(ctx context.Context) ut.EnginesStatus {
+	engines := srv.jdp.engines()
+	st := ut.EnginesStatus{Engines: engines.statuses(ctx)}
+	st.Current, _ = engines.now()
+	if s, err := srv.storedEngine(ctx); err == nil && s.Value == st.Current {
+		st.ChosenBy, st.ChosenAt = s.UpdatedBy, s.UpdatedAt
+	}
+	counts, err := srv.jobsByEngine(ctx)
 	if err != nil {
 		log.Printf("[API] counting jobs per engine: %v", err)
 	}
 	st.JobsByEngine = counts
-	c.JSON(http.StatusOK, st)
+
+	return st
+}
+
+// handleExecutorSwitch sends new jobs to another engine, if it is active.
+// Jobs already started finish on theirs. The choice outlives restarts.
+//
+// @Summary     Switch the execution engine for new jobs
+// @Tags        system
+// @Accept      json
+// @Produce     json
+// @Param       request body object true "{\"engine\": \"docker\" | \"kubernetes\"}"
+// @Success     200 {object} ut.EnginesStatus
+// @Failure     404 {object} map[string]string "no such engine"
+// @Failure     503 {object} map[string]string "the engine is not active"
+// @Router      /admin/executor [put]
+func (srv *UService) handleExecutorSwitch(c *gin.Context) {
+	var req struct {
+		Engine string `json:"engine"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Engine == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "send {\"engine\": \"docker\" or \"kubernetes\"}"})
+
+		return
+	}
+	by := "a service"
+	if ac, err := BindAccessTarget(c.GetHeader("Access-Target")); err == nil && ac.UID != "" {
+		by = "uid " + ac.UID
+	}
+	before, _ := srv.jdp.engines().now()
+	if err := srv.switchEngine(c.Request.Context(), srv.jdp.engines(), engineName(req.Engine), by); err != nil {
+		if errors.Is(err, ErrEngineInactive) { // the reason is what the admin needs
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
+
+			return
+		}
+		respondErr(c, "switch the execution engine", err)
+
+		return
+	}
+	log.Printf("[AUDIT] execution engine for new jobs: %s -> %s by %s", before, engineName(req.Engine), by)
+	c.JSON(http.StatusOK, srv.enginesStatus(c.Request.Context()))
 }
 
 // handleSysMetrics reports the cluster's metrics (available: false without

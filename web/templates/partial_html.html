@@ -626,33 +626,52 @@
 {{ end }}
 
 {{ define "executor_status.html" }}
+{{ $st := .st }}
+{{ if .notice }}<p class="sys-notice" role="status"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> {{ .notice }}</p>{{ end }}
+{{ if not .failed }}
 <div class="sys-grid">
-  <article class="sys-card sys-engine {{ if .Active }}is-up{{ else }}is-down{{ end }}">
+  {{ range $st.Engines }}
+  <article class="sys-card sys-engine {{ if .Active }}is-up{{ else }}is-down{{ end }}{{ if .Current }} is-current{{ end }}">
     <header class="sys-card-head">
-      <h3 class="sys-name">{{ if eq .Engine "docker" }}Docker{{ else if eq .Engine "kubernetes" }}Kubernetes{{ else }}Unknown{{ end }}</h3>
+      <h3 class="sys-name">{{ if eq .Engine "docker" }}Docker{{ else if eq .Engine "kubernetes" }}Kubernetes{{ else }}{{ .Engine }}{{ end }}</h3>
       {{ if .Active }}
       <span class="sys-state state-good"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Active</span>
       {{ else }}
       <span class="sys-state state-critical"><i class="fa-solid fa-circle-xmark" aria-hidden="true"></i> Inactive</span>
       {{ end }}
     </header>
-    <p class="sys-role">Runs the jobs: new jobs {{ if .Active }}start here{{ else }}can't start until it answers{{ end }}</p>
+    <p class="sys-role">{{ if .Current }}<strong class="sys-in-use">In use:</strong> new jobs run here{{ else }}Not in use{{ end }}</p>
     <dl class="sys-facts">
       <div><dt>Version</dt><dd>{{ if .Version }}{{ .Version }}{{ else }}&ndash;{{ end }}</dd></div>
       <div class="sys-wrap"><dt>Jobs run in</dt><dd>{{ if .Where }}<code>{{ .Where }}</code>{{ else }}&ndash;{{ end }}</dd></div>
       <div><dt>Checked</dt><dd class="k-when" data-ts="{{ .CheckedAt }}">{{ .CheckedAt }}</dd></div>
       {{ if .Error }}<div class="sys-problem"><dt>Problem</dt><dd>{{ .Error }}</dd></div>{{ end }}
     </dl>
-    {{ if .JobsByEngine }}
-    <div class="sys-engine-jobs">
-      <p class="sys-engine-jobs-title">Jobs recorded, by where they ran</p>
-      <ul class="k-chips">
-        {{ range $engine, $n := .JobsByEngine }}
-        <li class="k-chip">{{ if eq $engine "docker" }}Docker{{ else if eq $engine "kubernetes" }}Kubernetes{{ else if $engine }}{{ $engine }}{{ else }}not recorded{{ end }}: {{ $n }}</li>
-        {{ end }}
-      </ul>
-    </div>
+    {{ if .Current }}
+    <p class="sys-engine-note">{{ if $st.ChosenBy }}Chosen by {{ $st.ChosenBy }} <span class="k-when" data-ts="{{ $st.ChosenAt }}">{{ $st.ChosenAt }}</span>{{ else }}The configured default (J_EXECUTOR){{ end }}</p>
+    {{ else if .Active }}
+    <button type="button" class="k-btn k-btn-sm sys-engine-use"
+      hx-put="/api/v1/verified/admin/executor"
+      hx-vals='{"engine": "{{ .Engine }}"}'
+      hx-confirm="Send new jobs to {{ .Engine }}? Jobs already running finish where they are."
+      hx-target="#sys-engine-loader"
+      hx-swap="innerHTML"
+    >Use for new jobs</button>
+    {{ else }}
+    <p class="sys-engine-note">Can't take jobs until it answers.</p>
     {{ end }}
   </article>
+  {{ end }}
 </div>
+{{ if $st.JobsByEngine }}
+<div class="sys-engine-jobs">
+  <p class="sys-engine-jobs-title">Jobs recorded, by where they ran</p>
+  <ul class="k-chips">
+    {{ range $engine, $n := $st.JobsByEngine }}
+    <li class="k-chip">{{ if eq $engine "docker" }}Docker{{ else if eq $engine "kubernetes" }}Kubernetes{{ else if $engine }}{{ $engine }}{{ else }}not recorded{{ end }}: {{ $n }}</li>
+    {{ end }}
+  </ul>
+</div>
+{{ end }}
+{{ end }}
 {{ end }}

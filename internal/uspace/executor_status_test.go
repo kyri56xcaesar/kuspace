@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -90,22 +91,76 @@ func TestKubernetesStatus(t *testing.T) {
 	}
 }
 
-func TestExecutorStatusEndpoint(t *testing.T) {
+func TestEngineSwitching(t *testing.T) {
 	a := newAPIHarness(t, 1)
 	a.withJobsDB(1001, 2002, 2002)
 	if err := a.srv.markJobEngine(t.Context(), 1, "docker"); err != nil {
 		t.Fatal(err)
 	}
 	jm := &JobManager{srv: a.srv}
-	jm.executor = JDockerExecutor{jm: jm, run: fakeDocker(map[string]string{"version": "27.3.1"})}
+	k8s := &stubEngine{name: "kubernetes", err: "no cluster configuration"}
+	jm.engines = newEngineSet(JDockerExecutor{jm: jm, run: fakeDocker(map[string]string{"version": "27.3.1"})}, k8s)
 	a.srv.jdp = JobDispatcherImpl{Manager: *jm}
+	get := func() ut.EnginesStatus {
+		t.Helper()
+		rec := a.do(http.MethodGet, "/api/v1/admin/executor", "::/", "0:0", nil, "")
+		var st ut.EnginesStatus
+		if err := json.Unmarshal(rec.Body.Bytes(), &st); rec.Code != http.StatusOK || err != nil {
+			t.Fatalf("%d %s", rec.Code, rec.Body)
+		}
 
-	rec := a.do(http.MethodGet, "/api/v1/admin/executor", "::/", "0:0", nil, "")
-	var st ut.ExecutorStatus
-	if err := json.Unmarshal(rec.Body.Bytes(), &st); rec.Code != http.StatusOK || err != nil {
-		t.Fatalf("%d %s", rec.Code, rec.Body)
+		return st
 	}
-	if !st.Active || st.Engine != "docker" || st.JobsByEngine["docker"] != 1 || st.JobsByEngine[""] != 2 {
-		t.Errorf("status: %+v", st)
+	put := func(engine string) *httptest.ResponseRecorder {
+		return a.do(http.MethodPut, "/api/v1/admin/executor", "::/", "0:0", strings.NewReader(`{"engine":"`+engine+`"}`), "application/json")
 	}
+
+	st := get()
+	if st.Current != "docker" || len(st.Engines) != 2 || !st.Engines[0].Current || !st.Engines[0].Active ||
+		st.Engines[1].Engine != "kubernetes" || st.Engines[1].Active || st.JobsByEngine["docker"] != 1 || st.ChosenBy != "" {
+		t.Fatalf("status: %+v", st)
+	}
+
+	// an engine that doesn't answer can't take jobs; the reason is given
+	if rec := put("kubernetes"); rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "no cluster configuration") {
+		t.Errorf("switch to an inactive engine: %d %s", rec.Code, rec.Body)
+	}
+	if rec := put("nomad"); rec.Code != http.StatusNotFound {
+		t.Errorf("unknown engine: %d", rec.Code)
+	}
+
+	k8s.err = ""
+	if rec := put("k8s"); rec.Code != http.StatusOK {
+		t.Fatalf("switch: %d %s", rec.Code, rec.Body)
+	}
+	st = get()
+	if st.Current != "kubernetes" || !st.Engines[1].Current || st.ChosenBy != "uid 0" || st.ChosenAt == "" {
+		t.Errorf("after switching: %+v", st)
+	}
+	if name, _ := jm.engines.now(); name != "kubernetes" {
+		t.Errorf("new jobs go to %s", name)
+	}
+	// the choice is kept: what a restart reads
+	if s, err := a.srv.storedEngine(t.Context()); err != nil || s.Value != "kubernetes" {
+		t.Errorf("stored choice: %+v %v", s, err)
+	}
+	// a job that started on docker stays on docker
+	if x := jm.engines.forJob("docker"); x.Name() != "docker" {
+		t.Errorf("a docker job is handled by %s", x.Name())
+	}
+	if x := jm.engines.forJob(""); x.Name() != "kubernetes" {
+		t.Errorf("a job without an engine goes to %s, want the current one", x.Name())
+	}
+}
+
+// stubEngine is an engine whose status a test sets.
+type stubEngine struct {
+	name, err string
+}
+
+func (s *stubEngine) ExecuteJob(ut.Job) error { return nil }
+func (s *stubEngine) CancelJob(ut.Job) error  { return nil }
+func (s *stubEngine) Name() string            { return s.name }
+func (s *stubEngine) Status(context.Context) ut.ExecutorStatus {
+	return ut.ExecutorStatus{Engine: s.name, Active: s.err == "", Error: s.err}
 }

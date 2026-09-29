@@ -454,7 +454,7 @@
           <div>
             <p class="k-eyebrow">Configuration</p>
             <h2>System</h2>
-            <p class="fading">Whether each kuspace service is answering, and how fast, and whether the engine that runs jobs is active.</p>
+            <p class="fading">Whether each kuspace service is answering, and how fast, and which engine runs new jobs (switch it here; running jobs finish where they are).</p>
           </div>
           <div class="k-page-actions">
             <button
@@ -474,7 +474,7 @@
           hx-swap="innerHTML"
         ><p class="k-loading">Checking services…</p></div>
 
-        <h3 class="sys-subhead">Execution engine</h3>
+        <h3 class="sys-subhead">Execution engines</h3>
         <div
           id="sys-engine-loader"
           hx-get="/api/v1/verified/admin/executor-status"

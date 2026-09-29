@@ -23,19 +23,21 @@ definitions:
       version:
         type: string
     type: object
-  kyri56xcaesar_kuspace_internal_utils.ExecutorStatus:
+  kyri56xcaesar_kuspace_internal_utils.EnginesStatus:
     properties:
-      active:
-        description: the engine answers and jobs can be started
-        type: boolean
-      checkedAt:
+      chosenAt:
         type: string
-      engine:
-        description: '"docker" or "kubernetes"'
+      chosenBy:
+        description: |-
+          ChosenBy/ChosenAt: the admin who switched to the current engine (empty
+          while it is the configured default, J_EXECUTOR)
         type: string
-      error:
-        description: why it isn't active
+      current:
         type: string
+      engines:
+        items:
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.ExecutorStatus'
+        type: array
       jobsByEngine:
         additionalProperties:
           type: integer
@@ -43,6 +45,23 @@ definitions:
           JobsByEngine counts the recorded jobs per engine ("" for jobs that
           never started, or ran before engines were recorded).
         type: object
+    type: object
+  kyri56xcaesar_kuspace_internal_utils.ExecutorStatus:
+    properties:
+      active:
+        description: the engine answers and jobs can be started
+        type: boolean
+      checkedAt:
+        type: string
+      current:
+        description: new jobs go to this engine
+        type: boolean
+      engine:
+        description: '"docker" or "kubernetes"'
+        type: string
+      error:
+        description: why it isn't active
+        type: string
       version:
         type: string
       where:
@@ -66,6 +85,8 @@ definitions:
     type: object
   kyri56xcaesar_kuspace_internal_utils.Job:
     properties:
+      attempts:
+        type: integer
       completed:
         type: boolean
       completedAt:
@@ -128,6 +149,12 @@ definitions:
       priority:
         type: integer
       status:
+        type: string
+      statusReason:
+        description: |-
+          StatusReason says why the job is in its state when that isn't obvious
+          (re-queued or failed after a restart); Attempts counts how often it was
+          claimed to run. Set by uspace's database dispatcher.
         type: string
       timeout:
         description: in minutes
@@ -485,8 +512,40 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.ExecutorStatus'
-      summary: Execution engine status
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.EnginesStatus'
+      summary: Execution engines
+      tags:
+      - system
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: '{\'
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.EnginesStatus'
+        "404":
+          description: no such engine
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: the engine is not active
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Switch the execution engine for new jobs
       tags:
       - system
   /admin/group/volume:

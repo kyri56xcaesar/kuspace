@@ -38,8 +38,8 @@ type JobDispatcher interface {
 	RemoveJob(jid int) error
 	RemoveJobs(jids []int) error
 	Subscribe(job ut.Job) error
-	// EngineStatus reports on the engine the jobs run on.
-	EngineStatus(ctx context.Context) ut.ExecutorStatus
+	// engines are the execution engines and the one taking new jobs.
+	engines() *engineSet
 }
 
 // DispatcherShipment function for creating (or "shipping") the appropriate Dispatcher

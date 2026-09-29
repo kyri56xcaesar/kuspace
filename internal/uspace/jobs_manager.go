@@ -54,10 +54,7 @@ func (j JobDispatcherImpl) Drain(ctx context.Context) error {
 	return j.Manager.Drain(ctx)
 }
 
-// EngineStatus checks the executor's engine.
-func (j JobDispatcherImpl) EngineStatus(ctx context.Context) ut.ExecutorStatus {
-	return j.Manager.executor.Status(ctx)
-}
+func (j JobDispatcherImpl) engines() *engineSet { return j.Manager.engines }
 
 // PublishJob method which publishes an incoming Job towards into a Queue towards execution
 /* dispatching Jobs interface methods */
@@ -129,7 +126,7 @@ type JobManager struct {
 	inflight *sync.WaitGroup // jobs handed to a worker and not finished
 	draining *atomic.Bool    // set by Drain: no new jobs start
 
-	executor JobExecutor // logic defined for exetuing a Job
+	engines *engineSet // the executors, and the one taking new jobs
 }
 
 // NewJobManager function as in a constructor for JobManager struct
@@ -160,11 +157,11 @@ func NewJobManager(srv *UService) JobManager {
 		draining:   &atomic.Bool{},
 	}
 
-	executor, err := JobExecutorShipment(srv.config.UspaceJobExecutor, &jm)
-	if err != nil {
+	jm.engines = newEngineSet(NewJDockerExecutor(&jm), NewJKubernetesExecutor(&jm))
+	// J_EXECUTOR is the initial choice; an admin's choice (jobs.db) replaces it at start
+	if err := jm.engines.use(engineName(srv.config.UspaceJobExecutor)); err != nil {
 		panic(err)
 	}
-	jm.executor = executor
 
 	return jm
 }
@@ -193,7 +190,9 @@ func (jm *JobManager) StartDispatcher() {
 			jm.inflight.Add(1)
 			go func() {
 				defer jm.inflight.Done()
-				err := jm.executor.ExecuteJob(job) // spawn worker goroutine
+				name, executor := jm.engines.now()
+				job.Engine = name
+				err := executor.ExecuteJob(job) // spawn worker goroutine
 				if err != nil {
 					log.Printf("execution of job: %v failed.", job.JID)
 				}
