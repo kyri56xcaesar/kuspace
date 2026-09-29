@@ -31,6 +31,7 @@ Every `/api/v1` request is authenticated (`identity.go`):
 | `GET,POST /job`, `GET /job/log`, `POST /job/cancel` | submit, list, read the saved log, cancel |
 | `GET,POST /app` | the job applications catalogue |
 | `admin: /volumes`, `/user/volume`, `/job`, `/app`, `/system-conf`, `/system-metrics` | |
+| `admin: /info`, `/executor` (GET, PUT), `/replicas` | the System page: build and uptime, the execution engines (switch), where kuspace runs and its replicas |
 
 Swagger: `/api/v1/swagger/index.html` (`make api-docs`).
 

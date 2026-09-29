@@ -27,6 +27,33 @@ type serviceStatus struct {
 	// Info is the service's account of itself (build, uptime, instance,
 	// memory); nil when it didn't give one (minioth doesn't).
 	Info *ut.ServiceInfo `json:"info,omitempty"`
+	// Replicas are its instances as the platform sees them (nil when uspace
+	// can't tell: no platform, or uspace down).
+	Replicas *ut.ServiceReplicas `json:"replicas,omitempty"`
+	Scaling  scaling             `json:"scaling"`
+}
+
+// scaling says whether a service can run as more than one instance.
+type scaling struct {
+	Can bool   `json:"can"`
+	Why string `json:"why"`
+}
+
+// scalingOf is what kuspace's design allows each workload (the reasons
+// are architectural: see the services' READMEs).
+var scalingOf = map[string]scaling{
+	"frontapp": {true, "stateless: sessions are signed cookies, so any instance serves any request"},
+	"wss":      {false, "live job streams live in its memory: a job and those watching it must reach the same instance"},
+	"uspace":   {false, "its SQLite databases (jobs, file records) take one writer, and a dispatcher runs its jobs in-process"},
+	"minioth":  {false, "its SQLite database takes one writer"},
+	"minio":    {true, "only as a distributed MinIO deployment (several drives and nodes), not by adding replicas"},
+}
+
+// otherWorkload is a workload of the deployment that isn't a kuspace
+// service (MinIO, ...).
+type otherWorkload struct {
+	Replicas *ut.ServiceReplicas
+	Scaling  scaling
 }
 
 const statusProbeTimeout = 3 * time.Second
@@ -79,14 +106,42 @@ func (srv *HTTPService) handleSysStatus(c *gin.Context) {
 		}(i, s.probe)
 	}
 	for i := range out {
+		out[i].Scaling = scalingOf[out[i].Name]
 		if info := srv.serviceInfo(c, out[i].Name); info != nil {
 			wg.Add(1)
 			go func() { defer wg.Done(); out[i].Info = info() }()
 		}
 	}
+	var dep ut.Deployment
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*statusProbeTimeout)
+		defer cancel()
+		if err := srv.uspace.decode(ctx, request{method: http.MethodGet, path: "/api/v1/admin/replicas", token: userToken(c), target: "0::/"}, &dep); err != nil {
+			dep = ut.Deployment{Error: "uspace did not answer, so the replicas can't be shown"}
+		}
+	}()
 	wg.Wait()
 
-	respondInFormat(c, c.Query("format"), out, "system_status.html")
+	var others []otherWorkload
+	for _, w := range dep.Services {
+		matched := false
+		for i := range out {
+			if out[i].Name == w.Name {
+				out[i].Replicas, matched = &w, true
+			}
+		}
+		if !matched {
+			others = append(others, otherWorkload{&w, scalingOf[w.Name]})
+		}
+	}
+	if c.Query("format") == "json" {
+		c.JSON(http.StatusOK, out)
+
+		return
+	}
+	c.HTML(http.StatusOK, "system_status.html", gin.H{"services": out, "deployment": dep, "others": others})
 }
 
 // serviceInfo returns how to ask a service about itself (nil: it can't say).

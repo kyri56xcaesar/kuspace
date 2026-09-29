@@ -350,6 +350,7 @@ func (srv *UService) RegisterRoutes() {
 
 			admin.GET("/system-metrics", srv.handleSysMetrics)
 			admin.GET("/info", srv.handleInfo)
+			admin.GET("/replicas", srv.handleReplicas)
 			admin.GET("/executor", srv.handleExecutorStatus)
 			admin.PUT("/executor", srv.handleExecutorSwitch)
 		}
@@ -365,6 +366,18 @@ func (srv *UService) RegisterRoutes() {
 // @Router      /admin/info [get]
 func (srv *UService) handleInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, ut.Info("uspace"))
+}
+
+// handleReplicas reports where kuspace is deployed (kubernetes or docker
+// compose) and each service's replicas and instances. Read-only.
+//
+// @Summary     Deployment and replicas
+// @Tags        system
+// @Produce     json
+// @Success     200 {object} ut.Deployment
+// @Router      /admin/replicas [get]
+func (srv *UService) handleReplicas(c *gin.Context) {
+	c.JSON(http.StatusOK, srv.platformProbe().deployment(c.Request.Context()))
 }
 
 // handleExecutorStatus reports the execution engines: whether each answers

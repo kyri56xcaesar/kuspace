@@ -1068,6 +1068,25 @@ const docTemplateuspacedocs = `{
                 }
             }
         },
+        "/admin/replicas": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Deployment and replicas",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Deployment"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/system-conf": {
             "get": {
                 "produces": [
@@ -3109,6 +3128,31 @@ const docTemplateuspacedocs = `{
                 }
             }
         },
+        "kyri56xcaesar_kuspace_internal_utils.Deployment": {
+            "type": "object",
+            "properties": {
+                "checkedAt": {
+                    "type": "string"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "platform": {
+                    "description": "\"kubernetes\", \"compose\" or \"\" (neither)",
+                    "type": "string"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.ServiceReplicas"
+                    }
+                },
+                "where": {
+                    "description": "the namespace or compose project",
+                    "type": "string"
+                }
+            }
+        },
         "kyri56xcaesar_kuspace_internal_utils.EnginesStatus": {
             "type": "object",
             "properties": {
@@ -3187,6 +3231,33 @@ const docTemplateuspacedocs = `{
                     "type": "integer"
                 },
                 "vname": {
+                    "type": "string"
+                }
+            }
+        },
+        "kyri56xcaesar_kuspace_internal_utils.Instance": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "node": {
+                    "type": "string"
+                },
+                "ready": {
+                    "type": "boolean"
+                },
+                "restarts": {
+                    "type": "integer"
+                },
+                "startedAt": {
+                    "type": "string"
+                },
+                "state": {
+                    "description": "running, pending, healthy, CrashLoopBackOff, exited, ...",
                     "type": "string"
                 }
             }
@@ -3333,6 +3404,30 @@ const docTemplateuspacedocs = `{
                 },
                 "version": {
                     "type": "string"
+                }
+            }
+        },
+        "kyri56xcaesar_kuspace_internal_utils.ServiceReplicas": {
+            "type": "object",
+            "properties": {
+                "desired": {
+                    "type": "integer"
+                },
+                "instances": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.Instance"
+                    }
+                },
+                "kind": {
+                    "description": "\"Deployment\", \"StatefulSet\", \"container\"",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "ready": {
+                    "type": "integer"
                 }
             }
         },

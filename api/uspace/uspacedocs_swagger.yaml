@@ -23,6 +23,23 @@ definitions:
       version:
         type: string
     type: object
+  kyri56xcaesar_kuspace_internal_utils.Deployment:
+    properties:
+      checkedAt:
+        type: string
+      error:
+        type: string
+      platform:
+        description: '"kubernetes", "compose" or "" (neither)'
+        type: string
+      services:
+        items:
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.ServiceReplicas'
+        type: array
+      where:
+        description: the namespace or compose project
+        type: string
+    type: object
   kyri56xcaesar_kuspace_internal_utils.EnginesStatus:
     properties:
       chosenAt:
@@ -81,6 +98,24 @@ definitions:
       vid:
         type: integer
       vname:
+        type: string
+    type: object
+  kyri56xcaesar_kuspace_internal_utils.Instance:
+    properties:
+      image:
+        type: string
+      name:
+        type: string
+      node:
+        type: string
+      ready:
+        type: boolean
+      restarts:
+        type: integer
+      startedAt:
+        type: string
+      state:
+        description: running, pending, healthy, CrashLoopBackOff, exited, ...
         type: string
     type: object
   kyri56xcaesar_kuspace_internal_utils.Job:
@@ -188,6 +223,22 @@ definitions:
         type: integer
       version:
         type: string
+    type: object
+  kyri56xcaesar_kuspace_internal_utils.ServiceReplicas:
+    properties:
+      desired:
+        type: integer
+      instances:
+        items:
+          $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Instance'
+        type: array
+      kind:
+        description: '"Deployment", "StatefulSet", "container"'
+        type: string
+      name:
+        type: string
+      ready:
+        type: integer
     type: object
   kyri56xcaesar_kuspace_internal_utils.UserVolume:
     properties:
@@ -945,6 +996,18 @@ paths:
       tags:
       - admin
       - jobs
+  /admin/replicas:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.Deployment'
+      summary: Deployment and replicas
+      tags:
+      - system
   /admin/system-conf:
     get:
       produces:

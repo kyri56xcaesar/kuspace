@@ -175,6 +175,7 @@ check "default apps installed"      6 "$(json 'd=d.get("content",d) if isinstanc
 check "bash image name valid"       "*:applications-bash-v2" "$(json 'd=d.get("content",d) if isinstance(d,dict) else d; print(next(a["image"] for a in d if a["name"]=="bash"))' < "$J/apps")"
 check "all services up"             "4/4" "$(curl -s -b "$J/admin.jar" "$F/verified/admin/system-status?format=json" | json 'print(str(sum(s["up"] for s in d))+"/"+str(len(d)))')"
 check "dashboard served"            yes "$(curl -s -b "$J/user.jar" "$F/verified/admin-panel" | yes_if grep -q 'id="dash"')"
+check "replicas shown (compose)"   "4/4" "$(curl -s -b "$J/admin.jar" "$F/verified/admin/system-status?format=json" | json 'print(str(sum(1 for s in d if (s.get("replicas") or {}).get("ready")==1))+"/"+str(len(d)))')"
 check "user blocked from system page" "40?" "$(code -b "$J/user.jar" "$F/verified/admin/system-status")"
 check "execution engine in use, active" "docker True" "$(curl -s -b "$J/admin.jar" "$F/verified/admin/executor-status?format=json" | json 'e=[x for x in d["engines"] if x["current"]][0]; print(e["engine"], e["active"])')"
 check "engine switch refused for users" "40?" "$(code -b "$J/user.jar" -X PUT "$F/verified/admin/executor" -d "engine=docker")"

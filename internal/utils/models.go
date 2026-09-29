@@ -969,3 +969,33 @@ type Setting struct {
 	UpdatedBy string `json:"updatedBy"`
 	UpdatedAt string `json:"updatedAt"`
 }
+
+// Deployment is where kuspace runs and how many instances each service has.
+type Deployment struct {
+	Platform  string            `json:"platform"`        // "kubernetes", "compose" or "" (neither)
+	Where     string            `json:"where,omitempty"` // the namespace or compose project
+	Services  []ServiceReplicas `json:"services"`
+	Error     string            `json:"error,omitempty"`
+	CheckedAt string            `json:"checkedAt"`
+}
+
+// ServiceReplicas is one workload: a Deployment or StatefulSet, or the
+// containers of a compose service.
+type ServiceReplicas struct {
+	Name      string     `json:"name"`
+	Kind      string     `json:"kind"` // "Deployment", "StatefulSet", "container"
+	Desired   int        `json:"desired"`
+	Ready     int        `json:"ready"`
+	Instances []Instance `json:"instances"`
+}
+
+// Instance is one pod or container.
+type Instance struct {
+	Name      string `json:"name"`
+	State     string `json:"state"` // running, pending, healthy, CrashLoopBackOff, exited, ...
+	Ready     bool   `json:"ready"`
+	Restarts  int    `json:"restarts"`
+	StartedAt string `json:"startedAt,omitempty"`
+	Node      string `json:"node,omitempty"`
+	Image     string `json:"image,omitempty"`
+}

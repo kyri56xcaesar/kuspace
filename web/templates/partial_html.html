@@ -529,8 +529,16 @@
 {{ end }}
 
 {{ define "system_status.html" }}
+{{ with .deployment }}
+<p class="sys-platform">
+  {{ if eq .Platform "kubernetes" }}<i class="fa-solid fa-dharmachakra" aria-hidden="true"></i> <span>Deployed on <strong>Kubernetes</strong> &middot; {{ .Where }}</span>
+  {{ else if eq .Platform "compose" }}<i class="fa-brands fa-docker" aria-hidden="true"></i> <span>Deployed with <strong>Docker Compose</strong> &middot; {{ .Where }}</span>
+  {{ else }}<i class="fa-solid fa-circle-info" aria-hidden="true"></i> Replicas unavailable{{ end }}
+  {{ if .Error }}<span class="sys-platform-error">{{ .Error }}</span>{{ end }}
+</p>
+{{ end }}
 <div class="sys-grid">
-  {{ range . }}
+  {{ range .services }}
   <article class="sys-card {{ if .Up }}is-up{{ else }}is-down{{ end }}">
     <header class="sys-card-head">
       <h3 class="sys-name">{{ .Name }}</h3>
@@ -548,10 +556,11 @@
       <div><dt>Version</dt><dd title="built {{ .BuiltAt }} with {{ .GoVersion }}">{{ .Version }} <code>{{ .Commit }}</code></dd></div>
       <div><dt>Running</dt><dd title="since {{ .StartedAt }}"><span data-uptime="{{ .UptimeSec }}">{{ uptime .UptimeSec }}</span></dd></div>
       <div class="sys-wrap"><dt>Instance</dt><dd><code>{{ .Instance }}</code></dd></div>
-      <div><dt>Memory</dt><dd>{{ bytesToMB .HeapBytes }} MB heap, {{ .Goroutines }} goroutines</dd></div>
+      <div class="sys-wrap"><dt>Memory</dt><dd>{{ bytesToMB .HeapBytes }} MB heap, {{ .Goroutines }} goroutines</dd></div>
       {{ end }}
     </dl>
     {{ if and .Up (not .Info) }}<p class="sys-details-none">This service doesn't report its build or uptime.</p>{{ end }}
+    {{ template "sys_replicas" . }}
     {{ if .HasConfig }}
     <details class="sys-details">
       <summary>Settings</summary>
@@ -567,7 +576,34 @@
     {{ end }}
   </article>
   {{ end }}
+  {{ range .others }}
+  <article class="sys-card sys-other {{ if eq .Replicas.Ready .Replicas.Desired }}is-up{{ else }}is-down{{ end }}">
+    <header class="sys-card-head"><h3 class="sys-name">{{ .Replicas.Name }}</h3><span class="sys-state">{{ .Replicas.Kind }}</span></header>
+    <p class="sys-role">Part of the deployment</p>
+    {{ template "sys_replicas" . }}
+  </article>
+  {{ end }}
 </div>
+{{ if eq .deployment.Platform "compose" }}<p class="sys-details-none">Under Docker Compose every kuspace service has a fixed <code>container_name</code>, so it runs as exactly one container.</p>{{ end }}
+{{ end }}
+
+{{ define "sys_replicas" }}
+{{ with .Replicas }}
+<div class="sys-replicas">
+  <p class="sys-replicas-head"><strong>{{ .Ready }}/{{ .Desired }}</strong> ready <span class="sys-kind">{{ if eq .Kind "container" }}container{{ if gt .Desired 1 }}s{{ end }}{{ else }}{{ .Kind }}{{ end }}</span></p>
+  <ul class="sys-instances">
+    {{ range .Instances }}
+    <li class="{{ if .Ready }}is-ready{{ else }}is-not-ready{{ end }}">
+      <i class="fa-solid {{ if .Ready }}fa-circle-check{{ else }}fa-circle-xmark{{ end }}" aria-hidden="true"></i>
+      <code>{{ .Name }}</code> <span>{{ .State }}</span>{{ if .Restarts }} <span class="sys-restarts">{{ .Restarts }} restart{{ if gt .Restarts 1 }}s{{ end }}</span>{{ end }}{{ if .Node }} <span class="k-dim">on {{ .Node }}</span>{{ end }}
+    </li>
+    {{ end }}
+  </ul>
+</div>
+{{ end }}
+{{ with .Scaling }}{{ if .Why }}
+<p class="sys-scaling {{ if .Can }}can{{ else }}cannot{{ end }}"><i class="fa-solid {{ if .Can }}fa-up-right-and-down-left-from-center{{ else }}fa-lock{{ end }}" aria-hidden="true"></i> {{ if .Can }}Can scale out{{ else }}One instance{{ end }}: {{ .Why }}</p>
+{{ end }}{{ end }}
 {{ end }}
 
 {{ define "metrics_display.html"}}

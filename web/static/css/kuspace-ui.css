@@ -360,6 +360,22 @@ html.theme-dark #settings .sys-role { margin: 4px 0 12px; font-size: 0.85rem; co
   font-size: 0.75rem; background: var(--k-surface-2); color: var(--k-ink); padding: 1px 5px; border-radius: 4px;
 }
 #settings .sys-details { border-top: 1px solid var(--k-line); padding-top: 10px; }
+#settings .sys-platform { margin: 0 0 12px; font-size: 0.88rem; color: var(--k-ink); display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+#settings .sys-platform i { color: var(--k-cyan); }
+#settings .sys-platform-error { color: var(--st-crit); font-size: 0.82rem; }
+#settings .sys-replicas { border-top: 1px solid var(--k-line); padding-top: 10px; margin-bottom: 10px; }
+#settings .sys-replicas-head { margin: 0 0 6px; font-size: 0.85rem; color: var(--k-ink); }
+#settings .sys-kind { color: var(--k-muted); font-size: 0.78rem; margin-left: 4px; }
+#settings .sys-instances { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 0.8rem; color: var(--k-ink); }
+#settings .sys-instances li { overflow-wrap: anywhere; }
+#settings .sys-instances .is-ready i { color: var(--st-good); }
+#settings .sys-instances .is-not-ready i { color: var(--st-crit); }
+#settings .sys-instances code { font-size: 0.75rem; background: var(--k-surface-2); color: var(--k-ink); padding: 1px 5px; border-radius: 4px; }
+#settings .sys-restarts { color: var(--st-warn-ink, var(--k-muted)); }
+#settings .sys-scaling { margin: 0 0 10px; font-size: 0.8rem; color: var(--k-ink-2); }
+#settings .sys-scaling i { margin-right: 4px; }
+#settings .sys-scaling.can i { color: var(--st-good); }
+#settings .sys-scaling.cannot i { color: var(--k-muted); }
 #settings .sys-subhead { margin: 28px 0 12px; font-size: 1rem; color: var(--k-ink); }
 #settings .sys-facts .sys-wrap dd,
 #settings .sys-facts .sys-problem dd { white-space: normal; overflow-wrap: anywhere; }

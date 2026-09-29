@@ -234,3 +234,46 @@ func TestSystemStatusShowsServiceDetails(t *testing.T) {
 		t.Errorf("infos: frontapp %+v uspace %+v minioth %+v wss (unreachable) %+v", got["frontapp"], got["uspace"], got["minioth"], got["wss"])
 	}
 }
+
+func TestSystemStatusShowsReplicas(t *testing.T) {
+	h := newFrontHarness(t)
+	h.minioth.on("GET /v1/.well-known/ready", http.StatusOK, `{"status":"ready"}`)
+	h.uspace.on("GET /healthz", http.StatusOK, `{"status":"alive"}`)
+	h.uspace.on("GET /api/v1/admin/replicas", http.StatusOK, `{"platform":"kubernetes","where":"namespace kuspace","checkedAt":"x","services":[
+		{"name":"frontapp","kind":"Deployment","desired":2,"ready":1,"instances":[
+			{"name":"frontapp-a","state":"running","ready":true},
+			{"name":"frontapp-b","state":"CrashLoopBackOff","ready":false,"restarts":7,"node":"node-1"}]},
+		{"name":"minio","kind":"StatefulSet","desired":1,"ready":1,"instances":[{"name":"minio-0","state":"running","ready":true}]}]}`)
+	admin := login(t, "0", "admin")
+	body := h.do(http.MethodGet, "/api/v1/verified/admin/system-status", admin, nil, nil).Body.String()
+	for _, want := range []string{"Deployed on <strong>Kubernetes</strong> &middot; namespace kuspace", "<strong>1/2</strong> ready",
+		"frontapp-b", "CrashLoopBackOff", "7 restarts", "on node-1", "Can scale out: stateless",
+		"One instance: its SQLite databases",                  // uspace
+		"minio-0", "only as a distributed MinIO deployment"} { // a workload that isn't a kuspace service
+		if !strings.Contains(body, want) {
+			t.Errorf("page lacks %q", want)
+		}
+	}
+	if t.Failed() {
+		t.Log(body)
+	}
+	// the JSON stays the list of services
+	var services []struct {
+		Name     string              `json:"name"`
+		Replicas *ut.ServiceReplicas `json:"replicas"`
+		Scaling  struct{ Can bool }  `json:"scaling"`
+	}
+	rec := h.do(http.MethodGet, "/api/v1/verified/admin/system-status?format=json", admin, nil, nil)
+	if err := json.Unmarshal(rec.Body.Bytes(), &services); err != nil || len(services) != 4 {
+		t.Fatalf("json: %v %s", err, rec.Body)
+	}
+	if services[0].Name != "frontapp" || services[0].Replicas == nil || services[0].Replicas.Desired != 2 || !services[0].Scaling.Can {
+		t.Errorf("frontapp: %+v", services[0])
+	}
+
+	// uspace down: no replicas, and the page says why
+	h.uspace.on("GET /api/v1/admin/replicas", http.StatusServiceUnavailable, `{"error":"down"}`)
+	if body := h.do(http.MethodGet, "/api/v1/verified/admin/system-status", admin, nil, nil).Body.String(); !strings.Contains(body, "uspace did not answer, so the replicas can") {
+		t.Errorf("uspace down: %s", body)
+	}
+}
