@@ -19,6 +19,10 @@ rules:
 - apiGroups: ["metrics.k8s.io"]
   resources: ["pods"]
   verbs: ["get", "list"]
+# read-only: the admin System page's replicas (GET /admin/replicas)
+- apiGroups: ["apps"]
+  resources: ["deployments", "statefulsets"]
+  verbs: ["get", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
