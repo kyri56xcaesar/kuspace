@@ -122,3 +122,36 @@ func TestQuotaAdminRoutes(t *testing.T) {
 		t.Errorf("plain user: %d", rec.Code)
 	}
 }
+
+func TestExecutorStatusCard(t *testing.T) {
+	h := newFrontHarness(t)
+	h.uspace.on("GET /api/v1/admin/executor", http.StatusOK,
+		`{"engine":"kubernetes","active":false,"version":"v1.31.2","where":"namespace kuspace",
+		  "error":"namespace kuspace: jobs.batch is forbidden","checkedAt":"2026-09-29T20:00:00Z",
+		  "jobsByEngine":{"docker":3,"kubernetes":5,"":2}}`)
+	admin := login(t, "0", "admin")
+	rec := h.do(http.MethodGet, "/api/v1/verified/admin/executor-status", admin, nil, nil)
+	body := rec.Body.String()
+	for _, want := range []string{"Kubernetes", "Inactive", "v1.31.2", "namespace kuspace", "jobs.batch is forbidden",
+		"Docker: 3", "Kubernetes: 5", "not recorded: 2"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("card lacks %q:\n%s", want, body)
+		}
+	}
+	if got := h.uspace.last(t); got.header.Get("Authorization") == "" {
+		t.Error("asked uspace without the admin's token")
+	}
+
+	// uspace down: the card says so (the page stays usable); JSON gets an error status
+	h.uspace.on("GET /api/v1/admin/executor", http.StatusServiceUnavailable, `{"error":"down"}`)
+	if rec := h.do(http.MethodGet, "/api/v1/verified/admin/executor-status", admin, nil, nil); !strings.Contains(rec.Body.String(), "uspace did not answer") {
+		t.Errorf("uspace down: %d %s", rec.Code, rec.Body)
+	}
+	if rec := h.do(http.MethodGet, "/api/v1/verified/admin/executor-status?format=json", admin, nil, nil); rec.Code < 400 {
+		t.Errorf("uspace down, json: %d", rec.Code)
+	}
+
+	if rec := h.do(http.MethodGet, "/api/v1/verified/admin/executor-status", login(t, "1001", "user"), nil, nil); rec.Code != http.StatusForbidden {
+		t.Errorf("a user: %d", rec.Code)
+	}
+}

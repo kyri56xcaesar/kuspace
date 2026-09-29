@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	ut "kyri56xcaesar/kuspace/internal/utils"
@@ -32,6 +33,8 @@ import (
 // JDockerExecutor struct implementing the JobExecutor interface
 type JDockerExecutor struct {
 	jm *JobManager
+	// run runs the docker CLI for status checks (tests stand in; nil = docker)
+	run func(ctx context.Context, args ...string) ([]byte, error)
 }
 
 // NewJDockerExecutor function as a constructor
@@ -69,6 +72,44 @@ func dockerRunArgs(job ut.Job, command []string, q jobQuotas, network string) []
 	args = append(args, job.Logic) // the image
 
 	return append(args, command...)
+}
+
+// Status asks the docker engine for its version (which fails when uspace
+// can't reach it) and checks that the job network exists.
+func (je JDockerExecutor) Status(ctx context.Context) ut.ExecutorStatus {
+	run := je.run
+	if run == nil {
+		run = func(ctx context.Context, args ...string) ([]byte, error) {
+			return exec.CommandContext(ctx, "docker", args...).CombinedOutput()
+		}
+	}
+	network := je.jm.srv.config.UspaceJobDockerNetwork
+	st := ut.ExecutorStatus{Engine: "docker", Where: "network " + network, CheckedAt: ut.CurrentTime()}
+	if network == "" {
+		st.Where = "the default network"
+	}
+	ctx, cancel := context.WithTimeout(ctx, executorStatusTimeout)
+	defer cancel()
+	out, err := run(ctx, "version", "--format", "{{.Server.Version}}")
+	if err != nil {
+		st.Error = "docker engine: " + lastLine(out)
+		if len(out) == 0 {
+			st.Error = "docker engine: " + err.Error()
+		}
+
+		return st
+	}
+	st.Version = strings.TrimSpace(string(out))
+	if network != "" {
+		if out, err := run(ctx, "network", "inspect", "--format", "{{.Name}}", network); err != nil {
+			st.Error = "network " + network + ": " + lastLine(out)
+
+			return st
+		}
+	}
+	st.Active = true
+
+	return st
 }
 
 func killContainer(jid int64) error {

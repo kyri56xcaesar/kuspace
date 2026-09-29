@@ -176,6 +176,7 @@ check "bash image name valid"       "*:applications-bash-v2" "$(json 'd=d.get("c
 check "all services up"             "4/4" "$(curl -s -b "$J/admin.jar" "$F/verified/admin/system-status?format=json" | json 'print(str(sum(s["up"] for s in d))+"/"+str(len(d)))')"
 check "dashboard served"            yes "$(curl -s -b "$J/user.jar" "$F/verified/admin-panel" | yes_if grep -q 'id="dash"')"
 check "user blocked from system page" "40?" "$(code -b "$J/user.jar" "$F/verified/admin/system-status")"
+check "execution engine active"     "docker True" "$(curl -s -b "$J/admin.jar" "$F/verified/admin/executor-status?format=json" | json 'print(d["engine"], d["active"])')"
 
 if [ "${SMOKE_JOBS:-1}" != "0" ]; then
   echo "--- jobs actually run (executor)"
@@ -188,6 +189,7 @@ if [ "${SMOKE_JOBS:-1}" != "0" ]; then
   wait_job() { local s; for _ in $(seq 1 90); do s=$(job_field "$1" status); [[ " $2 " == *" $s "* ]] && { echo "$s"; return; }; sleep 1; done; echo "timeout($s)"; }
   RJ=$(run_job "sorted_$U.csv" 'sort -t, -k2 -nr {input} > {output}')
   check "job completed"               completed "$(wait_job "$RJ" 'completed failed cancelled')"
+  check "job records its engine"      docker "$(job_field "$RJ" engine)"
   check "engine recorded"             "?*" "$(job_field "$RJ" engine)"
   check "job output content"          "bob,7" "$(curl -s -b "$J/user.jar" "$F/verified/download?target=/sorted_$U.csv&volume=uspace-default" | head -1)"
   check "job log saved"               yes "$(curl -s -b "$J/user.jar" "$F/verified/job-log?jid=$RJ" | yes_if grep -q 'finished with status: completed')"

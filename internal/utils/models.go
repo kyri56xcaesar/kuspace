@@ -929,3 +929,17 @@ func (a *Application) PtrFieldsNoID() []any {
 func (a *Application) PtrFields() []any {
 	return []any{&a.ID, &a.Name, &a.Image, &a.Description, &a.Version, &a.Author, &a.AuthorID, &a.Status, &a.InsertedAt, &a.CreatedAt}
 }
+
+// ExecutorStatus is what uspace reports about the engine jobs run on.
+type ExecutorStatus struct {
+	Engine  string `json:"engine"` // "docker" or "kubernetes"
+	Active  bool   `json:"active"` // the engine answers and jobs can be started
+	Version string `json:"version,omitempty"`
+	// Where jobs run: the kubernetes namespace or the docker network.
+	Where     string `json:"where,omitempty"`
+	Error     string `json:"error,omitempty"` // why it isn't active
+	CheckedAt string `json:"checkedAt"`
+	// JobsByEngine counts the recorded jobs per engine ("" for jobs that
+	// never started, or ran before engines were recorded).
+	JobsByEngine map[string]int `json:"jobsByEngine,omitempty"`
+}

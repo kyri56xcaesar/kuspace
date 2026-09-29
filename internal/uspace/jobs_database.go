@@ -499,6 +499,30 @@ const jobColumns = `jid, uid, description, duration, input, inputFormat, output,
 	parallelism, priority, memoryRequest, cpuRequest, memoryLimit, cpuLimit,
 	ephemeralStorageRequest, ephemeralStorageLimit, COALESCE(engine, ''), COALESCE(gid, 0)`
 
+// jobsByEngine counts the jobs per recorded engine ("" = none recorded).
+func (srv *UService) jobsByEngine(ctx context.Context) (map[string]int, error) {
+	db, err := srv.jdbh.GetConn()
+	if err != nil {
+		return nil, err
+	}
+	rows, err := db.QueryContext(ctx, `SELECT COALESCE(engine, ''), COUNT(*) FROM jobs GROUP BY 1`)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	out := map[string]int{}
+	for rows.Next() {
+		var engine string
+		var n int
+		if err := rows.Scan(&engine, &n); err != nil {
+			return nil, err
+		}
+		out[engine] = n
+	}
+
+	return out, rows.Err()
+}
+
 // markJobEngine records where a job runs.
 func (srv *UService) markJobEngine(ctx context.Context, jid int64, engine string) error {
 	db, err := srv.jdbh.GetConn()

@@ -116,7 +116,7 @@
         const d = await getJSON("/fetch-jobs");
         const jobs = (d && d.content) || [];
         if (!jobs.length) { out("(no jobs)"); return; }
-        for (const j of jobs.slice(0, 50)) out(`#${pad(j.jid, 6)} ${pad(j.status || "?", 10)} ${pad(j.logic || "", 16)} ${j.input || ""} -> ${j.output || ""}`);
+        for (const j of jobs.slice(0, 50)) out(`#${pad(j.jid, 6)} ${pad(j.status || "?", 10)} ${pad(j.logic || "", 16)} ${j.input || ""} -> ${j.output || ""}${j.engine ? ` [${j.engine}]` : ""}`);
       },
     },
     log: {

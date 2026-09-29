@@ -336,8 +336,27 @@ func (srv *UService) RegisterRoutes() {
 			)
 
 			admin.GET("/system-metrics", srv.handleSysMetrics)
+			admin.GET("/executor", srv.handleExecutorStatus)
 		}
 	}
+}
+
+// handleExecutorStatus reports the engine jobs run on: which one, whether it
+// answers and can start jobs, and how many recorded jobs ran on each engine.
+//
+// @Summary     Execution engine status
+// @Tags        system
+// @Produce     json
+// @Success     200 {object} ut.ExecutorStatus
+// @Router      /admin/executor [get]
+func (srv *UService) handleExecutorStatus(c *gin.Context) {
+	st := srv.jdp.EngineStatus(c.Request.Context())
+	counts, err := srv.jobsByEngine(c.Request.Context())
+	if err != nil {
+		log.Printf("[API] counting jobs per engine: %v", err)
+	}
+	st.JobsByEngine = counts
+	c.JSON(http.StatusOK, st)
 }
 
 // handleSysMetrics reports the cluster's metrics (available: false without

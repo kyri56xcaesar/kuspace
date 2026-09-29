@@ -23,6 +23,32 @@ definitions:
       version:
         type: string
     type: object
+  kyri56xcaesar_kuspace_internal_utils.ExecutorStatus:
+    properties:
+      active:
+        description: the engine answers and jobs can be started
+        type: boolean
+      checkedAt:
+        type: string
+      engine:
+        description: '"docker" or "kubernetes"'
+        type: string
+      error:
+        description: why it isn't active
+        type: string
+      jobsByEngine:
+        additionalProperties:
+          type: integer
+        description: |-
+          JobsByEngine counts the recorded jobs per engine ("" for jobs that
+          never started, or ran before engines were recorded).
+        type: object
+      version:
+        type: string
+      where:
+        description: 'Where jobs run: the kubernetes namespace or the docker network.'
+        type: string
+    type: object
   kyri56xcaesar_kuspace_internal_utils.GroupVolume:
     properties:
       gid:
@@ -451,6 +477,18 @@ paths:
       tags:
       - admin
       - apps
+  /admin/executor:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.ExecutorStatus'
+      summary: Execution engine status
+      tags:
+      - system
   /admin/group/volume:
     delete:
       consumes:

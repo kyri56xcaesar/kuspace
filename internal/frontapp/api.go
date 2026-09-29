@@ -271,6 +271,7 @@ func (srv *HTTPService) routes() {
 
 			admin.GET("/system-status", srv.handleSysStatus)
 			admin.GET("/system-metrics", srv.handleSysMetrics)
+			admin.GET("/executor-status", srv.handleExecutorStatus)
 
 			admin.Match(
 				[]string{"GET", "POST", "PUT", "DELETE"},

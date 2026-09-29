@@ -54,6 +54,11 @@ func (j JobDispatcherImpl) Drain(ctx context.Context) error {
 	return j.Manager.Drain(ctx)
 }
 
+// EngineStatus checks the executor's engine.
+func (j JobDispatcherImpl) EngineStatus(ctx context.Context) ut.ExecutorStatus {
+	return j.Manager.executor.Status(ctx)
+}
+
 // PublishJob method which publishes an incoming Job towards into a Queue towards execution
 /* dispatching Jobs interface methods */
 func (j JobDispatcherImpl) PublishJob(jb ut.Job) error {

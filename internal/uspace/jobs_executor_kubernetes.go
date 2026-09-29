@@ -78,6 +78,62 @@ func (jke JKubernetesExecutor) CancelJob(job ut.Job) error {
 	return err
 }
 
+// Status checks the cluster the executor would use.
+func (jke JKubernetesExecutor) Status(ctx context.Context) ut.ExecutorStatus {
+	ns := jke.jm.srv.config.Namespace
+	client, err := k.GetKubeClient()
+	if err != nil {
+		return ut.ExecutorStatus{Engine: "kubernetes", Where: "namespace " + ns, CheckedAt: ut.CurrentTime(),
+			Error: "no cluster configuration: " + err.Error()}
+	}
+
+	return kubeStatus(ctx, client, ns)
+}
+
+// kubeStatus asks the API server for its version and lists jobs in the
+// namespace (what the executor needs permission for).
+func kubeStatus(ctx context.Context, client kubernetes.Interface, ns string) ut.ExecutorStatus {
+	st := ut.ExecutorStatus{Engine: "kubernetes", Where: "namespace " + ns, CheckedAt: ut.CurrentTime()}
+	ctx, cancel := context.WithTimeout(ctx, executorStatusTimeout)
+	defer cancel()
+	// ServerVersion takes no context: bound it here
+	type answer struct {
+		version string
+		err     error
+	}
+	done := make(chan answer, 1)
+	go func() {
+		v, err := client.Discovery().ServerVersion()
+		if err != nil {
+			done <- answer{err: err}
+
+			return
+		}
+		done <- answer{version: v.GitVersion}
+	}()
+	select {
+	case a := <-done:
+		if a.err != nil {
+			st.Error = "API server: " + a.err.Error()
+
+			return st
+		}
+		st.Version = a.version
+	case <-ctx.Done():
+		st.Error = "API server: no answer within " + executorStatusTimeout.String()
+
+		return st
+	}
+	if _, err := client.BatchV1().Jobs(ns).List(ctx, metav1.ListOptions{Limit: 1}); err != nil {
+		st.Error = "namespace " + ns + ": " + err.Error()
+
+		return st
+	}
+	st.Active = true
+
+	return st
+}
+
 // jobQuotas are the parsed resource requests/limits of a job.
 type jobQuotas struct {
 	reqMem, reqCPU, limMem, limCPU resource.Quantity

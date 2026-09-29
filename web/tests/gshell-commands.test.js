@@ -35,7 +35,7 @@ const replies = {
     { name: "/b.txt", vname: "vol", uid: 1001, size: 3, perms: "rw-r-----" },
   ] },
   "/api/v1/verified/download": { text: "line one\nline two" },
-  "/api/v1/verified/fetch-jobs": { json: { content: [{ jid: 7, status: "completed", logic: "python", input: "vol/in", output: "vol/out" }] } },
+  "/api/v1/verified/fetch-jobs": { json: { content: [{ jid: 7, status: "completed", logic: "python", input: "vol/in", output: "vol/out", engine: "docker" }] } },
   "/api/v1/verified/fetch-volumes": { json: { volumes: [{ name: "team", usage: 1, capacity: 2, shared: true, gid: 500 }] } },
   "/api/v1/verified/rm": { status: 403, json: { error: "no write access" } },
 };
@@ -62,7 +62,7 @@ test("errors are printed with the command name", async () => {
 
 test("jobs, volumes, whoami", async () => {
   const { run } = setup(replies);
-  assert.match((await run("jobs"))[0], /#7 +completed/);
+  assert.match((await run("jobs"))[0], /#7 +completed.* -> vol\/out \[docker\]$/);
   assert.match((await run("volumes"))[0], /team .* shared \(group 500\)/);
   assert.deepEqual(await run("whoami"), ["alice (uid 1001)"]);
 });

@@ -29,6 +29,9 @@ func (e *recordingExecutor) ExecuteJob(job ut.Job) error {
 	return nil
 }
 func (e *recordingExecutor) CancelJob(ut.Job) error { return nil }
+func (e *recordingExecutor) Status(context.Context) ut.ExecutorStatus {
+	return ut.ExecutorStatus{Engine: "test", Active: true}
+}
 
 func newTestManager() (*JobManager, *recordingExecutor) {
 	jm := &JobManager{
@@ -127,6 +130,9 @@ func (b blockingExecutor) ExecuteJob(job ut.Job) error {
 }
 
 func (b blockingExecutor) CancelJob(ut.Job) error { return nil }
+func (b blockingExecutor) Status(context.Context) ut.ExecutorStatus {
+	return ut.ExecutorStatus{Engine: "test", Active: true}
+}
 
 func TestDrainWaitsForRunningJobs(t *testing.T) {
 	jm := &JobManager{

@@ -241,6 +241,14 @@ revoked ones until expiry, accepted on the signature while minioth is
 unreachable; the service that revokes a token forgets its cached answer at
 once. Smoke checks the old session and password stop working.
 
+### Round 10 (2026-09-29/30: minioth v1.1.2, migrations, execution engine)
+
+| Sev | Where | Problem | Fix |
+|---|---|---|---|
+| MED | minioth | Only a static "alive" endpoint: a minioth whose store was broken looked healthy to frontapp's `/readyz` and the status page. | minioth v1.1.2 `GET /v1/.well-known/ready` asks the store; kuspace, compose and the k8s readiness probe use it. v1.1.2 also ships the primary-group fix and plain-store durability. |
+| MED | databases | Schema changes were ad-hoc start-up code with its own "already applied?" checks, and nothing recorded what ran. | Numbered migrations with a record table and a backup (see "Schema migrations" below). |
+| LOW | admin panel | Nothing showed which engine runs jobs or whether it works; jobs recorded their engine but no view showed it. | `GET /api/v1/admin/executor` (engine, active, version, where jobs run, why not active, jobs per engine; Docker: `docker version` + the job network; Kubernetes: API server version + listing jobs in the namespace). An "Execution engine" card on the System page (refreshed with it), "Ran on" in job details, the engine in gShell's `jobs`, and smoke checks. |
+
 ---
 
 ## Open
@@ -277,13 +285,11 @@ once. Smoke checks the old session and password stop working.
   commits).
 
 ### Next up (agreed 2026-09-29)
-1. Execution engine status on the admin System page and status page
-   (engine, active, version); the engine shown in job views.
-2. Jobs across restarts: a database-backed dispatcher (the jobs table is the
+1. Jobs across restarts: a database-backed dispatcher (the jobs table is the
    queue; leases, heartbeat, a reaper that re-attaches or fails lost jobs,
    timeout watchdog; one automatic retry for jobs claimed but never started)
    as a second `JobDispatcher` next to the in-memory one, chosen by config.
-3. `fsck`: admin endpoint (check / repair) with stored reports, and a
+2. `fsck`: admin endpoint (check / repair) with stored reports, and a
    Consistency page in the admin panel.
 
 ### Schema migrations (done 2026-09-29)

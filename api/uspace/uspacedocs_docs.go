@@ -453,6 +453,25 @@ const docTemplateuspacedocs = `{
                 }
             }
         },
+        "/admin/executor": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Execution engine status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.ExecutorStatus"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/group/volume": {
             "get": {
                 "consumes": [
@@ -3018,6 +3037,40 @@ const docTemplateuspacedocs = `{
                     "type": "string"
                 },
                 "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "kyri56xcaesar_kuspace_internal_utils.ExecutorStatus": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "description": "the engine answers and jobs can be started",
+                    "type": "boolean"
+                },
+                "checkedAt": {
+                    "type": "string"
+                },
+                "engine": {
+                    "description": "\"docker\" or \"kubernetes\"",
+                    "type": "string"
+                },
+                "error": {
+                    "description": "why it isn't active",
+                    "type": "string"
+                },
+                "jobsByEngine": {
+                    "description": "JobsByEngine counts the recorded jobs per engine (\"\" for jobs that\nnever started, or ran before engines were recorded).",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "version": {
+                    "type": "string"
+                },
+                "where": {
+                    "description": "Where jobs run: the kubernetes namespace or the docker network.",
                     "type": "string"
                 }
             }

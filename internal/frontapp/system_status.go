@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	ut "kyri56xcaesar/kuspace/internal/utils"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -75,4 +77,22 @@ func (srv *HTTPService) handleSysStatus(c *gin.Context) {
 	wg.Wait()
 
 	respondInFormat(c, c.Query("format"), out, "system_status.html")
+}
+
+// handleExecutorStatus shows the engine jobs run on (uspace checks it): the
+// engine, whether it is active, and how many jobs ran where.
+func (srv *HTTPService) handleExecutorStatus(c *gin.Context) {
+	var st ut.ExecutorStatus
+	err := srv.uspace.decode(c.Request.Context(), request{
+		method: http.MethodGet, path: "/api/v1/admin/executor", token: userToken(c), target: "0::/",
+	}, &st)
+	if err != nil {
+		if c.Query("format") == "json" {
+			fail(c, "check the execution engine", err)
+
+			return
+		}
+		st = ut.ExecutorStatus{Error: "uspace did not answer, so the engine can't be checked", CheckedAt: ut.CurrentTime()}
+	}
+	respondInFormat(c, c.Query("format"), st, "executor_status.html")
 }

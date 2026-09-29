@@ -168,6 +168,7 @@
             <div><dt>Completed</dt><dd class="completedAt k-when" data-v="{{ $j.CompletedAt }}" data-ts="{{ $j.CompletedAt }}">{{ $j.CompletedAt }}</dd></div>
             <div><dt>Duration</dt><dd class="duration" data-v="{{ $j.Duration }}" data-duration="{{ $j.Duration }}">{{ $j.Duration }}</dd></div>
             <div><dt>Done</dt><dd class="completed" data-v="{{ $j.Completed }}">{{ if $j.Completed }}yes{{ else }}no{{ end }}</dd></div>
+            <div><dt>Ran on</dt><dd class="engine" data-v="{{ $j.Engine }}">{{ if eq $j.Engine "docker" }}Docker{{ else if eq $j.Engine "kubernetes" }}Kubernetes{{ else if $j.Engine }}{{ $j.Engine }}{{ else }}&ndash;{{ end }}</dd></div>
           </dl>
           <div class="hidden">
             <span class="parallelism">{{ $j.Parallelism }}</span>
@@ -621,4 +622,36 @@
 
 {{ define "empty_template" }}
 
+{{ end }}
+
+{{ define "executor_status.html" }}
+<div class="sys-grid">
+  <article class="sys-card sys-engine {{ if .Active }}is-up{{ else }}is-down{{ end }}">
+    <header class="sys-card-head">
+      <h3 class="sys-name">{{ if eq .Engine "docker" }}Docker{{ else if eq .Engine "kubernetes" }}Kubernetes{{ else }}Unknown{{ end }}</h3>
+      {{ if .Active }}
+      <span class="sys-state state-good"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Active</span>
+      {{ else }}
+      <span class="sys-state state-critical"><i class="fa-solid fa-circle-xmark" aria-hidden="true"></i> Inactive</span>
+      {{ end }}
+    </header>
+    <p class="sys-role">Runs the jobs: new jobs {{ if .Active }}start here{{ else }}can't start until it answers{{ end }}</p>
+    <dl class="sys-facts">
+      <div><dt>Version</dt><dd>{{ if .Version }}{{ .Version }}{{ else }}&ndash;{{ end }}</dd></div>
+      <div class="sys-wrap"><dt>Jobs run in</dt><dd>{{ if .Where }}<code>{{ .Where }}</code>{{ else }}&ndash;{{ end }}</dd></div>
+      <div><dt>Checked</dt><dd class="k-when" data-ts="{{ .CheckedAt }}">{{ .CheckedAt }}</dd></div>
+      {{ if .Error }}<div class="sys-problem"><dt>Problem</dt><dd>{{ .Error }}</dd></div>{{ end }}
+    </dl>
+    {{ if .JobsByEngine }}
+    <div class="sys-engine-jobs">
+      <p class="sys-engine-jobs-title">Jobs recorded, by where they ran</p>
+      <ul class="k-chips">
+        {{ range $engine, $n := .JobsByEngine }}
+        <li class="k-chip">{{ if eq $engine "docker" }}Docker{{ else if eq $engine "kubernetes" }}Kubernetes{{ else if $engine }}{{ $engine }}{{ else }}not recorded{{ end }}: {{ $n }}</li>
+        {{ end }}
+      </ul>
+    </div>
+    {{ end }}
+  </article>
+</div>
 {{ end }}

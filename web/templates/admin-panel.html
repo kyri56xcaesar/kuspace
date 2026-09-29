@@ -454,7 +454,7 @@
           <div>
             <p class="k-eyebrow">Configuration</p>
             <h2>System</h2>
-            <p class="fading">Whether each kuspace service is answering, and how fast.</p>
+            <p class="fading">Whether each kuspace service is answering, and how fast, and whether the engine that runs jobs is active.</p>
           </div>
           <div class="k-page-actions">
             <button
@@ -473,6 +473,15 @@
           hx-target="this"
           hx-swap="innerHTML"
         ><p class="k-loading">Checking services…</p></div>
+
+        <h3 class="sys-subhead">Execution engine</h3>
+        <div
+          id="sys-engine-loader"
+          hx-get="/api/v1/verified/admin/executor-status"
+          hx-trigger="load, click from:.sys-refresh"
+          hx-target="this"
+          hx-swap="innerHTML"
+        ><p class="k-loading">Checking the execution engine…</p></div>
       </section>
 
       <!-- ===================================================== Volumes (admin) -->
