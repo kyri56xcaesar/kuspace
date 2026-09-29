@@ -154,6 +154,7 @@ func (srv *HTTPService) routes() {
 		},
 		"lower":     strings.ToLower,
 		"bytesToMB": bytesToMB,
+		"uptime":    uptime,
 		"ago":       ago,
 	}
 
@@ -354,8 +355,26 @@ func setGinMode(mode string) {
 	}
 }
 
+// uptime says how long for seconds: "3 d 4 h", "2 h 5 min", "12 min", "40 s".
+func uptime(seconds int64) string {
+	d := time.Duration(seconds) * time.Second
+	switch {
+	case d >= 24*time.Hour:
+		return fmt.Sprintf("%d d %d h", int(d.Hours())/24, int(d.Hours())%24)
+	case d >= time.Hour:
+		return fmt.Sprintf("%d h %d min", int(d.Hours()), int(d.Minutes())%60)
+	case d >= time.Minute:
+		return fmt.Sprintf("%d min", int(d.Minutes()))
+	default:
+		return fmt.Sprintf("%d s", seconds)
+	}
+}
+
 func bytesToMB(bytes any) string {
 	switch v := bytes.(type) {
+	case uint64:
+
+		return fmt.Sprintf("%.1f", float64(v)/1024.0/1024.0)
 	case int64:
 
 		return fmt.Sprintf("%.1f", float64(v)/1024.0/1024.0)

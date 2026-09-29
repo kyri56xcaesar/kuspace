@@ -65,6 +65,9 @@ services:
     build:
       context: ../..
       dockerfile: build/Dockerfile.wss
+      args: # the build the System page shows (make images sets them)
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+        BUILD_TIME: ${BUILD_TIME:-}
     container_name: wss
     networks:
       - app_network
@@ -81,6 +84,9 @@ services:
     build:
       context: ../..
       dockerfile: build/Dockerfile.uspace
+      args: # the build the System page shows (make images sets them)
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+        BUILD_TIME: ${BUILD_TIME:-}
     container_name: uspace
     # shutdown waits up to 10s for requests and 15s for running jobs
     # (compose's default is 10s before SIGKILL)
@@ -119,6 +125,9 @@ services:
     build:
       context: ../..
       dockerfile: build/Dockerfile.frontapp
+      args: # the build the System page shows (make images sets them)
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+        BUILD_TIME: ${BUILD_TIME:-}
     container_name: frontapp
     depends_on:
       - uspace

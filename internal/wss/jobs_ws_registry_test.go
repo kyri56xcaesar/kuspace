@@ -1,6 +1,7 @@
 package wss
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -164,4 +165,29 @@ func waitForClients(t *testing.T, jid string, producers, consumers int) {
 		}
 	}
 	t.Fatalf("session %s never had %d producer(s) and %d consumer(s)", jid, producers, consumers)
+}
+
+func TestInfoNeedsTheServiceSecret(t *testing.T) {
+	ts := newTestWSS(t)
+	get := func(secret string) (int, string) {
+		req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, ts.URL+"/info", nil)
+		if secret != "" {
+			req.Header.Set("X-Service-Secret", secret)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+		b := new(strings.Builder)
+		_, _ = io.Copy(b, resp.Body)
+
+		return resp.StatusCode, b.String()
+	}
+	if code, _ := get(""); code != http.StatusUnauthorized {
+		t.Errorf("without the secret: %d", code)
+	}
+	if code, body := get(string(testSecret)); code != http.StatusOK || !strings.Contains(body, `"service":"wss"`) || !strings.Contains(body, `"uptimeSec"`) {
+		t.Errorf("with the secret: %d %s", code, body)
+	}
 }

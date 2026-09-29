@@ -387,6 +387,14 @@ func newEngine(cfg ut.EnvConfig) *gin.Engine {
 		}
 		c.JSON(http.StatusOK, wss)
 	})
+	engine.GET("/info", func(c *gin.Context) { // for the admin System page, via frontapp
+		if !hasServiceSecret(c) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "service secret required"})
+
+			return
+		}
+		c.JSON(http.StatusOK, ut.Info("wss"))
+	})
 	engine.GET("/get-session", HandleWSsession)
 	engine.DELETE("/delete-session", HandleWSsessionClose)
 

@@ -572,6 +572,25 @@
                 "responses": {}
             }
         },
+        "/admin/info": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Service info",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/kyri56xcaesar_kuspace_internal_utils.ServiceInfo"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/job": {
             "get": {
                 "description": "Query, submit (as root: no input/output permission checks), update and delete jobs.",
@@ -3272,6 +3291,45 @@
                 },
                 "uid": {
                     "type": "integer"
+                }
+            }
+        },
+        "kyri56xcaesar_kuspace_internal_utils.ServiceInfo": {
+            "type": "object",
+            "properties": {
+                "builtAt": {
+                    "description": "RFC 3339",
+                    "type": "string"
+                },
+                "commit": {
+                    "description": "short hash, \"+dirty\" when built from uncommitted changes",
+                    "type": "string"
+                },
+                "goVersion": {
+                    "type": "string"
+                },
+                "goroutines": {
+                    "type": "integer"
+                },
+                "heapBytes": {
+                    "type": "integer"
+                },
+                "instance": {
+                    "description": "Instance is the host name: the container or pod that answered.",
+                    "type": "string"
+                },
+                "service": {
+                    "type": "string"
+                },
+                "startedAt": {
+                    "description": "RFC 3339",
+                    "type": "string"
+                },
+                "uptimeSec": {
+                    "type": "integer"
+                },
+                "version": {
+                    "type": "string"
                 }
             }
         },

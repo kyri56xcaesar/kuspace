@@ -110,7 +110,12 @@ tidy: ## go mod tidy
 # --------------------------------------------------------------- docker compose
 # images are built one at a time: the services link cgo (sqlite, duckdb) and
 # building them in parallel runs out of memory on 8 GB machines
-images: ## build all compose images, sequentially
+# the build the System page shows
+GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null)$(shell git diff --quiet 2>/dev/null || echo +dirty)
+BUILD_TIME ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+export GIT_COMMIT BUILD_TIME
+
+images: ## build all compose images, sequentially (stamped with the commit)
 	@for s in minioth wss uspace frontapp; do echo "building $$s"; $(COMPOSE) build $$s || exit 1; done
 
 up: secrets images ## build and start the compose stack

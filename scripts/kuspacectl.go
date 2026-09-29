@@ -72,15 +72,15 @@ func main() {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
-		if err := run("docker", "buildx", "build", "-f", "build/Dockerfile.uspace", "-t", "kyri56xcaesar/kuspace:uspace-latest", "."); err != nil {
+		if err := run("docker", append([]string{"buildx", "build", "-f", "build/Dockerfile.uspace", "-t", "kyri56xcaesar/kuspace:uspace-latest"}, append(buildStamp(), ".")...)...); err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
-		if err := run("docker", "buildx", "build", "-f", "build/Dockerfile.frontapp", "-t", "kyri56xcaesar/kuspace:frontapp-latest", "."); err != nil {
+		if err := run("docker", append([]string{"buildx", "build", "-f", "build/Dockerfile.frontapp", "-t", "kyri56xcaesar/kuspace:frontapp-latest"}, append(buildStamp(), ".")...)...); err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
-		if err := run("docker", "buildx", "build", "-f", "build//Dockerfile.wss", "-t", "kyri56xcaesar/kuspace:wss-latest", "."); err != nil {
+		if err := run("docker", append([]string{"buildx", "build", "-f", "build//Dockerfile.wss", "-t", "kyri56xcaesar/kuspace:wss-latest"}, append(buildStamp(), ".")...)...); err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Command failed: %v\n", err)
 			os.Exit(1)
 		}
@@ -618,4 +618,19 @@ func patchPVClaimRef(pvName string) error {
 	}
 
 	return nil
+}
+
+// buildStamp are the build arguments that stamp the commit and build time
+// into the service images (shown on the admin System page).
+func buildStamp() []string {
+	commit := "unknown"
+	ctx := context.Background()
+	if out, err := exec.CommandContext(ctx, "git", "rev-parse", "--short", "HEAD").Output(); err == nil {
+		commit = strings.TrimSpace(string(out))
+		if exec.CommandContext(ctx, "git", "diff", "--quiet").Run() != nil {
+			commit += "+dirty"
+		}
+	}
+
+	return []string{"--build-arg", "GIT_COMMIT=" + commit, "--build-arg", "BUILD_TIME=" + time.Now().UTC().Format(time.RFC3339)}
 }

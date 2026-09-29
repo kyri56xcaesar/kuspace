@@ -544,7 +544,14 @@
     <dl class="sys-facts">
       <div><dt>Response</dt><dd>{{ if .Up }}{{ if eq .Address "self" }}this page{{ else if lt .LatencyMs 1 }}&lt;1 ms{{ else }}{{ .LatencyMs }} ms{{ end }}{{ else if .Status }}HTTP {{ .Status }}{{ else }}{{ .Error }}{{ end }}</dd></div>
       <div><dt>Address</dt><dd><code>{{ if eq .Address "self" }}serving you{{ else }}{{ .Address }}{{ end }}</code></dd></div>
+      {{ with .Info }}
+      <div><dt>Version</dt><dd title="built {{ .BuiltAt }} with {{ .GoVersion }}">{{ .Version }} <code>{{ .Commit }}</code></dd></div>
+      <div><dt>Running</dt><dd title="since {{ .StartedAt }}"><span data-uptime="{{ .UptimeSec }}">{{ uptime .UptimeSec }}</span></dd></div>
+      <div class="sys-wrap"><dt>Instance</dt><dd><code>{{ .Instance }}</code></dd></div>
+      <div><dt>Memory</dt><dd>{{ bytesToMB .HeapBytes }} MB heap, {{ .Goroutines }} goroutines</dd></div>
+      {{ end }}
     </dl>
+    {{ if and .Up (not .Info) }}<p class="sys-details-none">This service doesn't report its build or uptime.</p>{{ end }}
     {{ if .HasConfig }}
     <details class="sys-details">
       <summary>Settings</summary>

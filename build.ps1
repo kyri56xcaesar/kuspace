@@ -95,7 +95,13 @@ function LintJs {
 function Check { Fmt; Vet; Test }
 
 # --------------------------------------------------------------- docker compose
-function Images { foreach ($s in @("minioth", "wss", "uspace", "frontapp")) { Write-Output "building $s"; Compose @("build", $s) } }
+function Images {
+    # the build the System page shows
+    $env:GIT_COMMIT = (git rev-parse --short HEAD 2>$null)
+    git diff --quiet 2>$null; if ($LASTEXITCODE -ne 0) { $env:GIT_COMMIT += "+dirty" }
+    $env:BUILD_TIME = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+    foreach ($s in @("minioth", "wss", "uspace", "frontapp")) { Write-Output "building $s"; Compose @("build", $s) }
+}
 function Up { Secrets; Images; Compose @("up", "-d"); Compose @("ps") }
 function Down { Compose @("down") }
 function Smoke {

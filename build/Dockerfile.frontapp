@@ -6,7 +6,11 @@ COPY ./internal/utils/ ./internal/utils/
 COPY ./internal/authn/ ./internal/authn/
 COPY ./internal/frontapp/ ./internal/frontapp/
 COPY ./cmd/frontapp/ ./cmd/frontapp/ 
-RUN GOOS=linux go build -o ./cmd/frontapp/frontapp ./cmd/frontapp/main.go 
+# the build the System page shows (make images / kuspacectl pass them)
+ARG GIT_COMMIT=unknown
+ARG BUILD_TIME=
+RUN GOOS=linux go build -ldflags "-X kyri56xcaesar/kuspace/internal/utils.buildCommit=${GIT_COMMIT} -X kyri56xcaesar/kuspace/internal/utils.buildTime=${BUILD_TIME}" \
+    -o ./cmd/frontapp/frontapp ./cmd/frontapp/main.go
 
 FROM debian:bookworm-slim
 WORKDIR /root/

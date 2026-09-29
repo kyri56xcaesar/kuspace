@@ -162,6 +162,33 @@ definitions:
       uid:
         type: integer
     type: object
+  kyri56xcaesar_kuspace_internal_utils.ServiceInfo:
+    properties:
+      builtAt:
+        description: RFC 3339
+        type: string
+      commit:
+        description: short hash, "+dirty" when built from uncommitted changes
+        type: string
+      goVersion:
+        type: string
+      goroutines:
+        type: integer
+      heapBytes:
+        type: integer
+      instance:
+        description: 'Instance is the host name: the container or pod that answered.'
+        type: string
+      service:
+        type: string
+      startedAt:
+        description: RFC 3339
+        type: string
+      uptimeSec:
+        type: integer
+      version:
+        type: string
+    type: object
   kyri56xcaesar_kuspace_internal_utils.UserVolume:
     properties:
       quota:
@@ -585,6 +612,18 @@ paths:
       summary: Manage group volumes
       tags:
       - volumes
+  /admin/info:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/kyri56xcaesar_kuspace_internal_utils.ServiceInfo'
+      summary: Service info
+      tags:
+      - system
   /admin/job:
     delete:
       consumes:

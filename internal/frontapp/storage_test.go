@@ -1,10 +1,13 @@
 package frontendapp
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
+
+	ut "kyri56xcaesar/kuspace/internal/utils"
 )
 
 // Storage calls carry the user's token and only the "what" of
@@ -197,5 +200,37 @@ func TestExecutorSwitch(t *testing.T) {
 	body, hdr = form(url.Values{"engine": {"kubernetes"}})
 	if rec := h.do(http.MethodPut, "/api/v1/verified/admin/executor", login(t, "1001", "user"), body, hdr); rec.Code != http.StatusForbidden {
 		t.Errorf("a user: %d", rec.Code)
+	}
+}
+
+func TestSystemStatusShowsServiceDetails(t *testing.T) {
+	h := newFrontHarness(t)
+	h.minioth.on("GET /v1/.well-known/ready", http.StatusOK, `{"status":"ready"}`)
+	h.uspace.on("GET /healthz", http.StatusOK, `{"status":"alive"}`)
+	h.uspace.on("GET /api/v1/admin/info", http.StatusOK, `{"service":"uspace","version":"1.0.0-dev","commit":"639b780",
+		"builtAt":"2026-09-30T08:00:00Z","goVersion":"go1.26","startedAt":"2026-09-30T08:00:00Z","uptimeSec":93784,
+		"instance":"uspace-0","goroutines":42,"heapBytes":12582912}`)
+	admin := login(t, "0", "admin")
+	body := h.do(http.MethodGet, "/api/v1/verified/admin/system-status", admin, nil, nil).Body.String()
+	for _, want := range []string{"639b780", "1 d 2 h", "uspace-0", "12.0 MB heap, 42 goroutines",
+		"This service doesn't report its build or uptime."} { // minioth
+		if !strings.Contains(body, want) {
+			t.Errorf("page lacks %q:\n%s", want, body)
+		}
+	}
+	var services []struct {
+		Name string          `json:"name"`
+		Info *ut.ServiceInfo `json:"info"`
+	}
+	rec := h.do(http.MethodGet, "/api/v1/verified/admin/system-status?format=json", admin, nil, nil)
+	if err := json.Unmarshal(rec.Body.Bytes(), &services); err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]*ut.ServiceInfo{}
+	for _, s := range services {
+		got[s.Name] = s.Info
+	}
+	if got["frontapp"] == nil || got["frontapp"].Service != "frontapp" || got["uspace"] == nil || got["minioth"] != nil || got["wss"] != nil {
+		t.Errorf("infos: frontapp %+v uspace %+v minioth %+v wss (unreachable) %+v", got["frontapp"], got["uspace"], got["minioth"], got["wss"])
 	}
 }

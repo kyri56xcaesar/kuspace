@@ -24,6 +24,9 @@ type serviceStatus struct {
 	Error     string `json:"error,omitempty"`
 	// HasConfig is true when /admin/system-conf can show this service's settings.
 	HasConfig bool `json:"hasConfig"`
+	// Info is the service's account of itself (build, uptime, instance,
+	// memory); nil when it didn't give one (minioth doesn't).
+	Info *ut.ServiceInfo `json:"info,omitempty"`
 }
 
 const statusProbeTimeout = 3 * time.Second
@@ -75,9 +78,45 @@ func (srv *HTTPService) handleSysStatus(c *gin.Context) {
 			out[i].Up = resp.StatusCode >= 200 && resp.StatusCode < 300
 		}(i, s.probe)
 	}
+	for i := range out {
+		if info := srv.serviceInfo(c, out[i].Name); info != nil {
+			wg.Add(1)
+			go func() { defer wg.Done(); out[i].Info = info() }()
+		}
+	}
 	wg.Wait()
 
 	respondInFormat(c, c.Query("format"), out, "system_status.html")
+}
+
+// serviceInfo returns how to ask a service about itself (nil: it can't say).
+func (srv *HTTPService) serviceInfo(c *gin.Context, service string) func() *ut.ServiceInfo {
+	ask := func(u *upstream, r request) func() *ut.ServiceInfo {
+		return func() *ut.ServiceInfo {
+			ctx, cancel := context.WithTimeout(c.Request.Context(), statusProbeTimeout)
+			defer cancel()
+			var info ut.ServiceInfo
+			if err := u.decode(ctx, r, &info); err != nil {
+				return nil
+			}
+
+			return &info
+		}
+	}
+	switch service {
+	case "frontapp":
+		return func() *ut.ServiceInfo {
+			i := ut.Info("frontapp")
+
+			return &i
+		}
+	case "uspace":
+		return ask(srv.uspace, request{method: http.MethodGet, path: "/api/v1/admin/info", token: userToken(c), target: "0::/"})
+	case "wss":
+		return ask(srv.wss, request{method: http.MethodGet, path: "/info", svc: true})
+	default:
+		return nil
+	}
 }
 
 // handleExecutorStatus shows the execution engines (uspace checks them):

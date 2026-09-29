@@ -4,7 +4,11 @@ COPY go.mod go.sum ./
 COPY ./internal/utils/ ./internal/utils/
 COPY ./internal/wss/ ./internal/wss/
 COPY ./cmd/wss/ ./cmd/wss/
-RUN GOOS=linux go build -o ./cmd/wss/wss ./cmd/wss/main.go
+# the build the System page shows (make images / kuspacectl pass them)
+ARG GIT_COMMIT=unknown
+ARG BUILD_TIME=
+RUN GOOS=linux go build -ldflags "-X kyri56xcaesar/kuspace/internal/utils.buildCommit=${GIT_COMMIT} -X kyri56xcaesar/kuspace/internal/utils.buildTime=${BUILD_TIME}" \
+    -o ./cmd/wss/wss ./cmd/wss/main.go
 
 FROM debian:bookworm-slim
 WORKDIR /root/

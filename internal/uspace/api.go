@@ -349,10 +349,22 @@ func (srv *UService) RegisterRoutes() {
 			)
 
 			admin.GET("/system-metrics", srv.handleSysMetrics)
+			admin.GET("/info", srv.handleInfo)
 			admin.GET("/executor", srv.handleExecutorStatus)
 			admin.PUT("/executor", srv.handleExecutorSwitch)
 		}
 	}
+}
+
+// handleInfo is uspace's account of itself: build, uptime, instance, memory.
+//
+// @Summary     Service info
+// @Tags        system
+// @Produce     json
+// @Success     200 {object} ut.ServiceInfo
+// @Router      /admin/info [get]
+func (srv *UService) handleInfo(c *gin.Context) {
+	c.JSON(http.StatusOK, ut.Info("uspace"))
 }
 
 // handleExecutorStatus reports the execution engines: whether each answers
