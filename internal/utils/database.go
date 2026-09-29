@@ -19,9 +19,8 @@
 //	Use NewDBHandler to create a handler, then call Init to set up the database schema and connection pool.
 //	Use GetConn to obtain a connection for queries, and Close to release resources when done.
 //
-// Supported Drivers:
-//   - "sqlite3"
-//   - "duckdb"
+// Supported driver: "sqlite3". (The DuckDB driver was dropped: nothing
+// used it, and its bundled C++ library went into every binary.)
 //
 // Database driver
 package utils
@@ -39,8 +38,6 @@ import (
 	"strconv"
 	"time"
 
-	// the Driver for duckdb
-	_ "github.com/marcboeker/go-duckdb"
 	// the Driver for sqlite3
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -63,7 +60,7 @@ type DBHandler struct {
 func NewDBHandler(dbname, dbpath, dbDriver string) DBHandler {
 	// perform checks
 	// check if the database driver is supported
-	if dbDriver != "sqlite3" && dbDriver != "duckdb" {
+	if dbDriver != "sqlite3" {
 		log.Fatalf("unsupported database driver: %s", dbDriver)
 	}
 
@@ -106,11 +103,7 @@ func (m *DBHandler) GetConn() (*sql.DB, error) {
 	if m.db == nil {
 		var dsn string
 		if m.DBName == ":memory:" || m.dbPath == ":memory:" {
-			if m.dbDriver == "duckdb" {
-				dsn = "" // DuckDB in-memory
-			} else {
-				dsn = ":memory:" // SQLite in-memory
-			}
+			dsn = ":memory:"
 		} else {
 			dsn = m.dbPath + m.DBName
 			if m.dbDriver == "sqlite3" {

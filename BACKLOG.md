@@ -248,6 +248,7 @@ once. Smoke checks the old session and password stop working.
 | MED | minioth | Only a static "alive" endpoint: a minioth whose store was broken looked healthy to frontapp's `/readyz` and the status page. | minioth v1.1.2 `GET /v1/.well-known/ready` asks the store; kuspace, compose and the k8s readiness probe use it. v1.1.2 also ships the primary-group fix and plain-store durability. |
 | MED | databases | Schema changes were ad-hoc start-up code with its own "already applied?" checks, and nothing recorded what ran. | Numbered migrations with a record table and a backup (see "Schema migrations" below). |
 | MED | uspace jobs | The database dispatcher was built on the in-memory one (JobManager): the executors depended on JobManager (they released its worker slots and used its cancel registry), so every dispatcher had to create one. | An execution runtime (`jobs_runtime.go`: engines, running jobs, work in flight) that executors depend on; each dispatcher owns its queue, worker slots and drain policy and releases its own slots. No behaviour change (tests unchanged apart from wiring). |
+| MED | builds | Every build compiled all dependencies from nothing (no module or build cache), and every binary linked DuckDB (a 462 MB module with Apache Arrow) though every database is SQLite: wss was 57 MB, frontapp 67, uspace 130, and linking was the memory-heavy step. | DuckDB driver dropped (wss 16 MB, frontapp 23, uspace 88); Dockerfiles download modules in their own layer and keep BuildKit caches for modules and compiled packages (wss: 84 s cold, 8 s after a code edit, 1 s unchanged); stripped binaries; no libstdc++ in the runtime images. Needs the buildx plugin (`make images` checks). |
 | LOW | admin panel | Nothing showed how kuspace is deployed or how many instances each service runs, or whether it could run more. | uspace `GET /admin/replicas` (read-only): the platform (kubernetes: Deployments/StatefulSets of the namespace and their pods; docker compose: the containers of its project; neither: says so), desired/ready replicas and each instance's state, restarts and node. The System page shows them per service with whether it can scale and why (only frontapp can; wss, uspace and minioth hold state in one process or SQLite), and the deployment's other workloads (MinIO). |
 | LOW | admin panel | The System page only said whether a service answered. | Each kuspace service reports its build (version, commit, build time: stamped by `make images`/kuspacectl via `GIT_COMMIT`/`BUILD_TIME` build args), start time and uptime, the instance that answered and its memory (uspace `GET /admin/info`, wss `GET /info` with the service secret); minioth says it doesn't report them. |
 | LOW | admin panel | The engine was fixed at start (J_EXECUTOR); switching meant editing config and restarting. | Both executors exist at once; the System page shows each with its status and switches new jobs to an active one (`PUT /admin/executor`, audit-logged, kept in jobs.db `settings`, migration 0004); a job stays on its recorded engine, recorded at claim by the database dispatcher. |
@@ -292,7 +293,9 @@ once. Smoke checks the old session and password stop working.
   docker executor is verified end to end by `make smoke`.
 - `LOW` runtime data lives in `data/` inside the repository (kept out of the Go
   build by `data/go.mod`). A deployment should mount it elsewhere.
-- `LOW` compose images must be built one at a time on 8 GB machines (`make images` does).
+- `LOW` compose images were built one at a time on 8 GB machines (`make images`
+  does); without DuckDB's link that may no longer be needed - measure before
+  building in parallel.
 
 ### Pending actions
 - **History rewrite** (postponed): scrub the old, rotated secrets from all

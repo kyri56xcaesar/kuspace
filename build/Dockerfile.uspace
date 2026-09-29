@@ -1,28 +1,32 @@
+# syntax=docker/dockerfile:1
+# Built with BuildKit (docker compose build / make images). Two caches keep
+# rebuilds short: the modules download in their own layer (redone only when
+# go.mod/go.sum change), and the Go build cache persists across builds on
+# this machine, so only changed packages are compiled again (sqlite's C code
+# once, not every time).
 FROM golang:1.26-bookworm AS builder
 WORKDIR /app
-COPY go.mod go.sum ./ 
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY ./api/fslite/ ./api/fslite/
 COPY ./api/uspace/ ./api/uspace/
 COPY ./pkg/fslite/ ./pkg/fslite/
-COPY ./cmd/uspace/ ./cmd/uspace/ 
 COPY ./internal/utils/ ./internal/utils/
 COPY ./internal/authn/ ./internal/authn/
 COPY ./internal/uspace/ ./internal/uspace/
-
+COPY ./cmd/uspace/ ./cmd/uspace/
 # the build the System page shows (make images / kuspacectl pass them)
 ARG GIT_COMMIT=unknown
 ARG BUILD_TIME=
-RUN GOOS=linux go build -ldflags "-X kyri56xcaesar/kuspace/internal/utils.buildCommit=${GIT_COMMIT} -X kyri56xcaesar/kuspace/internal/utils.buildTime=${BUILD_TIME}" \
-    -o ./cmd/uspace/uspace ./cmd/uspace/main.go
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    GOOS=linux go build -trimpath -ldflags "-s -w -X kyri56xcaesar/kuspace/internal/utils.buildCommit=${GIT_COMMIT} -X kyri56xcaesar/kuspace/internal/utils.buildTime=${BUILD_TIME}" \
+    -o /out/uspace ./cmd/uspace
 
 FROM debian:bookworm-slim
 WORKDIR /root/
-RUN apt-get update && apt-get install -y libstdc++6 && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /app/cmd/uspace/uspace .
 # docker CLI for the docker job executor (J_EXECUTOR=docker, development);
 # the engine itself is the host's, reached through its mounted socket
 COPY --from=docker:27-cli /usr/local/bin/docker /usr/local/bin/docker
-
-RUN chmod +x /root/uspace
+COPY --from=builder /out/uspace .
 CMD ["./uspace"]
-

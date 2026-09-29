@@ -9,7 +9,10 @@ First-time setup (minioth submodule, fresh secrets, compose env):
 
     make setup
 
-Run the whole stack locally with docker-compose and check it end to end:
+Run the whole stack locally with docker-compose and check it end to end
+(the images build with BuildKit: the docker `buildx` plugin must be installed,
+e.g. `pacman -S docker-buildx`; rebuilds reuse cached modules and compiled
+packages, so after a code change they take seconds):
 
     make up
     make smoke

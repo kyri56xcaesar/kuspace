@@ -27,7 +27,7 @@ MINIOTH_DIR  := third_party/minioth
 .PHONY: help setup submodule secrets \
         build $(addprefix build-,$(SERVICES)) build-minioth run-% \
         fmt vet lint lint-js test test-race test-js fuzz check ci tidy \
-        up down restart logs ps smoke images \
+        up down restart logs ps smoke images buildkit \
         k8s-build k8s-push k8s-deploy k8s-destroy \
         api-docs code-docs clean
 
@@ -115,8 +115,13 @@ GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null)$(shell git diff --
 BUILD_TIME ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 export GIT_COMMIT BUILD_TIME
 
-images: ## build all compose images, sequentially (stamped with the commit)
+images: buildkit ## build all compose images, sequentially (stamped with the commit)
 	@for s in minioth wss uspace frontapp; do echo "building $$s"; $(COMPOSE) build $$s || exit 1; done
+
+# the Dockerfiles cache modules and compiled packages across builds, which
+# needs BuildKit: docker compose uses it when the buildx plugin is installed
+buildkit:
+	@docker buildx version >/dev/null 2>&1 || { echo "the images need BuildKit: install the docker buildx plugin (Arch: pacman -S docker-buildx; Debian/Ubuntu: apt install docker-buildx-plugin; Docker Desktop has it)"; exit 1; }
 
 up: secrets images ## build and start the compose stack
 	$(COMPOSE) up -d
