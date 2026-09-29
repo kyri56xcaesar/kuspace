@@ -488,3 +488,22 @@ func TestLanguagesAreApps(t *testing.T) {
 		t.Errorf("duplicate apps after seeding twice: %d rows, %d names", len(body.Content), len(names))
 	}
 }
+
+// Claiming a user's storage twice (registration retried, or a uid minioth
+// handed out again) succeeds and keeps the first claim.
+func TestStorageClaimIsIdempotent(t *testing.T) {
+	a := newAPIHarness(t, 1)
+	claim := func() *httptest.ResponseRecorder {
+		return a.do(http.MethodPost, "/api/v1/admin/user/volume", "::/", "0:0", strings.NewReader(`{"vid":1,"uid":1777}`), "application/json")
+	}
+	if rec := claim(); rec.Code != http.StatusCreated {
+		t.Fatalf("first claim: %d %s", rec.Code, rec.Body)
+	}
+	if rec := claim(); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "already claimed") {
+		t.Errorf("second claim: %d %s", rec.Code, rec.Body)
+	}
+	uvs, err := a.srv.fsl.UserVolumes(t.Context(), []int64{1777}, "")
+	if err != nil || len(uvs) != 1 {
+		t.Errorf("claims: %+v %v", uvs, err)
+	}
+}

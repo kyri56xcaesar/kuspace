@@ -171,7 +171,7 @@ check "token can't reach admin API" 403 "$(code -H "Authorization: Bearer $TOKEN
 
 echo "--- apps, dashboard, system"
 curl -s -b "$J/user.jar" "$F/verified/fetch-apps?format=json" > "$J/apps"
-check "default apps installed"      6 "$(json 'd=d.get("content",d) if isinstance(d,dict) else d; print(len(d))' < "$J/apps")"
+check "default apps installed"      15 "$(json 'd=d.get("content",d) if isinstance(d,dict) else d; print(len(d))' < "$J/apps")"
 check "bash image name valid"       "*:applications-bash-v2" "$(json 'd=d.get("content",d) if isinstance(d,dict) else d; print(next(a["image"] for a in d if a["name"]=="bash"))' < "$J/apps")"
 check "all services up"             "4/4" "$(curl -s -b "$J/admin.jar" "$F/verified/admin/system-status?format=json" | json 'print(str(sum(s["up"] for s in d))+"/"+str(len(d)))')"
 check "dashboard served"            yes "$(curl -s -b "$J/user.jar" "$F/verified/admin-panel" | yes_if grep -q 'id="dash"')"

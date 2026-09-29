@@ -261,6 +261,16 @@ once. Smoke checks the old session and password stop working.
 ### Security
 
 ### Correctness and robustness
+- `HIGH` **uids are reused**: minioth gives a new user `MAX(uid)+1`, so after
+  the newest user is deleted the next one gets the same uid - and in kuspace
+  everything keyed by it: the deleted user's quota claims and files (fslite
+  records), and job history. (minioth already revokes the old user's tokens
+  for this reason; kuspace's data isn't covered.) Found by smoke on
+  2026-09-30, when a recreated minioth database handed out uids that fslite
+  still had claims for. Options: minioth never reuses a uid (keep a
+  high-water mark), and/or kuspace settles a deleted user's data (remove or
+  hand over their files, drop their claims) when an admin deletes them.
+  The storage claim itself is now idempotent (a second claim is a no-op).
 - `HIGH` **consistency checker (`fsck`)** - steps 3-4 of the plan: compare
   buckets with records (orphan objects older than 1h, records without
   objects, size drift, volume halves), report periodically, repair on

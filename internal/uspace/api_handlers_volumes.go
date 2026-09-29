@@ -220,6 +220,13 @@ func (srv *UService) handleUserVolumes(c *gin.Context) {
 			// fslite's Insert switches on bare ut.UserVolume/[]ut.UserVolume
 			// (not []any) and returns a nil cancel func for them.
 			err := srv.fsl.Insert(c.Request.Context(), userVolume)
+			if errors.Is(err, ut.ErrExists) {
+				// claiming is idempotent: the user already has storage there
+				// (registration retried, or a uid minioth handed out again)
+				c.JSON(http.StatusOK, gin.H{"status": "already claimed"})
+
+				return
+			}
 			if err != nil {
 				log.Printf("[USPACE_API] failed to insert user volume: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert uv"})
